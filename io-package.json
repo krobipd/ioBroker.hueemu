@@ -1,8 +1,20 @@
 {
 	"common": {
 		"name": "hueemu",
-		"version": "0.0.4",
+		"version": "1.0.0",
 		"news": {
+			"1.0.0": {
+				"en": "Major modernization: TypeScript migration, updated dependencies, Node.js 18+ support",
+				"de": "Große Modernisierung: TypeScript-Migration, aktualisierte Abhängigkeiten, Node.js 18+ Unterstützung",
+				"ru": "Крупная модернизация: миграция на TypeScript, обновленные зависимости, поддержка Node.js 18+",
+				"pt": "Modernização importante: migração TypeScript, dependências atualizadas, suporte Node.js 18+",
+				"nl": "Grote modernisering: TypeScript-migratie, bijgewerkte afhankelijkheden, Node.js 18+ ondersteuning",
+				"fr": "Modernisation majeure : migration TypeScript, dépendances mises à jour, support Node.js 18+",
+				"it": "Importante modernizzazione: migrazione TypeScript, dipendenze aggiornate, supporto Node.js 18+",
+				"es": "Modernización importante: migración a TypeScript, dependencias actualizadas, soporte Node.js 18+",
+				"pl": "Duża modernizacja: migracja TypeScript, zaktualizowane zależności, wsparcie Node.js 18+",
+				"zh-cn": "重大现代化：TypeScript迁移、更新依赖项、支持Node.js 18+"
+			},
 			"0.0.4": {
 				"en": "Configuration of upnp port allowed",
 				"de": "Konfiguration des upnp-Ports erlaubt",
@@ -99,11 +111,11 @@
 		"compact": true,
 		"materialize": true,
 		"supportCustoms": true,
-		"connectionType ": "local",
+		"connectionType": "local",
 		"dataSource": "push",
 		"dependencies": [
 			{
-				"js-controller": ">=1.4.2"
+				"js-controller": ">=5.0.0"
 			}
 		]
 	},

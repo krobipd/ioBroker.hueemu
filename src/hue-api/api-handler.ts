@@ -1,0 +1,186 @@
+/**
+ * Main API Handler - Orchestrates all Hue API services
+ */
+
+import type { Logger } from '../types/config';
+import type {
+    HueApiHandler,
+    HueRequest,
+    CreateUserRequest,
+    FullState,
+    BridgeConfigPublic
+} from '../types/hue-api';
+import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from '../types/light';
+import { HueApiError } from '../types/errors';
+import { UserService, type UserServiceAdapter } from './user-service';
+import { LightService, type LightServiceAdapter } from './light-service';
+import { ConfigService, type ConfigServiceConfig } from './config-service';
+
+/**
+ * Combined adapter interface for the API handler
+ */
+export interface ApiHandlerAdapter extends UserServiceAdapter, LightServiceAdapter {
+    pairingEnabled: boolean;
+    disableAuth: boolean;
+}
+
+/**
+ * API handler configuration
+ */
+export interface ApiHandlerConfig {
+    /** Adapter instance */
+    adapter: ApiHandlerAdapter;
+    /** Config service configuration */
+    configServiceConfig: ConfigServiceConfig;
+    /** Optional logger */
+    logger?: Logger;
+}
+
+/**
+ * Main API Handler implementation
+ * Implements the HueApiHandler interface and orchestrates all services
+ */
+export class ApiHandler implements HueApiHandler {
+    private readonly adapter: ApiHandlerAdapter;
+    private readonly userService: UserService;
+    private readonly lightService: LightService;
+    private readonly configService: ConfigService;
+    private readonly logger?: Logger;
+
+    constructor(config: ApiHandlerConfig) {
+        this.adapter = config.adapter;
+        this.logger = config.logger;
+
+        // Initialize services
+        this.userService = new UserService({
+            adapter: config.adapter,
+            logger: config.logger
+        });
+
+        this.lightService = new LightService({
+            adapter: config.adapter,
+            logger: config.logger
+        });
+
+        this.configService = new ConfigService(config.configServiceConfig);
+    }
+
+    /**
+     * Create a new user
+     */
+    public async createUser(req: HueRequest, body: CreateUserRequest): Promise<string> {
+        this.log('info', `Pairing request: devicetype=${body.devicetype}, generateclientkey=${body.generateclientkey}`);
+
+        if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
+            throw HueApiError.linkButtonNotPressed('/api');
+        }
+
+        // Use provided username or generate new one
+        const providedUsername = (req.body as Record<string, unknown>)?.username as string | undefined;
+
+        if (providedUsername) {
+            this.log('info', `Using provided username: ${providedUsername}`);
+        }
+
+        const username = await this.userService.createUser(providedUsername, body.devicetype);
+        this.log('info', `Created user: ${username}`);
+
+        return username;
+    }
+
+    /**
+     * Get full bridge state
+     */
+    public async getFullState(req: HueRequest, username: string): Promise<FullState> {
+        this.log('debug', `Get full state for user: ${username}`);
+
+        const lights = await this.lightService.getAllLights();
+        return this.configService.buildFullState(lights);
+    }
+
+    /**
+     * Get bridge configuration
+     */
+    public async getConfig(req: HueRequest, username: string): Promise<BridgeConfigPublic> {
+        this.log('debug', 'Get config');
+        return this.configService.getConfig();
+    }
+
+    /**
+     * Get all lights
+     */
+    public async getAllLights(req: HueRequest, username: string): Promise<LightsCollection> {
+        this.log('debug', 'Get all lights');
+        return this.lightService.getAllLights();
+    }
+
+    /**
+     * Get a single light by ID
+     */
+    public async getLightById(req: HueRequest, username: string, lightId: string): Promise<Light> {
+        this.log('debug', `Get light: ${lightId}`);
+        return this.lightService.getLightById(lightId);
+    }
+
+    /**
+     * Set light state
+     */
+    public async setLightState(
+        req: HueRequest,
+        username: string,
+        lightId: string,
+        state: LightStateUpdate
+    ): Promise<LightStateResult[]> {
+        this.log('debug', `Set light state: ${lightId}`);
+        return this.lightService.setLightState(lightId, state);
+    }
+
+    /**
+     * Fallback for unhandled routes
+     */
+    public async fallback(req: HueRequest): Promise<unknown> {
+        this.log('warn', `Unhandled request: ${req.method} ${req.url}`);
+        return {};
+    }
+
+    /**
+     * Check if user is authenticated
+     */
+    public async isUserAuthenticated(username: string): Promise<boolean> {
+        // During pairing, auto-add unknown users (Amazon Echo compatibility)
+        const isAuth = await this.userService.isUserAuthenticated(username);
+
+        if (!isAuth && this.adapter.pairingEnabled) {
+            this.log('debug', `Pairing enabled, auto-adding user: ${username}`);
+            await this.userService.addUser(username);
+            return true;
+        }
+
+        return isAuth;
+    }
+
+    /**
+     * Check if pairing is enabled
+     */
+    public isPairingEnabled(): boolean {
+        return this.adapter.pairingEnabled;
+    }
+
+    /**
+     * Check if auth is disabled
+     */
+    public isAuthDisabled(): boolean {
+        return this.adapter.disableAuth;
+    }
+
+    /**
+     * Log a message
+     */
+    private log(level: 'debug' | 'info' | 'warn' | 'error', message: string): void {
+        if (this.logger) {
+            this.logger[level](message);
+        } else {
+            this.adapter.log[level](message);
+        }
+    }
+}
