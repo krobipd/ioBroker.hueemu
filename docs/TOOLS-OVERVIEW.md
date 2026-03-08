@@ -4,30 +4,29 @@
 
 | Datei | Zweck | Wie nutzen |
 |-------|-------|-----------|
-| **`.gitignore-ERWEITERT`** | Erweiterte .gitignore Regeln | `cp .gitignore-ERWEITERT .gitignore` |
-| **`check-structure.sh`** | Prüft Projektstruktur | `./check-structure.sh` |
-| **`cleanup-project.sh`** | Räumt automatisch auf | `./cleanup-project.sh` |
-| **`git-pre-commit-hook.sh`** | Automatische Commit-Prüfung | In `.git/hooks/` kopieren |
-| **`PROJECT-RULES.md`** | Dokumentation der Regeln | Lesen! |
-| **`SETUP-PREVENTION.md`** | Setup-Anleitung | Folgen! |
+| **`.gitignore`** | Git-Ignore Regeln | Wird direkt verwendet |
+| **`scripts/check-structure.sh`** | Prüft Projektstruktur | `./scripts/check-structure.sh` |
+| **`scripts/cleanup-project.sh`** | Räumt automatisch auf | `./scripts/cleanup-project.sh` |
+| **`scripts/git-pre-commit-hook.sh`** | Automatische Commit-Prüfung | In `.git/hooks/` kopieren |
+| **`docs/PROJECT-RULES.md`** | Dokumentation der Regeln | Lesen! |
+| **`docs/SETUP-PREVENTION.md`** | Setup-Anleitung | Folgen! |
 
 ---
 
 ## 🚀 Quick Setup (30 Sekunden):
 
 ```bash
-# 1. .gitignore aktualisieren
-cp .gitignore-ERWEITERT .gitignore
+# 1. .gitignore pruefen (bereits aktiv)
 
 # 2. Scripts ausführbar machen
-chmod +x check-structure.sh cleanup-project.sh git-pre-commit-hook.sh
+chmod +x scripts/check-structure.sh scripts/cleanup-project.sh scripts/git-pre-commit-hook.sh
 
 # 3. Pre-Commit Hook aktivieren (optional)
-cp git-pre-commit-hook.sh .git/hooks/pre-commit
+cp scripts/git-pre-commit-hook.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 
 # 4. Testen
-./check-structure.sh
+./scripts/check-structure.sh
 ```
 
 ---
@@ -36,7 +35,7 @@ chmod +x .git/hooks/pre-commit
 
 ### Morning Check:
 ```bash
-./check-structure.sh
+./scripts/check-structure.sh
 ```
 → Zeigt ob alles sauber ist
 
@@ -48,7 +47,7 @@ git status
 
 ### Bei Chaos:
 ```bash
-./cleanup-project.sh
+./scripts/cleanup-project.sh
 ```
 → Automatisches Aufräumen (mit Backup!)
 
@@ -123,7 +122,7 @@ mv main.ts main.old.ts  # ❌ Nicht machen!
 ## 📊 Erfolgs-Metriken:
 
 Nach Setup sollte:
-- ✅ `./check-structure.sh` → Keine Probleme zeigen
+- ✅ `./scripts/check-structure.sh` → Keine Probleme zeigen
 - ✅ `git status` → Nur gewollte Dateien zeigen
 - ✅ `ls -la` → Keine `*.old`, `* 2.*` Dateien
 
@@ -141,7 +140,7 @@ Nach Setup sollte:
 **Lösung:** `chmod +x .git/hooks/pre-commit`
 
 **Problem:** Zu viele Dateien im `git status`  
-**Lösung:** `.gitignore` aktualisieren und `./cleanup-project.sh`
+**Lösung:** `.gitignore` aktualisieren und `./scripts/cleanup-project.sh`
 
 ---
 
@@ -151,7 +150,7 @@ Nach Setup sollte:
 - ✅ Keine `.old`, `.backup` Dateien
 - ✅ Keine macOS Duplikate
 - ✅ Eine saubere Projektstruktur
-- ✅ `./check-structure.sh` zeigt ✅
+- ✅ `./scripts/check-structure.sh` zeigt ✅
 
 ---
 

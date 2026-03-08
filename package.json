@@ -83,6 +83,8 @@
     "test:integration": "mocha test/integration --exit",
     "test": "npm run test:ts && npm run test:package",
     "coverage": "nyc npm run test:ts",
+    "check:structure": "bash ./scripts/check-structure.sh",
+    "clean:project": "bash ./scripts/cleanup-project.sh",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "pack": "npm run build && npm pack",

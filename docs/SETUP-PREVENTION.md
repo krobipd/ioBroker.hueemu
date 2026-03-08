@@ -10,10 +10,8 @@
 ## 📦 1. `.gitignore` aktualisieren
 
 ```bash
-# Alte .gitignore ersetzen:
-cp .gitignore.template .gitignore
-
-# Oder manuell öffnen und erweitern
+# .gitignore ist bereits aktiv
+# Bei Bedarf manuell pruefen und anpassen
 ```
 
 ✅ **Resultat:** Git ignoriert automatisch `.old`, `.backup`, `* 2.*` etc.
@@ -23,9 +21,9 @@ cp .gitignore.template .gitignore
 ## 🔧 2. Scripts ausführbar machen
 
 ```bash
-chmod +x check-structure.sh
-chmod +x cleanup-project.sh
-chmod +x git-pre-commit-hook.sh
+chmod +x scripts/check-structure.sh
+chmod +x scripts/cleanup-project.sh
+chmod +x scripts/git-pre-commit-hook.sh
 ```
 
 ✅ **Resultat:** Scripts können ausgeführt werden
@@ -35,7 +33,7 @@ chmod +x git-pre-commit-hook.sh
 ## 🛡️ 3. Git Pre-Commit Hook aktivieren (optional)
 
 ```bash
-cp git-pre-commit-hook.sh .git/hooks/pre-commit
+cp scripts/git-pre-commit-hook.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
@@ -47,7 +45,7 @@ chmod +x .git/hooks/pre-commit
 
 ```bash
 # Prüfe die aktuelle Struktur:
-./check-structure.sh
+./scripts/check-structure.sh
 
 # Sollte zeigen:
 # ✅ Projektstruktur ist sauber!
@@ -59,7 +57,7 @@ chmod +x .git/hooks/pre-commit
 
 ### Vor dem Arbeiten:
 ```bash
-./check-structure.sh
+./scripts/check-structure.sh
 ```
 
 ### Nach dem Arbeiten:
@@ -70,7 +68,7 @@ git status
 
 ### Wenn Chaos entsteht:
 ```bash
-./cleanup-project.sh
+./scripts/cleanup-project.sh
 # Räumt automatisch auf (mit Backup!)
 ```
 
@@ -88,4 +86,4 @@ Ab jetzt:
 
 ## 🆘 Hilfe
 
-Lies: `PROJECT-RULES.md` für alle Regeln
+Lies: `docs/PROJECT-RULES.md` für alle Regeln

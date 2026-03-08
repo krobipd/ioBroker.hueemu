@@ -15,7 +15,7 @@ Diese Datei definiert klare Regeln, um das Projekt sauber zu halten.
 - `package.json`, `package-lock.json`
 - `tsconfig.json`, `tsconfig.build.json`
 - `.gitignore`, `.npmignore`, `.eslintrc.json`
-- Standard-Verzeichnisse: `src/`, `test/`, `docs/`, `admin/`, `templates/`
+- Standard-Verzeichnisse: `src/`, `test/`, `docs/`, `scripts/`, `admin/`, `templates/`
 
 ### In Unterverzeichnissen:
 - Alle Source-Dateien in `src/`
@@ -64,14 +64,14 @@ Diese Datei definiert klare Regeln, um das Projekt sauber zu halten.
 
 ### 1. Struktur prüfen:
 ```bash
-./check-structure.sh
+./scripts/check-structure.sh
 ```
 
 Zeigt alle problematischen Dateien.
 
 ### 2. Automatisch aufräumen:
 ```bash
-./cleanup-project.sh
+./scripts/cleanup-project.sh
 ```
 
 Löscht automatisch alte/problematische Dateien (mit Backup!).
@@ -91,7 +91,7 @@ Automatische Prüfung **vor jedem Commit**:
 
 ```bash
 # Installieren:
-cp git-pre-commit-hook.sh .git/hooks/pre-commit
+cp scripts/git-pre-commit-hook.sh .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 
 # Dann bei jedem Commit automatisch geprüft!
@@ -128,10 +128,10 @@ git commit -m "feat: Neue Funktion implementiert"
 ### Wenn du aufräumen willst:
 ```bash
 # Regelmäßig prüfen:
-./check-structure.sh
+./scripts/check-structure.sh
 
 # Bei Problemen automatisch aufräumen:
-./cleanup-project.sh
+./scripts/cleanup-project.sh
 
 # Oder manuell:
 git status

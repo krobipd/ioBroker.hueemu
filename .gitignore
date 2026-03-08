@@ -4,7 +4,6 @@
 
 # Dependencies
 node_modules/
-package-lock.json
 
 # Build output
 build/
@@ -62,10 +61,6 @@ test-results/
 # ============================================
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-.DS_Store
 
 # Xcode
 *.xcodeproj/
@@ -105,3 +100,5 @@ Thumbs.db
 .dev-server/
 admin/build/
 admin/tmp/
+.cleanup-backups/
+backup-*.tar.gz

@@ -148,6 +148,19 @@ Contributions sind willkommen!
 
 > 📋 **Contribution Guidelines**: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
 
+## Projekt aufraeumen
+
+```bash
+npm run check:structure
+npm run clean:project
+```
+
+## Struktur-Dokumentation
+
+- docs/PROJECT-RULES.md
+- docs/SETUP-PREVENTION.md
+- docs/TOOLS-OVERVIEW.md
+
 ### 💬 Support & Links
 
 - 🐛 **Issues**: [GitHub Issues](https://github.com/holomekc/ioBroker.hueemu/issues)
