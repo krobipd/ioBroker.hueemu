@@ -72,7 +72,7 @@ fi
 # ============================================
 # 5. Prüfe auf -optimized/-experimental Dateien
 # ============================================
-EXPERIMENTAL=$(git diff --cached --name-only --diff-filter=A | grep -E "-(optimized|experimental|test|neu|alt)\.(ts|js)$")
+EXPERIMENTAL=$(git diff --cached --name-only --diff-filter=A | grep -E -- "-(optimized|experimental|test|neu|alt)\.(ts|js)$")
 
 if [ -n "$EXPERIMENTAL" ]; then
     echo -e "${RED}❌ FEHLER: Experimentelle Dateien gefunden:${NC}"
