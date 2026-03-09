@@ -4,16 +4,16 @@
 		"version": "1.0.0",
 		"news": {
 			"1.0.0": {
-				"en": "Major modernization: TypeScript migration, updated dependencies, Node.js 18+ support",
-				"de": "Große Modernisierung: TypeScript-Migration, aktualisierte Abhängigkeiten, Node.js 18+ Unterstützung",
-				"ru": "Крупная модернизация: миграция на TypeScript, обновленные зависимости, поддержка Node.js 18+",
-				"pt": "Modernização importante: migração TypeScript, dependências atualizadas, suporte Node.js 18+",
-				"nl": "Grote modernisering: TypeScript-migratie, bijgewerkte afhankelijkheden, Node.js 18+ ondersteuning",
-				"fr": "Modernisation majeure : migration TypeScript, dépendances mises à jour, support Node.js 18+",
-				"it": "Importante modernizzazione: migrazione TypeScript, dipendenze aggiornate, supporto Node.js 18+",
-				"es": "Modernización importante: migración a TypeScript, dependencias actualizadas, soporte Node.js 18+",
-				"pl": "Duża modernizacja: migracja TypeScript, zaktualizowane zależności, wsparcie Node.js 18+",
-				"zh-cn": "重大现代化：TypeScript迁移、更新依赖项、支持Node.js 18+"
+				"en": "Major rewrite: Fastify server, modern Admin UI, requires js-controller 7+",
+				"de": "Komplette Neuentwicklung: Fastify Server, moderne Admin UI, erfordert js-controller 7+",
+				"ru": "Полная переработка: сервер Fastify, современный Admin UI, требуется js-controller 7+",
+				"pt": "Reescrita completa: servidor Fastify, Admin UI moderno, requer js-controller 7+",
+				"nl": "Complete herschrijving: Fastify server, moderne Admin UI, vereist js-controller 7+",
+				"fr": "Réécriture complète : serveur Fastify, Admin UI moderne, nécessite js-controller 7+",
+				"it": "Riscrittura completa: server Fastify, Admin UI moderna, richiede js-controller 7+",
+				"es": "Reescritura completa: servidor Fastify, Admin UI moderna, requiere js-controller 7+",
+				"pl": "Całkowita przebudowa: serwer Fastify, nowoczesny Admin UI, wymaga js-controller 7+",
+				"zh-cn": "完全重写：Fastify服务器、现代管理界面，需要js-controller 7+"
 			},
 			"0.0.4": {
 				"en": "Configuration of upnp port allowed",
@@ -115,9 +115,10 @@
 		"supportCustoms": true,
 		"connectionType": "local",
 		"dataSource": "push",
+		"tier": 3,
 		"dependencies": [
 			{
-				"js-controller": ">=5.0.0"
+				"js-controller": ">=7.0.0"
 			}
 		]
 	},

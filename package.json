@@ -29,8 +29,8 @@
     "url": "https://github.com/krobipd/ioBroker.hueemu"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.2.2",

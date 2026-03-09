@@ -12,8 +12,8 @@ Komplette Modernisierung des Adapters durch krobi & AI Assistant.
 - Ersetzt `rxjs` durch async/await
 - Moderne TypeScript 5.6 Codebasis
 - Neue JSON-Config Admin UI (ersetzt Materialize)
-- Node.js 18+ erforderlich
-- ioBroker js-controller 5.0+ erforderlich
+- Node.js 20+ erforderlich
+- ioBroker js-controller 7.0+ erforderlich
 
 ### Added
 
