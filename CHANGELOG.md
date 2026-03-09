@@ -4,7 +4,7 @@
 
 ### Major Rewrite
 
-Komplette Modernisierung des Adapters.
+Komplette Modernisierung des Adapters durch krobi & AI Assistant.
 
 ### Changed
 
@@ -27,23 +27,41 @@ Komplette Modernisierung des Adapters.
 
 - `hue-emu` Dependency
 - `rxjs` Dependency
-- Auto-Discovery (vereinfacht auf manuelle Konfiguration)
 - Alte Materialize Admin UI
 
 ---
 
-## [0.0.4] - 2024
+## [0.0.4]
 
+### Changed
 - Configuration of upnp port allowed
 
-## [0.0.3] - 2024
+## [0.0.3]
 
+### Changed
 - Picked correct network interface if multiple are available
 
-## [0.0.2] - 2024
+## [0.0.2]
 
+### Changed
 - Improve handling missing state keys
 
-## [0.0.1] - 2020
+## [0.0.1]
 
-- Initial release by Christopher Holomek
+### Initial Release
+
+Initial implementation by Christopher Holomek ([@holomekc](https://github.com/holomekc))
+
+- Hue Bridge emulation
+- Basic light control (on/off, brightness, color)
+- Alexa/Google Home integration via Hue protocol
+- UPnP/SSDP discovery
+- Uses `hue-emu` library and `rxjs`
+
+---
+
+## Credits
+
+**Original Author:** Christopher Holomek ([@holomekc](https://github.com/holomekc)) - 2020-2024
+
+**Modernization:** krobi & AI Assistant - 2026
