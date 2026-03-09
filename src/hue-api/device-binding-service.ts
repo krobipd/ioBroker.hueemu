@@ -43,11 +43,7 @@ const LIGHT_TYPES = {
 export interface DeviceConfig {
     name: string;
     lightType: keyof typeof LIGHT_TYPES;
-    // Source object ID (device/channel) for type detection
-    sourceOid?: string;
-    // Detected original type from type-detector
-    detectedType?: string;
-    // Flat state mappings from jsonConfig accordion
+    // State mappings
     onState?: string;
     briState?: string;
     ctState?: string;
