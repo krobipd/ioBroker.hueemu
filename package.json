@@ -16,7 +16,7 @@
       "role": "Architecture & Implementation Support (2026)"
     }
   ],
-  "homepage": "https://github.com/holomekc/ioBroker.hueemu",
+  "homepage": "https://github.com/krobipd/ioBroker.hueemu",
   "license": "MIT",
   "keywords": [
     "ioBroker",
@@ -26,7 +26,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/holomekc/ioBroker.hueemu"
+    "url": "https://github.com/krobipd/ioBroker.hueemu"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -116,7 +116,7 @@
     "instrument": true
   },
   "bugs": {
-    "url": "https://github.com/holomekc/ioBroker.hueemu/issues"
+    "url": "https://github.com/krobipd/ioBroker.hueemu/issues"
   },
   "readmeFilename": "README.md"
 }
