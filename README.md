@@ -1,201 +1,97 @@
 # ioBroker.hueemu
 
-![Logo](admin/hueemu.png)
-
-[![NPM version](https://img.shields.io/npm/v/iobroker.hueemu.svg)](https://www.npmjs.com/package/iobroker.hueemu)
-[![Downloads](https://img.shields.io/npm/dm/iobroker.hueemu.svg)](https://www.npmjs.com/package/iobroker.hueemu)
-![Number of Installations](https://iobroker.live/badges/hueemu-installed.svg)
-[![Test and Build](https://github.com/holomekc/ioBroker.hueemu/workflows/Test%20and%20Build/badge.svg)](https://github.com/holomekc/ioBroker.hueemu/actions)
-[![Coverage](https://codecov.io/gh/holomekc/ioBroker.hueemu/branch/main/graph/badge.svg)](https://codecov.io/gh/holomekc/ioBroker.hueemu)
+![Logo](admin/hue-emu-logo.png)
 
 ## Philips Hue Bridge Emulator für ioBroker
 
-> **🇬🇧 English version**: [README_EN.md](README_EN.md)
+Emuliert eine Philips Hue Bridge und ermöglicht die Steuerung von ioBroker-Geräten über Alexa, Google Home und andere Smart Home Systeme.
 
-Emuliert eine Philips Hue Bridge und ermöglicht die Steuerung von ioBroker-Geräten über Alexa, Google Home und andere Smart Home Systeme, die Hue-kompatible Geräte unterstützen.
+### Features
 
-### ✨ Features
+- **Hue Bridge Emulation** - Vollständige Hue API v1 Kompatibilität
+- **UPnP/SSDP Discovery** - Automatische Erkennung durch Smart Home Systeme
+- **Moderne Admin-UI** - JSON-Config für einfache Gerätekonfiguration
+- **Flexible Geräte** - On/Off, Dimmbar, Farbtemperatur, RGB Lampen
+- **Import/Export** - Gerätekonfiguration sichern und wiederherstellen
 
-- 🎯 **Moderne Admin-UI** - JSON-Config für ioBroker Admin 6+
-- 🔍 **Auto-Discovery** - Automatische Geräteerkennung
-- 💡 **Vielfältige Geräte** - Lampen, Schalter, Sensoren
-- 🏠 **Raum-Integration** - Import aus ioBroker-Räumen
-- 🔐 **UPnP/SSDP** - Automatische Erkennung durch Smart Home Systeme
-- 🚀 **High Performance** - Optimiert für Geschwindigkeit und Speicher
-- 🧪 **70+ Tests** - Umfassende Test-Abdeckung
-
-### 📊 Performance
-
-Modernisierte Version (März 2026): **4x schneller**, **60% weniger Speicher**, **87% kleineres Package**
-
-| Metrik | Wert |
-|--------|------|
-| Startup | ~500ms |
-| Alexa Response | ~30ms |
-| Memory | ~18MB |
-| Package Size | ~3MB |
-
-### 📋 Systemanforderungen
+### Systemanforderungen
 
 - ioBroker js-controller >= 5.0.0
-- ioBroker Admin >= 6.0.0
 - Node.js >= 18.0.0
-- npm >= 9.0.0
 
-### 🚀 Schnellstart
-
-#### Installation
+### Installation
 
 ```bash
-# Im ioBroker Admin UI: Adapter → hueemu installieren
-# Oder via Terminal:
-npm install iobroker.hueemu
+# Via ioBroker Admin (Custom URL):
+iobroker url https://github.com/krobipd/ioBroker.hueemu
+
+# Oder manuell:
+cd /opt/iobroker
+npm install https://github.com/krobipd/ioBroker.hueemu
+iobroker add hueemu
 ```
 
-#### Konfiguration
+### Konfiguration
 
-1. **Adapter-Einstellungen öffnen**
-   - Bridge Name festlegen
-   - HTTP Port: 8080 (Standard)
-   - UPnP Port: 1900 (Standard)
+#### 1. Netzwerk-Einstellungen
 
-2. **Geräte hinzufügen**
-   - Klick auf "Auto-Discovery" → Geräte automatisch erkennen
-   - Oder: "Aus Räumen importieren"
-   - Oder: Manuell mit "+" Button
+| Einstellung | Beschreibung | Standard |
+|-------------|--------------|----------|
+| Host | IP-Adresse der Bridge | - |
+| HTTP Port | Port für Hue API | 8080 |
+| UPnP Port | SSDP Discovery Port | 1900 |
 
-3. **Mit Alexa verbinden**
-   - Adapter starten
-   - Alexa App → Geräte → + → Gerät hinzufügen → Philips Hue
-   - Bridge wird automatisch gefunden
-   - "Alexa, suche nach Geräten"
+#### 2. Geräte hinzufügen
 
-**Fertig!** 🎉
+1. Tab "Geräte-Konfiguration" öffnen
+2. `+` Button klicken
+3. **Name** eingeben (z.B. "Wohnzimmer Licht")
+4. **Lampentyp** wählen:
+   - Ein/Aus-Lampe
+   - Dimmbare Lampe
+   - Farbtemperatur
+   - Farblampe (RGB)
+5. **States zuordnen** via Objekt-Browser (`...`)
 
-> 📖 **Detaillierte Anleitung**: Siehe [docs/CONFIGURATION.md](docs/CONFIGURATION.md)  
-> 🐛 **Probleme?** Siehe [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+#### 3. Mit Alexa verbinden
 
-### 📖 Dokumentation
+1. Adapter starten
+2. Alexa App → Geräte → `+` → Philips Hue
+3. Bridge wird automatisch gefunden
+4. "Alexa, schalte Wohnzimmer Licht ein"
 
-- **[Konfiguration](docs/CONFIGURATION.md)** - Detaillierte Einrichtungsanleitung
-- **[API-Referenz](docs/API.md)** - Hue API Endpoints
-- **[Architektur](docs/ARCHITECTURE.md)** - Technischer Aufbau
-- **[Entwicklung](docs/DEVELOPMENT.md)** - Für Contributors
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Problemlösungen
-- **[Changelog](CHANGELOG.md)** - Versionshistorie
+### Unterstützte Lampentypen
 
-### 🛠️ Unterstützte Geräte
+| Typ | States | Hue Model |
+|-----|--------|-----------|
+| On/Off | `on` | LOM001 |
+| Dimmbar | `on`, `bri` | LWB010 |
+| Farbtemperatur | `on`, `bri`, `ct` | LTW001 |
+| Farblampe | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003 |
 
-| Typ | Funktionen | Beispiel-States |
-|-----|-----------|----------------|
-| 💡 **Lampen** | Ein/Aus, Helligkeit, RGB, Farbtemperatur | `*.state`, `*.brightness`, `*.rgb` |
-| 🔌 **Schalter** | Ein/Aus | `*.state` |
-| 🚪 **Sensoren** | Bewegung, Temperatur, Kontakt | `*.motion`, `*.temperature` |
-
-> Details: [docs/DEVICE-TYPES.md](docs/DEVICE-TYPES.md)
-
-### 📝 Changelog
-
-#### [1.0.0] - 2026-03-08 🚀 Major Modernization
-
-**Highlights:**
-- ✅ Komplette Neuschreibung mit nativem Node.js
-- ✅ 87% weniger Dependencies
-- ✅ 4x schneller, 60% weniger Memory
-- ✅ Moderne Admin UI mit Auto-Discovery
-- ✅ 70+ umfassende Tests
-- ✅ TypeScript 5.6 strict mode
-
-**Contributors:** krobi & AI Assistant
-
-> Vollständiges Changelog: [CHANGELOG.md](CHANGELOG.md)
-
-### 🛠️ Entwicklung
+### Entwicklung
 
 ```bash
-# Repository klonen
-git clone https://github.com/holomekc/ioBroker.hueemu.git
+git clone https://github.com/krobipd/ioBroker.hueemu.git
 cd ioBroker.hueemu
 
-# Dependencies installieren
 npm install
-
-# Build
 npm run build
-
-# Tests
-npm test              # Alle Tests
-npm run test:unit     # Nur Unit Tests
-npm run coverage      # Mit Coverage Report
-
-# Code Quality
-npm run lint          # Prüfen
-npm run lint:fix      # Automatisch fixen
+npm test
 ```
 
-> 📖 **Entwickler-Guide**: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)  
-> 🧪 **Test-Dokumentation**: [test/README.md](test/README.md)
+### Credits
 
-### 🤝 Contributing
+**Original Author:** Christopher Holomek ([@holomekc](https://github.com/holomekc))
 
-Contributions sind willkommen! 
+**Modernization (2026):** krobi & AI Assistant
 
-1. Fork das Repository
-2. Feature Branch erstellen (`git checkout -b feature/amazing-feature`)
-3. Changes committen (`git commit -m 'Add amazing feature'`)
-4. Branch pushen (`git push origin feature/amazing-feature`)
-5. Pull Request öffnen
+### Links
 
-> 📋 **Contribution Guidelines**: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- [GitHub Repository](https://github.com/krobipd/ioBroker.hueemu)
+- [Issues](https://github.com/krobipd/ioBroker.hueemu/issues)
+- [ioBroker Forum](https://forum.iobroker.net/)
 
-## Projekt aufraeumen
-
-```bash
-npm run check:structure
-npm run clean:project
-```
-
-## Struktur-Dokumentation
-
-- docs/PROJECT-RULES.md
-- docs/SETUP-PREVENTION.md
-- docs/TOOLS-OVERVIEW.md
-
-### 💬 Support & Links
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/holomekc/ioBroker.hueemu/issues)
-- 💬 **Forum**: [ioBroker Forum](https://forum.iobroker.net/)
-- 📦 **npm**: [iobroker.hueemu](https://www.npmjs.com/package/iobroker.hueemu)
-- 📖 **Docs**: [Dokumentation](docs/)
-
-### 👥 Credits
-
-#### Original Author
-**Christopher Holomek** (2020-2024)  
-Initiale Implementierung | [@holomekc](https://github.com/holomekc)
-
-#### Modernization Team (März 2026)
-**krobi** - Project Lead, Testing & QA  
-**AI Assistant** - Architektur, Implementierung, Optimierung
-
-**Special Thanks:**  
-ioBroker Community, Philips Hue API Team, alle Contributors
-
-### 📄 Lizenz
+### Lizenz
 
 MIT License - Copyright (c) 2020-2026
-
----
-
-<div align="center">
-
-**Made with ❤️ by the ioBroker Community**
-
-*Original concept by Christopher Holomek | Modernized by krobi & AI Assistant*
-
-⭐ **Gefällt dir dieser Adapter?** Gib ihm einen Stern auf GitHub!
-
-[⬆ Nach oben](#iobroker.hueemu)
-
-</div>
-
