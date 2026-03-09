@@ -8,7 +8,6 @@
         "networkTab": {
             "type": "panel",
             "label": "networkSettings",
-            "icon": "settings_ethernet",
             "items": {
                 // Server Settings Section
                 "serverHeader": {
@@ -111,7 +110,6 @@
         "devicesTab": {
             "type": "panel",
             "label": "deviceConfiguration",
-            "icon": "devices",
             "items": {
                 "devicesInfo": {
                     "type": "staticText",
