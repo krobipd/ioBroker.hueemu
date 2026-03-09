@@ -161,18 +161,17 @@
                     "type": "accordion",
                     "sm": 12,
                     "titleAttr": "name",
-                    "items": {
-                        // Device Name
-                        "name": {
+                    "items": [
+                        {
+                            "attr": "name",
                             "type": "text",
                             "label": "deviceName",
                             "sm": 12,
                             "md": 6,
                             "default": "New Light"
                         },
-
-                        // Source Object Selection + Detection
-                        "sourceOid": {
+                        {
+                            "attr": "sourceOid",
                             "type": "objectId",
                             "label": "sourceObject",
                             "tooltip": "sourceObjectTooltip",
@@ -180,7 +179,7 @@
                             "sm": 12,
                             "md": 4
                         },
-                        "detectBtn": {
+                        {
                             "type": "sendTo",
                             "label": "detect",
                             "command": "detectDevice",
@@ -191,9 +190,8 @@
                             "sm": 12,
                             "md": 2
                         },
-
-                        // Light Type (auto-detected or manual)
-                        "lightType": {
+                        {
+                            "attr": "lightType",
                             "type": "select",
                             "label": "lightType",
                             "sm": 12,
@@ -206,7 +204,8 @@
                                 {"label": "lightTypeColor", "value": "color"}
                             ]
                         },
-                        "detectedType": {
+                        {
+                            "attr": "detectedType",
                             "type": "text",
                             "label": "detectedType",
                             "disabled": true,
@@ -214,15 +213,13 @@
                             "md": 4,
                             "hidden": "!data.detectedType"
                         },
-
-                        // State Mappings Section
-                        "mappingHeader": {
+                        {
                             "type": "header",
                             "text": "stateMapping",
                             "size": 5,
                             "newLine": true
                         },
-                        "mappingInfo": {
+                        {
                             "type": "staticText",
                             "text": "stateMappingHelp",
                             "style": {
@@ -231,9 +228,8 @@
                                 "marginBottom": 8
                             }
                         },
-
-                        // On/Off State (always shown)
-                        "onState": {
+                        {
+                            "attr": "onState",
                             "type": "objectId",
                             "label": "stateOn",
                             "tooltip": "stateOnTooltip",
@@ -241,9 +237,8 @@
                             "sm": 12,
                             "md": 6
                         },
-
-                        // Brightness (shown for dimmable, ct, color)
-                        "briState": {
+                        {
+                            "attr": "briState",
                             "type": "objectId",
                             "label": "stateBri",
                             "tooltip": "stateBriTooltip",
@@ -252,9 +247,8 @@
                             "md": 6,
                             "hidden": "data.lightType === 'onoff'"
                         },
-
-                        // Color Temperature (shown for ct, color)
-                        "ctState": {
+                        {
+                            "attr": "ctState",
                             "type": "objectId",
                             "label": "stateCt",
                             "tooltip": "stateCtTooltip",
@@ -263,9 +257,8 @@
                             "md": 6,
                             "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
                         },
-
-                        // Hue (shown for color only)
-                        "hueState": {
+                        {
+                            "attr": "hueState",
                             "type": "objectId",
                             "label": "stateHue",
                             "tooltip": "stateHueTooltip",
@@ -274,9 +267,8 @@
                             "md": 6,
                             "hidden": "data.lightType !== 'color'"
                         },
-
-                        // Saturation (shown for color only)
-                        "satState": {
+                        {
+                            "attr": "satState",
                             "type": "objectId",
                             "label": "stateSat",
                             "tooltip": "stateSatTooltip",
@@ -285,9 +277,8 @@
                             "md": 6,
                             "hidden": "data.lightType !== 'color'"
                         },
-
-                        // XY Color (shown for color only, optional)
-                        "xyState": {
+                        {
+                            "attr": "xyState",
                             "type": "objectId",
                             "label": "stateXy",
                             "tooltip": "stateXyTooltip",
@@ -296,7 +287,7 @@
                             "md": 6,
                             "hidden": "data.lightType !== 'color'"
                         }
-                    }
+                    ]
                 }
             }
         }
