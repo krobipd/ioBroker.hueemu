@@ -123,34 +123,6 @@
                     }
                 },
 
-                // Quick Add from Room
-                "quickAddHeader": {
-                    "type": "header",
-                    "text": "quickAdd",
-                    "size": 5
-                },
-                "roomSelect": {
-                    "type": "selectSendTo",
-                    "label": "selectRoom",
-                    "command": "getRooms",
-                    "sm": 12,
-                    "md": 5
-                },
-                "detectFromRoomBtn": {
-                    "type": "sendTo",
-                    "label": "detectFromRoom",
-                    "command": "detectFromRoom",
-                    "variant": "outlined",
-                    "icon": "search",
-                    "jsonData": "{\"enumId\": \"${data.roomSelect}\"}",
-                    "sm": 12,
-                    "md": 3
-                },
-                "divider1": {
-                    "type": "divider",
-                    "newLine": true
-                },
-
                 // Devices Accordion
                 "devicesHeader": {
                     "type": "header",
@@ -171,25 +143,6 @@
                             "default": "New Light"
                         },
                         {
-                            "attr": "sourceOid",
-                            "type": "objectId",
-                            "label": "sourceObject",
-                            "tooltip": "sourceObjectTooltip",
-                            "sm": 12,
-                            "md": 4
-                        },
-                        {
-                            "type": "sendTo",
-                            "label": "detect",
-                            "command": "detectDevice",
-                            "variant": "contained",
-                            "color": "primary",
-                            "icon": "search",
-                            "jsonData": "{\"oid\": \"${data.sourceOid}\"}",
-                            "sm": 12,
-                            "md": 2
-                        },
-                        {
                             "attr": "lightType",
                             "type": "select",
                             "label": "lightType",
@@ -202,30 +155,6 @@
                                 {"label": "lightTypeCT", "value": "ct"},
                                 {"label": "lightTypeColor", "value": "color"}
                             ]
-                        },
-                        {
-                            "attr": "detectedType",
-                            "type": "text",
-                            "label": "detectedType",
-                            "disabled": "true",
-                            "sm": 12,
-                            "md": 4,
-                            "hidden": "!data.detectedType"
-                        },
-                        {
-                            "type": "header",
-                            "text": "stateMapping",
-                            "size": 5,
-                            "newLine": true
-                        },
-                        {
-                            "type": "staticText",
-                            "text": "stateMappingHelp",
-                            "style": {
-                                "fontSize": 12,
-                                "color": "#888",
-                                "marginBottom": 8
-                            }
                         },
                         {
                             "attr": "onState",

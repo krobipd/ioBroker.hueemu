@@ -26,26 +26,15 @@
 
     "deviceConfiguration": "Device Configuration",
     "configuredDevices": "Configured Devices",
-    "deviceConfigHelp": "Configure virtual Hue lights by selecting ioBroker devices. Use 'Detect' for automatic state detection or configure manually.",
-
-    "quickAdd": "Quick Add",
-    "selectRoom": "Select Room",
-    "detectFromRoom": "Detect All",
+    "deviceConfigHelp": "Configure virtual Hue lights: Select the light type and map the corresponding ioBroker states.",
 
     "deviceName": "Device Name",
-    "sourceObject": "Source Device/Channel",
-    "sourceObjectTooltip": "Select the ioBroker device or channel to use as light source",
-    "detect": "Detect",
-    "detectedType": "Detected Type",
 
     "lightType": "Light Type",
     "lightTypeOnOff": "On/Off Light",
     "lightTypeDimmable": "Dimmable Light",
     "lightTypeCT": "Color Temperature",
     "lightTypeColor": "Color Light (Full)",
-
-    "stateMapping": "State Mapping",
-    "stateMappingHelp": "Map ioBroker states to Hue light properties. Use 'Detect' to auto-fill or select manually.",
 
     "stateOn": "On/Off",
     "stateOnTooltip": "Boolean state for on/off control",

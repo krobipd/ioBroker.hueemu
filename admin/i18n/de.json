@@ -26,26 +26,15 @@
 
     "deviceConfiguration": "Geräte-Konfiguration",
     "configuredDevices": "Konfigurierte Geräte",
-    "deviceConfigHelp": "Konfiguriere virtuelle Hue-Lampen durch Auswahl von ioBroker-Geräten. Nutze 'Erkennen' für automatische State-Erkennung oder konfiguriere manuell.",
-
-    "quickAdd": "Schnell hinzufügen",
-    "selectRoom": "Raum auswählen",
-    "detectFromRoom": "Alle erkennen",
+    "deviceConfigHelp": "Konfiguriere virtuelle Hue-Lampen: Wähle den Lampentyp und ordne die entsprechenden ioBroker-States zu.",
 
     "deviceName": "Gerätename",
-    "sourceObject": "Quell-Gerät/Kanal",
-    "sourceObjectTooltip": "Wähle das ioBroker-Gerät oder den Kanal als Lichtquelle",
-    "detect": "Erkennen",
-    "detectedType": "Erkannter Typ",
 
     "lightType": "Lampentyp",
     "lightTypeOnOff": "Ein/Aus-Lampe",
     "lightTypeDimmable": "Dimmbare Lampe",
     "lightTypeCT": "Farbtemperatur",
     "lightTypeColor": "Farblampe (Voll)",
-
-    "stateMapping": "State-Zuordnung",
-    "stateMappingHelp": "Ordne ioBroker-States den Hue-Eigenschaften zu. Nutze 'Erkennen' zum Auto-Ausfüllen oder wähle manuell.",
 
     "stateOn": "Ein/Aus",
     "stateOnTooltip": "Boolean-State für Ein/Aus-Steuerung",
