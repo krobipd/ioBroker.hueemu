@@ -76,7 +76,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "prepare": "npm run build",
+    "prepare": "test -d build || npm run build",
     "prebuild": "rimraf ./build",
     "build:ts": "tsc -p tsconfig.build.json",
     "build": "npm run build:ts",
