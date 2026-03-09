@@ -175,7 +175,6 @@
                             "type": "objectId",
                             "label": "sourceObject",
                             "tooltip": "sourceObjectTooltip",
-                            "types": ["device", "channel"],
                             "sm": 12,
                             "md": 4
                         },
@@ -233,7 +232,7 @@
                             "type": "objectId",
                             "label": "stateOn",
                             "tooltip": "stateOnTooltip",
-                            "types": ["state"],
+                            "types": "state",
                             "sm": 12,
                             "md": 6
                         },
@@ -242,7 +241,7 @@
                             "type": "objectId",
                             "label": "stateBri",
                             "tooltip": "stateBriTooltip",
-                            "types": ["state"],
+                            "types": "state",
                             "sm": 12,
                             "md": 6,
                             "hidden": "data.lightType === 'onoff'"
@@ -252,7 +251,7 @@
                             "type": "objectId",
                             "label": "stateCt",
                             "tooltip": "stateCtTooltip",
-                            "types": ["state"],
+                            "types": "state",
                             "sm": 12,
                             "md": 6,
                             "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
@@ -262,7 +261,7 @@
                             "type": "objectId",
                             "label": "stateHue",
                             "tooltip": "stateHueTooltip",
-                            "types": ["state"],
+                            "types": "state",
                             "sm": 12,
                             "md": 6,
                             "hidden": "data.lightType !== 'color'"
@@ -272,7 +271,7 @@
                             "type": "objectId",
                             "label": "stateSat",
                             "tooltip": "stateSatTooltip",
-                            "types": ["state"],
+                            "types": "state",
                             "sm": 12,
                             "md": 6,
                             "hidden": "data.lightType !== 'color'"
@@ -282,7 +281,7 @@
                             "type": "objectId",
                             "label": "stateXy",
                             "tooltip": "stateXyTooltip",
-                            "types": ["state"],
+                            "types": "state",
                             "sm": 12,
                             "md": 6,
                             "hidden": "data.lightType !== 'color'"
