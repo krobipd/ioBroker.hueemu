@@ -10,7 +10,7 @@ import * as forge from 'node-forge';
 import { HueEmuDefinition } from './definition/hue-emu-definition';
 import { HueServer } from './server';
 import { HueSsdpServer } from './discovery';
-import { ApiHandler } from './hue-api';
+import { ApiHandler, type DeviceConfig } from './hue-api';
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from './types/config';
 import { generateBridgeId, generateSerialNumber } from './types/config';
 
@@ -27,6 +27,7 @@ declare global {
             udn: string;
             mac: string;
             upnpPort: number | undefined;
+            devices: DeviceConfig[];
             [key: string]: any;
         }
     }
@@ -43,6 +44,7 @@ export class HueEmu extends utils.Adapter {
     private definition: HueEmuDefinition;
     private hueServer: HueServer | null = null;
     private ssdpServer: HueSsdpServer | null = null;
+    private apiHandler: ApiHandler | null = null;
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({
@@ -89,6 +91,10 @@ export class HueEmu extends utils.Adapter {
             // Create logger adapter
             const logger = this.createLogger();
 
+            // Get device configurations from admin UI
+            const devices: DeviceConfig[] = this.config.devices || [];
+            this.log.info(`Loaded ${devices.length} device(s) from configuration`);
+
             // Initialize SSDP discovery server
             this.ssdpServer = new HueSsdpServer({
                 identity: emulatorConfig.identity,
@@ -98,21 +104,25 @@ export class HueEmu extends utils.Adapter {
                 logger
             });
 
-            // Create API handler
-            const apiHandler = new ApiHandler({
+            // Create API handler with device configurations
+            this.apiHandler = new ApiHandler({
                 adapter: this as any,
                 configServiceConfig: {
                     identity: emulatorConfig.identity,
                     discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host,
                     logger
                 },
+                devices,
                 logger
             });
+
+            // Initialize API handler (sets up state subscriptions for device bindings)
+            await this.apiHandler.initialize();
 
             // Initialize HTTP server
             this.hueServer = new HueServer({
                 config: emulatorConfig,
-                handler: apiHandler,
+                handler: this.apiHandler,
                 logger
             });
 
@@ -123,8 +133,20 @@ export class HueEmu extends utils.Adapter {
             // Initialize adapter states
             await this.initializeAdapterStates();
 
-            // Subscribe to state changes
+            // Subscribe to state changes (own states)
             this.subscribeStates('*');
+
+            // Log device info
+            if (devices.length > 0) {
+                this.log.info(`Configured devices:`);
+                devices.forEach((device, index) => {
+                    const mappedStates = Object.entries(device.mapping || {})
+                        .filter(([_, v]) => v)
+                        .map(([k, _]) => k)
+                        .join(', ');
+                    this.log.info(`  ${index + 1}. ${device.name} (${device.lightType}) - mapped: ${mappedStates || 'none'}`);
+                });
+            }
 
             this.log.info('Hue Emulator started successfully');
 
@@ -213,7 +235,7 @@ export class HueEmu extends utils.Adapter {
      * Initialize adapter states
      */
     private async initializeAdapterStates(): Promise<void> {
-        // Create createLight state
+        // Create createLight state (for legacy manual light creation)
         await this.setObjectNotExistsAsync('createLight', {
             type: 'state',
             common: {
@@ -221,7 +243,8 @@ export class HueEmu extends utils.Adapter {
                 type: 'string',
                 read: true,
                 write: true,
-                role: 'state'
+                role: 'state',
+                desc: 'JSON to create lights manually (legacy mode)'
             },
             native: {}
         });
@@ -234,7 +257,8 @@ export class HueEmu extends utils.Adapter {
                 type: 'boolean',
                 role: 'button',
                 write: true,
-                read: true
+                read: true,
+                desc: 'Enable pairing mode for 50 seconds'
             },
             native: {}
         });
@@ -248,7 +272,8 @@ export class HueEmu extends utils.Adapter {
                 type: 'boolean',
                 role: 'switch',
                 write: true,
-                read: true
+                read: true,
+                desc: 'Disable authentication (allow all requests)'
             },
             native: {}
         });
@@ -256,6 +281,31 @@ export class HueEmu extends utils.Adapter {
         // Load disableAuth state
         const disableAuthState = await this.getStateAsync('disableAuth');
         this._disableAuth = (disableAuthState?.val as boolean) || false;
+
+        // Create info channel
+        await this.setObjectNotExistsAsync('info', {
+            type: 'channel',
+            common: {
+                name: 'Adapter Information'
+            },
+            native: {}
+        });
+
+        // Create info.configuredDevices state
+        const deviceCount = (this.config.devices || []).length;
+        await this.setObjectNotExistsAsync('info.configuredDevices', {
+            type: 'state',
+            common: {
+                name: 'Configured Devices',
+                type: 'number',
+                role: 'value',
+                read: true,
+                write: false,
+                desc: 'Number of devices configured in admin UI'
+            },
+            native: {}
+        });
+        await this.setStateAsync('info.configuredDevices', { val: deviceCount, ack: true });
     }
 
     /**
@@ -322,7 +372,12 @@ export class HueEmu extends utils.Adapter {
 
         this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
 
-        // Only handle non-acked state changes
+        // Update API handler state cache for device binding
+        if (this.apiHandler && state.ack) {
+            this.apiHandler.onStateChange(id, state.val);
+        }
+
+        // Only handle non-acked state changes for our own states
         if (state.ack) {
             return;
         }
@@ -333,8 +388,8 @@ export class HueEmu extends utils.Adapter {
             this.handleStartPairing(state);
         } else if (id === `${this.namespace}.disableAuth`) {
             this.disableAuth = state.val as boolean;
-        } else {
-            // Acknowledge other state changes
+        } else if (id.startsWith(this.namespace)) {
+            // Acknowledge other own state changes
             this.setState(id, { ack: true, val: state.val });
         }
     }
@@ -350,14 +405,17 @@ export class HueEmu extends utils.Adapter {
         this.pairingEnabled = state.val as boolean;
 
         // Auto-disable pairing after 50 seconds
-        this.pairingTimeoutId = setTimeout(() => {
-            this._pairingEnabled = false;
-            this.setState('startPairing', { ack: true, val: false });
-        }, 50000);
+        if (state.val) {
+            this.pairingTimeoutId = setTimeout(() => {
+                this._pairingEnabled = false;
+                this.setState('startPairing', { ack: true, val: false });
+                this.log.info('Pairing mode automatically disabled after timeout');
+            }, 50000);
+        }
     }
 
     /**
-     * Handle createLight state change
+     * Handle createLight state change (legacy mode)
      */
     private handleCreateLight(id: string, state: ioBroker.State): void {
         try {
@@ -365,7 +423,7 @@ export class HueEmu extends utils.Adapter {
                 ? state.val
                 : JSON.parse(state.val as string);
 
-            this.log.info(`Creating lights: ${JSON.stringify(lights)}`);
+            this.log.info(`Creating lights (legacy mode): ${JSON.stringify(lights)}`);
 
             Object.keys(lights).forEach(lightId => {
                 try {
