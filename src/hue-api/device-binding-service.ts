@@ -38,13 +38,31 @@ const LIGHT_TYPES = {
 };
 
 /**
- * Device configuration from admin UI
+ * Device configuration from admin UI (jsonConfig format)
  */
 export interface DeviceConfig {
     name: string;
     lightType: keyof typeof LIGHT_TYPES;
-    mapping: Record<string, string>;
+    // Flat state mappings from jsonConfig table
+    onState?: string;
+    briState?: string;
+    ctState?: string;
+    hueState?: string;
+    satState?: string;
+    xyState?: string;
 }
+
+/**
+ * Maps Hue state names to DeviceConfig property names
+ */
+const STATE_TO_CONFIG: Record<string, keyof DeviceConfig> = {
+    'on': 'onState',
+    'bri': 'briState',
+    'ct': 'ctState',
+    'hue': 'hueState',
+    'sat': 'satState',
+    'xy': 'xyState'
+};
 
 /**
  * Adapter interface for device binding service
@@ -82,6 +100,31 @@ export class DeviceBindingService {
     }
 
     /**
+     * Get state ID from device config for a given state name
+     */
+    private getStateId(device: DeviceConfig, stateName: string): string | undefined {
+        const configKey = STATE_TO_CONFIG[stateName];
+        if (configKey) {
+            return device[configKey] as string | undefined;
+        }
+        return undefined;
+    }
+
+    /**
+     * Get all state IDs from a device config
+     */
+    private getAllStateIds(device: DeviceConfig): string[] {
+        const stateIds: string[] = [];
+        for (const configKey of Object.values(STATE_TO_CONFIG)) {
+            const stateId = device[configKey] as string | undefined;
+            if (stateId) {
+                stateIds.push(stateId);
+            }
+        }
+        return stateIds;
+    }
+
+    /**
      * Initialize the service - subscribe to all mapped states
      */
     public async initialize(): Promise<void> {
@@ -89,13 +132,9 @@ export class DeviceBindingService {
 
         // Subscribe to all mapped states
         for (const device of this.devices) {
-            if (device.mapping) {
-                for (const stateId of Object.values(device.mapping)) {
-                    if (stateId) {
-                        this.adapter.subscribeForeignStates(stateId);
-                        this.log('debug', `Subscribed to state: ${stateId}`);
-                    }
-                }
+            for (const stateId of this.getAllStateIds(device)) {
+                this.adapter.subscribeForeignStates(stateId);
+                this.log('debug', `Subscribed to state: ${stateId}`);
             }
         }
 
@@ -108,18 +147,14 @@ export class DeviceBindingService {
      */
     private async refreshStateCache(): Promise<void> {
         for (const device of this.devices) {
-            if (device.mapping) {
-                for (const stateId of Object.values(device.mapping)) {
-                    if (stateId) {
-                        try {
-                            const state = await this.adapter.getForeignStateAsync(stateId);
-                            if (state !== null && state !== undefined) {
-                                this.stateCache.set(stateId, state.val);
-                            }
-                        } catch (error) {
-                            this.log('debug', `Could not load state ${stateId}: ${error}`);
-                        }
+            for (const stateId of this.getAllStateIds(device)) {
+                try {
+                    const state = await this.adapter.getForeignStateAsync(stateId);
+                    if (state !== null && state !== undefined) {
+                        this.stateCache.set(stateId, state.val);
                     }
+                } catch (error) {
+                    this.log('debug', `Could not load state ${stateId}: ${error}`);
                 }
             }
         }
@@ -173,7 +208,7 @@ export class DeviceBindingService {
         };
 
         for (const stateName of lightTypeConfig.states) {
-            const stateId = device.mapping?.[stateName];
+            const stateId = this.getStateId(device, stateName);
             if (stateId) {
                 const value = await this.getStateValue(stateId, stateName);
                 if (value !== undefined) {
@@ -239,7 +274,7 @@ export class DeviceBindingService {
 
         for (const [key, value] of Object.entries(stateUpdate)) {
             const address = `/lights/${lightId}/state/${key}`;
-            const stateId = device.mapping?.[key];
+            const stateId = this.getStateId(device, key);
 
             if (!stateId) {
                 this.log('debug', `No mapping for ${key} on device ${device.name}`);

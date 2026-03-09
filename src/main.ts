@@ -140,11 +140,14 @@ export class HueEmu extends utils.Adapter {
             if (devices.length > 0) {
                 this.log.info(`Configured devices:`);
                 devices.forEach((device, index) => {
-                    const mappedStates = Object.entries(device.mapping || {})
-                        .filter(([_, v]) => v)
-                        .map(([k, _]) => k)
-                        .join(', ');
-                    this.log.info(`  ${index + 1}. ${device.name} (${device.lightType}) - mapped: ${mappedStates || 'none'}`);
+                    const mappedStates: string[] = [];
+                    if (device.onState) mappedStates.push('on');
+                    if (device.briState) mappedStates.push('bri');
+                    if (device.ctState) mappedStates.push('ct');
+                    if (device.hueState) mappedStates.push('hue');
+                    if (device.satState) mappedStates.push('sat');
+                    if (device.xyState) mappedStates.push('xy');
+                    this.log.info(`  ${index + 1}. ${device.name} (${device.lightType}) - mapped: ${mappedStates.join(', ') || 'none'}`);
                 });
             }
 
