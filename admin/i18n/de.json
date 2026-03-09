@@ -26,16 +26,37 @@
 
     "deviceConfiguration": "Geräte-Konfiguration",
     "configuredDevices": "Konfigurierte Geräte",
-    "deviceConfigHelp": "Konfiguriere virtuelle Hue-Lampen und verknüpfe sie mit ioBroker-Datenpunkten. Jede Lampe kann über die Hue-API von Sprachassistenten wie Alexa oder Google Home gesteuert werden.",
-    "deviceName": "Name",
-    "lightType": "Typ",
-    "lightTypeOnOff": "Ein/Aus-Licht",
-    "lightTypeDimmable": "Dimmbares Licht",
+    "deviceConfigHelp": "Konfiguriere virtuelle Hue-Lampen durch Auswahl von ioBroker-Geräten. Nutze 'Erkennen' für automatische State-Erkennung oder konfiguriere manuell.",
+
+    "quickAdd": "Schnell hinzufügen",
+    "selectRoom": "Raum auswählen",
+    "detectFromRoom": "Alle erkennen",
+
+    "deviceName": "Gerätename",
+    "sourceObject": "Quell-Gerät/Kanal",
+    "sourceObjectTooltip": "Wähle das ioBroker-Gerät oder den Kanal als Lichtquelle",
+    "detect": "Erkennen",
+    "detectedType": "Erkannter Typ",
+
+    "lightType": "Lampentyp",
+    "lightTypeOnOff": "Ein/Aus-Lampe",
+    "lightTypeDimmable": "Dimmbare Lampe",
     "lightTypeCT": "Farbtemperatur",
-    "lightTypeColor": "Farblicht",
-    "stateOn": "Ein/Aus-State",
+    "lightTypeColor": "Farblampe (Voll)",
+
+    "stateMapping": "State-Zuordnung",
+    "stateMappingHelp": "Ordne ioBroker-States den Hue-Eigenschaften zu. Nutze 'Erkennen' zum Auto-Ausfüllen oder wähle manuell.",
+
+    "stateOn": "Ein/Aus",
+    "stateOnTooltip": "Boolean-State für Ein/Aus-Steuerung",
     "stateBri": "Helligkeit",
-    "stateCt": "Farbtemp.",
+    "stateBriTooltip": "Zahlen-State für Helligkeit (0-100 oder 0-254)",
+    "stateCt": "Farbtemperatur",
+    "stateCtTooltip": "Zahlen-State für Farbtemperatur (Mired 153-500 oder Kelvin)",
     "stateHue": "Farbton",
-    "stateSat": "Sättigung"
+    "stateHueTooltip": "Zahlen-State für Farbton (0-65535 oder 0-360)",
+    "stateSat": "Sättigung",
+    "stateSatTooltip": "Zahlen-State für Sättigung (0-254 oder 0-100)",
+    "stateXy": "XY-Farbe",
+    "stateXyTooltip": "CIE xy Farbkoordinaten (optional, Array oder kommagetrennt)"
 }

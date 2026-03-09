@@ -117,29 +117,87 @@
                     "type": "staticText",
                     "text": "deviceConfigHelp",
                     "style": {
-                        "color": "gray",
-                        "marginBottom": "16px"
+                        "fontSize": 14,
+                        "color": "#666",
+                        "marginBottom": 16
                     }
                 },
-                "devices": {
-                    "type": "table",
+
+                // Quick Add from Room
+                "quickAddHeader": {
+                    "type": "header",
+                    "text": "quickAdd",
+                    "size": 5
+                },
+                "roomSelect": {
+                    "type": "selectSendTo",
+                    "label": "selectRoom",
+                    "command": "getRooms",
                     "sm": 12,
-                    "label": "configuredDevices",
-                    "showFirstAddOnTop": true,
-                    "clone": true,
-                    "items": [
-                        {
+                    "md": 5
+                },
+                "detectFromRoomBtn": {
+                    "type": "sendTo",
+                    "label": "detectFromRoom",
+                    "command": "detectFromRoom",
+                    "variant": "outlined",
+                    "icon": "search",
+                    "jsonData": "{\"enumId\": \"${data.roomSelect}\"}",
+                    "sm": 12,
+                    "md": 3
+                },
+                "divider1": {
+                    "type": "divider",
+                    "newLine": true
+                },
+
+                // Devices Accordion
+                "devicesHeader": {
+                    "type": "header",
+                    "text": "configuredDevices",
+                    "size": 4
+                },
+                "devices": {
+                    "type": "accordion",
+                    "sm": 12,
+                    "titleAttr": "name",
+                    "items": {
+                        // Device Name
+                        "name": {
                             "type": "text",
-                            "attr": "name",
-                            "title": "deviceName",
-                            "width": "20%",
+                            "label": "deviceName",
+                            "sm": 12,
+                            "md": 6,
                             "default": "New Light"
                         },
-                        {
+
+                        // Source Object Selection + Detection
+                        "sourceOid": {
+                            "type": "objectId",
+                            "label": "sourceObject",
+                            "tooltip": "sourceObjectTooltip",
+                            "types": ["device", "channel"],
+                            "sm": 12,
+                            "md": 4
+                        },
+                        "detectBtn": {
+                            "type": "sendTo",
+                            "label": "detect",
+                            "command": "detectDevice",
+                            "variant": "contained",
+                            "color": "primary",
+                            "icon": "search",
+                            "jsonData": "{\"oid\": \"${data.sourceOid}\"}",
+                            "sm": 12,
+                            "md": 2
+                        },
+
+                        // Light Type (auto-detected or manual)
+                        "lightType": {
                             "type": "select",
-                            "attr": "lightType",
-                            "title": "lightType",
-                            "width": "15%",
+                            "label": "lightType",
+                            "sm": 12,
+                            "md": 4,
                             "default": "color",
                             "options": [
                                 {"label": "lightTypeOnOff", "value": "onoff"},
@@ -148,42 +206,97 @@
                                 {"label": "lightTypeColor", "value": "color"}
                             ]
                         },
-                        {
-                            "type": "objectId",
-                            "attr": "onState",
-                            "title": "stateOn",
-                            "width": "13%",
-                            "filterTypes": ["state"]
+                        "detectedType": {
+                            "type": "text",
+                            "label": "detectedType",
+                            "disabled": true,
+                            "sm": 12,
+                            "md": 4,
+                            "hidden": "!data.detectedType"
                         },
-                        {
-                            "type": "objectId",
-                            "attr": "briState",
-                            "title": "stateBri",
-                            "width": "13%",
-                            "filterTypes": ["state"]
+
+                        // State Mappings Section
+                        "mappingHeader": {
+                            "type": "header",
+                            "text": "stateMapping",
+                            "size": 5,
+                            "newLine": true
                         },
-                        {
-                            "type": "objectId",
-                            "attr": "ctState",
-                            "title": "stateCt",
-                            "width": "13%",
-                            "filterTypes": ["state"]
+                        "mappingInfo": {
+                            "type": "staticText",
+                            "text": "stateMappingHelp",
+                            "style": {
+                                "fontSize": 12,
+                                "color": "#888",
+                                "marginBottom": 8
+                            }
                         },
-                        {
+
+                        // On/Off State (always shown)
+                        "onState": {
                             "type": "objectId",
-                            "attr": "hueState",
-                            "title": "stateHue",
-                            "width": "13%",
-                            "filterTypes": ["state"]
+                            "label": "stateOn",
+                            "tooltip": "stateOnTooltip",
+                            "types": ["state"],
+                            "sm": 12,
+                            "md": 6
                         },
-                        {
+
+                        // Brightness (shown for dimmable, ct, color)
+                        "briState": {
                             "type": "objectId",
-                            "attr": "satState",
-                            "title": "stateSat",
-                            "width": "13%",
-                            "filterTypes": ["state"]
+                            "label": "stateBri",
+                            "tooltip": "stateBriTooltip",
+                            "types": ["state"],
+                            "sm": 12,
+                            "md": 6,
+                            "hidden": "data.lightType === 'onoff'"
+                        },
+
+                        // Color Temperature (shown for ct, color)
+                        "ctState": {
+                            "type": "objectId",
+                            "label": "stateCt",
+                            "tooltip": "stateCtTooltip",
+                            "types": ["state"],
+                            "sm": 12,
+                            "md": 6,
+                            "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
+                        },
+
+                        // Hue (shown for color only)
+                        "hueState": {
+                            "type": "objectId",
+                            "label": "stateHue",
+                            "tooltip": "stateHueTooltip",
+                            "types": ["state"],
+                            "sm": 12,
+                            "md": 6,
+                            "hidden": "data.lightType !== 'color'"
+                        },
+
+                        // Saturation (shown for color only)
+                        "satState": {
+                            "type": "objectId",
+                            "label": "stateSat",
+                            "tooltip": "stateSatTooltip",
+                            "types": ["state"],
+                            "sm": 12,
+                            "md": 6,
+                            "hidden": "data.lightType !== 'color'"
+                        },
+
+                        // XY Color (shown for color only, optional)
+                        "xyState": {
+                            "type": "objectId",
+                            "label": "stateXy",
+                            "tooltip": "stateXyTooltip",
+                            "types": ["state"],
+                            "sm": 12,
+                            "md": 6,
+                            "hidden": "data.lightType !== 'color'"
                         }
-                    ]
+                    }
                 }
             }
         }

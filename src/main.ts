@@ -11,6 +11,7 @@ import { HueEmuDefinition } from './definition/hue-emu-definition';
 import { HueServer } from './server';
 import { HueSsdpServer } from './discovery';
 import { ApiHandler, type DeviceConfig } from './hue-api';
+import { DeviceDetector, getRooms, getFunctions } from './lib';
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from './types/config';
 import { generateBridgeId, generateSerialNumber } from './types/config';
 
@@ -45,6 +46,7 @@ export class HueEmu extends utils.Adapter {
     private hueServer: HueServer | null = null;
     private ssdpServer: HueSsdpServer | null = null;
     private apiHandler: ApiHandler | null = null;
+    private deviceDetector: DeviceDetector | null = null;
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({
@@ -55,9 +57,11 @@ export class HueEmu extends utils.Adapter {
         this.on('ready', this.onReady.bind(this));
         this.on('objectChange', this.onObjectChange.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
+        this.on('message', this.onMessage.bind(this));
         this.on('unload', this.onUnload.bind(this));
 
         this.definition = new HueEmuDefinition(this);
+        this.deviceDetector = new DeviceDetector(this as any);
     }
 
     get pairingEnabled(): boolean {
@@ -394,6 +398,132 @@ export class HueEmu extends utils.Adapter {
         } else if (id.startsWith(this.namespace)) {
             // Acknowledge other own state changes
             this.setState(id, { ack: true, val: state.val });
+        }
+    }
+
+    /**
+     * Handle sendTo messages from admin UI
+     */
+    private async onMessage(obj: ioBroker.Message): Promise<void> {
+        if (!obj || !obj.command) {
+            return;
+        }
+
+        // Don't handle device-manager messages
+        if (obj.command.startsWith('dm:')) {
+            return;
+        }
+
+        this.log.debug(`Received message: ${obj.command}`);
+
+        switch (obj.command) {
+            case 'detectDevice':
+                await this.handleDetectDevice(obj);
+                break;
+            case 'getRooms':
+                await this.handleGetRooms(obj);
+                break;
+            case 'getFunctions':
+                await this.handleGetFunctions(obj);
+                break;
+            case 'detectFromRoom':
+                await this.handleDetectFromRoom(obj);
+                break;
+            default:
+                this.log.warn(`Unknown message command: ${obj.command}`);
+                if (obj.callback) {
+                    this.sendTo(obj.from, obj.command, { error: 'Unknown command' }, obj.callback);
+                }
+        }
+    }
+
+    /**
+     * Handle device detection request
+     */
+    private async handleDetectDevice(obj: ioBroker.Message): Promise<void> {
+        if (!obj.callback) return;
+
+        const message = obj.message as { oid?: string };
+        if (!message?.oid) {
+            this.sendTo(obj.from, obj.command, { error: 'No object ID provided' }, obj.callback);
+            return;
+        }
+
+        try {
+            this.log.info(`Detecting device: ${message.oid}`);
+            const result = await this.deviceDetector?.detect(message.oid);
+
+            if (result) {
+                this.log.info(`Detected: ${result.typeName} (${result.originalType})`);
+                this.sendTo(obj.from, obj.command, {
+                    success: true,
+                    ...result
+                }, obj.callback);
+            } else {
+                this.sendTo(obj.from, obj.command, {
+                    success: false,
+                    error: 'No compatible device detected'
+                }, obj.callback);
+            }
+        } catch (error) {
+            this.log.error(`Detection error: ${error}`);
+            this.sendTo(obj.from, obj.command, {
+                success: false,
+                error: String(error)
+            }, obj.callback);
+        }
+    }
+
+    /**
+     * Handle get rooms request
+     */
+    private async handleGetRooms(obj: ioBroker.Message): Promise<void> {
+        if (!obj.callback) return;
+
+        try {
+            const rooms = await getRooms(this as any);
+            this.sendTo(obj.from, obj.command, rooms, obj.callback);
+        } catch (error) {
+            this.log.error(`Get rooms error: ${error}`);
+            this.sendTo(obj.from, obj.command, [], obj.callback);
+        }
+    }
+
+    /**
+     * Handle get functions request
+     */
+    private async handleGetFunctions(obj: ioBroker.Message): Promise<void> {
+        if (!obj.callback) return;
+
+        try {
+            const functions = await getFunctions(this as any);
+            this.sendTo(obj.from, obj.command, functions, obj.callback);
+        } catch (error) {
+            this.log.error(`Get functions error: ${error}`);
+            this.sendTo(obj.from, obj.command, [], obj.callback);
+        }
+    }
+
+    /**
+     * Handle detect all devices from a room
+     */
+    private async handleDetectFromRoom(obj: ioBroker.Message): Promise<void> {
+        if (!obj.callback) return;
+
+        const message = obj.message as { enumId?: string };
+        if (!message?.enumId) {
+            this.sendTo(obj.from, obj.command, { error: 'No enum ID provided' }, obj.callback);
+            return;
+        }
+
+        try {
+            this.log.info(`Detecting devices from: ${message.enumId}`);
+            const devices = await this.deviceDetector?.detectFromEnum(message.enumId) || [];
+            this.log.info(`Detected ${devices.length} devices`);
+            this.sendTo(obj.from, obj.command, { success: true, devices }, obj.callback);
+        } catch (error) {
+            this.log.error(`Room detection error: ${error}`);
+            this.sendTo(obj.from, obj.command, { success: false, error: String(error) }, obj.callback);
         }
     }
 

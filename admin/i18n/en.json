@@ -26,16 +26,37 @@
 
     "deviceConfiguration": "Device Configuration",
     "configuredDevices": "Configured Devices",
-    "deviceConfigHelp": "Configure virtual Hue lights and map them to ioBroker states. Each light can be controlled via the Hue API by voice assistants like Alexa or Google Home.",
-    "deviceName": "Name",
-    "lightType": "Type",
+    "deviceConfigHelp": "Configure virtual Hue lights by selecting ioBroker devices. Use 'Detect' for automatic state detection or configure manually.",
+
+    "quickAdd": "Quick Add",
+    "selectRoom": "Select Room",
+    "detectFromRoom": "Detect All",
+
+    "deviceName": "Device Name",
+    "sourceObject": "Source Device/Channel",
+    "sourceObjectTooltip": "Select the ioBroker device or channel to use as light source",
+    "detect": "Detect",
+    "detectedType": "Detected Type",
+
+    "lightType": "Light Type",
     "lightTypeOnOff": "On/Off Light",
     "lightTypeDimmable": "Dimmable Light",
     "lightTypeCT": "Color Temperature",
-    "lightTypeColor": "Color Light",
-    "stateOn": "On/Off State",
+    "lightTypeColor": "Color Light (Full)",
+
+    "stateMapping": "State Mapping",
+    "stateMappingHelp": "Map ioBroker states to Hue light properties. Use 'Detect' to auto-fill or select manually.",
+
+    "stateOn": "On/Off",
+    "stateOnTooltip": "Boolean state for on/off control",
     "stateBri": "Brightness",
-    "stateCt": "Color Temp",
+    "stateBriTooltip": "Number state for brightness (0-100 or 0-254)",
+    "stateCt": "Color Temperature",
+    "stateCtTooltip": "Number state for color temperature (mireds 153-500 or Kelvin)",
     "stateHue": "Hue",
-    "stateSat": "Saturation"
+    "stateHueTooltip": "Number state for hue (0-65535 or 0-360)",
+    "stateSat": "Saturation",
+    "stateSatTooltip": "Number state for saturation (0-254 or 0-100)",
+    "stateXy": "XY Color",
+    "stateXyTooltip": "CIE xy color coordinates (optional, array or comma-separated)"
 }
