@@ -133,8 +133,6 @@
                     "type": "accordion",
                     "sm": 12,
                     "titleAttr": "name",
-                    "import": true,
-                    "export": true,
                     "items": [
                         {
                             "attr": "name",
