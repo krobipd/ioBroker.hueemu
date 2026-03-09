@@ -207,7 +207,7 @@
                             "attr": "detectedType",
                             "type": "text",
                             "label": "detectedType",
-                            "disabled": true,
+                            "disabled": "true",
                             "sm": 12,
                             "md": 4,
                             "hidden": "!data.detectedType"
