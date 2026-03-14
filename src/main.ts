@@ -16,7 +16,7 @@ import { generateBridgeId, generateSerialNumber } from './types/config';
 
 // Augment the adapter.config object with the actual types
 declare global {
-    // eslint-disable-next-line @typescript-eslint/no-namespace
+     
     namespace ioBroker {
         interface AdapterConfig {
             host: string;
@@ -139,7 +139,7 @@ export class HueEmu extends utils.Adapter {
 
             // Log device info
             if (devices.length > 0) {
-                this.log.info(`Configured devices:`);
+                this.log.info('Configured devices:');
                 devices.forEach((device, index) => {
                     const mappedStates: string[] = [];
                     if (device.onState) mappedStates.push('on');
@@ -490,7 +490,7 @@ export class HueEmu extends utils.Adapter {
                 name: 'state'
             },
             native: {}
-        }, (err) => {
+        }, err => {
             if (!err) {
                 this.definition.addFunction(lightId, 'state', undefined as unknown as string);
             }

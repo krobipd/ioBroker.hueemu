@@ -92,7 +92,10 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "pack": "npm run build && npm pack",
-    "release": "npm run build && npm version patch && npm publish"
+    "version:patch": "node scripts/version.js patch",
+    "version:minor": "node scripts/version.js minor",
+    "version:major": "node scripts/version.js major",
+    "release": "npm run build && npm run version:patch"
   },
   "nyc": {
     "include": [

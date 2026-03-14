@@ -142,7 +142,7 @@ export class LightService {
             s._id.substring(s._id.lastIndexOf('.') + 1)
         ));
 
-        for (const [key, value] of Object.entries(stateUpdate)) {
+        for (const [ key, value ] of Object.entries(stateUpdate)) {
             const address = `/lights/${lightId}/state/${key}`;
 
             if (!stateKeys.has(key)) {
@@ -213,7 +213,7 @@ export class LightService {
      */
     private setStateAsync(id: string, value: unknown): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.adapter.setState(id, { val: value as ioBroker.StateValue, ack: true }, (err) => {
+            this.adapter.setState(id, { val: value as ioBroker.StateValue, ack: true }, err => {
                 if (err) {
                     reject(err);
                 } else {

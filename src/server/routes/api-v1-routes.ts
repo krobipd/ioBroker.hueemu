@@ -56,13 +56,13 @@ async function handleErrors(
         }
     } catch (error) {
         if (error instanceof HueApiError) {
-            reply.status(200).send([error.toResponse()]);
+            reply.status(200).send([ error.toResponse() ]);
         } else if (error instanceof Error) {
             const hueError = HueApiError.internalError(error.message, request.url);
-            reply.status(200).send([hueError.toResponse()]);
+            reply.status(200).send([ hueError.toResponse() ]);
         } else {
             const hueError = HueApiError.internalError('Unknown error', request.url);
-            reply.status(200).send([hueError.toResponse()]);
+            reply.status(200).send([ hueError.toResponse() ]);
         }
     }
 }

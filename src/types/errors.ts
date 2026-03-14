@@ -109,11 +109,11 @@ export class HueApiError extends Error {
     }
 
     static resourceNotAvailable(resource: string, address = ''): HueApiError {
-        return new HueApiError(HueErrorType.RESOURCE_NOT_AVAILABLE, address, [resource]);
+        return new HueApiError(HueErrorType.RESOURCE_NOT_AVAILABLE, address, [ resource ]);
     }
 
     static methodNotAvailable(method: string, resource: string, address = ''): HueApiError {
-        return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [method, resource]);
+        return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [ method, resource ]);
     }
 
     static missingParameters(address = ''): HueApiError {
@@ -121,11 +121,11 @@ export class HueApiError extends Error {
     }
 
     static parameterNotAvailable(parameter: string, address = ''): HueApiError {
-        return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [parameter]);
+        return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [ parameter ]);
     }
 
     static invalidParameterValue(value: string, parameter: string, address = ''): HueApiError {
-        return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [value, parameter]);
+        return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [ value, parameter ]);
     }
 
     static linkButtonNotPressed(address = ''): HueApiError {
@@ -133,6 +133,6 @@ export class HueApiError extends Error {
     }
 
     static internalError(details: string, address = ''): HueApiError {
-        return new HueApiError(HueErrorType.INTERNAL_ERROR, address, [details]);
+        return new HueApiError(HueErrorType.INTERNAL_ERROR, address, [ details ]);
     }
 }

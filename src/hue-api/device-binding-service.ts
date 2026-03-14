@@ -14,25 +14,25 @@ const LIGHT_TYPES = {
     'onoff': {
         name: 'On/Off Light',
         type: 'On/Off light' as const,
-        states: ['on'],
+        states: [ 'on' ],
         modelid: 'LOM001'
     },
     'dimmable': {
         name: 'Dimmable Light',
         type: 'Dimmable light' as const,
-        states: ['on', 'bri'],
+        states: [ 'on', 'bri' ],
         modelid: 'LWB010'
     },
     'ct': {
         name: 'Color Temperature Light',
         type: 'Color temperature light' as const,
-        states: ['on', 'bri', 'ct'],
+        states: [ 'on', 'bri', 'ct' ],
         modelid: 'LTW001'
     },
     'color': {
         name: 'Extended Color Light',
         type: 'Extended color light' as const,
-        states: ['on', 'bri', 'hue', 'sat', 'ct', 'xy'],
+        states: [ 'on', 'bri', 'hue', 'sat', 'ct', 'xy' ],
         modelid: 'LCT003'
     }
 };
@@ -272,7 +272,7 @@ export class DeviceBindingService {
         const device = this.devices[index];
         const results: LightStateResult[] = [];
 
-        for (const [key, value] of Object.entries(stateUpdate)) {
+        for (const [ key, value ] of Object.entries(stateUpdate)) {
             const address = `/lights/${lightId}/state/${key}`;
             const stateId = this.getStateId(device, key);
 
@@ -386,7 +386,7 @@ export class DeviceBindingService {
                         return parts.slice(0, 2) as [number, number];
                     }
                 }
-                return [0.5, 0.5];
+                return [ 0.5, 0.5 ];
             default:
                 return value;
         }
@@ -437,7 +437,7 @@ export class DeviceBindingService {
             case 'ct':
                 return 250;
             case 'xy':
-                return [0.5, 0.5];
+                return [ 0.5, 0.5 ];
             case 'effect':
                 return 'none';
             case 'alert':

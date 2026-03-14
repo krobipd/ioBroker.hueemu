@@ -106,7 +106,7 @@ export class HueServer {
         server.setErrorHandler(hueErrorHandler);
 
         // Add request logging
-        server.addHook('onRequest', async (request, reply) => {
+        server.addHook('onRequest', async (request, _reply) => {
             this.log('debug', `${request.method} ${request.url}`);
         });
 

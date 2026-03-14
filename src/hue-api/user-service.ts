@@ -2,7 +2,7 @@
  * User/Authentication Service for Hue API
  */
 
-import * as utils from '@iobroker/adapter-core';
+// import * as utils from '@iobroker/adapter-core';
 import * as uuid from 'uuid';
 import type { Logger } from '../types/config';
 
@@ -49,7 +49,7 @@ export class UserService {
         await this.ensureUserFolder();
 
         // Create user state
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             this.adapter.setObjectNotExists('user.' + username, {
                 type: 'state',
                 common: {
@@ -87,7 +87,7 @@ export class UserService {
      * Check if a user is authenticated
      */
     public async isUserAuthenticated(username: string): Promise<boolean> {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             this.adapter.getStatesOf('user', undefined, (err, stateObjects) => {
                 if (err || !stateObjects) {
                     this.log('debug', `No user states found: ${err}`);
@@ -113,7 +113,7 @@ export class UserService {
      * Ensure the user folder exists
      */
     private async ensureUserFolder(): Promise<void> {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             this.adapter.setObjectNotExists('user', {
                 type: 'meta',
                 common: {

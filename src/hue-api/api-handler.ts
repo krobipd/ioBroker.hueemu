@@ -151,7 +151,7 @@ export class ApiHandler implements HueApiHandler {
     /**
      * Get bridge configuration
      */
-    public async getConfig(req: HueRequest, username: string): Promise<BridgeConfigPublic> {
+    public async getConfig(_req: HueRequest, _username: string): Promise<BridgeConfigPublic> {
         this.log('debug', 'Get config');
         return this.configService.getConfig();
     }
@@ -159,7 +159,7 @@ export class ApiHandler implements HueApiHandler {
     /**
      * Get all lights
      */
-    public async getAllLights(req: HueRequest, username: string): Promise<LightsCollection> {
+    public async getAllLights(_req: HueRequest, _username: string): Promise<LightsCollection> {
         this.log('debug', 'Get all lights');
         return this.lightService.getAllLights();
     }
