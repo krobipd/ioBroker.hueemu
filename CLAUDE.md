@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.2 (März 2026)
+**Aktuelle Version:** 1.0.3 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -198,6 +198,7 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.3 | 2026-03-15 | Code-Bereinigung, ungenutzte Dependencies/Code entfernt |
 | 1.0.2 | 2026-03-15 | Node.js 24 LTS Support, CI-Verbesserungen |
 | 1.0.1 | 2026-03-15 | Dependency Updates, @iobroker/eslint-config |
 | 1.0.0 | 2026-03-09 | Major Rewrite: Fastify, moderne Admin UI |

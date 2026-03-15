@@ -1,8 +1,20 @@
 {
 	"common": {
 		"name": "hueemu",
-		"version": "1.0.2",
+		"version": "1.0.3",
 		"news": {
+			"1.0.3": {
+				"en": "Code cleanup: removed unused dependencies and dead code",
+				"de": "Code-Bereinigung: Ungenutzte Abhängigkeiten und toter Code entfernt",
+				"ru": "Очистка кода: удалены неиспользуемые зависимости и мертвый код",
+				"pt": "Limpeza de código: dependências não utilizadas e código morto removidos",
+				"nl": "Code opruiming: ongebruikte afhankelijkheden en dode code verwijderd",
+				"fr": "Nettoyage du code : dépendances inutilisées et code mort supprimés",
+				"it": "Pulizia codice: rimosse dipendenze inutilizzate e codice morto",
+				"es": "Limpieza de código: eliminadas dependencias no utilizadas y código muerto",
+				"pl": "Czyszczenie kodu: usunięto nieużywane zależności i martwy kod",
+				"zh-cn": "代码清理：删除未使用的依赖项和死代码"
+			},
 			"1.0.2": {
 				"en": "Added Node.js 24 LTS support, CI tests Node.js 20/22/24",
 				"de": "Node.js 24 LTS Support hinzugefügt, CI testet Node.js 20/22/24",
