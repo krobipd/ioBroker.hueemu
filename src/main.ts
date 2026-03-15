@@ -124,7 +124,6 @@ export class HueEmu extends utils.Adapter {
         configServiceConfig: {
           identity: emulatorConfig.identity,
           discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host,
-          logger,
         },
         devices,
         logger,

@@ -2,7 +2,7 @@
  * Configuration Service for Hue API
  */
 
-import type { BridgeIdentity, Logger } from "../types/config";
+import type { BridgeIdentity } from "../types/config";
 import type {
   BridgeConfigPublic,
   BridgeConfigFull,
@@ -18,8 +18,6 @@ export interface ConfigServiceConfig {
   identity: BridgeIdentity;
   /** Discovery host (IP address) */
   discoveryHost: string;
-  /** Optional logger */
-  logger?: Logger;
 }
 
 /**
@@ -28,7 +26,6 @@ export interface ConfigServiceConfig {
 export class ConfigService {
   private readonly identity: BridgeIdentity;
   private readonly discoveryHost: string;
-  private readonly logger?: Logger;
 
   // Bridge configuration constants
   private static readonly SW_VERSION = "1941132080";
@@ -40,7 +37,6 @@ export class ConfigService {
   constructor(config: ConfigServiceConfig) {
     this.identity = config.identity;
     this.discoveryHost = config.discoveryHost;
-    this.logger = config.logger;
   }
 
   /**
@@ -103,17 +99,5 @@ export class ConfigService {
       sensors: {},
       resourcelinks: {},
     };
-  }
-
-  /**
-   * Log a message
-   */
-  private log(
-    level: "debug" | "info" | "warn" | "error",
-    message: string,
-  ): void {
-    if (this.logger) {
-      this.logger[level](message);
-    }
   }
 }

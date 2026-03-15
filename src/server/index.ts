@@ -10,7 +10,5 @@ export {
 } from "./routes/description-route";
 export {
   hueErrorHandler,
-  createErrorResponse,
   createSuccessResponse,
-  wrapHandler,
 } from "./middleware/error-handler";

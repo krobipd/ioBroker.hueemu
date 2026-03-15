@@ -63,22 +63,3 @@ export function generateDescriptionXml(options: DescriptionXmlOptions): string {
 export function getDescriptionUrl(host: string, port: number): string {
   return `http://${host}:${port}/description.xml`;
 }
-
-/**
- * Generate SSDP headers for the Hue bridge
- */
-export function generateSsdpHeaders(
-  identity: BridgeIdentity,
-  host: string,
-  port: number,
-): Record<string, string> {
-  return {
-    "CACHE-CONTROL": "max-age=100",
-    EXT: "",
-    LOCATION: getDescriptionUrl(host, port),
-    SERVER: "Linux/3.14.0 UPnP/1.0 IpBridge/1.41.0",
-    "hue-bridgeid": identity.bridgeId,
-    ST: "urn:schemas-upnp-org:device:Basic:1",
-    USN: `uuid:${identity.udn}::urn:schemas-upnp-org:device:Basic:1`,
-  };
-}

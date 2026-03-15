@@ -34,50 +34,10 @@ export function hueErrorHandler(
 }
 
 /**
- * Create a Hue error response array
- */
-export function createErrorResponse(error: HueApiError): unknown[] {
-  return [error.toResponse()];
-}
-
-/**
  * Create a Hue success response array
  */
 export function createSuccessResponse(
   data: Record<string, unknown>,
 ): unknown[] {
   return [{ success: data }];
-}
-
-/**
- * Wrap an async handler to catch errors and convert them to Hue format
- * Preserves the request type for proper params access
- */
-export function wrapHandler<
-  TRequest extends FastifyRequest = FastifyRequest,
-  T = unknown,
->(
-  handler: (request: TRequest, reply: FastifyReply) => Promise<T>,
-): (request: TRequest, reply: FastifyReply) => Promise<void> {
-  return async (request: TRequest, reply: FastifyReply): Promise<void> => {
-    try {
-      const result = await handler(request, reply);
-      if (!reply.sent) {
-        reply.send(result);
-      }
-    } catch (error) {
-      if (error instanceof HueApiError) {
-        reply.status(200).send([error.toResponse()]);
-      } else if (error instanceof Error) {
-        const hueError = HueApiError.internalError(error.message, request.url);
-        reply.status(200).send([hueError.toResponse()]);
-      } else {
-        const hueError = HueApiError.internalError(
-          "Unknown error",
-          request.url,
-        );
-        reply.status(200).send([hueError.toResponse()]);
-      }
-    }
-  };
 }
