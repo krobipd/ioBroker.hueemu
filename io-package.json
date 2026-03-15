@@ -3,6 +3,18 @@
 		"name": "hueemu",
 		"version": "1.0.2",
 		"news": {
+			"1.0.2": {
+				"en": "Added Node.js 24 LTS support, CI tests Node.js 20/22/24",
+				"de": "Node.js 24 LTS Support hinzugefügt, CI testet Node.js 20/22/24",
+				"ru": "Добавлена поддержка Node.js 24 LTS, CI тестирует Node.js 20/22/24",
+				"pt": "Adicionado suporte Node.js 24 LTS, CI testa Node.js 20/22/24",
+				"nl": "Node.js 24 LTS ondersteuning toegevoegd, CI test Node.js 20/22/24",
+				"fr": "Support Node.js 24 LTS ajouté, CI teste Node.js 20/22/24",
+				"it": "Aggiunto supporto Node.js 24 LTS, CI testa Node.js 20/22/24",
+				"es": "Añadido soporte Node.js 24 LTS, CI prueba Node.js 20/22/24",
+				"pl": "Dodano obsługę Node.js 24 LTS, CI testuje Node.js 20/22/24",
+				"zh-cn": "添加Node.js 24 LTS支持，CI测试Node.js 20/22/24"
+			},
 			"1.0.1": {
 				"en": "Updated dependencies, migrated to @iobroker/eslint-config, GitHub Actions CI/CD",
 				"de": "Aktualisierte Abhängigkeiten, Migration zu @iobroker/eslint-config, GitHub Actions CI/CD",
