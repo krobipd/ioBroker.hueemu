@@ -275,3 +275,56 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 - Unit Tests: `src/main.test.ts`
 - Package Tests: `test/package.js` (47 Tests)
 - Framework: Mocha + Chai + Sinon + @iobroker/testing
+
+## Release-Workflow
+
+### Neues Release erstellen
+```bash
+npm run version:patch   # oder version:minor / version:major
+git push && git push origin v<version>
+```
+
+### Workflow-Anforderungen
+- **permissions: contents: write** in `.github/workflows/release.yml` erforderlich
+- Release wird automatisch erstellt wenn Tag gepusht wird
+- Workflow prüft ob Release bereits existiert (überspringt wenn ja)
+
+### Bei Release-Fehlern
+1. Tag lokal und remote löschen: `git tag -d v1.0.x && git push origin :refs/tags/v1.0.x`
+2. Workflow-Fix committen und pushen
+3. Tag neu erstellen und pushen
+
+## Repository
+
+- **GitHub:** https://github.com/krobipd/ioBroker.hueemu
+- **Author:** krobi (krobi@power-dreams.com)
+- **Original Author:** Christopher Holomek (@holomekc)
+- **Lizenz:** MIT
+
+## Wichtige Dateien
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `package.json` | NPM Konfiguration, Version |
+| `io-package.json` | ioBroker Adapter-Metadaten, News |
+| `admin/jsonConfig.json5` | Admin UI Konfigurationsschema |
+| `scripts/version.js` | Versionierungs-Script |
+| `eslint.config.mjs` | ESLint 9 Flat Config |
+| `test/.mocharc.json` | Mocha Test-Konfiguration |
+
+## ESLint-Konfiguration
+
+Verwendet `@iobroker/eslint-config` mit deaktivierten Regeln:
+- `@typescript-eslint/no-require-imports`
+- `@typescript-eslint/explicit-function-return-type`
+- `@typescript-eslint/restrict-template-expressions`
+- `jsdoc/require-jsdoc`
+
+## Versionshistorie
+
+| Version | Datum | Änderungen |
+|---------|-------|------------|
+| 1.0.2 | 2026-03-15 | Node.js 24 LTS Support, CI-Verbesserungen |
+| 1.0.1 | 2026-03-15 | Dependency Updates, @iobroker/eslint-config |
+| 1.0.0 | 2026-03-09 | Major Rewrite: Fastify, moderne Admin UI |
+| 0.0.x | 2020-2024 | Original von Christopher Holomek |
