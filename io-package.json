@@ -3,6 +3,18 @@
 		"name": "hueemu",
 		"version": "1.0.1",
 		"news": {
+			"1.0.1": {
+				"en": "Updated dependencies, migrated to @iobroker/eslint-config, GitHub Actions CI/CD",
+				"de": "Aktualisierte Abhängigkeiten, Migration zu @iobroker/eslint-config, GitHub Actions CI/CD",
+				"ru": "Обновлены зависимости, миграция на @iobroker/eslint-config, GitHub Actions CI/CD",
+				"pt": "Dependências atualizadas, migração para @iobroker/eslint-config, GitHub Actions CI/CD",
+				"nl": "Bijgewerkte afhankelijkheden, migratie naar @iobroker/eslint-config, GitHub Actions CI/CD",
+				"fr": "Dépendances mises à jour, migration vers @iobroker/eslint-config, GitHub Actions CI/CD",
+				"it": "Dipendenze aggiornate, migrazione a @iobroker/eslint-config, GitHub Actions CI/CD",
+				"es": "Dependencias actualizadas, migración a @iobroker/eslint-config, GitHub Actions CI/CD",
+				"pl": "Zaktualizowane zależności, migracja do @iobroker/eslint-config, GitHub Actions CI/CD",
+				"zh-cn": "更新依赖项，迁移到@iobroker/eslint-config，GitHub Actions CI/CD"
+			},
 			"1.0.0": {
 				"en": "Major rewrite: Fastify server, modern Admin UI, requires js-controller 7+",
 				"de": "Komplette Neuentwicklung: Fastify Server, moderne Admin UI, erfordert js-controller 7+",

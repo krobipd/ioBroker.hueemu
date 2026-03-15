@@ -1,5 +1,7 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
+**Aktuelle Version:** 1.0.1 (März 2026)
+
 ## Projektübersicht
 
 Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), damit ioBroker-Geräte über Alexa, Google Home und andere Hue-kompatible Systeme gesteuert werden können.
