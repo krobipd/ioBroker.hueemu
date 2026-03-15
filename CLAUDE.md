@@ -2,19 +2,20 @@
 
 **Aktuelle Version:** 1.0.2 (März 2026)
 
+> Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
+
 ## Projektübersicht
 
 Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), damit ioBroker-Geräte über Alexa, Google Home und andere Hue-kompatible Systeme gesteuert werden können.
 
-## Technologie-Stack
+## Spezifische Abhängigkeiten
 
-- **Framework:** ioBroker Adapter Core 3.3.2
-- **HTTP Server:** Fastify 5.8.2
-- **Discovery:** node-ssdp 4.0.1 (UPnP/SSDP)
-- **TLS:** Node-forge (Zertifikatsgenerierung)
-- **Sprache:** TypeScript 5.8.3
-- **Testing:** Mocha 11.1.0 + Chai + Sinon
-- **Linting:** @iobroker/eslint-config 2.2.0
+| Package | Version | Beschreibung |
+|---------|---------|--------------|
+| fastify | 5.8.2 | HTTP/HTTPS Server |
+| node-ssdp | 4.0.1 | UPnP/SSDP Discovery |
+| node-forge | 1.3.1 | TLS-Zertifikatsgenerierung |
+| uuid | 11.1.0 | UUID Generierung |
 
 ## Architektur
 
@@ -61,11 +62,6 @@ templates/                     # Light Templates (JSON)
 ├── extended-color-light.json
 ├── on-off-plug.json
 └── wrapper.json
-
-admin/                         # Admin UI
-├── jsonConfig.json5           # Konfigurationsschema
-├── i18n/                      # Übersetzungen (de, en, ...)
-└── hue-emu-logo.png
 ```
 
 ## Hauptkomponenten
@@ -98,7 +94,8 @@ interface DeviceConfig {
 }
 ```
 
-### Light-Typen
+## Light-Typen
+
 | Typ | States | Model ID | Hue Type |
 |-----|--------|----------|----------|
 | onoff | on | LOM001 | On/Off light |
@@ -152,40 +149,6 @@ GET  /health                           → Health Check
 2. **Pairing-Modus**: 50s Fenster zum Hinzufügen
 3. **Disabled Auth**: Bypass für Testing (`disableAuth` State)
 
-## Build-Befehle
-
-```bash
-npm run build:ts    # TypeScript kompilieren
-npm run build       # Vollständiger Build
-npm run watch       # Watch-Modus
-npm run test        # Tests ausführen
-npm run lint        # ESLint
-npm run lint:fix    # ESLint mit Auto-Fix
-```
-
-## Versionierung
-
-```bash
-npm run version:patch  # 1.0.0 -> 1.0.1
-npm run version:minor  # 1.0.0 -> 1.1.0
-npm run version:major  # 1.0.0 -> 2.0.0
-npm run release        # Build + Patch Version
-```
-
-Das Versionierungs-Script (`scripts/version.js`) hält `package.json` und `io-package.json` synchron und erstellt automatisch Git Tags.
-
-## GitHub Actions
-
-- **CI** (`.github/workflows/ci.yml`): Build, Lint, Test bei Push/PR (Node.js 20, 22, 24)
-- **Release** (`.github/workflows/release.yml`): Automatisches Release bei Tag-Push (v*)
-
-## TypeScript-Konfiguration
-
-- Target: ES2020
-- Module: CommonJS
-- Strict Mode: aktiviert
-- Output: `build/`
-
 ## Wichtige Typen
 
 ### BridgeIdentity (`src/types/config.ts`)
@@ -206,21 +169,6 @@ enum HueErrorType {
   INVALID_JSON = 2,
   RESOURCE_NOT_AVAILABLE = 3,
   LINK_BUTTON_NOT_PRESSED = 101,
-  // ...
-}
-```
-
-### Light (`src/types/light.ts`)
-```typescript
-interface Light {
-  state: LightState;
-  type: string;
-  name: string;
-  modelid: string;
-  manufacturername: string;
-  uniqueid: string;
-  swversion: string;
-  // ...
 }
 ```
 
@@ -249,76 +197,12 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 }]
 ```
 
-## Abhängigkeiten
-
-**Runtime:**
-- @iobroker/adapter-core 3.3.2
-- fastify 5.8.2
-- node-ssdp 4.0.1
-- node-forge 1.3.1
-- uuid 11.1.0
-
-**Development:**
-- @iobroker/eslint-config 2.2.0
-- @iobroker/build-tools 3.0.1
-- @iobroker/testing 5.2.2
-- typescript 5.8.3
-- eslint 9.25.1
-- mocha 11.1.0
-
-**Systemanforderungen:**
-- Node.js >= 20.0.0 (getestet mit 20, 22, 24 LTS)
-- js-controller >= 7.0.0
-
-## Tests
-
-- Unit Tests: `src/main.test.ts`
-- Package Tests: `test/package.js` (47 Tests)
-- Framework: Mocha + Chai + Sinon + @iobroker/testing
-
-## Release-Workflow
-
-### Neues Release erstellen
-```bash
-npm run version:patch   # oder version:minor / version:major
-git push && git push origin v<version>
-```
-
-### Workflow-Anforderungen
-- **permissions: contents: write** in `.github/workflows/release.yml` erforderlich
-- Release wird automatisch erstellt wenn Tag gepusht wird
-- Workflow prüft ob Release bereits existiert (überspringt wenn ja)
-
-### Bei Release-Fehlern
-1. Tag lokal und remote löschen: `git tag -d v1.0.x && git push origin :refs/tags/v1.0.x`
-2. Workflow-Fix committen und pushen
-3. Tag neu erstellen und pushen
-
 ## Repository
 
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **Author:** krobi (krobi@power-dreams.com)
 - **Original Author:** Christopher Holomek (@holomekc)
 - **Lizenz:** MIT
-
-## Wichtige Dateien
-
-| Datei | Beschreibung |
-|-------|--------------|
-| `package.json` | NPM Konfiguration, Version |
-| `io-package.json` | ioBroker Adapter-Metadaten, News |
-| `admin/jsonConfig.json5` | Admin UI Konfigurationsschema |
-| `scripts/version.js` | Versionierungs-Script |
-| `eslint.config.mjs` | ESLint 9 Flat Config |
-| `test/.mocharc.json` | Mocha Test-Konfiguration |
-
-## ESLint-Konfiguration
-
-Verwendet `@iobroker/eslint-config` mit deaktivierten Regeln:
-- `@typescript-eslint/no-require-imports`
-- `@typescript-eslint/explicit-function-return-type`
-- `@typescript-eslint/restrict-template-expressions`
-- `jsdoc/require-jsdoc`
 
 ## Versionshistorie
 
