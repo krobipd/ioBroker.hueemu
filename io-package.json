@@ -1,7 +1,7 @@
 {
 	"common": {
 		"name": "hueemu",
-		"version": "1.0.0",
+		"version": "1.0.1",
 		"news": {
 			"1.0.0": {
 				"en": "Major rewrite: Fastify server, modern Admin UI, requires js-controller 7+",
