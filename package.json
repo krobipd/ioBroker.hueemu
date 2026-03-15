@@ -71,7 +71,7 @@
   ],
   "scripts": {
     "prepare": "test -d build || npm run build",
-    "prebuild": "rimraf ./build",
+    "prebuild": "rm -rf ./build",
     "build:ts": "tsc -p tsconfig.build.json",
     "build": "npm run build:ts",
     "watch:ts": "tsc -p tsconfig.build.json --watch",

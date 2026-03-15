@@ -78,7 +78,18 @@ cd ioBroker.hueemu
 npm install
 npm run build
 npm test
+npm run lint
 ```
+
+### Technologie-Stack
+
+| Komponente | Version |
+|------------|---------|
+| TypeScript | 5.8.3 |
+| Fastify | 5.8.2 |
+| @iobroker/adapter-core | 3.3.2 |
+| @iobroker/testing | 5.2.2 |
+| node-ssdp | 4.0.1 |
 
 ### Credits
 

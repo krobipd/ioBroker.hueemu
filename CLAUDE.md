@@ -6,12 +6,13 @@ Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), dam
 
 ## Technologie-Stack
 
-- **Framework:** ioBroker Adapter Core (Node.js)
-- **HTTP Server:** Fastify v4.26
-- **Discovery:** node-ssdp v4.0.1 (UPnP/SSDP)
+- **Framework:** ioBroker Adapter Core 3.3.2
+- **HTTP Server:** Fastify 5.8.2
+- **Discovery:** node-ssdp 4.0.1 (UPnP/SSDP)
 - **TLS:** Node-forge (Zertifikatsgenerierung)
-- **Sprache:** TypeScript 5.6
-- **Testing:** Mocha + Chai + Sinon
+- **Sprache:** TypeScript 5.8.3
+- **Testing:** Mocha 11.1.0 + Chai + Sinon
+- **Linting:** @iobroker/eslint-config 2.2.0
 
 ## Architektur
 
@@ -248,15 +249,27 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 
 ## Abhängigkeiten
 
-- ioBroker/adapter-core
-- Fastify v4.26
-- node-ssdp v4.0.1
-- node-forge (TLS)
+**Runtime:**
+- @iobroker/adapter-core 3.3.2
+- fastify 5.8.2
+- node-ssdp 4.0.1
+- node-forge 1.3.1
+- uuid 11.1.0
+
+**Development:**
+- @iobroker/eslint-config 2.2.0
+- @iobroker/build-tools 3.0.1
+- @iobroker/testing 5.2.2
+- typescript 5.8.3
+- eslint 9.25.1
+- mocha 11.1.0
+
+**Systemanforderungen:**
+- Node.js >= 20.0.0
 - js-controller >= 7.0.0
 
 ## Tests
 
-- Unit Tests: `src/main.test.ts`, `test/unit.js`
-- Integration Tests: `test/integration.js`
-- Package Tests: `test/package.js`
+- Unit Tests: `src/main.test.ts`
+- Package Tests: `test/package.js` (47 Tests)
 - Framework: Mocha + Chai + Sinon + @iobroker/testing

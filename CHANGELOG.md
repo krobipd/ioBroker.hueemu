@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.0.1] - 2026-03-15
+
+### Changed
+
+- Aktualisierte Abhängigkeiten auf aktuelle Versionen (März 2026)
+- Migriert zu @iobroker/eslint-config für einheitliche Code-Standards
+- Code-Formatierung mit Prettier
+
+### Dependencies
+
+| Paket | Alt | Neu |
+|-------|-----|-----|
+| @iobroker/adapter-core | 3.2.2 | 3.3.2 |
+| @iobroker/testing | 5.0.0 | 5.2.2 |
+| fastify | 4.26.0 | 5.8.2 |
+| typescript | 5.6.3 | 5.8.3 |
+| mocha | 7.2.0 | 11.1.0 |
+| eslint | 9.12.0 | 9.25.1 |
+
+### Added
+
+- @iobroker/eslint-config 2.2.0
+- @iobroker/build-tools 3.0.1
+- GitHub Actions für CI/CD
+- Automatische Versionierung (scripts/version.js)
+
+### Removed
+
+- nyc, proxyquire, rimraf (nicht benötigt)
+- Alte ESLint-Konfiguration
+
+---
+
 ## [1.0.0] - 2026-03-09
 
 ### Major Rewrite
