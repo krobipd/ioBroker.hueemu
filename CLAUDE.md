@@ -12,6 +12,7 @@ Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), dam
 
 | Package | Version | Beschreibung |
 |---------|---------|--------------|
+| @iobroker/adapter-core | 3.3.2 | ioBroker Adapter-Basisklasse |
 | fastify | 5.8.2 | HTTP/HTTPS Server |
 | node-ssdp | 4.0.1 | UPnP/SSDP Discovery |
 | node-forge | 1.3.1 | TLS-Zertifikatsgenerierung |
