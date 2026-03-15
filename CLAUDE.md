@@ -176,7 +176,7 @@ Das Versionierungs-Script (`scripts/version.js`) hält `package.json` und `io-pa
 
 ## GitHub Actions
 
-- **CI** (`.github/workflows/ci.yml`): Build, Lint, Test bei Push/PR
+- **CI** (`.github/workflows/ci.yml`): Build, Lint, Test bei Push/PR (Node.js 20, 22, 24)
 - **Release** (`.github/workflows/release.yml`): Automatisches Release bei Tag-Push (v*)
 
 ## TypeScript-Konfiguration
@@ -267,7 +267,7 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 - mocha 11.1.0
 
 **Systemanforderungen:**
-- Node.js >= 20.0.0
+- Node.js >= 20.0.0 (getestet mit 20, 22, 24 LTS)
 - js-controller >= 7.0.0
 
 ## Tests
