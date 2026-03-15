@@ -29,7 +29,7 @@
 		"url": "https://github.com/krobipd/ioBroker.hueemu"
 	},
 	"engines": {
-		"node": ">=20.0.0",
+		"node": ">=20.0.0 <25",
 		"npm": ">=10.0.0"
 	},
 	"dependencies": {
