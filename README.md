@@ -17,7 +17,6 @@ Emuliert eine Philips Hue Bridge (v2, BSB002) und ermöglicht die Steuerung von 
 - **UPnP/SSDP Discovery** - Automatische Erkennung durch Smart Home Systeme
 - **Moderne Admin-UI** - JSON-Config für einfache Gerätekonfiguration
 - **Flexible Geräte** - On/Off, Dimmbar, Farbtemperatur, RGB Lampen
-- **Import/Export** - Gerätekonfiguration sichern und wiederherstellen
 
 ---
 
@@ -125,7 +124,6 @@ src/
 ├── server/                    # HTTP Server (Fastify)
 ├── types/                     # TypeScript Typen
 └── util/                      # Hilfsfunktionen
-templates/                     # Light Templates (JSON)
 test/                          # Tests
 build/                         # Kompilierter Code
 ```

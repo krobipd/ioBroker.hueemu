@@ -54,14 +54,6 @@ src/
 │   └── light.ts               # Light Objekt Typen
 └── util/
     └── utils.ts               # Hilfsfunktionen
-
-templates/                     # Light Templates (JSON)
-├── on-off-light.json
-├── dimmable-light.json
-├── color-temperature-light.json
-├── extended-color-light.json
-├── on-off-plug.json
-└── wrapper.json
 ```
 
 ## Hauptkomponenten
