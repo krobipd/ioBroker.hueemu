@@ -17,7 +17,7 @@ Emuliert eine Philips Hue Bridge und ermÃ¶glicht die Steuerung von ioBroker-GerÃ
 ### Systemanforderungen
 
 - ioBroker js-controller >= 7.0.0
-- Node.js >= 20.0.0
+- Node.js >= 20.0.0 (getestet mit 20, 22, 24 LTS)
 
 ### Installation
 
