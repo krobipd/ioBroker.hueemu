@@ -122,8 +122,7 @@ src/
 ├── discovery/                 # UPnP/SSDP Discovery
 ├── hue-api/                   # Hue API Implementation
 ├── server/                    # HTTP Server (Fastify)
-├── types/                     # TypeScript Typen
-└── util/                      # Hilfsfunktionen
+└── types/                     # TypeScript Typen
 test/                          # Tests
 build/                         # Kompilierter Code
 ```

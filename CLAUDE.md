@@ -46,14 +46,12 @@ src/
 │   └── routes/
 │       ├── api-v1-routes.ts   # Hue API v1 Endpoints
 │       └── description-route.ts  # UPnP XML Route
-├── types/                     # TypeScript Typen
-│   ├── index.ts
-│   ├── config.ts              # Konfigurationstypen
-│   ├── errors.ts              # HueApiError Klasse
-│   ├── hue-api.ts             # API Request/Response Typen
-│   └── light.ts               # Light Objekt Typen
-└── util/
-    └── utils.ts               # Hilfsfunktionen
+└── types/                     # TypeScript Typen
+    ├── index.ts
+    ├── config.ts              # Konfigurationstypen
+    ├── errors.ts              # HueApiError Klasse
+    ├── hue-api.ts             # API Request/Response Typen
+    └── light.ts               # Light Objekt Typen
 ```
 
 ## Hauptkomponenten
