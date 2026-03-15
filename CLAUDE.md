@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.1 (März 2026)
+**Aktuelle Version:** 1.0.2 (März 2026)
 
 ## Projektübersicht
 
