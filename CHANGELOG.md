@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.2] - 2026-03-15
+
+### Added
+
+- Node.js 24 LTS Support
+- CI testet jetzt Node.js 20, 22 und 24
+
+### Changed
+
+- GitHub Actions nutzen Node.js 24
+- Release-Workflow mit korrekten Berechtigungen (`contents: write`)
+
+---
+
 ## [1.0.1] - 2026-03-15
 
 ### Changed
