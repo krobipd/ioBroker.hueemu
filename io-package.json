@@ -1,8 +1,20 @@
 {
 	"common": {
 		"name": "hueemu",
-		"version": "1.0.3",
+		"version": "1.0.4",
 		"news": {
+			"1.0.4": {
+				"en": "Updated dependencies (uuid 13, sinon 21), removed dead code",
+				"de": "Aktualisierte Abhängigkeiten (uuid 13, sinon 21), toter Code entfernt",
+				"ru": "Обновлены зависимости (uuid 13, sinon 21), удален мертвый код",
+				"pt": "Dependências atualizadas (uuid 13, sinon 21), código morto removido",
+				"nl": "Bijgewerkte afhankelijkheden (uuid 13, sinon 21), dode code verwijderd",
+				"fr": "Dépendances mises à jour (uuid 13, sinon 21), code mort supprimé",
+				"it": "Dipendenze aggiornate (uuid 13, sinon 21), codice morto rimosso",
+				"es": "Dependencias actualizadas (uuid 13, sinon 21), código muerto eliminado",
+				"pl": "Zaktualizowane zależności (uuid 13, sinon 21), usunięto martwy kod",
+				"zh-cn": "更新依赖项 (uuid 13, sinon 21)，删除死代码"
+			},
 			"1.0.3": {
 				"en": "Code cleanup: removed unused dependencies and dead code",
 				"de": "Code-Bereinigung: Ungenutzte Abhängigkeiten und toter Code entfernt",
