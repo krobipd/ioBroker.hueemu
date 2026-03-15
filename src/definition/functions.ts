@@ -1,3 +1,3 @@
-export const FUNCTIONS: { [FunctionName: string]:  string  } = {
-    state: 'light'
+export const FUNCTIONS: { [FunctionName: string]: string } = {
+  state: "light",
 };

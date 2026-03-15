@@ -14,7 +14,7 @@ dist/
 *.tsbuildinfo
 !admin/*.js
 !admin/**/*.js
-!eslint.config.js
+!eslint.config.mjs
 !scripts/*.js
 
 # Tests & Coverage
