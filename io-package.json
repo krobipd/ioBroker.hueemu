@@ -3,6 +3,19 @@
 		"name": "hueemu",
 		"version": "1.0.5",
 		"news": {
+			"1.0.5": {
+				"en": "ioBroker repository compliance fixes: copyright, LICENSE, responsive Admin UI, remove redundant devDependencies",
+				"de": "ioBroker Repository-Konformität: Copyright, LICENSE, responsive Admin UI, redundante devDependencies entfernt",
+				"ru": "Исправления соответствия репозиторию ioBroker: авторские права, LICENSE, адаптивный Admin UI",
+				"pt": "Correções de conformidade: copyright, LICENSE, Admin UI responsiva, dependências de dev redundantes removidas",
+				"nl": "ioBroker repository conformiteitsfixes: copyright, LICENSE, responsieve Admin UI",
+				"fr": "Corrections de conformité ioBroker : copyright, LICENSE, interface Admin réactive",
+				"it": "Correzioni conformità ioBroker: copyright, LICENSE, Admin UI reattiva",
+				"es": "Correcciones de conformidad ioBroker: copyright, LICENSE, Admin UI responsiva",
+				"pl": "Poprawki zgodności ioBroker: prawa autorskie, LICENSE, responsywny Admin UI",
+				"uk": "Виправлення відповідності ioBroker: авторські права, LICENSE, адаптивний Admin UI",
+				"zh-cn": "ioBroker合规修复：版权、LICENSE、响应式Admin界面"
+			},
 			"1.0.4": {
 				"en": "ioBroker repository compliance: official testing actions, all translations, responsive UI",
 				"de": "ioBroker Repository-Konformität: offizielle Test-Actions, alle Übersetzungen, responsive UI",

@@ -1,6 +1,6 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.4-blue)
+![Version](https://img.shields.io/badge/version-1.0.5-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -142,6 +142,9 @@ build/                         # Kompilierter Code
 ---
 
 ## Changelog
+
+### 1.0.5 (2026-03-16)
+- ioBroker repository compliance: copyright, LICENSE, responsive Admin UI, remove redundant devDependencies
 
 ### 1.0.4 (2026-03-15)
 - Updated dependencies (uuid 13, sinon 21), removed dead code
