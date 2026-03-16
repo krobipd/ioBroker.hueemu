@@ -13,6 +13,7 @@
 				"it": "Dipendenze aggiornate (uuid 13, sinon 21), codice morto rimosso",
 				"es": "Dependencias actualizadas (uuid 13, sinon 21), código muerto eliminado",
 				"pl": "Zaktualizowane zależności (uuid 13, sinon 21), usunięto martwy kod",
+				"uk": "Оновлено залежності (uuid 13, sinon 21), видалено мертвий код",
 				"zh-cn": "更新依赖项 (uuid 13, sinon 21)，删除死代码"
 			},
 			"1.0.3": {
@@ -25,6 +26,7 @@
 				"it": "Pulizia codice: rimosse dipendenze inutilizzate e codice morto",
 				"es": "Limpieza de código: eliminadas dependencias no utilizadas y código muerto",
 				"pl": "Czyszczenie kodu: usunięto nieużywane zależności i martwy kod",
+				"uk": "Очищення коду: видалено невикористані залежності та мертвий код",
 				"zh-cn": "代码清理：删除未使用的依赖项和死代码"
 			},
 			"1.0.2": {
@@ -37,6 +39,7 @@
 				"it": "Aggiunto supporto Node.js 24 LTS, CI testa Node.js 20/22/24",
 				"es": "Añadido soporte Node.js 24 LTS, CI prueba Node.js 20/22/24",
 				"pl": "Dodano obsługę Node.js 24 LTS, CI testuje Node.js 20/22/24",
+				"uk": "Додано підтримку Node.js 24 LTS, CI тестує Node.js 20/22/24",
 				"zh-cn": "添加Node.js 24 LTS支持，CI测试Node.js 20/22/24"
 			},
 			"1.0.1": {
@@ -49,6 +52,7 @@
 				"it": "Dipendenze aggiornate, migrazione a @iobroker/eslint-config, GitHub Actions CI/CD",
 				"es": "Dependencias actualizadas, migración a @iobroker/eslint-config, GitHub Actions CI/CD",
 				"pl": "Zaktualizowane zależności, migracja do @iobroker/eslint-config, GitHub Actions CI/CD",
+				"uk": "Оновлено залежності, міграція на @iobroker/eslint-config, GitHub Actions CI/CD",
 				"zh-cn": "更新依赖项，迁移到@iobroker/eslint-config，GitHub Actions CI/CD"
 			},
 			"1.0.0": {
@@ -61,6 +65,7 @@
 				"it": "Riscrittura completa: server Fastify, Admin UI moderna, richiede js-controller 7+",
 				"es": "Reescritura completa: servidor Fastify, Admin UI moderna, requiere js-controller 7+",
 				"pl": "Całkowita przebudowa: serwer Fastify, nowoczesny Admin UI, wymaga js-controller 7+",
+				"uk": "Повне переписування: сервер Fastify, сучасний Admin UI, потрібен js-controller 7+",
 				"zh-cn": "完全重写：Fastify服务器、现代管理界面，需要js-controller 7+"
 			},
 			"0.0.4": {
@@ -73,6 +78,7 @@
 				"it": "Configurazione della porta upnp consentita",
 				"es": "Se permite la configuración del puerto upnp",
 				"pl": "Konfiguracja dozwolonego portu wejściowego",
+				"uk": "Дозволено налаштування порту upnp",
 				"zh-cn": "允许配置upnp端口"
 			},
 			"0.0.3": {
@@ -85,6 +91,7 @@
 				"it": "Scelta dell'interfaccia di rete corretta se sono disponibili più interfacce",
 				"es": "Escogió la interfaz de red correcta si hay varias disponibles",
 				"pl": "Wybierz prawidłowy interfejs sieciowy, jeśli dostępnych jest wiele opcji",
+				"uk": "Вибрано правильний мережевий інтерфейс, якщо доступно кілька",
 				"zh-cn": "如果有多个可用网络接口，则选择正确的网络接口"
 			},
 			"0.0.2": {
@@ -97,6 +104,7 @@
 				"it": "Migliorare la gestione delle chiavi di stato mancanti",
 				"es": "Mejorar el manejo de las llaves de estado faltantes",
 				"pl": "Lepsza obsługa brakujących kluczy stanu",
+				"uk": "Покращено обробку відсутніх ключів стану",
 				"zh-cn": "改进处理丢失的状态键"
 			},
 			"0.0.1": {
@@ -109,6 +117,7 @@
 				"it": "Versione iniziale",
 				"es": "Versión inicial",
 				"pl": "Pierwsze wydanie",
+				"uk": "Перший випуск",
 				"zh-cn": "首次出版"
 			}
 		},
@@ -167,6 +176,9 @@
 		"dependencies": [
 			{
 				"js-controller": ">=7.0.0"
+			},
+			{
+				"admin": ">=7.6.20"
 			}
 		]
 	},

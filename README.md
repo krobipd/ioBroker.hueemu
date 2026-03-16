@@ -1,9 +1,12 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.3-blue)
+![Version](https://img.shields.io/badge/version-1.0.4-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/krobipd)
+![npm downloads](https://img.shields.io/npm/dt/iobroker.hueemu)
+![Installations](https://iobroker.live/badges/hueemu-installed.svg)
 
 ![Logo](admin/hue-emu-logo.png)
 

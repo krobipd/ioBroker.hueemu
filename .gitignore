@@ -5,13 +5,13 @@
 # Dependencies
 node_modules/
 
-# Build output
-build/
+# Build output (build/ is committed for ioBroker repochecker CDN access)
 dist/
 *.js
 *.js.map
 *.d.ts
 *.tsbuildinfo
+!build/**
 !admin/*.js
 !admin/**/*.js
 !eslint.config.mjs
@@ -61,7 +61,8 @@ test-results/
 # ============================================
 # Editor & IDE
 # ============================================
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 # Xcode
