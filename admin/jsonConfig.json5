@@ -15,8 +15,11 @@
                     "type": "text",
                     "label": "host",
                     "tooltip": "hostTooltip",
+                    "xs": 12,
                     "sm": 12,
-                    "md": 6
+                    "md": 6,
+                    "lg": 6,
+                    "xl": 6
                 },
                 "port": {
                     "type": "number",
@@ -25,8 +28,11 @@
                     "min": 1,
                     "max": 65535,
                     "default": 8080,
+                    "xs": 12,
                     "sm": 12,
-                    "md": 6
+                    "md": 6,
+                    "lg": 6,
+                    "xl": 6
                 },
 
                 "advancedHeader": {
@@ -38,6 +44,11 @@
                 "advancedInfo": {
                     "type": "staticText",
                     "text": "advancedInfo",
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12,
                     "style": {
                         "fontSize": 12,
                         "color": "#888",
@@ -51,8 +62,11 @@
                     "default": 1900,
                     "min": 1,
                     "max": 65535,
+                    "xs": 12,
                     "sm": 12,
-                    "md": 4
+                    "md": 4,
+                    "lg": 4,
+                    "xl": 4
                 },
                 "httpsPort": {
                     "type": "number",
@@ -60,15 +74,21 @@
                     "tooltip": "httpsPortTooltip",
                     "min": 1,
                     "max": 65535,
+                    "xs": 12,
                     "sm": 12,
-                    "md": 4
+                    "md": 4,
+                    "lg": 4,
+                    "xl": 4
                 },
                 "mac": {
                     "type": "text",
                     "label": "mac",
                     "tooltip": "macTooltip",
+                    "xs": 12,
                     "sm": 12,
-                    "md": 4
+                    "md": 4,
+                    "lg": 4,
+                    "xl": 4
                 }
             }
         },
@@ -80,6 +100,11 @@
                 "devicesInfo": {
                     "type": "staticText",
                     "text": "deviceConfigHelp",
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12,
                     "style": {
                         "fontSize": 14,
                         "color": "#666",
@@ -93,23 +118,33 @@
                 },
                 "devices": {
                     "type": "accordion",
+                    "xs": 12,
                     "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12,
                     "titleAttr": "name",
                     "items": [
                         {
                             "attr": "name",
                             "type": "text",
                             "label": "deviceName",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "default": "New Light"
                         },
                         {
                             "attr": "lightType",
                             "type": "select",
                             "label": "lightType",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "default": "dimmable",
                             "options": [
                                 {"label": "lightTypeOnOff", "value": "onoff"},
@@ -124,8 +159,11 @@
                             "label": "stateOn",
                             "tooltip": "stateOnTooltip",
                             "types": "state",
+                            "xs": 12,
                             "sm": 12,
-                            "md": 6
+                            "md": 6,
+                            "lg": 6,
+                            "xl": 6
                         },
                         {
                             "attr": "briState",
@@ -133,8 +171,11 @@
                             "label": "stateBri",
                             "tooltip": "stateBriTooltip",
                             "types": "state",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "hidden": "data.lightType === 'onoff'"
                         },
                         {
@@ -143,8 +184,11 @@
                             "label": "stateCt",
                             "tooltip": "stateCtTooltip",
                             "types": "state",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
                         },
                         {
@@ -153,8 +197,11 @@
                             "label": "stateHue",
                             "tooltip": "stateHueTooltip",
                             "types": "state",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "hidden": "data.lightType !== 'color'"
                         },
                         {
@@ -163,8 +210,11 @@
                             "label": "stateSat",
                             "tooltip": "stateSatTooltip",
                             "types": "state",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "hidden": "data.lightType !== 'color'"
                         },
                         {
@@ -173,8 +223,11 @@
                             "label": "stateXy",
                             "tooltip": "stateXyTooltip",
                             "types": "state",
+                            "xs": 12,
                             "sm": 12,
                             "md": 6,
+                            "lg": 6,
+                            "xl": 6,
                             "hidden": "data.lightType !== 'color'"
                         }
                     ]
