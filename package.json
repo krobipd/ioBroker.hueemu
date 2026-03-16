@@ -50,7 +50,7 @@
 		"@types/node-ssdp": "^4.0.5",
 		"@types/sinon": "^21.0.0",
 		"@types/sinon-chai": "^4.0.0",
-		"chai": "^4.5.0",
+		"chai": "^6.2.2",
 		"chai-as-promised": "^8.0.2",
 		"eslint": "^9.39.4",
 		"mocha": "^11.7.5",
