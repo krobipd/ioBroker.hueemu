@@ -176,6 +176,8 @@ Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
 MIT License - see [LICENSE](LICENSE)
 
+Copyright (c) 2020-2026 Christopher Holomek <holomekc.github@gmail.com>
+
 ---
 
 *Entwickelt mit Unterstützung von Claude.ai*
