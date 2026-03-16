@@ -1,0 +1,41 @@
+{
+    "networkSettings": "Red",
+    "serverSettings": "Servidor",
+    "host": "Host / Dirección IP",
+    "hostTooltip": "Dirección IP del servidor ioBroker",
+    "port": "Puerto",
+    "portTooltip": "Puerto HTTP para la API Hue (por defecto: 8080)",
+
+    "advancedSettings": "Avanzado (opcional)",
+    "advancedInfo": "Estas configuraciones son opcionales. Se utilizan valores predeterminados cuando se dejan vacíos.",
+    "upnpPort": "Puerto UPnP",
+    "upnpPortTooltip": "Puerto de descubrimiento SSDP (por defecto: 1900)",
+    "httpsPort": "Puerto HTTPS",
+    "httpsPortTooltip": "Puerto HTTPS (vacío = sin HTTPS)",
+    "mac": "Dirección MAC",
+    "macTooltip": "MAC opcional para Bridge-ID (generado automáticamente si está vacío)",
+
+    "deviceConfiguration": "Dispositivos",
+    "configuredDevices": "Dispositivos configurados",
+    "deviceConfigHelp": "Añade dispositivos y mapea estados de ioBroker a propiedades Hue.",
+
+    "deviceName": "Nombre",
+    "lightType": "Tipo",
+    "lightTypeOnOff": "Encendido/Apagado",
+    "lightTypeDimmable": "Regulable",
+    "lightTypeCT": "Temperatura de color",
+    "lightTypeColor": "Color (RGB)",
+
+    "stateOn": "Estado Encendido/Apagado",
+    "stateOnTooltip": "Estado booleano para encendido/apagado",
+    "stateBri": "Estado de brillo",
+    "stateBriTooltip": "Estado numérico para brillo (0-100 o 0-254)",
+    "stateCt": "Estado de temperatura de color",
+    "stateCtTooltip": "Estado numérico para temperatura de color",
+    "stateHue": "Estado de tono",
+    "stateHueTooltip": "Estado numérico para tono (0-360 o 0-65535)",
+    "stateSat": "Estado de saturación",
+    "stateSatTooltip": "Estado numérico para saturación",
+    "stateXy": "Estado de color XY",
+    "stateXyTooltip": "Coordenadas de color CIE xy (opcional)"
+}

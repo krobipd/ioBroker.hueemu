@@ -91,6 +91,9 @@ ehthumbs.db
 Thumbs.db
 
 # ============================================
+# CI/CD Generated
+.commitinfo
+
 # Environment & Secrets
 # ============================================
 .env

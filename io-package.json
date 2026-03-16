@@ -67,61 +67,8 @@
 				"pl": "Całkowita przebudowa: serwer Fastify, nowoczesny Admin UI, wymaga js-controller 7+",
 				"uk": "Повне переписування: сервер Fastify, сучасний Admin UI, потрібен js-controller 7+",
 				"zh-cn": "完全重写：Fastify服务器、现代管理界面，需要js-controller 7+"
-			},
-			"0.0.4": {
-				"en": "Configuration of upnp port allowed",
-				"de": "Konfiguration des upnp-Ports erlaubt",
-				"ru": "Конфигурация входного порта разрешена",
-				"pt": "Configuração de porta upnp permitida",
-				"nl": "Configuratie van upnp-poort toegestaan",
-				"fr": "Configuration du port upnp autorisée",
-				"it": "Configurazione della porta upnp consentita",
-				"es": "Se permite la configuración del puerto upnp",
-				"pl": "Konfiguracja dozwolonego portu wejściowego",
-				"uk": "Дозволено налаштування порту upnp",
-				"zh-cn": "允许配置upnp端口"
-			},
-			"0.0.3": {
-				"en": "Picked correct network interface if multiple are available",
-				"de": "Korrekte Netzwerkschnittstelle ausgewählt, falls mehrere verfügbar sind",
-				"ru": "Выбран правильный сетевой интерфейс, если их несколько.",
-				"pt": "Escolhido o interface de rede correcto se houver múltiplos disponíveis",
-				"nl": "De juiste netwerkinterface gekozen als er meerdere beschikbaar zijn",
-				"fr": "Choix de la bonne interface réseau si plusieurs sont disponibles",
-				"it": "Scelta dell'interfaccia di rete corretta se sono disponibili più interfacce",
-				"es": "Escogió la interfaz de red correcta si hay varias disponibles",
-				"pl": "Wybierz prawidłowy interfejs sieciowy, jeśli dostępnych jest wiele opcji",
-				"uk": "Вибрано правильний мережевий інтерфейс, якщо доступно кілька",
-				"zh-cn": "如果有多个可用网络接口，则选择正确的网络接口"
-			},
-			"0.0.2": {
-				"en": "Improve handling missing state keys",
-				"de": "Verbessern Sie die Handhabung fehlender Zustandsschlüssel ",
-				"ru": "Улучшение работы с отсутствующими государственными ключами",
-				"pt": "Melhorar o manuseamento das chaves de estado em falta",
-				"nl": "Verbeteren van de afhandeling van ontbrekende statussleutels",
-				"fr": "Améliorer le traitement des clés d'état manquantes",
-				"it": "Migliorare la gestione delle chiavi di stato mancanti",
-				"es": "Mejorar el manejo de las llaves de estado faltantes",
-				"pl": "Lepsza obsługa brakujących kluczy stanu",
-				"uk": "Покращено обробку відсутніх ключів стану",
-				"zh-cn": "改进处理丢失的状态键"
-			},
-			"0.0.1": {
-				"en": "initial release",
-				"de": "Erstveröffentlichung",
-				"ru": "Начальная версия",
-				"pt": "lançamento inicial",
-				"nl": "Eerste uitgave",
-				"fr": "Première version",
-				"it": "Versione iniziale",
-				"es": "Versión inicial",
-				"pl": "Pierwsze wydanie",
-				"uk": "Перший випуск",
-				"zh-cn": "首次出版"
 			}
 		},
-		"title": "Hue-Emu",
 		"titleLang": {
 			"en": "Hue-Emu",
 			"de": "Hue-Emu",
@@ -132,6 +79,7 @@
 			"it": "Hue-Emu",
 			"es": "Hue-Emu",
 			"pl": "Hue-Emu",
+			"uk": "Hue-Emu",
 			"zh-cn": "Hue-Emu"
 		},
 		"desc": {
@@ -144,20 +92,24 @@
 			"it": "Simulare un Hue-Bridge con luci autocostruite.",
 			"es": "Simular un Hue-Bridge con luces creadas por uno mismo.",
 			"pl": "Symuluj Hue-Bridge'a za pomocą samodzielnie stworzonych świateł.",
+			"uk": "Симулюйте міст Hue зі самостійно створеними вогнями.",
 			"zh-cn": "用自创建的灯光模拟色相桥"
 		},
 		"authors": [
-			"Christopher Holomek <holomekc.github@gmail.com>"
+			"Christopher Holomek <holomekc.github@gmail.com>",
+			"krobi <krobi@power-dreams.com>"
 		],
 		"keywords": [
-			"ioBroker",
 			"Hue",
-			"Smart Home",
+			"Philips",
+			"Bridge",
 			"home automation"
 		],
-		"license": "MIT",
+		"licenseInformation": {
+			"license": "MIT",
+			"type": "free"
+		},
 		"platform": "Javascript/Node.js",
-		"main": "build/main.js",
 		"icon": "hue-emu-logo.png",
 		"enabled": false,
 		"extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/master/admin/hue-emu-logo.png",
@@ -169,14 +121,15 @@
 		"adminUI": {
 			"config": "json"
 		},
-		"supportCustoms": true,
 		"connectionType": "local",
 		"dataSource": "push",
 		"tier": 3,
 		"dependencies": [
 			{
 				"js-controller": ">=7.0.0"
-			},
+			}
+		],
+		"globalDependencies": [
 			{
 				"admin": ">=7.6.20"
 			}

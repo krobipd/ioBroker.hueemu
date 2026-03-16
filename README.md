@@ -143,7 +143,16 @@ build/                         # Kompilierter Code
 
 ## Changelog
 
-Siehe [CHANGELOG.md](CHANGELOG.md).
+### 1.0.4 (2026-03-15)
+- Updated dependencies (uuid 13, sinon 21), removed dead code
+
+### 1.0.3 (2026-03-15)
+- Code cleanup: removed unused dependencies and dead code
+
+### 1.0.0 (2026-03-09)
+- Major rewrite: Fastify server, modern Admin UI, requires js-controller 7+
+
+Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -163,9 +172,9 @@ Siehe [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## Lizenz
+## License
 
-MIT License - siehe [LICENSE](LICENSE)
+MIT License - see [LICENSE](LICENSE)
 
 ---
 

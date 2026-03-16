@@ -1,0 +1,41 @@
+{
+    "networkSettings": "网络",
+    "serverSettings": "服务器",
+    "host": "主机 / IP地址",
+    "hostTooltip": "ioBroker服务器的IP地址",
+    "port": "端口",
+    "portTooltip": "Hue API的HTTP端口（默认：8080）",
+
+    "advancedSettings": "高级（可选）",
+    "advancedInfo": "这些设置是可选的。留空时使用默认值。",
+    "upnpPort": "UPnP端口",
+    "upnpPortTooltip": "SSDP发现端口（默认：1900）",
+    "httpsPort": "HTTPS端口",
+    "httpsPortTooltip": "HTTPS端口（空 = 无HTTPS）",
+    "mac": "MAC地址",
+    "macTooltip": "Bridge-ID的可选MAC（为空时自动生成）",
+
+    "deviceConfiguration": "设备",
+    "configuredDevices": "已配置设备",
+    "deviceConfigHelp": "添加设备并将ioBroker状态映射到Hue属性。",
+
+    "deviceName": "名称",
+    "lightType": "类型",
+    "lightTypeOnOff": "开/关",
+    "lightTypeDimmable": "可调光",
+    "lightTypeCT": "色温",
+    "lightTypeColor": "颜色（RGB）",
+
+    "stateOn": "开/关状态",
+    "stateOnTooltip": "开/关的布尔状态",
+    "stateBri": "亮度状态",
+    "stateBriTooltip": "亮度的数值状态（0-100或0-254）",
+    "stateCt": "色温状态",
+    "stateCtTooltip": "色温的数值状态",
+    "stateHue": "色相状态",
+    "stateHueTooltip": "色相的数值状态（0-360或0-65535）",
+    "stateSat": "饱和度状态",
+    "stateSatTooltip": "饱和度的数值状态",
+    "stateXy": "XY颜色状态",
+    "stateXyTooltip": "CIE xy颜色坐标（可选）"
+}

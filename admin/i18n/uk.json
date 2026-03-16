@@ -1,0 +1,41 @@
+{
+    "networkSettings": "Мережа",
+    "serverSettings": "Сервер",
+    "host": "Хост / IP-адреса",
+    "hostTooltip": "IP-адреса сервера ioBroker",
+    "port": "Порт",
+    "portTooltip": "HTTP-порт для API Hue (за замовчуванням: 8080)",
+
+    "advancedSettings": "Розширені (необов'язково)",
+    "advancedInfo": "Ці налаштування необов'язкові. Значення за замовчуванням використовуються, якщо поля порожні.",
+    "upnpPort": "Порт UPnP",
+    "upnpPortTooltip": "Порт виявлення SSDP (за замовчуванням: 1900)",
+    "httpsPort": "Порт HTTPS",
+    "httpsPortTooltip": "Порт HTTPS (порожньо = без HTTPS)",
+    "mac": "MAC-адреса",
+    "macTooltip": "Необов'язковий MAC для Bridge-ID (генерується автоматично якщо порожньо)",
+
+    "deviceConfiguration": "Пристрої",
+    "configuredDevices": "Налаштовані пристрої",
+    "deviceConfigHelp": "Додайте пристрої та зіставте стани ioBroker з властивостями Hue.",
+
+    "deviceName": "Назва",
+    "lightType": "Тип",
+    "lightTypeOnOff": "Вкл/Викл",
+    "lightTypeDimmable": "Диммований",
+    "lightTypeCT": "Колірна температура",
+    "lightTypeColor": "Колір (RGB)",
+
+    "stateOn": "Стан Вкл/Викл",
+    "stateOnTooltip": "Булевий стан для вкл/викл",
+    "stateBri": "Стан яскравості",
+    "stateBriTooltip": "Числовий стан для яскравості (0-100 або 0-254)",
+    "stateCt": "Стан колірної температури",
+    "stateCtTooltip": "Числовий стан для колірної температури",
+    "stateHue": "Стан відтінку",
+    "stateHueTooltip": "Числовий стан для відтінку (0-360 або 0-65535)",
+    "stateSat": "Стан насиченості",
+    "stateSatTooltip": "Числовий стан для насиченості",
+    "stateXy": "Стан кольору XY",
+    "stateXyTooltip": "Координати кольору CIE xy (необов'язково)"
+}

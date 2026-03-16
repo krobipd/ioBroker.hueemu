@@ -1,0 +1,41 @@
+{
+    "networkSettings": "Netwerk",
+    "serverSettings": "Server",
+    "host": "Host / IP-adres",
+    "hostTooltip": "IP-adres van de ioBroker-server",
+    "port": "Poort",
+    "portTooltip": "HTTP-poort voor de Hue API (standaard: 8080)",
+
+    "advancedSettings": "Geavanceerd (optioneel)",
+    "advancedInfo": "Deze instellingen zijn optioneel. Standaardwaarden worden gebruikt als ze leeg worden gelaten.",
+    "upnpPort": "UPnP-poort",
+    "upnpPortTooltip": "SSDP-detectiepoort (standaard: 1900)",
+    "httpsPort": "HTTPS-poort",
+    "httpsPortTooltip": "HTTPS-poort (leeg = geen HTTPS)",
+    "mac": "MAC-adres",
+    "macTooltip": "Optioneel MAC voor Bridge-ID (automatisch gegenereerd als leeg)",
+
+    "deviceConfiguration": "Apparaten",
+    "configuredDevices": "Geconfigureerde apparaten",
+    "deviceConfigHelp": "Voeg apparaten toe en koppel ioBroker-statussen aan Hue-eigenschappen.",
+
+    "deviceName": "Naam",
+    "lightType": "Type",
+    "lightTypeOnOff": "Aan/Uit",
+    "lightTypeDimmable": "Dimbaar",
+    "lightTypeCT": "Kleurtemperatuur",
+    "lightTypeColor": "Kleur (RGB)",
+
+    "stateOn": "Aan/Uit-status",
+    "stateOnTooltip": "Booleaanse status voor aan/uit",
+    "stateBri": "Helderheidssstatus",
+    "stateBriTooltip": "Numerieke status voor helderheid (0-100 of 0-254)",
+    "stateCt": "Kleurtemperatuurstatus",
+    "stateCtTooltip": "Numerieke status voor kleurtemperatuur",
+    "stateHue": "Hue-status",
+    "stateHueTooltip": "Numerieke status voor hue (0-360 of 0-65535)",
+    "stateSat": "Verzadigingsstatus",
+    "stateSatTooltip": "Numerieke status voor verzadiging",
+    "stateXy": "XY-kleurstatus",
+    "stateXyTooltip": "CIE xy-kleurcoördinaten (optioneel)"
+}
