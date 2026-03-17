@@ -1,173 +1,186 @@
 {
-	"common": {
-		"name": "hueemu",
-		"version": "1.0.5",
-		"news": {
-			"1.0.5": {
-				"en": "ioBroker repository compliance fixes: copyright, LICENSE, responsive Admin UI, remove redundant devDependencies",
-				"de": "ioBroker Repository-Konformität: Copyright, LICENSE, responsive Admin UI, redundante devDependencies entfernt",
-				"ru": "Исправления соответствия репозиторию ioBroker: авторские права, LICENSE, адаптивный Admin UI",
-				"pt": "Correções de conformidade: copyright, LICENSE, Admin UI responsiva, dependências de dev redundantes removidas",
-				"nl": "ioBroker repository conformiteitsfixes: copyright, LICENSE, responsieve Admin UI",
-				"fr": "Corrections de conformité ioBroker : copyright, LICENSE, interface Admin réactive",
-				"it": "Correzioni conformità ioBroker: copyright, LICENSE, Admin UI reattiva",
-				"es": "Correcciones de conformidad ioBroker: copyright, LICENSE, Admin UI responsiva",
-				"pl": "Poprawki zgodności ioBroker: prawa autorskie, LICENSE, responsywny Admin UI",
-				"uk": "Виправлення відповідності ioBroker: авторські права, LICENSE, адаптивний Admin UI",
-				"zh-cn": "ioBroker合规修复：版权、LICENSE、响应式Admin界面"
-			},
-			"1.0.4": {
-				"en": "ioBroker repository compliance: official testing actions, all translations, responsive UI",
-				"de": "ioBroker Repository-Konformität: offizielle Test-Actions, alle Übersetzungen, responsive UI",
-				"ru": "Соответствие репозиторию ioBroker: официальные тестовые действия, все переводы, адаптивный интерфейс",
-				"pt": "Conformidade com o repositório ioBroker: ações de teste oficiais, todas as traduções, UI responsiva",
-				"nl": "ioBroker repository naleving: officiële testacties, alle vertalingen, responsieve UI",
-				"fr": "Conformité au dépôt ioBroker : actions de test officielles, toutes les traductions, interface réactive",
-				"it": "Conformità al repository ioBroker: azioni di test ufficiali, tutte le traduzioni, UI reattiva",
-				"es": "Cumplimiento del repositorio ioBroker: acciones de prueba oficiales, todas las traducciones, UI responsiva",
-				"pl": "Zgodność z repozytorium ioBroker: oficjalne akcje testowe, wszystkie tłumaczenia, responsywny interfejs",
-				"uk": "Відповідність репозиторію ioBroker: офіційні тестові дії, всі переклади, адаптивний інтерфейс",
-				"zh-cn": "ioBroker仓库合规：官方测试操作、所有翻译、响应式界面"
-			}
-		},
-		"titleLang": {
-			"en": "Hue-Emu",
-			"de": "Hue-Emu",
-			"ru": "Hue-Emu",
-			"pt": "Hue-Emu",
-			"nl": "Hue-Emu",
-			"fr": "Hue-Emu",
-			"it": "Hue-Emu",
-			"es": "Hue-Emu",
-			"pl": "Hue-Emu",
-			"uk": "Hue-Emu",
-			"zh-cn": "Hue-Emu"
-		},
-		"desc": {
-			"en": "Simulate a Hue-Bridge with self created lights.",
-			"de": "Simulieren einer Hue-Bridge mit selbst erstellten Lichtern.",
-			"ru": "Моделируйте мост Хью-Бридж с помощью самосозданного света.",
-			"pt": "Simular um Hue-Bridge com luzes auto-criadas.",
-			"nl": "Simuleer een Hue-Bridge met zelfgemaakte lichten.",
-			"fr": "Simulez un pont de teinte avec des lumières créées par vous-même.",
-			"it": "Simulare un Hue-Bridge con luci autocostruite.",
-			"es": "Simular un Hue-Bridge con luces creadas por uno mismo.",
-			"pl": "Symuluj Hue-Bridge'a za pomocą samodzielnie stworzonych świateł.",
-			"uk": "Симулюйте міст Hue зі самостійно створеними вогнями.",
-			"zh-cn": "用自创建的灯光模拟色相桥"
-		},
-		"authors": [
-			"Christopher Holomek <holomekc.github@gmail.com>",
-			"krobi <krobi@power-dreams.com>"
-		],
-		"keywords": [
-			"Hue",
-			"Philips",
-			"Bridge",
-			"home automation"
-		],
-		"licenseInformation": {
-			"license": "MIT",
-			"type": "free"
-		},
-		"platform": "Javascript/Node.js",
-		"icon": "hue-emu-logo.png",
-		"enabled": false,
-		"extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/master/admin/hue-emu-logo.png",
-		"readme": "https://github.com/krobipd/ioBroker.hueemu/blob/master/README.md",
-		"loglevel": "info",
-		"mode": "daemon",
-		"type": "lighting",
-		"compact": true,
-		"adminUI": {
-			"config": "json"
-		},
-		"connectionType": "local",
-		"dataSource": "push",
-		"tier": 3,
-		"dependencies": [
-			{
-				"js-controller": ">=7.0.0"
-			}
-		],
-		"globalDependencies": [
-			{
-				"admin": ">=7.6.20"
-			}
-		]
-	},
-	"native": {
-		"host": "192.168.178.10",
-		"port": "8080",
-		"discoveryHost": "192.168.178.10",
-		"discoveryPort": "8080",
-		"httpsPort": "",
-		"udn": "",
-		"mac": "",
-		"upnpPort": "1900",
-		"devices": []
-	},
-	"objects": [],
-	"instanceObjects": [
-		{
-			"_id": "createLight",
-			"type": "state",
-			"common": {
-				"name": "createLight",
-				"type": "string",
-				"read": true,
-				"write": true,
-				"role": "state",
-				"desc": "JSON to create lights manually (legacy mode)"
-			},
-			"native": {}
-		},
-		{
-			"_id": "startPairing",
-			"type": "state",
-			"common": {
-				"name": "startPairing",
-				"type": "boolean",
-				"role": "button",
-				"write": true,
-				"read": true,
-				"desc": "Enable pairing mode for 50 seconds"
-			},
-			"native": {}
-		},
-		{
-			"_id": "disableAuth",
-			"type": "state",
-			"common": {
-				"name": "disableAuthentication",
-				"type": "boolean",
-				"role": "switch",
-				"write": true,
-				"read": true,
-				"desc": "Disable authentication (allow all requests)"
-			},
-			"native": {}
-		},
-		{
-			"_id": "info",
-			"type": "channel",
-			"common": {
-				"name": "Adapter Information"
-			},
-			"native": {}
-		},
-		{
-			"_id": "info.configuredDevices",
-			"type": "state",
-			"common": {
-				"name": "Configured Devices",
-				"type": "number",
-				"role": "value",
-				"read": true,
-				"write": false,
-				"desc": "Number of devices configured in admin UI"
-			},
-			"native": {}
-		}
-	]
+  "common": {
+    "name": "hueemu",
+    "version": "1.0.6",
+    "news": {
+      "1.0.6": {
+        "en": "Migrate to @alcalzone/release-script for automated releases\nEnable npm Trusted Publishing (OIDC), remove legacy npm token\nTranslate README to English, remove direct install instructions",
+        "de": "Migration auf @alcalzone/Release-script für automatisierte Versionen\nAktiviere npm Trusted Publishing (OIDC), legacy npm token\nÜbersetzen Sie README auf Englisch, Entfernen Sie die Anweisungen zur Direktinstallation",
+        "ru": "Migrate to @alcalzone/releasescript для автоматизированных релизов\nВключить npm Trusted Publishing (OIDC), удалить устаревший токен npm\nПереводить на английский язык, удалять инструкции по установке",
+        "pt": "Migrar para @alcalzone/release-script para versões automatizadas\nActivar a publicação confiável do npm (OIDC), remover o símbolo legado do npm\nTraduzir README para Inglês, remover instruções de instalação direta",
+        "nl": "Migreren naar @alcalzone/release-script voor geautomatiseerde releases\nNpm Trusted Publishing (OIDC) inschakelen, legacy npm token verwijderen\nVertaal README naar het Nederlands, verwijder directe installatie instructies",
+        "fr": "Migrer vers @alcalzone/release-script pour les versions automatisées\nActiver npm Trusted Publishing (OIDC), supprimer le legs npm token\nTraduire README en anglais, supprimer les instructions d'installation directe",
+        "it": "Migrare a @alcalzone/release-script per le versioni automatizzate\nAbilitare npm Trusted Publishing (OIDC), rimuovere il token npm legacy\nTradurre README in inglese, rimuovere le istruzioni di installazione diretta",
+        "es": "Migrar a @alcalzone/release-script para versiones automatizadas\nActivar npm Trusted Publishing (OIDC), eliminar el legado npm token\nTraducir README al inglés, eliminar instrucciones de instalación directa",
+        "pl": "Migrate to @ alcalzone / release- script for automatic releases\nWłącz npm Zaufane Publishing (OIDC), usuń poprzednią npm token\nPrzetłumacz README na angielski, usuń instrukcje instalacji bezpośredniej",
+        "uk": "Migrate to @alcalzone/видання для автоматизованих релізів\nУвімкнути npm Trusted Publishing (OIDC), видалити дані npm token\nTranslate README to English, Русский, Українська..",
+        "zh-cn": "移动到 @alcalzone/ 释放- 标记用于自动发布\n启用 npm 信任的出版( OIDC), 删除遗留 npm 令牌\n将 README 翻译为英文, 删除直接安装指令"
+      },
+      "1.0.5": {
+        "en": "ioBroker repository compliance fixes: copyright, LICENSE, responsive Admin UI, remove redundant devDependencies",
+        "de": "ioBroker Repository-Konformität: Copyright, LICENSE, responsive Admin UI, redundante devDependencies entfernt",
+        "ru": "Исправления соответствия репозиторию ioBroker: авторские права, LICENSE, адаптивный Admin UI",
+        "pt": "Correções de conformidade: copyright, LICENSE, Admin UI responsiva, dependências de dev redundantes removidas",
+        "nl": "ioBroker repository conformiteitsfixes: copyright, LICENSE, responsieve Admin UI",
+        "fr": "Corrections de conformité ioBroker : copyright, LICENSE, interface Admin réactive",
+        "it": "Correzioni conformità ioBroker: copyright, LICENSE, Admin UI reattiva",
+        "es": "Correcciones de conformidad ioBroker: copyright, LICENSE, Admin UI responsiva",
+        "pl": "Poprawki zgodności ioBroker: prawa autorskie, LICENSE, responsywny Admin UI",
+        "uk": "Виправлення відповідності ioBroker: авторські права, LICENSE, адаптивний Admin UI",
+        "zh-cn": "ioBroker合规修复：版权、LICENSE、响应式Admin界面"
+      },
+      "1.0.4": {
+        "en": "ioBroker repository compliance: official testing actions, all translations, responsive UI",
+        "de": "ioBroker Repository-Konformität: offizielle Test-Actions, alle Übersetzungen, responsive UI",
+        "ru": "Соответствие репозиторию ioBroker: официальные тестовые действия, все переводы, адаптивный интерфейс",
+        "pt": "Conformidade com o repositório ioBroker: ações de teste oficiais, todas as traduções, UI responsiva",
+        "nl": "ioBroker repository naleving: officiële testacties, alle vertalingen, responsieve UI",
+        "fr": "Conformité au dépôt ioBroker : actions de test officielles, toutes les traductions, interface réactive",
+        "it": "Conformità al repository ioBroker: azioni di test ufficiali, tutte le traduzioni, UI reattiva",
+        "es": "Cumplimiento del repositorio ioBroker: acciones de prueba oficiales, todas las traducciones, UI responsiva",
+        "pl": "Zgodność z repozytorium ioBroker: oficjalne akcje testowe, wszystkie tłumaczenia, responsywny interfejs",
+        "uk": "Відповідність репозиторію ioBroker: офіційні тестові дії, всі переклади, адаптивний інтерфейс",
+        "zh-cn": "ioBroker仓库合规：官方测试操作、所有翻译、响应式界面"
+      }
+    },
+    "titleLang": {
+      "en": "Hue-Emu",
+      "de": "Hue-Emu",
+      "ru": "Hue-Emu",
+      "pt": "Hue-Emu",
+      "nl": "Hue-Emu",
+      "fr": "Hue-Emu",
+      "it": "Hue-Emu",
+      "es": "Hue-Emu",
+      "pl": "Hue-Emu",
+      "uk": "Hue-Emu",
+      "zh-cn": "Hue-Emu"
+    },
+    "desc": {
+      "en": "Simulate a Hue-Bridge with self created lights.",
+      "de": "Simulieren einer Hue-Bridge mit selbst erstellten Lichtern.",
+      "ru": "Моделируйте мост Хью-Бридж с помощью самосозданного света.",
+      "pt": "Simular um Hue-Bridge com luzes auto-criadas.",
+      "nl": "Simuleer een Hue-Bridge met zelfgemaakte lichten.",
+      "fr": "Simulez un pont de teinte avec des lumières créées par vous-même.",
+      "it": "Simulare un Hue-Bridge con luci autocostruite.",
+      "es": "Simular un Hue-Bridge con luces creadas por uno mismo.",
+      "pl": "Symuluj Hue-Bridge'a za pomocą samodzielnie stworzonych świateł.",
+      "uk": "Симулюйте міст Hue зі самостійно створеними вогнями.",
+      "zh-cn": "用自创建的灯光模拟色相桥"
+    },
+    "authors": [
+      "Christopher Holomek <holomekc.github@gmail.com>",
+      "krobi <krobi@power-dreams.com>"
+    ],
+    "keywords": [
+      "Hue",
+      "Philips",
+      "Bridge",
+      "home automation"
+    ],
+    "licenseInformation": {
+      "license": "MIT",
+      "type": "free"
+    },
+    "platform": "Javascript/Node.js",
+    "icon": "hue-emu-logo.png",
+    "enabled": false,
+    "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/master/admin/hue-emu-logo.png",
+    "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/master/README.md",
+    "loglevel": "info",
+    "mode": "daemon",
+    "type": "lighting",
+    "compact": true,
+    "adminUI": {
+      "config": "json"
+    },
+    "connectionType": "local",
+    "dataSource": "push",
+    "tier": 3,
+    "dependencies": [
+      {
+        "js-controller": ">=7.0.0"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.6.20"
+      }
+    ]
+  },
+  "native": {
+    "host": "192.168.178.10",
+    "port": "8080",
+    "discoveryHost": "192.168.178.10",
+    "discoveryPort": "8080",
+    "httpsPort": "",
+    "udn": "",
+    "mac": "",
+    "upnpPort": "1900",
+    "devices": []
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "createLight",
+      "type": "state",
+      "common": {
+        "name": "createLight",
+        "type": "string",
+        "read": true,
+        "write": true,
+        "role": "state",
+        "desc": "JSON to create lights manually (legacy mode)"
+      },
+      "native": {}
+    },
+    {
+      "_id": "startPairing",
+      "type": "state",
+      "common": {
+        "name": "startPairing",
+        "type": "boolean",
+        "role": "button",
+        "write": true,
+        "read": true,
+        "desc": "Enable pairing mode for 50 seconds"
+      },
+      "native": {}
+    },
+    {
+      "_id": "disableAuth",
+      "type": "state",
+      "common": {
+        "name": "disableAuthentication",
+        "type": "boolean",
+        "role": "switch",
+        "write": true,
+        "read": true,
+        "desc": "Disable authentication (allow all requests)"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Adapter Information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.configuredDevices",
+      "type": "state",
+      "common": {
+        "name": "Configured Devices",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "desc": "Number of devices configured in admin UI"
+      },
+      "native": {}
+    }
+  ]
 }
