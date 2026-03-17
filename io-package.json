@@ -108,5 +108,66 @@
 		"devices": []
 	},
 	"objects": [],
-	"instanceObjects": []
+	"instanceObjects": [
+		{
+			"_id": "createLight",
+			"type": "state",
+			"common": {
+				"name": "createLight",
+				"type": "string",
+				"read": true,
+				"write": true,
+				"role": "state",
+				"desc": "JSON to create lights manually (legacy mode)"
+			},
+			"native": {}
+		},
+		{
+			"_id": "startPairing",
+			"type": "state",
+			"common": {
+				"name": "startPairing",
+				"type": "boolean",
+				"role": "button",
+				"write": true,
+				"read": true,
+				"desc": "Enable pairing mode for 50 seconds"
+			},
+			"native": {}
+		},
+		{
+			"_id": "disableAuth",
+			"type": "state",
+			"common": {
+				"name": "disableAuthentication",
+				"type": "boolean",
+				"role": "switch",
+				"write": true,
+				"read": true,
+				"desc": "Disable authentication (allow all requests)"
+			},
+			"native": {}
+		},
+		{
+			"_id": "info",
+			"type": "channel",
+			"common": {
+				"name": "Adapter Information"
+			},
+			"native": {}
+		},
+		{
+			"_id": "info.configuredDevices",
+			"type": "state",
+			"common": {
+				"name": "Configured Devices",
+				"type": "number",
+				"role": "value",
+				"read": true,
+				"write": false,
+				"desc": "Number of devices configured in admin UI"
+			},
+			"native": {}
+		}
+	]
 }

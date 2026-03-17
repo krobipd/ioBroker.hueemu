@@ -10,134 +10,116 @@
 
 ![Logo](admin/hue-emu-logo.png)
 
-Emuliert eine Philips Hue Bridge (v2, BSB002) und ermöglicht die Steuerung von ioBroker-Geräten über Alexa, Google Home und andere Hue-kompatible Smart Home Systeme.
+Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be controlled via Alexa, Google Home, and other Hue-compatible smart home systems.
 
 ---
 
-## Funktionen
+## Features
 
-- **Hue Bridge Emulation** - Vollständige Hue API v1 Kompatibilität
-- **UPnP/SSDP Discovery** - Automatische Erkennung durch Smart Home Systeme
-- **Moderne Admin-UI** - JSON-Config für einfache Gerätekonfiguration
-- **Flexible Geräte** - On/Off, Dimmbar, Farbtemperatur, RGB Lampen
+- **Hue Bridge Emulation** — Full Hue API v1 compatibility
+- **UPnP/SSDP Discovery** — Automatic detection by smart home systems
+- **Modern Admin UI** — JSON-Config for easy device configuration
+- **Flexible Device Types** — On/Off, Dimmable, Color Temperature, RGB lights
 
 ---
 
-## Voraussetzungen
+## Requirements
 
-- **Node.js ≥ 20** (getestet mit 20, 22, 24 LTS)
-- **ioBroker js-controller ≥ 7.0.0**
-- **ioBroker Admin ≥ 7.0.0**
+- **Node.js >= 20**
+- **ioBroker js-controller >= 7.0.0**
+- **ioBroker Admin >= 7.6.20**
 
 ---
 
 ## Installation
 
-```bash
-cd /opt/iobroker
-npm install iobroker.hueemu
-iobroker add hueemu
-```
-
-Oder über die ioBroker Admin-Oberfläche (Custom URL):
-```bash
-iobroker url https://github.com/krobipd/ioBroker.hueemu
-```
+Install via the ioBroker Admin UI: **Adapters → Search for "hueemu"**.
 
 ---
 
-## Konfiguration
+## Configuration
 
-### Netzwerk-Einstellungen
+### Network Settings
 
-| Option | Beschreibung | Standard |
-|--------|--------------|----------|
-| **Host** | IP-Adresse der Bridge | - |
-| **HTTP Port** | Port für Hue API | 8080 |
-| **UPnP Port** | SSDP Discovery Port | 1900 |
-| **HTTPS Port** | Optionaler HTTPS Port | - |
-| **MAC-Adresse** | Bridge MAC (auto-generiert) | - |
+| Option | Description | Default |
+|--------|-------------|---------|
+| **Host** | IP address of the bridge (must be a real network IP) | — |
+| **HTTP Port** | Port for the Hue API | 8080 |
+| **UPnP Port** | SSDP discovery port | 1900 |
+| **HTTPS Port** | Optional HTTPS port | — |
+| **MAC Address** | Bridge MAC (auto-generated if empty) | — |
 
-### Geräte hinzufügen
+### Adding Devices
 
-1. Tab "Geräte-Konfiguration" öffnen
-2. `+` Button klicken
-3. **Name** eingeben (z.B. "Wohnzimmer Licht")
-4. **Lampentyp** wählen
-5. **States zuordnen** via Objekt-Browser (`...`)
+1. Open the **Device Configuration** tab
+2. Click the `+` button
+3. Enter a **Name** (e.g. "Living Room Light")
+4. Select a **Light Type**
+5. Map **States** via the object browser (`...`)
 
-### Unterstützte Lampentypen
+### Supported Light Types
 
-| Typ | States | Hue Model |
-|-----|--------|-----------|
+| Type | States | Hue Model |
+|------|--------|-----------|
 | **On/Off** | `on` | LOM001 |
-| **Dimmbar** | `on`, `bri` | LWB010 |
-| **Farbtemperatur** | `on`, `bri`, `ct` | LTW001 |
-| **Farblampe** | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003 |
+| **Dimmable** | `on`, `bri` | LWB010 |
+| **Color Temperature** | `on`, `bri`, `ct` | LTW001 |
+| **Color Light** | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003 |
 
-### Mit Alexa verbinden
+### Connecting with Alexa
 
-1. Adapter starten
-2. Alexa App → Geräte → `+` → Philips Hue
-3. Bridge wird automatisch gefunden
-4. "Alexa, schalte Wohnzimmer Licht ein"
+1. Start the adapter
+2. Alexa App → Devices → `+` → Philips Hue
+3. The bridge is discovered automatically
+4. "Alexa, turn on Living Room Light"
 
 ---
 
 ## Troubleshooting
 
-### Bridge wird nicht gefunden
+### Bridge not found
 
-- Prüfen, ob UPnP Port (1900) nicht blockiert ist
-- Host-IP muss die tatsächliche Netzwerk-IP sein (nicht 0.0.0.0)
-- Firewall-Regeln prüfen
+- Ensure the UPnP port (1900) is not blocked by a firewall
+- The **Host** IP must be the actual network IP, not `0.0.0.0`
+- Check firewall rules on the ioBroker host
 
-### Alexa findet keine Geräte
+### Alexa finds no devices
 
-- Pairing-Modus aktivieren (50 Sekunden Fenster)
-- Sicherstellen, dass mindestens ein Gerät konfiguriert ist
-- Adapter-Logs auf Fehler prüfen
+- Activate pairing mode (50-second window)
+- Ensure at least one device is configured
+- Check adapter logs for errors
 
-### State-Änderungen funktionieren nicht
+### State changes not working
 
-- State-IDs in der Gerätekonfiguration prüfen
-- Wertebereich beachten: `bri` 0-100 oder 0-1, `ct` 153-500 (Mireds)
+- Verify state IDs in device configuration
+- Check value ranges: `bri` 0–100 or 0–1, `ct` 153–500 (Mireds)
 
 ---
 
-## Entwicklung
+## Development
 
-Der Adapter ist vollständig in **TypeScript** geschrieben mit `strict` Mode.
+The adapter is written entirely in **TypeScript** with `strict` mode.
 
 ```bash
 npm run build      # Build
 npm test           # Tests
 npm run lint       # Lint
-npm run watch      # Watch-Mode
+npm run watch      # Watch mode
 ```
 
-### Projektstruktur
+### Project Structure
 
 ```
 src/
-├── main.ts                    # Adapter-Hauptklasse
-├── definition/                # ioBroker-Definitionen
-├── discovery/                 # UPnP/SSDP Discovery
-├── hue-api/                   # Hue API Implementation
-├── server/                    # HTTP Server (Fastify)
-└── types/                     # TypeScript Typen
+├── main.ts                    # Adapter main class
+├── definition/                # ioBroker definitions
+├── discovery/                 # UPnP/SSDP discovery
+├── hue-api/                   # Hue API implementation
+├── server/                    # HTTP server (Fastify)
+└── types/                     # TypeScript types
 test/                          # Tests
-build/                         # Kompilierter Code
+build/                         # Compiled JavaScript code
 ```
-
-### Technologie-Stack
-
-| Komponente | Version |
-|------------|---------|
-| TypeScript | 5.8.3 |
-| Fastify | 5.8.2 |
-| @iobroker/adapter-core | 3.3.2 |
-| node-ssdp | 4.0.1 |
 
 ---
 
@@ -163,15 +145,15 @@ Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
 **Original Author:** Christopher Holomek ([@holomekc](https://github.com/holomekc))
 
-**Modernization (2026):** krobi & AI Assistant
+**Modernization (2026):** krobi
 
 ---
 
-## Links
+## Support
 
-- [GitHub Repository](https://github.com/krobipd/ioBroker.hueemu)
-- [Issues](https://github.com/krobipd/ioBroker.hueemu/issues)
-- [ioBroker Forum](https://forum.iobroker.net/)
+If this adapter is useful to you, consider supporting its development:
+
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/krobipd)
 
 ---
 
@@ -183,4 +165,4 @@ Copyright (c) 2020-2026 Christopher Holomek <holomekc.github@gmail.com>
 
 ---
 
-*Entwickelt mit Unterstützung von Claude.ai*
+*Developed with assistance from Claude.ai*
