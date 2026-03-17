@@ -2,6 +2,10 @@
 
 ## **WORK IN PROGRESS**
 
+- Migrate to @alcalzone/release-script for automated releases
+- Enable npm Trusted Publishing (OIDC), remove legacy npm token
+- Translate README to English, remove direct install instructions
+
 ## [1.0.2] - 2026-03-15
 
 ### Added
