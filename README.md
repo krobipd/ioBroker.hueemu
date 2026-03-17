@@ -31,12 +31,6 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 
 ---
 
-## Installation
-
-Install via the ioBroker Admin UI: **Adapters → Search for "hueemu"**.
-
----
-
 ## Configuration
 
 ### Network Settings
