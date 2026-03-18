@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "news": {
+      "1.0.7": {
+        "en": "Code cleanup: remove dead code, fix unused params, DRY empty collection routes, remove Dev section from README",
+        "de": "Code-Bereinigung: toter Code entfernt, ungenutzte Parameter repariert, DRY-Routen, Entwicklungsbereich aus README entfernt",
+        "ru": "Очистка кода: удалён мёртвый код, исправлены неиспользуемые параметры, DRY-маршруты, удалён раздел разработки из README",
+        "pt": "Limpeza de código: remover código morto, corrigir parâmetros não utilizados, rotas DRY, remover seção Dev do README",
+        "nl": "Code-opruiming: dode code verwijderd, ongebruikte parameters gecorrigeerd, DRY-routes, Dev-sectie uit README verwijderd",
+        "fr": "Nettoyage du code : suppression du code mort, correction des paramètres inutilisés, routes DRY, suppression de la section Dev du README",
+        "it": "Pulizia codice: rimozione codice morto, correzione parametri inutilizzati, route DRY, rimozione sezione Dev dal README",
+        "es": "Limpieza de código: eliminar código muerto, corregir parámetros no utilizados, rutas DRY, eliminar sección Dev del README",
+        "pl": "Czyszczenie kodu: usunięcie martwego kodu, naprawa nieużywanych parametrów, trasy DRY, usunięcie sekcji Dev z README",
+        "uk": "Очищення коду: видалення мертвого коду, виправлення невикористаних параметрів, маршрути DRY, видалення розділу Dev з README",
+        "zh-cn": "代码清理：删除死代码、修复未使用参数、DRY路由、从README中删除开发部分"
+      },
       "1.0.6": {
         "en": "Migrate to @alcalzone/release-script for automated releases\nEnable npm Trusted Publishing (OIDC), remove legacy npm token\nTranslate README to English, remove direct install instructions",
         "de": "Migration auf @alcalzone/Release-script für automatisierte Versionen\nAktiviere npm Trusted Publishing (OIDC), legacy npm token\nÜbersetzen Sie README auf Englisch, Entfernen Sie die Anweisungen zur Direktinstallation",

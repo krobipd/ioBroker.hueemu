@@ -2,7 +2,6 @@
  * User/Authentication Service for Hue API
  */
 
-// import * as utils from '@iobroker/adapter-core';
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
 

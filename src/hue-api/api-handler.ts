@@ -178,7 +178,7 @@ export class ApiHandler implements HueApiHandler {
    * Get full bridge state
    */
   public async getFullState(
-    req: HueRequest,
+    _req: HueRequest,
     username: string,
   ): Promise<FullState> {
     this.log("debug", `Get full state for user: ${username}`);
@@ -213,8 +213,8 @@ export class ApiHandler implements HueApiHandler {
    * Get a single light by ID
    */
   public async getLightById(
-    req: HueRequest,
-    username: string,
+    _req: HueRequest,
+    _username: string,
     lightId: string,
   ): Promise<Light> {
     this.log("debug", `Get light: ${lightId}`);
@@ -225,8 +225,8 @@ export class ApiHandler implements HueApiHandler {
    * Set light state
    */
   public async setLightState(
-    req: HueRequest,
-    username: string,
+    _req: HueRequest,
+    _username: string,
     lightId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {

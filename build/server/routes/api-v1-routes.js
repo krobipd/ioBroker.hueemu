@@ -133,72 +133,26 @@ function apiV1Routes(fastify, options) {
                 return handler.setLightState(hueReq, username, id, stateUpdate);
             }));
         }));
-        // GET /api/:username/groups - Return empty groups (not implemented)
-        fastify.get("/api/:username/groups", (request, reply) => __awaiter(this, void 0, void 0, function* () {
-            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
-                const { username } = request.params;
-                const isAuth = yield handler.isUserAuthenticated(username);
-                if (!isAuth && !handler.isAuthDisabled()) {
-                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/groups`);
-                }
-                return {};
+        // Empty collections (not implemented): groups, schedules, scenes, sensors, rules, resourcelinks
+        for (const collection of [
+            "groups",
+            "schedules",
+            "scenes",
+            "sensors",
+            "rules",
+            "resourcelinks",
+        ]) {
+            fastify.get(`/api/:username/${collection}`, (request, reply) => __awaiter(this, void 0, void 0, function* () {
+                yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
+                    const { username } = request.params;
+                    const isAuth = yield handler.isUserAuthenticated(username);
+                    if (!isAuth && !handler.isAuthDisabled()) {
+                        throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/${collection}`);
+                    }
+                    return {};
+                }));
             }));
-        }));
-        // GET /api/:username/schedules - Return empty schedules (not implemented)
-        fastify.get("/api/:username/schedules", (request, reply) => __awaiter(this, void 0, void 0, function* () {
-            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
-                const { username } = request.params;
-                const isAuth = yield handler.isUserAuthenticated(username);
-                if (!isAuth && !handler.isAuthDisabled()) {
-                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/schedules`);
-                }
-                return {};
-            }));
-        }));
-        // GET /api/:username/scenes - Return empty scenes (not implemented)
-        fastify.get("/api/:username/scenes", (request, reply) => __awaiter(this, void 0, void 0, function* () {
-            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
-                const { username } = request.params;
-                const isAuth = yield handler.isUserAuthenticated(username);
-                if (!isAuth && !handler.isAuthDisabled()) {
-                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/scenes`);
-                }
-                return {};
-            }));
-        }));
-        // GET /api/:username/sensors - Return empty sensors (not implemented)
-        fastify.get("/api/:username/sensors", (request, reply) => __awaiter(this, void 0, void 0, function* () {
-            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
-                const { username } = request.params;
-                const isAuth = yield handler.isUserAuthenticated(username);
-                if (!isAuth && !handler.isAuthDisabled()) {
-                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/sensors`);
-                }
-                return {};
-            }));
-        }));
-        // GET /api/:username/rules - Return empty rules (not implemented)
-        fastify.get("/api/:username/rules", (request, reply) => __awaiter(this, void 0, void 0, function* () {
-            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
-                const { username } = request.params;
-                const isAuth = yield handler.isUserAuthenticated(username);
-                if (!isAuth && !handler.isAuthDisabled()) {
-                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/rules`);
-                }
-                return {};
-            }));
-        }));
-        // GET /api/:username/resourcelinks - Return empty resourcelinks (not implemented)
-        fastify.get("/api/:username/resourcelinks", (request, reply) => __awaiter(this, void 0, void 0, function* () {
-            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
-                const { username } = request.params;
-                const isAuth = yield handler.isUserAuthenticated(username);
-                if (!isAuth && !handler.isAuthDisabled()) {
-                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/resourcelinks`);
-                }
-                return {};
-            }));
-        }));
+        }
         // Fallback for unhandled API routes
         fastify.all("/api/*", (request, reply) => __awaiter(this, void 0, void 0, function* () {
             yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {

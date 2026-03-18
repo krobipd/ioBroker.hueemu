@@ -167,18 +167,4 @@ export class HueServer {
       this.logger[level](message);
     }
   }
-
-  /**
-   * Get the HTTP server instance
-   */
-  public get http(): FastifyInstance | null {
-    return this.httpServer;
-  }
-
-  /**
-   * Get the HTTPS server instance
-   */
-  public get https(): FastifyInstance | null {
-    return this.httpsServer;
-  }
 }

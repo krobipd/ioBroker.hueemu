@@ -133,17 +133,5 @@ class HueServer {
             this.logger[level](message);
         }
     }
-    /**
-     * Get the HTTP server instance
-     */
-    get http() {
-        return this.httpServer;
-    }
-    /**
-     * Get the HTTPS server instance
-     */
-    get https() {
-        return this.httpsServer;
-    }
 }
 exports.HueServer = HueServer;

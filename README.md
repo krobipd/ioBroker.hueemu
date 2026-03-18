@@ -1,6 +1,6 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.6-blue)
+![Version](https://img.shields.io/badge/version-1.0.7-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -90,34 +90,10 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 
 ---
 
-## Development
-
-The adapter is written entirely in **TypeScript** with `strict` mode.
-
-```bash
-npm run build      # Build
-npm test           # Tests
-npm run lint       # Lint
-npm run watch      # Watch mode
-```
-
-### Project Structure
-
-```
-src/
-├── main.ts                    # Adapter main class
-├── definition/                # ioBroker definitions
-├── discovery/                 # UPnP/SSDP discovery
-├── hue-api/                   # Hue API implementation
-├── server/                    # HTTP server (Fastify)
-└── types/                     # TypeScript types
-test/                          # Tests
-build/                         # Compiled JavaScript code
-```
-
----
-
 ## Changelog
+
+### 1.0.7 (2026-03-18)
+- Code cleanup: remove dead code, fix unused params, DRY empty collection routes
 
 ### 1.0.6 (2026-03-17)
 - Migrate to @alcalzone/release-script, enable npm Trusted Publishing, translate README to English

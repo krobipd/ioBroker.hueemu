@@ -194,107 +194,33 @@ export async function apiV1Routes(
     },
   );
 
-  // GET /api/:username/groups - Return empty groups (not implemented)
-  fastify.get<{ Params: UsernameParams }>(
-    "/api/:username/groups",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const { username } = request.params;
+  // Empty collections (not implemented): groups, schedules, scenes, sensors, rules, resourcelinks
+  for (const collection of [
+    "groups",
+    "schedules",
+    "scenes",
+    "sensors",
+    "rules",
+    "resourcelinks",
+  ]) {
+    fastify.get<{ Params: UsernameParams }>(
+      `/api/:username/${collection}`,
+      async (request, reply) => {
+        await handleErrors(request, reply, async () => {
+          const { username } = request.params;
 
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/groups`);
-        }
+          const isAuth = await handler.isUserAuthenticated(username);
+          if (!isAuth && !handler.isAuthDisabled()) {
+            throw HueApiError.unauthorizedUser(
+              `/api/${username}/${collection}`,
+            );
+          }
 
-        return {};
-      });
-    },
-  );
-
-  // GET /api/:username/schedules - Return empty schedules (not implemented)
-  fastify.get<{ Params: UsernameParams }>(
-    "/api/:username/schedules",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/schedules`);
-        }
-
-        return {};
-      });
-    },
-  );
-
-  // GET /api/:username/scenes - Return empty scenes (not implemented)
-  fastify.get<{ Params: UsernameParams }>(
-    "/api/:username/scenes",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/scenes`);
-        }
-
-        return {};
-      });
-    },
-  );
-
-  // GET /api/:username/sensors - Return empty sensors (not implemented)
-  fastify.get<{ Params: UsernameParams }>(
-    "/api/:username/sensors",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/sensors`);
-        }
-
-        return {};
-      });
-    },
-  );
-
-  // GET /api/:username/rules - Return empty rules (not implemented)
-  fastify.get<{ Params: UsernameParams }>(
-    "/api/:username/rules",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/rules`);
-        }
-
-        return {};
-      });
-    },
-  );
-
-  // GET /api/:username/resourcelinks - Return empty resourcelinks (not implemented)
-  fastify.get<{ Params: UsernameParams }>(
-    "/api/:username/resourcelinks",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/resourcelinks`);
-        }
-
-        return {};
-      });
-    },
-  );
+          return {};
+        });
+      },
+    );
+  }
 
   // Fallback for unhandled API routes
   fastify.all(

@@ -1,4 +1,11 @@
 # Changelog
+## 1.0.7 (2026-03-18)
+
+- Code cleanup: remove commented-out import, dead server getters
+- Fix unused parameter naming (_req/_username) in api-handler
+- DRY: collapse 6 identical empty collection routes into a loop
+- Remove Development/Project Structure from README (not ioBroker standard)
+
 ## 1.0.6 (2026-03-17)
 
 - Migrate to @alcalzone/release-script for automated releases

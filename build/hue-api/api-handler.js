@@ -99,7 +99,7 @@ class ApiHandler {
     /**
      * Get full bridge state
      */
-    getFullState(req, username) {
+    getFullState(_req, username) {
         return __awaiter(this, void 0, void 0, function* () {
             this.log("debug", `Get full state for user: ${username}`);
             const lights = yield this.lightService.getAllLights();
@@ -127,7 +127,7 @@ class ApiHandler {
     /**
      * Get a single light by ID
      */
-    getLightById(req, username, lightId) {
+    getLightById(_req, _username, lightId) {
         return __awaiter(this, void 0, void 0, function* () {
             this.log("debug", `Get light: ${lightId}`);
             return this.lightService.getLightById(lightId);
@@ -136,7 +136,7 @@ class ApiHandler {
     /**
      * Set light state
      */
-    setLightState(req, username, lightId, state) {
+    setLightState(_req, _username, lightId, state) {
         return __awaiter(this, void 0, void 0, function* () {
             this.log("debug", `Set light state: ${lightId}`);
             return this.lightService.setLightState(lightId, state);

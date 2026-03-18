@@ -13,7 +13,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
-// import * as utils from '@iobroker/adapter-core';
 const uuid = require("uuid");
 /**
  * Service for managing Hue API users
