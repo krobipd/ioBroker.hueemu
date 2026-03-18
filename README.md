@@ -1,6 +1,6 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.7-blue)
+![Version](https://img.shields.io/badge/version-1.0.8-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -91,6 +91,9 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 ---
 
 ## Changelog
+
+### 1.0.8 (2026-03-18)
+- Fix: Logitech Harmony Hub compatibility — groups action endpoint
 
 ### 1.0.7 (2026-03-18)
 - Code cleanup: remove dead code, fix unused params, DRY empty collection routes

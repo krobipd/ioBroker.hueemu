@@ -133,6 +133,22 @@ function apiV1Routes(fastify, options) {
                 return handler.setLightState(hueReq, username, id, stateUpdate);
             }));
         }));
+        // PUT /api/:username/groups/:id/action - Set group action (e.g. Harmony Hub)
+        fastify.put("/api/:username/groups/:id/action", (request, reply) => __awaiter(this, void 0, void 0, function* () {
+            yield handleErrors(request, reply, () => __awaiter(this, void 0, void 0, function* () {
+                const hueReq = toHueRequest(request);
+                const { username, id } = request.params;
+                const stateUpdate = request.body;
+                const isAuth = yield handler.isUserAuthenticated(username);
+                if (!isAuth && !handler.isAuthDisabled()) {
+                    throw errors_1.HueApiError.unauthorizedUser(`/api/${username}/groups/${id}/action`);
+                }
+                if (!stateUpdate || typeof stateUpdate !== "object") {
+                    throw errors_1.HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
+                }
+                return handler.setGroupAction(hueReq, username, id, stateUpdate);
+            }));
+        }));
         // Empty collections (not implemented): groups, schedules, scenes, sensors, rules, resourcelinks
         for (const collection of [
             "groups",

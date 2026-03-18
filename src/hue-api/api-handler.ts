@@ -235,6 +235,39 @@ export class ApiHandler implements HueApiHandler {
   }
 
   /**
+   * Set group action — applies state to all configured lights
+   */
+  public async setGroupAction(
+    _req: HueRequest,
+    _username: string,
+    groupId: string,
+    state: LightStateUpdate,
+  ): Promise<LightStateResult[]> {
+    this.log("debug", `Set group ${groupId} action`);
+
+    const lights = await this.lightService.getAllLights();
+
+    // Apply state to all lights in parallel
+    await Promise.all(
+      Object.keys(lights).map((lightId) =>
+        this.lightService
+          .setLightState(lightId, state)
+          .catch((err: unknown) => {
+            this.log(
+              "warn",
+              `Group action: failed to set light ${lightId}: ${err}`,
+            );
+          }),
+      ),
+    );
+
+    // Return group-addressed success response (Hue API format)
+    return Object.entries(state).map(([key, value]) => ({
+      success: { [`/groups/${groupId}/action/${key}`]: value },
+    }));
+  }
+
+  /**
    * Fallback for unhandled routes
    */
   public async fallback(req: HueRequest): Promise<unknown> {

@@ -143,6 +143,25 @@ class ApiHandler {
         });
     }
     /**
+     * Set group action — applies state to all configured lights
+     */
+    setGroupAction(_req, _username, groupId, state) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.log("debug", `Set group ${groupId} action`);
+            const lights = yield this.lightService.getAllLights();
+            // Apply state to all lights in parallel
+            yield Promise.all(Object.keys(lights).map((lightId) => this.lightService
+                .setLightState(lightId, state)
+                .catch((err) => {
+                this.log("warn", `Group action: failed to set light ${lightId}: ${err}`);
+            })));
+            // Return group-addressed success response (Hue API format)
+            return Object.entries(state).map(([key, value]) => ({
+                success: { [`/groups/${groupId}/action/${key}`]: value },
+            }));
+        });
+    }
+    /**
      * Fallback for unhandled routes
      */
     fallback(req) {

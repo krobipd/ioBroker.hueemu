@@ -237,6 +237,16 @@ export interface HueApiHandler {
   ): Promise<LightStateResult[]>;
 
   /**
+   * Set group action (PUT /api/:username/groups/:id/action)
+   */
+  setGroupAction(
+    req: HueRequest,
+    username: string,
+    groupId: string,
+    state: LightStateUpdate,
+  ): Promise<LightStateResult[]>;
+
+  /**
    * Fallback for unhandled routes
    */
   fallback(req: HueRequest): Promise<unknown>;

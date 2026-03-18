@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "news": {
+      "1.0.8": {
+        "en": "Fix: add PUT /api/:username/groups/:id/action endpoint for Logitech Harmony Hub compatibility",
+        "de": "Fix: PUT /api/:username/groups/:id/action Endpoint für Logitech Harmony Hub Kompatibilität hinzugefügt",
+        "ru": "Исправление: добавлен endpoint PUT /api/:username/groups/:id/action для совместимости с Logitech Harmony Hub",
+        "pt": "Correção: adicionado endpoint PUT /api/:username/groups/:id/action para compatibilidade com Logitech Harmony Hub",
+        "nl": "Fix: PUT /api/:username/groups/:id/action endpoint toegevoegd voor Logitech Harmony Hub compatibiliteit",
+        "fr": "Correction : ajout de l'endpoint PUT /api/:username/groups/:id/action pour la compatibilité Logitech Harmony Hub",
+        "it": "Fix: aggiunto endpoint PUT /api/:username/groups/:id/action per compatibilità Logitech Harmony Hub",
+        "es": "Fix: añadido endpoint PUT /api/:username/groups/:id/action para compatibilidad con Logitech Harmony Hub",
+        "pl": "Poprawka: dodano endpoint PUT /api/:username/groups/:id/action dla kompatybilności z Logitech Harmony Hub",
+        "uk": "Виправлення: додано endpoint PUT /api/:username/groups/:id/action для сумісності з Logitech Harmony Hub",
+        "zh-cn": "修复：添加PUT /api/:username/groups/:id/action端点以兼容Logitech Harmony Hub"
+      },
       "1.0.7": {
         "en": "Code cleanup: remove dead code, fix unused params, DRY empty collection routes, remove Dev section from README",
         "de": "Code-Bereinigung: toter Code entfernt, ungenutzte Parameter repariert, DRY-Routen, Entwicklungsbereich aus README entfernt",

@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.8 (2026-03-18)
+
+- Fix: add PUT /api/:username/groups/:id/action endpoint for Logitech Harmony Hub compatibility
+
 ## 1.0.7 (2026-03-18)
 
 - Code cleanup: remove commented-out import, dead server getters
