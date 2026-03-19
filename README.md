@@ -31,6 +31,16 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 
 ---
 
+## Ports
+
+| Port | Protocol | Purpose | Configurable |
+|------|----------|---------|--------------|
+| 8080 | TCP/HTTP | Hue Bridge API | Yes — clients are informed via SSDP |
+| 1900 | UDP      | SSDP/UPnP Discovery | No — fixed (Harmony and other clients scan exactly this port) |
+| —    | TCP/HTTPS | Optional TLS (if configured) | Yes |
+
+---
+
 ## Configuration
 
 ### Network Settings
