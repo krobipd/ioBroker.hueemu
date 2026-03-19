@@ -1,14 +1,14 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.11-blue)
+[![npm version](https://img.shields.io/npm/v/iobroker.hueemu)](https://www.npmjs.com/package/iobroker.hueemu)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/krobipd)
-![npm downloads](https://img.shields.io/npm/dt/iobroker.hueemu)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![npm downloads](https://img.shields.io/npm/dt/iobroker.hueemu)](https://www.npmjs.com/package/iobroker.hueemu)
 ![Installations](https://iobroker.live/badges/hueemu-installed.svg)
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/krobipd)
 
-![Logo](admin/hue-emu-logo.png)
+![Logo](https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/master/admin/hue-emu-logo.png)
 
 Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be controlled via Alexa, Google Home, and other Hue-compatible smart home systems.
 
@@ -151,9 +151,7 @@ Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## Support
 
-If this adapter is useful to you, consider supporting its development:
-
-[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/krobipd)
+If this adapter is useful to you, consider supporting its development via the PayPal badge at the top of this page.
 
 ---
 
@@ -161,7 +159,8 @@ If this adapter is useful to you, consider supporting its development:
 
 MIT License - see [LICENSE](LICENSE)
 
-Copyright (c) 2020-2026 Christopher Holomek <holomekc.github@gmail.com>
+Copyright (c) 2020-2024 Christopher Holomek <holomekc.github@gmail.com>
+Copyright (c) 2026 krobi <krobi@power-dreams.com>
 
 ---
 
