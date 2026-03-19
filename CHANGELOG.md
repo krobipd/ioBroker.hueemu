@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.16 (2026-03-19)
+
+- Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level
+
 ## 1.0.15 (2026-03-19)
 
 - Remove redundant info.configuredDevices datapoint and verbose device startup log

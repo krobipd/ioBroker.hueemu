@@ -74,7 +74,6 @@ class HueEmu extends utils.Adapter {
      */
     onReady() {
         return __awaiter(this, void 0, void 0, function* () {
-            this.log.debug("onReady called. Loading configuration");
             try {
                 // Parse and validate configuration
                 const emulatorConfig = yield this.buildConfig();
@@ -383,7 +382,7 @@ class HueEmu extends utils.Adapter {
             const lights = typeof state.val === "object"
                 ? state.val
                 : JSON.parse(state.val);
-            this.log.info(`Creating lights (legacy mode): ${JSON.stringify(lights)}`);
+            this.log.debug(`Creating lights (legacy mode): ${JSON.stringify(lights)}`);
             Object.keys(lights).forEach((lightId) => {
                 try {
                     this.createLightDevice(lightId, lights);

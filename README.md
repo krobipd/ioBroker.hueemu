@@ -105,6 +105,9 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ## Changelog
 
+### 1.0.16 (2026-03-19)
+- Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level
+
 ### 1.0.15 (2026-03-19)
 - Remove redundant info.configuredDevices datapoint and verbose startup log
 
@@ -116,9 +119,6 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ### 1.0.12 (2026-03-19)
 - Fix logging: light command details moved from info to debug level
-
-### 1.0.11 (2026-03-19)
-- Improve logging: pairing start/stop, bridge identity at startup, light control details
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
