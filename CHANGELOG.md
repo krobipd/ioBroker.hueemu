@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.19 (2026-03-19)
+
+- Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)
+
 ## 1.0.18 (2026-03-19)
 
 - Logging: Bridge identity, Network and SSDP startup messages moved to debug level

@@ -36,7 +36,7 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 | Port | Protocol | Purpose | Configurable |
 |------|----------|---------|--------------|
 | 8080 | TCP/HTTP | Hue Bridge API | Yes — clients are informed via SSDP |
-| 1900 | UDP      | SSDP/UPnP Discovery | No — fixed (Harmony and other clients scan exactly this port) |
+| 1900 | UDP      | SSDP/UPnP Discovery | No — fixed (all UPnP clients including Harmony, Alexa, Google Home scan exactly this port) |
 | —    | TCP/HTTPS | Optional TLS (if configured) | Yes |
 
 ---
@@ -114,6 +114,9 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 ---
 
 ## Changelog
+
+### 1.0.19 (2026-03-19)
+- Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)
 
 ### 1.0.18 (2026-03-19)
 - Logging: Bridge identity, Network and SSDP startup messages moved to debug level

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "news": {
+      "1.0.19": {
+        "en": "Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)",
+        "de": "Admin UI: SSDP-Port-Feld entfernt (fest auf 1900 — alle UPnP-Clients benötigen diesen Port)",
+        "ru": "Admin UI: поле порта SSDP удалено (фиксировано на 1900 — все UPnP-клиенты требуют этот порт)",
+        "pt": "Admin UI: campo de porta SSDP removido (fixo em 1900 — todos os clientes UPnP exigem esta porta)",
+        "nl": "Admin UI: SSDP-poortveld verwijderd (vast op 1900 — alle UPnP-clients vereisen deze poort)",
+        "fr": "Admin UI: champ port SSDP supprimé (fixé à 1900 — tous les clients UPnP nécessitent ce port)",
+        "it": "Admin UI: campo porta SSDP rimosso (fisso a 1900 — tutti i client UPnP richiedono questa porta)",
+        "es": "Admin UI: campo de puerto SSDP eliminado (fijo en 1900 — todos los clientes UPnP requieren este puerto)",
+        "pl": "Admin UI: pole portu SSDP usunięte (stałe 1900 — wszyscy klienci UPnP wymagają tego portu)",
+        "uk": "Admin UI: поле порту SSDP видалено (фіксовано на 1900 — усі UPnP-клієнти потребують цього порту)",
+        "zh-cn": "管理界面：删除SSDP端口字段（固定为1900——所有UPnP客户端都需要此端口）"
+      },
       "1.0.18": {
         "en": "Logging: Bridge identity, Network and SSDP startup messages moved to debug level",
         "de": "Logging: Bridge-Identity, Netzwerk- und SSDP-Startmeldungen auf Debug-Level verschoben",
