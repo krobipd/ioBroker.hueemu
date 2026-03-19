@@ -55,7 +55,7 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 
 | Type | States | Hue Model |
 |------|--------|-----------|
-| **On/Off** | `on` | LOM001 |
+| **On/Off** | `on` | LWB007 |
 | **Dimmable** | `on`, `bri` | LWB010 |
 | **Color Temperature** | `on`, `bri`, `ct` | LTW001 |
 | **Color Light** | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003 |
@@ -113,9 +113,6 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ### 1.0.11 (2026-03-19)
 - Improve logging: pairing start/stop, bridge identity at startup, light control details
-
-### 1.0.10 (2026-03-19)
-- Fix: on/off lights no longer expose dimming and color capabilities to Harmony Hub
 
 ### 1.0.9 (2026-03-19)
 - Fix: stable bridge identity across restarts (persist UDN/MAC)
