@@ -53,7 +53,7 @@ class HueEmu extends utils.Adapter {
             clearTimeout(this.pairingTimeoutId);
             this.pairingTimeoutId = null;
         }
-        this.setState("startPairing", { ack: true, val: value });
+        void this.setState("startPairing", { ack: true, val: value });
     }
     /**
      *
@@ -66,7 +66,7 @@ class HueEmu extends utils.Adapter {
      */
     set disableAuth(value) {
         this._disableAuth = value;
-        this.setState("disableAuth", { ack: true, val: value });
+        void this.setState("disableAuth", { ack: true, val: value });
         this.log.info(`Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`);
     }
     /**
@@ -331,7 +331,7 @@ class HueEmu extends utils.Adapter {
         }
         else if (id.startsWith(this.namespace)) {
             // Acknowledge other own state changes
-            this.setState(id, { ack: true, val: state.val });
+            void this.setState(id, { ack: true, val: state.val });
         }
     }
     /**
@@ -366,7 +366,7 @@ class HueEmu extends utils.Adapter {
             this.log.info("Pairing mode enabled — waiting for client to connect (50 seconds)");
             this.pairingTimeoutId = setTimeout(() => {
                 this._pairingEnabled = false;
-                this.setState("startPairing", { ack: true, val: false });
+                void this.setState("startPairing", { ack: true, val: false });
                 this.log.info("Pairing mode automatically disabled after 50 seconds timeout");
             }, 50000);
         }
@@ -389,7 +389,7 @@ class HueEmu extends utils.Adapter {
                     this.createLightState(lightId, lights);
                     this.createLightName(lightId, lights);
                     this.createLightData(lightId, lights);
-                    this.setState(id, { ack: true, val: state.val });
+                    void this.setState(id, { ack: true, val: state.val });
                 }
                 catch (error) {
                     this.log.warn(`Could not create light ${lightId}: ${error}`);
@@ -404,7 +404,7 @@ class HueEmu extends utils.Adapter {
      * Create light device object
      */
     createLightDevice(lightId, lights) {
-        this.setObjectNotExists(lightId, {
+        void this.setObjectNotExists(lightId, {
             type: "device",
             common: {
                 name: lights[lightId].name,
@@ -416,7 +416,7 @@ class HueEmu extends utils.Adapter {
      * Create light state channel and states
      */
     createLightState(lightId, lights) {
-        this.setObjectNotExists(`${lightId}.state`, {
+        void this.setObjectNotExists(`${lightId}.state`, {
             type: "channel",
             common: {
                 name: "state",
@@ -435,7 +435,7 @@ class HueEmu extends utils.Adapter {
      * Create light name state
      */
     createLightName(lightId, lights) {
-        this.setObjectNotExists(`${lightId}.name`, {
+        void this.setObjectNotExists(`${lightId}.name`, {
             type: "state",
             common: {
                 name: "name",
@@ -446,7 +446,10 @@ class HueEmu extends utils.Adapter {
             },
             native: {},
         });
-        this.setState(`${lightId}.name`, { ack: true, val: lights[lightId].name });
+        void this.setState(`${lightId}.name`, {
+            ack: true,
+            val: lights[lightId].name,
+        });
     }
     /**
      * Create light data state
@@ -458,7 +461,7 @@ class HueEmu extends utils.Adapter {
                 data[key] = lights[lightId][key];
             }
         });
-        this.setObjectNotExists(`${lightId}.data`, {
+        void this.setObjectNotExists(`${lightId}.data`, {
             type: "state",
             common: {
                 name: "data",
@@ -469,7 +472,10 @@ class HueEmu extends utils.Adapter {
             },
             native: {},
         });
-        this.setState(`${lightId}.data`, { ack: true, val: JSON.stringify(data) });
+        void this.setState(`${lightId}.data`, {
+            ack: true,
+            val: JSON.stringify(data),
+        });
     }
     /**
      * Add a state with type detection
@@ -483,7 +489,7 @@ class HueEmu extends utils.Adapter {
             valueType === "object") {
             commonType = valueType;
         }
-        this.setObjectNotExists(id, {
+        void this.setObjectNotExists(id, {
             type: "state",
             common: {
                 name,
@@ -494,7 +500,7 @@ class HueEmu extends utils.Adapter {
             },
             native: {},
         });
-        this.setState(id, { ack: true, val: value });
+        void this.setState(id, { ack: true, val: value });
     }
     /**
      * Parse port number

@@ -98,7 +98,7 @@ export class HueSsdpServer {
           return;
         }
 
-        this.server.start((err?: Error) => {
+        void this.server.start((err?: Error) => {
           if (err) {
             reject(err);
           } else {

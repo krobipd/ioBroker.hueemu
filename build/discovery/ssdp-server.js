@@ -66,7 +66,7 @@ class HueSsdpServer {
                         reject(new Error("Server not initialized"));
                         return;
                     }
-                    this.server.start((err) => {
+                    void this.server.start((err) => {
                         if (err) {
                             reject(err);
                         }

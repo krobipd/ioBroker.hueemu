@@ -78,7 +78,7 @@ export class HueEmu extends utils.Adapter {
       clearTimeout(this.pairingTimeoutId);
       this.pairingTimeoutId = null;
     }
-    this.setState("startPairing", { ack: true, val: value });
+    void this.setState("startPairing", { ack: true, val: value });
   }
 
   /**
@@ -93,7 +93,7 @@ export class HueEmu extends utils.Adapter {
    */
   set disableAuth(value: boolean) {
     this._disableAuth = value;
-    this.setState("disableAuth", { ack: true, val: value });
+    void this.setState("disableAuth", { ack: true, val: value });
     this.log.info(
       `Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`,
     );
@@ -396,7 +396,7 @@ export class HueEmu extends utils.Adapter {
       this.disableAuth = state.val as boolean;
     } else if (id.startsWith(this.namespace)) {
       // Acknowledge other own state changes
-      this.setState(id, { ack: true, val: state.val });
+      void this.setState(id, { ack: true, val: state.val });
     }
   }
 
@@ -443,7 +443,7 @@ export class HueEmu extends utils.Adapter {
       );
       this.pairingTimeoutId = setTimeout(() => {
         this._pairingEnabled = false;
-        this.setState("startPairing", { ack: true, val: false });
+        void this.setState("startPairing", { ack: true, val: false });
         this.log.info(
           "Pairing mode automatically disabled after 50 seconds timeout",
         );
@@ -474,7 +474,7 @@ export class HueEmu extends utils.Adapter {
           this.createLightName(lightId, lights);
           this.createLightData(lightId, lights);
 
-          this.setState(id, { ack: true, val: state.val });
+          void this.setState(id, { ack: true, val: state.val });
         } catch (error) {
           this.log.warn(`Could not create light ${lightId}: ${error}`);
         }
@@ -491,7 +491,7 @@ export class HueEmu extends utils.Adapter {
     lightId: string,
     lights: Record<string, any>,
   ): void {
-    this.setObjectNotExists(lightId, {
+    void this.setObjectNotExists(lightId, {
       type: "device",
       common: {
         name: lights[lightId].name,
@@ -504,7 +504,7 @@ export class HueEmu extends utils.Adapter {
    * Create light state channel and states
    */
   private createLightState(lightId: string, lights: Record<string, any>): void {
-    this.setObjectNotExists(
+    void this.setObjectNotExists(
       `${lightId}.state`,
       {
         type: "channel",
@@ -537,7 +537,7 @@ export class HueEmu extends utils.Adapter {
    * Create light name state
    */
   private createLightName(lightId: string, lights: Record<string, any>): void {
-    this.setObjectNotExists(`${lightId}.name`, {
+    void this.setObjectNotExists(`${lightId}.name`, {
       type: "state",
       common: {
         name: "name",
@@ -549,7 +549,10 @@ export class HueEmu extends utils.Adapter {
       native: {},
     });
 
-    this.setState(`${lightId}.name`, { ack: true, val: lights[lightId].name });
+    void this.setState(`${lightId}.name`, {
+      ack: true,
+      val: lights[lightId].name,
+    });
   }
 
   /**
@@ -564,7 +567,7 @@ export class HueEmu extends utils.Adapter {
       }
     });
 
-    this.setObjectNotExists(`${lightId}.data`, {
+    void this.setObjectNotExists(`${lightId}.data`, {
       type: "state",
       common: {
         name: "data",
@@ -576,7 +579,10 @@ export class HueEmu extends utils.Adapter {
       native: {},
     });
 
-    this.setState(`${lightId}.data`, { ack: true, val: JSON.stringify(data) });
+    void this.setState(`${lightId}.data`, {
+      ack: true,
+      val: JSON.stringify(data),
+    });
   }
 
   /**
@@ -595,7 +601,7 @@ export class HueEmu extends utils.Adapter {
       commonType = valueType;
     }
 
-    this.setObjectNotExists(id, {
+    void this.setObjectNotExists(id, {
       type: "state",
       common: {
         name,
@@ -607,7 +613,7 @@ export class HueEmu extends utils.Adapter {
       native: {},
     });
 
-    this.setState(id, { ack: true, val: value });
+    void this.setState(id, { ack: true, val: value });
   }
 
   /**
