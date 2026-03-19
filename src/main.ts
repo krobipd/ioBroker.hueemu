@@ -30,7 +30,6 @@ declare global {
       httpsPort: number | undefined;
       udn: string;
       mac: string;
-      upnpPort: number | undefined;
       devices: DeviceConfig[];
       [key: string]: any;
     }
@@ -179,7 +178,7 @@ export class HueEmu extends utils.Adapter {
         native: { udn, mac },
       });
     }
-    const upnpPort = this.toDefaultPort(this.config.upnpPort, 1900);
+    const upnpPort = 1900;
 
     // Build bridge identity
     const identity: BridgeIdentity = {

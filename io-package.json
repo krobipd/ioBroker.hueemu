@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.19",
+    "version": "1.0.20",
     "news": {
+      "1.0.20": {
+        "en": "Code: SSDP port hardcoded to 1900 (removed config fallback)",
+        "de": "Code: SSDP-Port auf 1900 fest gesetzt (Config-Fallback entfernt)",
+        "ru": "Код: порт SSDP жёстко задан как 1900 (fallback конфига удалён)",
+        "pt": "Código: porta SSDP fixada em 1900 (fallback de config removido)",
+        "nl": "Code: SSDP-poort hardcoded naar 1900 (config-fallback verwijderd)",
+        "fr": "Code: port SSDP codé en dur à 1900 (fallback de config supprimé)",
+        "it": "Codice: porta SSDP hardcoded a 1900 (fallback config rimosso)",
+        "es": "Código: puerto SSDP fijado en 1900 (fallback de config eliminado)",
+        "pl": "Kod: port SSDP ustawiony na stałe 1900 (usunięto fallback konfiguracji)",
+        "uk": "Код: порт SSDP жорстко встановлено на 1900 (fallback конфігу видалено)",
+        "zh-cn": "代码：SSDP端口硬编码为1900（删除配置回退）"
+      },
       "1.0.19": {
         "en": "Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)",
         "de": "Admin UI: SSDP-Port-Feld entfernt (fest auf 1900 — alle UPnP-Clients benötigen diesen Port)",

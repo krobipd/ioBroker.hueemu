@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.20 (2026-03-19)
+
+- Code: SSDP port hardcoded to 1900 (removed config fallback)
+
 ## 1.0.19 (2026-03-19)
 
 - Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)
