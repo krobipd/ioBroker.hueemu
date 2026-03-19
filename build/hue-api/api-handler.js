@@ -47,7 +47,7 @@ class ApiHandler {
                 logger: config.logger,
             });
             this.lightService = this.deviceBindingService;
-            this.log("info", `Using DeviceBindingService with ${devices.length} configured devices`);
+            this.log("debug", `Using DeviceBindingService with ${devices.length} configured devices`);
         }
         else {
             // Fall back to legacy LightService for manually created devices
@@ -55,7 +55,7 @@ class ApiHandler {
                 adapter: config.adapter,
                 logger: config.logger,
             });
-            this.log("info", "Using legacy LightService (no devices configured in admin)");
+            this.log("debug", "Using legacy LightService (no devices configured in admin)");
         }
     }
     /**

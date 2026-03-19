@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "news": {
+      "1.0.12": {
+        "en": "Fix logging: move light command details from info to debug level",
+        "de": "Logging korrigiert: Lichtbefehle von info auf debug verschoben",
+        "ru": "Исправление логирования: детали команд освещения перемещены с info на debug",
+        "pt": "Correção de logging: detalhes de comandos de luz movidos de info para debug",
+        "nl": "Logging gecorrigeerd: lichtopdrachtdetails van info naar debug verplaatst",
+        "fr": "Correction des journaux : détails des commandes lumière déplacés de info vers debug",
+        "it": "Fix logging: dettagli comandi luce spostati da info a debug",
+        "es": "Fix logging: detalles de comandos de luz movidos de info a debug",
+        "pl": "Poprawka logowania: szczegóły poleceń świetlnych przeniesione z info do debug",
+        "uk": "Виправлення логування: деталі команд освітлення переміщено з info до debug",
+        "zh-cn": "修复日志记录：将灯光命令详情从info级别移至debug级别"
+      },
       "1.0.11": {
         "en": "Improve logging: pairing start/stop messages, bridge identity at startup, light control info logs, auth state changes",
         "de": "Logging verbessert: Meldungen beim Pairing-Start/-Stop, Bridge-Identität beim Start, Info-Logs bei Lichtsteuerung, Auth-Statusänderungen",

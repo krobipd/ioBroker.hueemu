@@ -106,7 +106,7 @@ export class ApiHandler implements HueApiHandler {
       });
       this.lightService = this.deviceBindingService;
       this.log(
-        "info",
+        "debug",
         `Using DeviceBindingService with ${devices.length} configured devices`,
       );
     } else {
@@ -116,7 +116,7 @@ export class ApiHandler implements HueApiHandler {
         logger: config.logger,
       });
       this.log(
-        "info",
+        "debug",
         "Using legacy LightService (no devices configured in admin)",
       );
     }

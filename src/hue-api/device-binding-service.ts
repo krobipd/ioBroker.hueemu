@@ -340,7 +340,7 @@ export class DeviceBindingService {
     const results: LightStateResult[] = [];
 
     this.log(
-      "info",
+      "debug",
       `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate)
         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
         .join(", ")}`,

@@ -242,7 +242,7 @@ class DeviceBindingService {
             }
             const device = this.devices[index];
             const results = [];
-            this.log("info", `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate)
+            this.log("debug", `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate)
                 .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
                 .join(", ")}`);
             for (const [key, value] of Object.entries(stateUpdate)) {

@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.12 (2026-03-19)
+
+- Fix logging: move light command details from info to debug level
+
 ## 1.0.11 (2026-03-19)
 
 - Improve logging: pairing start/stop messages, bridge identity (bridgeId/MAC/IP) at startup, info-level light control logs with device name and values, auth state changes
