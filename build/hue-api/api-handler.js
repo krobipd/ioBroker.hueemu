@@ -103,7 +103,9 @@ class ApiHandler {
         return __awaiter(this, void 0, void 0, function* () {
             this.log("debug", `Get full state for user: ${username}`);
             const lights = yield this.lightService.getAllLights();
-            return this.configService.buildFullState(lights);
+            const state = this.configService.buildFullState(lights);
+            state.config.linkbutton = this.adapter.pairingEnabled;
+            return state;
         });
     }
     /**

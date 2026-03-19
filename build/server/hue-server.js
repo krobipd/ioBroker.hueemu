@@ -95,7 +95,7 @@ class HueServer {
             server.setErrorHandler(error_handler_1.hueErrorHandler);
             // Add request logging
             server.addHook("onRequest", (request, _reply) => __awaiter(this, void 0, void 0, function* () {
-                this.log("debug", `${request.method} ${request.url}`);
+                this.log("debug", `${request.method} ${request.url} [${request.ip}]`);
             }));
             // Add CORS headers for Hue API compatibility
             server.addHook("onSend", (request, reply, payload) => __awaiter(this, void 0, void 0, function* () {

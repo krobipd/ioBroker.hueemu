@@ -117,7 +117,7 @@ export class HueServer {
 
     // Add request logging
     server.addHook("onRequest", async (request, _reply) => {
-      this.log("debug", `${request.method} ${request.url}`);
+      this.log("debug", `${request.method} ${request.url} [${request.ip}]`);
     });
 
     // Add CORS headers for Hue API compatibility

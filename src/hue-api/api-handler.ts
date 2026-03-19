@@ -184,7 +184,9 @@ export class ApiHandler implements HueApiHandler {
     this.log("debug", `Get full state for user: ${username}`);
 
     const lights = await this.lightService.getAllLights();
-    return this.configService.buildFullState(lights);
+    const state = this.configService.buildFullState(lights);
+    state.config.linkbutton = this.adapter.pairingEnabled;
+    return state;
   }
 
   /**
