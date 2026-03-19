@@ -22,24 +22,47 @@ const LIGHT_TYPES = {
     type: "On/Off light" as const,
     states: ["on"],
     modelid: "LOM001",
+    capabilities: { control: {}, streaming: { renderer: false, proxy: false } },
   },
   dimmable: {
     name: "Dimmable Light",
     type: "Dimmable light" as const,
     states: ["on", "bri"],
     modelid: "LWB010",
+    capabilities: {
+      control: { mindimlevel: 1, maxlumen: 800 },
+      streaming: { renderer: false, proxy: false },
+    },
   },
   ct: {
     name: "Color Temperature Light",
     type: "Color temperature light" as const,
     states: ["on", "bri", "ct"],
     modelid: "LTW001",
+    capabilities: {
+      control: { mindimlevel: 1, maxlumen: 800, ct: { min: 153, max: 500 } },
+      streaming: { renderer: false, proxy: false },
+    },
   },
   color: {
     name: "Extended Color Light",
     type: "Extended color light" as const,
     states: ["on", "bri", "hue", "sat", "ct", "xy"],
     modelid: "LCT003",
+    capabilities: {
+      control: {
+        mindimlevel: 1,
+        maxlumen: 800,
+        colorgamuttype: "C",
+        colorgamut: [
+          [0.6915, 0.3083],
+          [0.17, 0.7],
+          [0.1532, 0.0475],
+        ] as [[number, number], [number, number], [number, number]],
+        ct: { min: 153, max: 500 },
+      },
+      streaming: { renderer: false, proxy: false },
+    },
   },
 };
 
@@ -290,14 +313,7 @@ export class DeviceBindingService {
       swversion: "1.0.0",
       capabilities: {
         certified: false,
-        control: {
-          mindimlevel: 1,
-          maxlumen: 800,
-        },
-        streaming: {
-          renderer: false,
-          proxy: false,
-        },
+        ...lightTypeConfig.capabilities,
       },
     };
 

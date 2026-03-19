@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.10 (2026-03-19)
+
+- Fix: on/off lights no longer expose dimming and color capabilities to Harmony Hub (type-specific capabilities per light type)
+
 ## 1.0.9 (2026-03-19)
 
 - Fix: persist generated UDN and MAC to adapter config so bridge identity stays stable across restarts

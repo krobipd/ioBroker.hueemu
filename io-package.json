@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "news": {
+      "1.0.10": {
+        "en": "Fix: on/off lights no longer expose dimming and color capabilities to Harmony Hub",
+        "de": "Fix: Ein/Aus-Lichter zeigen Harmony Hub keine Dimm- und Farbfähigkeiten mehr an",
+        "ru": "Исправление: лампы вкл/выкл больше не передают Harmony Hub возможности диммирования и цвета",
+        "pt": "Correção: luzes on/off não expõem mais capacidades de dimmer e cor ao Harmony Hub",
+        "nl": "Fix: aan/uit-lampen tonen geen dimmer- en kleurmogelijkheden meer aan Harmony Hub",
+        "fr": "Correction : les lumières on/off n'exposent plus les capacités de variateur et de couleur au Harmony Hub",
+        "it": "Fix: le luci on/off non espongono più le capacità di dimmer e colore all'Harmony Hub",
+        "es": "Fix: las luces on/off ya no exponen capacidades de regulación y color al Harmony Hub",
+        "pl": "Poprawka: lampki wł./wył. nie pokazują już Harmony Hub możliwości przyciemniania i zmiany koloru",
+        "uk": "Виправлення: лампи вкл/викл більше не передають Harmony Hub можливості диммування та кольору",
+        "zh-cn": "修复：开/关灯不再向Harmony Hub暴露调光和颜色功能"
+      },
       "1.0.9": {
         "en": "Fix: stable bridge identity across restarts (persist UDN/MAC), fix SSDP discovery for Harmony Hub (case-insensitive USN), fix empty serialNumber in description.xml",
         "de": "Fix: stabile Bridge-Identität über Neustarts hinweg (UDN/MAC persistieren), SSDP-Discovery für Harmony Hub repariert (Groß-/Kleinschreibung), leere serialNumber in description.xml behoben",

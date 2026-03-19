@@ -1,6 +1,6 @@
 {
   "name": "iobroker.hueemu",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Hue Bridge Emulator - Modernized 2026",
   "author": {
     "name": "Christopher Holomek",
