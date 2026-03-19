@@ -103,7 +103,6 @@ export class HueEmu extends utils.Adapter {
    * Called when databases are connected and adapter received configuration
    */
   private async onReady(): Promise<void> {
-
     try {
       // Parse and validate configuration
       const emulatorConfig = await this.buildConfig();
@@ -464,7 +463,9 @@ export class HueEmu extends utils.Adapter {
           ? state.val
           : JSON.parse(state.val as string);
 
-      this.log.debug(`Creating lights (legacy mode): ${JSON.stringify(lights)}`);
+      this.log.debug(
+        `Creating lights (legacy mode): ${JSON.stringify(lights)}`,
+      );
 
       Object.keys(lights).forEach((lightId) => {
         try {
