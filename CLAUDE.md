@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.14 (März 2026)
+**Aktuelle Version:** 1.0.15 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -226,6 +226,7 @@ git push && git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.15 | 2026-03-19 | info.configuredDevices entfernt, verbose Startup-Log entfernt; JSON-Fix (Trailing Comma) |
 | 1.0.14 | 2026-03-19 | Fix: Pairing nach erfolgreicher Registrierung deaktivieren (Pairing-Loop-Fix) |
 | 1.0.13 | 2026-03-19 | Fix: onoff → LWB007/Dimmable (Harmony-kompatibel), capabilities-Feld entfernt |
 | 1.0.12 | 2026-03-19 | Logging: Lichtbefehle von info auf debug |
