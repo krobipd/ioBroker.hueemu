@@ -196,6 +196,13 @@ export class HueEmu extends utils.Adapter {
     const httpsPort = this.toUndefinedPort(this.config.httpsPort);
     const udn = this.config.udn?.trim() || uuid.v4();
     const mac = this.config.mac?.trim() || this.macFromUdn(udn);
+
+    // Persist generated UDN/MAC so identity stays stable across restarts
+    if (!this.config.udn?.trim() || !this.config.mac?.trim()) {
+      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+        native: { udn, mac },
+      });
+    }
     const upnpPort = this.toDefaultPort(this.config.upnpPort, 1900);
 
     // Build bridge identity

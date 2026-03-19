@@ -149,7 +149,7 @@ class HueEmu extends utils.Adapter {
      */
     buildConfig() {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d;
+            var _a, _b, _c, _d, _e, _f;
             // Parse configuration values
             const host = ((_a = this.config.host) === null || _a === void 0 ? void 0 : _a.trim()) || "";
             const port = this.toPort(this.config.port);
@@ -158,6 +158,12 @@ class HueEmu extends utils.Adapter {
             const httpsPort = this.toUndefinedPort(this.config.httpsPort);
             const udn = ((_c = this.config.udn) === null || _c === void 0 ? void 0 : _c.trim()) || uuid.v4();
             const mac = ((_d = this.config.mac) === null || _d === void 0 ? void 0 : _d.trim()) || this.macFromUdn(udn);
+            // Persist generated UDN/MAC so identity stays stable across restarts
+            if (!((_e = this.config.udn) === null || _e === void 0 ? void 0 : _e.trim()) || !((_f = this.config.mac) === null || _f === void 0 ? void 0 : _f.trim())) {
+                yield this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+                    native: { udn, mac },
+                });
+            }
             const upnpPort = this.toDefaultPort(this.config.upnpPort, 1900);
             // Build bridge identity
             const identity = {

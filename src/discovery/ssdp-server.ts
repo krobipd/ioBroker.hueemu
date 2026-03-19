@@ -81,7 +81,9 @@ export class HueSsdpServer {
       this.server = new SsdpServer(serverOptions as any);
 
       // Add the Basic device type that Hue apps search for
+      // Register both cases since some clients (e.g. Harmony Hub) use lowercase
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
+      this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
 
       // Handle errors - use type assertion as node-ssdp types may not include all events
