@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "news": {
+      "1.0.14": {
+        "en": "Fix: disable pairing after successful user registration to prevent pairing loop",
+        "de": "Fix: Pairing nach erfolgreicher Benutzerregistrierung deaktivieren, um Pairing-Schleife zu verhindern",
+        "ru": "Исправление: отключить сопряжение после успешной регистрации пользователя для предотвращения цикла сопряжения",
+        "pt": "Fix: desativar emparelhamento após registo de utilizador bem-sucedido para evitar loop de emparelhamento",
+        "nl": "Fix: koppeling uitschakelen na succesvolle gebruikersregistratie om koppelingsloop te voorkomen",
+        "fr": "Fix: désactiver le couplage après l'enregistrement réussi de l'utilisateur pour éviter la boucle de couplage",
+        "it": "Fix: disabilitare il pairing dopo la registrazione utente riuscita per prevenire il loop di pairing",
+        "es": "Fix: deshabilitar emparejamiento después del registro exitoso de usuario para evitar bucle de emparejamiento",
+        "pl": "Poprawka: wyłącz parowanie po pomyślnej rejestracji użytkownika, aby zapobiec pętli parowania",
+        "uk": "Виправлення: вимикати з'єднання після успішної реєстрації користувача для запобігання циклу з'єднання",
+        "zh-cn": "修复：成功注册用户后禁用配对，防止配对循环"
+      },
       "1.0.13": {
         "en": "Fix: on/off lights now reported as Dimmable/LWB007 (like ha-bridge) to fix color controls showing in Harmony Hub; remove capabilities field from light responses",
         "de": "Fix: Ein/Aus-Lichter werden jetzt als Dimmable/LWB007 gemeldet (wie ha-bridge), um fehlerhafte Farb-Controls im Harmony Hub zu beheben; capabilities-Feld aus Lichtantworten entfernt",

@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.14 (2026-03-19)
+
+- Fix: disable pairing after successful user registration (prevents repeated pairing requests being logged as a loop)
+
 ## 1.0.13 (2026-03-19)
 
 - Fix: on/off lights now reported as Dimmable/LWB007 (matching ha-bridge behavior) to prevent Harmony Hub from showing color controls

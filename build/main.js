@@ -49,6 +49,10 @@ class HueEmu extends utils.Adapter {
      */
     set pairingEnabled(value) {
         this._pairingEnabled = value;
+        if (!value && this.pairingTimeoutId) {
+            clearTimeout(this.pairingTimeoutId);
+            this.pairingTimeoutId = null;
+        }
         this.setState("startPairing", { ack: true, val: value });
     }
     /**

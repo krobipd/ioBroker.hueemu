@@ -93,6 +93,9 @@ class ApiHandler {
             }
             const username = yield this.userService.createUser(providedUsername, body.devicetype);
             this.log("info", `Created user: ${username}`);
+            // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
+            this.adapter.pairingEnabled = false;
+            this.log("info", "Pairing mode disabled after successful user registration");
             return username;
         });
     }
