@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "news": {
+      "1.0.13": {
+        "en": "Fix: on/off lights now reported as Dimmable/LWB007 (like ha-bridge) to fix color controls showing in Harmony Hub; remove capabilities field from light responses",
+        "de": "Fix: Ein/Aus-Lichter werden jetzt als Dimmable/LWB007 gemeldet (wie ha-bridge), um fehlerhafte Farb-Controls im Harmony Hub zu beheben; capabilities-Feld aus Lichtantworten entfernt",
+        "ru": "Исправление: лампы вкл/выкл теперь отображаются как Dimmable/LWB007 (как ha-bridge) для устранения отображения цветовых элементов управления в Harmony Hub",
+        "pt": "Fix: luzes on/off agora reportadas como Dimmable/LWB007 (como ha-bridge) para corrigir controlos de cor no Harmony Hub",
+        "nl": "Fix: aan/uit-lampen worden nu gerapporteerd als Dimmable/LWB007 (zoals ha-bridge) om kleurbesturing in Harmony Hub te verhelpen",
+        "fr": "Fix: les lumières on/off sont maintenant signalées comme Dimmable/LWB007 (comme ha-bridge) pour corriger les contrôles couleur dans Harmony Hub",
+        "it": "Fix: le luci on/off ora riportate come Dimmable/LWB007 (come ha-bridge) per correggere i controlli colore in Harmony Hub",
+        "es": "Fix: las luces on/off ahora se reportan como Dimmable/LWB007 (como ha-bridge) para corregir los controles de color en Harmony Hub",
+        "pl": "Fix: lampki wł./wył. są teraz raportowane jako Dimmable/LWB007 (jak ha-bridge) aby naprawić wyświetlanie kontrolek koloru w Harmony Hub",
+        "uk": "Виправлення: лампи вкл/викл тепер відображаються як Dimmable/LWB007 (як ha-bridge) для усунення елементів керування кольором в Harmony Hub",
+        "zh-cn": "修复：开/关灯现在报告为Dimmable/LWB007（如ha-bridge），以修复Harmony Hub中显示颜色控件的问题"
+      },
       "1.0.12": {
         "en": "Fix logging: move light command details from info to debug level",
         "de": "Logging korrigiert: Lichtbefehle von info auf debug verschoben",

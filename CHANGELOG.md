@@ -1,4 +1,9 @@
 # Changelog
+## 1.0.13 (2026-03-19)
+
+- Fix: on/off lights now reported as Dimmable/LWB007 (matching ha-bridge behavior) to prevent Harmony Hub from showing color controls
+- Fix: remove capabilities field from all light responses (ha-bridge compatibility)
+
 ## 1.0.12 (2026-03-19)
 
 - Fix logging: move light command details from info to debug level
