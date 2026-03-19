@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.3 (März 2026)
+**Aktuelle Version:** 1.0.9 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -15,8 +15,8 @@ Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), dam
 | @iobroker/adapter-core | 3.3.2 | ioBroker Adapter-Basisklasse |
 | fastify | 5.8.2 | HTTP/HTTPS Server |
 | node-ssdp | 4.0.1 | UPnP/SSDP Discovery |
-| node-forge | 1.3.1 | TLS-Zertifikatsgenerierung |
-| uuid | 11.1.0 | UUID Generierung |
+| node-forge | 1.3.3 | TLS-Zertifikatsgenerierung |
+| uuid | 13.x | UUID Generierung |
 
 ## Architektur
 
@@ -104,16 +104,27 @@ interface DeviceConfig {
 ## Hue API Endpoints
 
 ```
-POST /api                              → createUser (Pairing)
-GET  /api/:username                    → getFullState
-GET  /api/:username/config             → getConfig
-GET  /api/:username/lights             → getAllLights
-GET  /api/:username/lights/:id         → getLightById
-PUT  /api/:username/lights/:id/state   → setLightState
-GET  /api/:username/{groups,...}       → leere Collections
-GET  /description.xml                  → UPnP Device Description
-GET  /health                           → Health Check
+POST /api                                  → createUser (Pairing)
+GET  /api/:username                        → getFullState
+GET  /api/:username/config                 → getConfig
+GET  /api/:username/lights                 → getAllLights
+GET  /api/:username/lights/:id             → getLightById
+PUT  /api/:username/lights/:id/state       → setLightState
+PUT  /api/:username/groups/:id/action      → setGroupAction (wendet State auf alle Lights an)
+GET  /api/:username/{groups,schedules,...} → leere Collections (groups, schedules, scenes, sensors, rules, resourcelinks)
+GET  /description.xml                      → UPnP Device Description
+GET  /health                               → Health Check
 ```
+
+## Logitech Harmony Hub Kompatibilität
+
+Harmony nutzt **ausschließlich Hue API v1**. Relevante Endpoints:
+- `POST /api/` — Pairing (`devicetype: "Harmony Hub"`) via **MyHarmony Desktop + USB**, nicht Mobile App
+- `GET /api/:username/lights` + `/groups` + `/scenes` + `/config` — Discovery
+- `PUT /api/:username/lights/:id/state` — Einzelgerät steuern
+- `PUT /api/:username/groups/:id/action` — Alle Geräte auf einmal steuern (Gruppe 0 = alle)
+
+`setGroupAction` in `ApiHandler`: wendet State parallel auf alle konfigurierten Lights an, antwortet mit `/groups/:id/action/:key` Adressen.
 
 ## Discovery (SSDP)
 
@@ -195,12 +206,30 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 - **Original Author:** Christopher Holomek (@holomekc)
 - **Lizenz:** MIT
 
+## Release-Workflow
+
+`manual-review` Plugin in `.releaseconfig.json` blockiert interaktiv → manueller Workaround:
+```bash
+# Manuell: Version in package.json + io-package.json bumpen
+# CHANGELOG.md + README.md (Badge + Changelog-Section) aktualisieren
+# io-package.json news (alle 11 Sprachen) hinzufügen
+npm run build
+git add package.json io-package.json CHANGELOG.md README.md build/ src/
+git commit -m "chore: release vX.Y.Z"
+git tag vX.Y.Z
+git push && git push origin vX.Y.Z
+```
+
 ## Versionshistorie
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.9 | 2026-03-19 | Fix: stabile Bridge-Identität (UDN/MAC persistieren), SSDP case-insensitive, serialNumber fix |
+| 1.0.8 | 2026-03-18 | Fix: PUT /groups/:id/action → Harmony Hub kompatibel |
+| 1.0.7 | 2026-03-18 | Code cleanup: dead code, DRY routes, README ohne Dev-Sektion |
+| 1.0.6 | 2026-03-17 | npm Trusted Publishing (OIDC), release-script, README auf Englisch |
+| 1.0.5 | 2026-03-16 | ioBroker Repochecker Fixes: Copyright, LICENSE, responsive UI |
+| 1.0.4 | 2026-03-15 | uuid 13, sinon 21, dead code entfernt |
 | 1.0.3 | 2026-03-15 | Code-Bereinigung, ungenutzte Dependencies/Code entfernt |
-| 1.0.2 | 2026-03-15 | Node.js 24 LTS Support, CI-Verbesserungen |
-| 1.0.1 | 2026-03-15 | Dependency Updates, @iobroker/eslint-config |
 | 1.0.0 | 2026-03-09 | Major Rewrite: Fastify, moderne Admin UI |
 | 0.0.x | 2020-2024 | Original von Christopher Holomek |

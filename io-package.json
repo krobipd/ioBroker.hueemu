@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "news": {
+      "1.0.9": {
+        "en": "Fix: stable bridge identity across restarts (persist UDN/MAC), fix SSDP discovery for Harmony Hub (case-insensitive USN), fix empty serialNumber in description.xml",
+        "de": "Fix: stabile Bridge-Identität über Neustarts hinweg (UDN/MAC persistieren), SSDP-Discovery für Harmony Hub repariert (Groß-/Kleinschreibung), leere serialNumber in description.xml behoben",
+        "ru": "Исправление: стабильная идентификация моста при перезапусках (сохранение UDN/MAC), исправление SSDP-обнаружения для Harmony Hub, исправлена пустая serialNumber",
+        "pt": "Correção: identidade estável da bridge após reinicializações (persistir UDN/MAC), corrigir descoberta SSDP para Harmony Hub, corrigir serialNumber vazia",
+        "nl": "Fix: stabiele bridge-identiteit na herstarts (UDN/MAC bewaren), SSDP-discovery voor Harmony Hub gerepareerd, lege serialNumber opgelost",
+        "fr": "Correction : identité stable de la passerelle après redémarrages (persistance UDN/MAC), correction de la découverte SSDP pour Harmony Hub, correction du serialNumber vide",
+        "it": "Fix: identità stabile del bridge dopo i riavvii (persistere UDN/MAC), correzione del rilevamento SSDP per Harmony Hub, correzione serialNumber vuoto",
+        "es": "Fix: identidad estable del bridge tras reinicios (persistir UDN/MAC), corregir descubrimiento SSDP para Harmony Hub, corregir serialNumber vacío",
+        "pl": "Poprawka: stabilna tożsamość mostu po ponownym uruchomieniu (zachowanie UDN/MAC), naprawa wykrywania SSDP dla Harmony Hub, naprawa pustego serialNumber",
+        "uk": "Виправлення: стабільна ідентичність моста після перезапусків (збереження UDN/MAC), виправлення SSDP-виявлення для Harmony Hub, виправлено порожній serialNumber",
+        "zh-cn": "修复：重启后桥接身份稳定（持久化UDN/MAC），修复Harmony Hub的SSDP发现，修复description.xml中空serialNumber"
+      },
       "1.0.8": {
         "en": "Fix: add PUT /api/:username/groups/:id/action endpoint for Logitech Harmony Hub compatibility",
         "de": "Fix: PUT /api/:username/groups/:id/action Endpoint für Logitech Harmony Hub Kompatibilität hinzugefügt",

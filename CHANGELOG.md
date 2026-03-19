@@ -1,4 +1,12 @@
 # Changelog
+## 1.0.9 (2026-03-19)
+
+- Fix: persist generated UDN and MAC to adapter config so bridge identity stays stable across restarts
+- Fix: SSDP now registers both `Basic:1` and `basic:1` USN variants for Harmony Hub compatibility
+- Fix: empty serialNumber in description.xml when no MAC configured
+- Fix: log client IP in request log for easier debugging
+- Fix: set linkbutton dynamically based on pairing state
+
 ## 1.0.8 (2026-03-18)
 
 - Fix: add PUT /api/:username/groups/:id/action endpoint for Logitech Harmony Hub compatibility

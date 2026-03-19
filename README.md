@@ -1,6 +1,6 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.8-blue)
+![Version](https://img.shields.io/badge/version-1.0.9-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -104,6 +104,11 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 ---
 
 ## Changelog
+
+### 1.0.9 (2026-03-19)
+- Fix: stable bridge identity across restarts (persist UDN/MAC)
+- Fix: SSDP discovery for Harmony Hub (case-insensitive USN)
+- Fix: empty serialNumber in description.xml
 
 ### 1.0.8 (2026-03-18)
 - Fix: Logitech Harmony Hub compatibility — groups action endpoint
