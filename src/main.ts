@@ -195,7 +195,7 @@ export class HueEmu extends utils.Adapter {
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
     const httpsPort = this.toUndefinedPort(this.config.httpsPort);
     const udn = this.config.udn?.trim() || uuid.v4();
-    const mac = this.config.mac?.trim() || "";
+    const mac = this.config.mac?.trim() || this.macFromUdn(udn);
     const upnpPort = this.toDefaultPort(this.config.upnpPort, 1900);
 
     // Build bridge identity
@@ -666,6 +666,14 @@ export class HueEmu extends utils.Adapter {
       return typeof port === "number" ? port : parseInt(port.toString(), 10);
     }
     return undefined;
+  }
+
+  /**
+   * Derive a stable MAC address from the UDN (used when no MAC is configured)
+   */
+  private macFromUdn(udn: string): string {
+    const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
+    return hex.match(/.{2}/g)!.join(":");
   }
 }
 

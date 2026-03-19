@@ -60,12 +60,25 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 | **Color Temperature** | `on`, `bri`, `ct` | LTW001 |
 | **Color Light** | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003 |
 
+### Pairing
+
+Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing must be activated:
+
+1. ioBroker Objects → `hueemu.0` → set **`startPairing`** to `true`
+2. Start the device search / pairing in your client app within **50 seconds**
+3. After successful pairing a new entry appears under `hueemu.0.users.*`
+
 ### Connecting with Alexa
 
-1. Start the adapter
+1. Activate pairing (see above)
 2. Alexa App → Devices → `+` → Philips Hue
 3. The bridge is discovered automatically
-4. "Alexa, turn on Living Room Light"
+
+### Connecting with Logitech Harmony Hub
+
+1. Activate pairing (see above)
+2. In the Harmony setup software: Add Device → Lighting → Philips Hue → search for bridge
+3. Confirm pairing within 50 seconds
 
 ---
 
@@ -77,9 +90,9 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 - The **Host** IP must be the actual network IP, not `0.0.0.0`
 - Check firewall rules on the ioBroker host
 
-### Alexa finds no devices
+### Client finds no devices / pairing fails
 
-- Activate pairing mode (50-second window)
+- Set `startPairing` to `true` in ioBroker Objects → `hueemu.0` **before** starting the device search in your client — you have 50 seconds
 - Ensure at least one device is configured
 - Check adapter logs for errors
 

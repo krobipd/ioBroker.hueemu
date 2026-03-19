@@ -157,7 +157,7 @@ class HueEmu extends utils.Adapter {
             const discoveryPort = this.toPort(this.config.discoveryPort) || port;
             const httpsPort = this.toUndefinedPort(this.config.httpsPort);
             const udn = ((_c = this.config.udn) === null || _c === void 0 ? void 0 : _c.trim()) || uuid.v4();
-            const mac = ((_d = this.config.mac) === null || _d === void 0 ? void 0 : _d.trim()) || "";
+            const mac = ((_d = this.config.mac) === null || _d === void 0 ? void 0 : _d.trim()) || this.macFromUdn(udn);
             const upnpPort = this.toDefaultPort(this.config.upnpPort, 1900);
             // Build bridge identity
             const identity = {
@@ -557,6 +557,13 @@ class HueEmu extends utils.Adapter {
             return typeof port === "number" ? port : parseInt(port.toString(), 10);
         }
         return undefined;
+    }
+    /**
+     * Derive a stable MAC address from the UDN (used when no MAC is configured)
+     */
+    macFromUdn(udn) {
+        const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
+        return hex.match(/.{2}/g).join(":");
     }
 }
 exports.HueEmu = HueEmu;
