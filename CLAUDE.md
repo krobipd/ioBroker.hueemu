@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.15 (März 2026)
+**Aktuelle Version:** 1.0.16 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -215,6 +215,7 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 # Manuell: Version in package.json + io-package.json bumpen
 # CHANGELOG.md + README.md (Badge + Changelog-Section) aktualisieren
 # io-package.json news (alle 11 Sprachen) hinzufügen
+npm run lint:fix   # Prettier + no-floating-promises fixen!
 npm run build
 git add package.json io-package.json CHANGELOG.md README.md build/ src/
 git commit -m "chore: release vX.Y.Z"
@@ -222,10 +223,16 @@ git tag vX.Y.Z
 git push && git push origin vX.Y.Z
 ```
 
+**Häufige CI-Fehler:**
+- Prettier-Formatierung: `npm run lint:fix` behebt automatisch
+- `no-floating-promises`: `setState`/`setObjectNotExists` in Setter/forEach/Callbacks → `void` davor setzen
+- JSON Trailing Comma in io-package.json → io-package.json immer mit JSON-Validator prüfen
+
 ## Versionshistorie
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.16 | 2026-03-19 | Logging cleanup: redundantes onReady-Log + floating promises (void) + Prettier-Fix |
 | 1.0.15 | 2026-03-19 | info.configuredDevices entfernt, verbose Startup-Log entfernt; JSON-Fix (Trailing Comma) |
 | 1.0.14 | 2026-03-19 | Fix: Pairing nach erfolgreicher Registrierung deaktivieren (Pairing-Loop-Fix) |
 | 1.0.13 | 2026-03-19 | Fix: onoff → LWB007/Dimmable (Harmony-kompatibel), capabilities-Feld entfernt |
