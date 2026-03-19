@@ -105,6 +105,9 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ## Changelog
 
+### 1.0.15 (2026-03-19)
+- Remove redundant info.configuredDevices datapoint and verbose startup log
+
 ### 1.0.14 (2026-03-19)
 - Fix: disable pairing after successful user registration (prevents pairing loop)
 

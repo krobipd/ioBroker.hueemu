@@ -82,7 +82,6 @@ class HueEmu extends utils.Adapter {
                 const logger = this.createLogger();
                 // Get device configurations from admin UI
                 const devices = this.config.devices || [];
-                this.log.info(`Loaded ${devices.length} device(s) from configuration`);
                 // Initialize SSDP discovery server
                 this.ssdpServer = new discovery_1.HueSsdpServer({
                     identity: emulatorConfig.identity,
@@ -116,32 +115,7 @@ class HueEmu extends utils.Adapter {
                 yield this.initializeAdapterStates();
                 // Subscribe to state changes (own states)
                 this.subscribeStates("*");
-                // Log device info
-                if (devices.length > 0) {
-                    this.log.info("Configured devices:");
-                    devices.forEach((device, index) => {
-                        const mappedStates = [];
-                        if (device.onState) {
-                            mappedStates.push("on");
-                        }
-                        if (device.briState) {
-                            mappedStates.push("bri");
-                        }
-                        if (device.ctState) {
-                            mappedStates.push("ct");
-                        }
-                        if (device.hueState) {
-                            mappedStates.push("hue");
-                        }
-                        if (device.satState) {
-                            mappedStates.push("sat");
-                        }
-                        if (device.xyState) {
-                            mappedStates.push("xy");
-                        }
-                        this.log.info(`  ${index + 1}. ${device.name} (${device.lightType}) - mapped: ${mappedStates.join(", ") || "none"}`);
-                    });
-                }
+                this.log.debug(`${devices.length} device(s) loaded from configuration`);
                 this.log.info("Hue Emulator started successfully");
             }
             catch (error) {
@@ -277,32 +251,6 @@ class HueEmu extends utils.Adapter {
             // Load disableAuth state
             const disableAuthState = yield this.getStateAsync("disableAuth");
             this._disableAuth = (disableAuthState === null || disableAuthState === void 0 ? void 0 : disableAuthState.val) || false;
-            // Create info channel
-            yield this.setObjectNotExistsAsync("info", {
-                type: "channel",
-                common: {
-                    name: "Adapter Information",
-                },
-                native: {},
-            });
-            // Create info.configuredDevices state
-            const deviceCount = (this.config.devices || []).length;
-            yield this.setObjectNotExistsAsync("info.configuredDevices", {
-                type: "state",
-                common: {
-                    name: "Configured Devices",
-                    type: "number",
-                    role: "value",
-                    read: true,
-                    write: false,
-                    desc: "Number of devices configured in admin UI",
-                },
-                native: {},
-            });
-            yield this.setStateAsync("info.configuredDevices", {
-                val: deviceCount,
-                ack: true,
-            });
         });
     }
     /**

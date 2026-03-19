@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "news": {
+      "1.0.15": {
+        "en": "Remove redundant info.configuredDevices datapoint and verbose device startup log",
+        "de": "Redundanten info.configuredDevices Datenpunkt und ausführliches Geräte-Startlog entfernt",
+        "ru": "Удалена избыточная точка данных info.configuredDevices и подробный лог устройств при запуске",
+        "pt": "Remover ponto de dados info.configuredDevices redundante e log de dispositivos detalhado no arranque",
+        "nl": "Redundant info.configuredDevices datapunt en uitgebreide apparaat-startlog verwijderd",
+        "fr": "Suppression du point de données info.configuredDevices redondant et du journal détaillé des appareils au démarrage",
+        "it": "Rimosso datapoint info.configuredDevices ridondante e log dettagliato dispositivi all'avvio",
+        "es": "Eliminar punto de datos info.configuredDevices redundante y log detallado de dispositivos al inicio",
+        "pl": "Usunięto nadmiarowy punkt danych info.configuredDevices i szczegółowy log urządzeń przy starcie",
+        "uk": "Видалено надлишкову точку даних info.configuredDevices та детальний лог пристроїв при запуску",
+        "zh-cn": "删除冗余的info.configuredDevices数据点和详细设备启动日志"
+      },
       "1.0.14": {
         "en": "Fix: disable pairing after successful user registration to prevent pairing loop",
         "de": "Fix: Pairing nach erfolgreicher Benutzerregistrierung deaktivieren, um Pairing-Schleife zu verhindern",
@@ -265,26 +278,5 @@
       },
       "native": {}
     },
-    {
-      "_id": "info",
-      "type": "channel",
-      "common": {
-        "name": "Adapter Information"
-      },
-      "native": {}
-    },
-    {
-      "_id": "info.configuredDevices",
-      "type": "state",
-      "common": {
-        "name": "Configured Devices",
-        "type": "number",
-        "role": "value",
-        "read": true,
-        "write": false,
-        "desc": "Number of devices configured in admin UI"
-      },
-      "native": {}
-    }
   ]
 }

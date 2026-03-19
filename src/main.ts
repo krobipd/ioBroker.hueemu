@@ -114,7 +114,6 @@ export class HueEmu extends utils.Adapter {
 
       // Get device configurations from admin UI
       const devices: DeviceConfig[] = this.config.devices || [];
-      this.log.info(`Loaded ${devices.length} device(s) from configuration`);
 
       // Initialize SSDP discovery server
       this.ssdpServer = new HueSsdpServer({
@@ -156,35 +155,7 @@ export class HueEmu extends utils.Adapter {
       // Subscribe to state changes (own states)
       this.subscribeStates("*");
 
-      // Log device info
-      if (devices.length > 0) {
-        this.log.info("Configured devices:");
-        devices.forEach((device, index) => {
-          const mappedStates: string[] = [];
-          if (device.onState) {
-            mappedStates.push("on");
-          }
-          if (device.briState) {
-            mappedStates.push("bri");
-          }
-          if (device.ctState) {
-            mappedStates.push("ct");
-          }
-          if (device.hueState) {
-            mappedStates.push("hue");
-          }
-          if (device.satState) {
-            mappedStates.push("sat");
-          }
-          if (device.xyState) {
-            mappedStates.push("xy");
-          }
-          this.log.info(
-            `  ${index + 1}. ${device.name} (${device.lightType}) - mapped: ${mappedStates.join(", ") || "none"}`,
-          );
-        });
-      }
-
+      this.log.debug(`${devices.length} device(s) loaded from configuration`);
       this.log.info("Hue Emulator started successfully");
     } catch (error) {
       this.log.error(`Failed to start Hue Emulator: ${error}`);
@@ -337,34 +308,6 @@ export class HueEmu extends utils.Adapter {
     // Load disableAuth state
     const disableAuthState = await this.getStateAsync("disableAuth");
     this._disableAuth = (disableAuthState?.val as boolean) || false;
-
-    // Create info channel
-    await this.setObjectNotExistsAsync("info", {
-      type: "channel",
-      common: {
-        name: "Adapter Information",
-      },
-      native: {},
-    });
-
-    // Create info.configuredDevices state
-    const deviceCount = (this.config.devices || []).length;
-    await this.setObjectNotExistsAsync("info.configuredDevices", {
-      type: "state",
-      common: {
-        name: "Configured Devices",
-        type: "number",
-        role: "value",
-        read: true,
-        write: false,
-        desc: "Number of devices configured in admin UI",
-      },
-      native: {},
-    });
-    await this.setStateAsync("info.configuredDevices", {
-      val: deviceCount,
-      ack: true,
-    });
   }
 
   /**

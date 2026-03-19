@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.15 (2026-03-19)
+
+- Remove redundant info.configuredDevices datapoint and verbose device startup log
+
 ## 1.0.14 (2026-03-19)
 
 - Fix: disable pairing after successful user registration (prevents repeated pairing requests being logged as a loop)
