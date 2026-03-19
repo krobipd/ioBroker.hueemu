@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.9 (März 2026)
+**Aktuelle Version:** 1.0.13 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -87,12 +87,14 @@ interface DeviceConfig {
 
 ## Light-Typen
 
-| Typ | States | Model ID | Hue Type |
-|-----|--------|----------|----------|
-| onoff | on | LOM001 | On/Off light |
+| Typ | States (ioBroker) | Model ID | Hue Type (gemeldet) |
+|-----|-------------------|----------|---------------------|
+| onoff | on | LWB007 | Dimmable light |
 | dimmable | on, bri | LWB010 | Dimmable light |
 | ct | on, bri, ct | LTW001 | Color temperature light |
 | color | on, bri, hue, sat, ct, xy | LCT003 | Extended color light |
+
+**Hinweis:** `onoff` wird bewusst als `LWB007 / Dimmable light` an Harmony gemeldet (wie ha-bridge), weil Harmony `"On/Off light" / LOM001` nicht kennt und auf volle Farb-Controls zurückfällt. Die `capabilities`-Feld wird aus der Lichtantwort weggelassen (ha-bridge-kompatibel).
 
 ### Wertekonvertierung
 - **bri**: 0-100 oder 0-1 → 1-254
@@ -224,6 +226,10 @@ git push && git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.13 | 2026-03-19 | Fix: onoff → LWB007/Dimmable (Harmony-kompatibel), capabilities-Feld entfernt |
+| 1.0.12 | 2026-03-19 | Logging: Lichtbefehle von info auf debug |
+| 1.0.11 | 2026-03-19 | Logging verbessert: Pairing-Start/-Stop, Bridge-Identität, Auth-Status |
+| 1.0.10 | 2026-03-19 | Fix: type-spezifische capabilities (rückgängig in 1.0.13) |
 | 1.0.9 | 2026-03-19 | Fix: stabile Bridge-Identität (UDN/MAC persistieren), SSDP case-insensitive, serialNumber fix |
 | 1.0.8 | 2026-03-18 | Fix: PUT /groups/:id/action → Harmony Hub kompatibel |
 | 1.0.7 | 2026-03-18 | Code cleanup: dead code, DRY routes, README ohne Dev-Sektion |
