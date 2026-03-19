@@ -232,7 +232,7 @@ export class ApiHandler implements HueApiHandler {
     lightId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
-    this.log("debug", `Set light state: ${lightId}`);
+    this.log("debug", `Set light ${lightId} state: ${JSON.stringify(state)}`);
     return this.lightService.setLightState(lightId, state);
   }
 
@@ -245,7 +245,7 @@ export class ApiHandler implements HueApiHandler {
     groupId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
-    this.log("debug", `Set group ${groupId} action`);
+    this.log("debug", `Set group ${groupId} action: ${JSON.stringify(state)}`);
 
     const lights = await this.lightService.getAllLights();
 

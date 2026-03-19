@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "news": {
+      "1.0.11": {
+        "en": "Improve logging: pairing start/stop messages, bridge identity at startup, light control info logs, auth state changes",
+        "de": "Logging verbessert: Meldungen beim Pairing-Start/-Stop, Bridge-Identität beim Start, Info-Logs bei Lichtsteuerung, Auth-Statusänderungen",
+        "ru": "Улучшение логирования: сообщения о начале/завершении сопряжения, идентификатор моста при запуске, информационные логи управления светом",
+        "pt": "Melhoria de logging: mensagens de início/fim de emparelhamento, identidade da bridge no arranque, logs de controlo de luz",
+        "nl": "Verbeterde logging: berichten bij koppelingsstart/-stop, bridge-identiteit bij opstarten, info-logs bij lichtbesturing",
+        "fr": "Amélioration des journaux : messages de début/fin de couplage, identité du pont au démarrage, journaux d'info pour le contrôle des lumières",
+        "it": "Miglioramento logging: messaggi avvio/stop pairing, identità bridge all'avvio, log info controllo luci",
+        "es": "Mejora de logging: mensajes de inicio/fin de emparejamiento, identidad del bridge al inicio, logs de control de luz",
+        "pl": "Ulepszone logowanie: komunikaty startu/stopu parowania, tożsamość mostu przy starcie, logi informacyjne sterowania światłem",
+        "uk": "Покращення логування: повідомлення про початок/завершення з'єднання, ідентифікатор моста при запуску, інформаційні логи керування світлом",
+        "zh-cn": "改善日志记录：配对开始/停止消息、启动时桥接身份、灯光控制信息日志、认证状态变化"
+      },
       "1.0.10": {
         "en": "Fix: on/off lights no longer expose dimming and color capabilities to Harmony Hub",
         "de": "Fix: Ein/Aus-Lichter zeigen Harmony Hub keine Dimm- und Farbfähigkeiten mehr an",

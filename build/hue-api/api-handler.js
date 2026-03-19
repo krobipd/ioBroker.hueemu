@@ -140,7 +140,7 @@ class ApiHandler {
      */
     setLightState(_req, _username, lightId, state) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.log("debug", `Set light state: ${lightId}`);
+            this.log("debug", `Set light ${lightId} state: ${JSON.stringify(state)}`);
             return this.lightService.setLightState(lightId, state);
         });
     }
@@ -149,7 +149,7 @@ class ApiHandler {
      */
     setGroupAction(_req, _username, groupId, state) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.log("debug", `Set group ${groupId} action`);
+            this.log("debug", `Set group ${groupId} action: ${JSON.stringify(state)}`);
             const lights = yield this.lightService.getAllLights();
             // Apply state to all lights in parallel
             yield Promise.all(Object.keys(lights).map((lightId) => this.lightService

@@ -90,13 +90,14 @@ export class HueEmu extends utils.Adapter {
   set disableAuth(value: boolean) {
     this._disableAuth = value;
     this.setState("disableAuth", { ack: true, val: value });
+    this.log.info(`Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`);
   }
 
   /**
    * Called when databases are connected and adapter received configuration
    */
   private async onReady(): Promise<void> {
-    this.log.silly("onReady called. Loading configuration");
+    this.log.debug("onReady called. Loading configuration");
 
     try {
       // Parse and validate configuration
@@ -224,6 +225,12 @@ export class HueEmu extends utils.Adapter {
         key: cert.privateKey,
       };
     }
+
+    this.log.info(
+      `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
+    );
+    this.log.info(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
+    this.log.debug(`UDN: ${identity.udn}`);
 
     return {
       host,
@@ -476,17 +483,20 @@ export class HueEmu extends utils.Adapter {
   private handleStartPairing(state: ioBroker.State): void {
     if (this.pairingTimeoutId) {
       clearTimeout(this.pairingTimeoutId);
+      this.pairingTimeoutId = null;
     }
 
     this.pairingEnabled = state.val as boolean;
 
-    // Auto-disable pairing after 50 seconds
     if (state.val) {
+      this.log.info("Pairing mode enabled — waiting for client to connect (50 seconds)");
       this.pairingTimeoutId = setTimeout(() => {
         this._pairingEnabled = false;
         this.setState("startPairing", { ack: true, val: false });
-        this.log.info("Pairing mode automatically disabled after timeout");
+        this.log.info("Pairing mode automatically disabled after 50 seconds timeout");
       }, 50000);
+    } else {
+      this.log.info("Pairing mode disabled");
     }
   }
 

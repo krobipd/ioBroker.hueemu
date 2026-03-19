@@ -1,6 +1,6 @@
 # ioBroker.hueemu
 
-![Version](https://img.shields.io/badge/version-1.0.10-blue)
+![Version](https://img.shields.io/badge/version-1.0.11-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -104,6 +104,9 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 ---
 
 ## Changelog
+
+### 1.0.11 (2026-03-19)
+- Improve logging: pairing start/stop, bridge identity at startup, light control details
 
 ### 1.0.10 (2026-03-19)
 - Fix: on/off lights no longer expose dimming and color capabilities to Harmony Hub
