@@ -115,6 +115,9 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ## Changelog
 
+### 1.0.18 (2026-03-19)
+- Logging: Bridge identity, Network and SSDP startup messages moved to debug level
+
 ### 1.0.17 (2026-03-19)
 - Admin UI: host field changed to interface dropdown (IP selector)
 - README: Ports section added; SSDP port 1900 clarified as fixed

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "news": {
+      "1.0.18": {
+        "en": "Logging: Bridge identity, Network and SSDP startup messages moved to debug level",
+        "de": "Logging: Bridge-Identity, Netzwerk- und SSDP-Startmeldungen auf Debug-Level verschoben",
+        "ru": "Логирование: сообщения Bridge identity, Network и SSDP при запуске перенесены на уровень debug",
+        "pt": "Logging: mensagens de Bridge identity, Network e SSDP na inicialização movidas para nível debug",
+        "nl": "Logging: Bridge identity, Network en SSDP opstartmeldingen verplaatst naar debug-niveau",
+        "fr": "Logging: messages Bridge identity, Network et SSDP au démarrage déplacés en niveau debug",
+        "it": "Logging: messaggi Bridge identity, Network e SSDP all'avvio spostati al livello debug",
+        "es": "Logging: mensajes Bridge identity, Network y SSDP al inicio movidos a nivel debug",
+        "pl": "Logowanie: komunikaty Bridge identity, Network i SSDP przy starcie przeniesione na poziom debug",
+        "uk": "Логування: повідомлення Bridge identity, Network та SSDP при запуску переміщено на рівень debug",
+        "zh-cn": "日志：将Bridge identity、Network和SSDP启动消息移至debug级别"
+      },
       "1.0.17": {
         "en": "Admin UI: host field changed to interface dropdown (IP selector); SSDP port 1900 clarified as fixed",
         "de": "Admin UI: Host-Feld auf Interface-Dropdown umgestellt (IP-Auswahl); SSDP-Port 1900 als fest dokumentiert",

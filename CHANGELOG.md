@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.18 (2026-03-19)
+
+- Logging: Bridge identity, Network and SSDP startup messages moved to debug level
+
 ## 1.0.17 (2026-03-19)
 
 - Admin UI: host field changed to interface dropdown (IP selector); SSDP port 1900 clarified as fixed in README

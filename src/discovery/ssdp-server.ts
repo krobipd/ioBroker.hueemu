@@ -109,7 +109,7 @@ export class HueSsdpServer {
 
       this.isRunning = true;
       this.log(
-        "info",
+        "debug",
         `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`,
       );
     } catch (error) {

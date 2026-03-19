@@ -201,10 +201,10 @@ export class HueEmu extends utils.Adapter {
       };
     }
 
-    this.log.info(
+    this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
     );
-    this.log.info(
+    this.log.debug(
       `Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`,
     );
     this.log.debug(`UDN: ${identity.udn}`);

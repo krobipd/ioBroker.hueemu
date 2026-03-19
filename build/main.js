@@ -161,8 +161,8 @@ class HueEmu extends utils.Adapter {
                     key: cert.privateKey,
                 };
             }
-            this.log.info(`Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`);
-            this.log.info(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
+            this.log.debug(`Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`);
+            this.log.debug(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
             this.log.debug(`UDN: ${identity.udn}`);
             return {
                 host,
