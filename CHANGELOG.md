@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.17 (2026-03-19)
+
+- Admin UI: host field changed to interface dropdown (IP selector); SSDP port 1900 clarified as fixed in README
+
 ## 1.0.16 (2026-03-19)
 
 - Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level

@@ -2,10 +2,9 @@
     "networkSettings": "Rete",
     "serverSettings": "Server",
     "host": "Host / Indirizzo IP",
-    "hostTooltip": "Indirizzo IP del server ioBroker",
+    "hostTooltip": "Seleziona l'interfaccia di rete. Questo IP viene anche annunciato via SSDP — Harmony e altri client si connettono a questo indirizzo.",
     "port": "Porta",
     "portTooltip": "Porta HTTP per l'API Hue (predefinito: 8080)",
-
     "advancedSettings": "Avanzato (opzionale)",
     "advancedInfo": "Queste impostazioni sono opzionali. I valori predefiniti vengono utilizzati se lasciati vuoti.",
     "upnpPort": "Porta UPnP",
@@ -14,18 +13,15 @@
     "httpsPortTooltip": "Porta HTTPS (vuoto = nessun HTTPS)",
     "mac": "Indirizzo MAC",
     "macTooltip": "MAC opzionale per Bridge-ID (generato automaticamente se vuoto)",
-
     "deviceConfiguration": "Dispositivi",
     "configuredDevices": "Dispositivi configurati",
     "deviceConfigHelp": "Aggiungi dispositivi e mappa gli stati ioBroker alle proprietà Hue.",
-
     "deviceName": "Nome",
     "lightType": "Tipo",
     "lightTypeOnOff": "Acceso/Spento",
     "lightTypeDimmable": "Dimmerabile",
     "lightTypeCT": "Temperatura colore",
     "lightTypeColor": "Colore (RGB)",
-
     "stateOn": "Stato Acceso/Spento",
     "stateOnTooltip": "Stato booleano per acceso/spento",
     "stateBri": "Stato luminosità",

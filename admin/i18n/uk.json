@@ -2,10 +2,9 @@
     "networkSettings": "Мережа",
     "serverSettings": "Сервер",
     "host": "Хост / IP-адреса",
-    "hostTooltip": "IP-адреса сервера ioBroker",
+    "hostTooltip": "Оберіть мережевий інтерфейс. Цей IP також оголошується через SSDP — Harmony та інші клієнти підключаються до цієї адреси.",
     "port": "Порт",
     "portTooltip": "HTTP-порт для API Hue (за замовчуванням: 8080)",
-
     "advancedSettings": "Розширені (необов'язково)",
     "advancedInfo": "Ці налаштування необов'язкові. Значення за замовчуванням використовуються, якщо поля порожні.",
     "upnpPort": "Порт UPnP",
@@ -14,18 +13,15 @@
     "httpsPortTooltip": "Порт HTTPS (порожньо = без HTTPS)",
     "mac": "MAC-адреса",
     "macTooltip": "Необов'язковий MAC для Bridge-ID (генерується автоматично якщо порожньо)",
-
     "deviceConfiguration": "Пристрої",
     "configuredDevices": "Налаштовані пристрої",
     "deviceConfigHelp": "Додайте пристрої та зіставте стани ioBroker з властивостями Hue.",
-
     "deviceName": "Назва",
     "lightType": "Тип",
     "lightTypeOnOff": "Вкл/Викл",
     "lightTypeDimmable": "Диммований",
     "lightTypeCT": "Колірна температура",
     "lightTypeColor": "Колір (RGB)",
-
     "stateOn": "Стан Вкл/Викл",
     "stateOnTooltip": "Булевий стан для вкл/викл",
     "stateBri": "Стан яскравості",

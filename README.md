@@ -115,6 +115,10 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ## Changelog
 
+### 1.0.17 (2026-03-19)
+- Admin UI: host field changed to interface dropdown (IP selector)
+- README: Ports section added; SSDP port 1900 clarified as fixed
+
 ### 1.0.16 (2026-03-19)
 - Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level
 

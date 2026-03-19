@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.16",
+    "version": "1.0.17",
     "news": {
+      "1.0.17": {
+        "en": "Admin UI: host field changed to interface dropdown (IP selector); SSDP port 1900 clarified as fixed",
+        "de": "Admin UI: Host-Feld auf Interface-Dropdown umgestellt (IP-Auswahl); SSDP-Port 1900 als fest dokumentiert",
+        "ru": "Admin UI: поле host заменено на выпадающий список интерфейсов (выбор IP); порт SSDP 1900 зафиксирован",
+        "pt": "Admin UI: campo host alterado para dropdown de interface (seletor de IP); porta SSDP 1900 documentada como fixa",
+        "nl": "Admin UI: host-veld gewijzigd naar interface-dropdown (IP-selector); SSDP-poort 1900 als vast gedocumenteerd",
+        "fr": "Admin UI: champ host remplacé par un menu déroulant d'interface (sélecteur IP); port SSDP 1900 documenté comme fixe",
+        "it": "Admin UI: campo host cambiato in dropdown interfaccia (selettore IP); porta SSDP 1900 documentata come fissa",
+        "es": "Admin UI: campo host cambiado a desplegable de interfaz (selector de IP); puerto SSDP 1900 documentado como fijo",
+        "pl": "Admin UI: pole host zmienione na listę rozwijaną interfejsu (wybór IP); port SSDP 1900 udokumentowany jako stały",
+        "uk": "Admin UI: поле host замінено на випадаючий список інтерфейсів (вибір IP); порт SSDP 1900 задокументовано як фіксований",
+        "zh-cn": "管理界面：host字段改为接口下拉菜单（IP选择器）；SSDP端口1900记录为固定"
+      },
       "1.0.16": {
         "en": "Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level",
         "de": "Logging-Bereinigung: redundantes onReady-Debug-Log entfernt; Legacy-Lichterstellung auf Debug-Level verschoben",
