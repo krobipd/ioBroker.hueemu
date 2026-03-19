@@ -120,32 +120,6 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 ### 1.0.11 (2026-03-19)
 - Improve logging: pairing start/stop, bridge identity at startup, light control details
 
-### 1.0.9 (2026-03-19)
-- Fix: stable bridge identity across restarts (persist UDN/MAC)
-- Fix: SSDP discovery for Harmony Hub (case-insensitive USN)
-- Fix: empty serialNumber in description.xml
-
-### 1.0.8 (2026-03-18)
-- Fix: Logitech Harmony Hub compatibility — groups action endpoint
-
-### 1.0.7 (2026-03-18)
-- Code cleanup: remove dead code, fix unused params, DRY empty collection routes
-
-### 1.0.6 (2026-03-17)
-- Migrate to @alcalzone/release-script, enable npm Trusted Publishing, translate README to English
-
-### 1.0.5 (2026-03-16)
-- ioBroker repository compliance: copyright, LICENSE, responsive Admin UI, remove redundant devDependencies
-
-### 1.0.4 (2026-03-15)
-- Updated dependencies (uuid 13, sinon 21), removed dead code
-
-### 1.0.3 (2026-03-15)
-- Code cleanup: removed unused dependencies and dead code
-
-### 1.0.0 (2026-03-09)
-- Major rewrite: Fastify server, modern Admin UI, requires js-controller 7+
-
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ---
@@ -159,6 +133,9 @@ Older changelog: [CHANGELOG.md](CHANGELOG.md)
 ---
 
 ## Support
+
+- [ioBroker Forum](https://forum.iobroker.net/)
+- [GitHub Issues](https://github.com/krobipd/ioBroker.hueemu/issues)
 
 If this adapter is useful to you, consider supporting its development via the PayPal badge at the top of this page.
 
