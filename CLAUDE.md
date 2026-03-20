@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.16 (März 2026)
+**Aktuelle Version:** 1.0.20 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -138,11 +138,13 @@ Harmony nutzt **ausschließlich Hue API v1**. Relevante Endpoints:
 ## Konfiguration
 
 **Netzwerk:**
-- Host (IP-Adresse)
-- Port (HTTP, default: 8080)
-- UPnP Port (default: 1900)
-- HTTPS Port (optional)
+- Host (IP-Dropdown via `type: "ip"`, onlyIp4, noInternal — KEIN 0.0.0.0, da host auch als SSDP-Location-URL dient)
+- Port (HTTP, default: 8080, frei wählbar)
+- UPnP Port: **hardcoded 1900** im Code (`const upnpPort = 1900`) — kein Config-Feld, kein Fallback. Port 1900 ist UPnP-Standard, alle Clients (Harmony, Alexa, Google Home) scannen fix diesen Port.
+- HTTPS Port (optional, frei wählbar)
 - MAC-Adresse (optional, auto-generiert)
+
+**Wichtig host vs. bindAddress:** `host` wird doppelt verwendet — als Bind-Adresse UND als SSDP-Advertisement-URL. Deshalb kein `listenOnAllPorts: true` (kein 0.0.0.0). Gegensatz zu homeassistant-bridge wo bindAddress nur zum Binden dient.
 
 **Geräte:**
 - Name, Light Type, State Mappings über Admin UI
@@ -232,6 +234,10 @@ git push && git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.20 | 2026-03-20 | news auf max 7 Einträge (W1032 fix) |
+| 1.0.19 | 2026-03-20 | icon.svg alias für Repochecker |
+| 1.0.18 | 2026-03-19 | Logging: Bridge identity, Network, SSDP auf debug verschoben (3 statt 6 info-Zeilen beim Start) |
+| 1.0.17 | 2026-03-19 | Admin UI: host auf IP-Dropdown (type: "ip"); README Ports-Sektion; SSDP 1900 als fest dokumentiert |
 | 1.0.16 | 2026-03-19 | Logging cleanup: redundantes onReady-Log + floating promises (void) + Prettier-Fix |
 | 1.0.15 | 2026-03-19 | info.configuredDevices entfernt, verbose Startup-Log entfernt; JSON-Fix (Trailing Comma) |
 | 1.0.14 | 2026-03-19 | Fix: Pairing nach erfolgreicher Registrierung deaktivieren (Pairing-Loop-Fix) |
