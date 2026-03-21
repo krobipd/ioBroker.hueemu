@@ -37,5 +37,6 @@
     "aboutTab": "Info",
     "aboutHeader": "Supporta questo adapter",
     "aboutInfo": "Questo adapter è gratuito e open source. Se lo trovi utile, considera di supportare lo sviluppo con una piccola donazione.",
-    "donateButton": "Dona tramite PayPal"
+    "donateKofi": "Supporta su Ko-fi",
+    "donatePaypal": "Dona tramite PayPal"
 }
