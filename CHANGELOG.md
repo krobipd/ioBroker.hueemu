@@ -1,4 +1,8 @@
 # Changelog
+## 1.0.21 (2026-03-21)
+
+- Fix: clean up obsolete states (e.g. info.configuredDevices) from previous versions on adapter start
+
 ## 1.0.20 (2026-03-19)
 
 - Code: SSDP port hardcoded to 1900 (removed config fallback)

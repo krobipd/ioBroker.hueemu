@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.20",
+    "version": "1.0.21",
     "news": {
+      "1.0.21": {
+        "en": "Fix: clean up obsolete states from previous versions on adapter start",
+        "de": "Fix: veraltete Datenpunkte aus früheren Versionen beim Adapterstart bereinigen",
+        "ru": "Исправление: удаление устаревших состояний из предыдущих версий при запуске адаптера",
+        "pt": "Fix: limpar estados obsoletos de versões anteriores no arranque do adaptador",
+        "nl": "Fix: verouderde states van eerdere versies opruimen bij adapterstart",
+        "fr": "Fix: nettoyer les états obsolètes des versions précédentes au démarrage de l adaptateur",
+        "it": "Fix: pulizia stati obsoleti dalle versioni precedenti all avvio dell adattatore",
+        "es": "Fix: limpiar estados obsoletos de versiones anteriores al iniciar el adaptador",
+        "pl": "Poprawka: usuwanie przestarzałych stanów z poprzednich wersji przy starcie adaptera",
+        "uk": "Виправлення: видалення застарілих станів з попередніх версій при запуску адаптера",
+        "zh-cn": "修复：适配器启动时清理旧版本的过时数据点"
+      },
       "1.0.20": {
         "en": "Code: SSDP port hardcoded to 1900 (removed config fallback)",
         "de": "Code: SSDP-Port auf 1900 fest gesetzt (Config-Fallback entfernt)",
@@ -80,19 +93,6 @@
         "pl": "Usunięto nadmiarowy punkt danych info.configuredDevices i szczegółowy log urządzeń przy starcie",
         "uk": "Видалено надлишкову точку даних info.configuredDevices та детальний лог пристроїв при запуску",
         "zh-cn": "删除冗余的info.configuredDevices数据点和详细设备启动日志"
-      },
-      "1.0.14": {
-        "en": "Fix: disable pairing after successful user registration to prevent pairing loop",
-        "de": "Fix: Pairing nach erfolgreicher Benutzerregistrierung deaktivieren, um Pairing-Schleife zu verhindern",
-        "ru": "Исправление: отключить сопряжение после успешной регистрации пользователя для предотвращения цикла сопряжения",
-        "pt": "Fix: desativar emparelhamento após registo de utilizador bem-sucedido para evitar loop de emparelhamento",
-        "nl": "Fix: koppeling uitschakelen na succesvolle gebruikersregistratie om koppelingsloop te voorkomen",
-        "fr": "Fix: désactiver le couplage après l'enregistrement réussi de l'utilisateur pour éviter la boucle de couplage",
-        "it": "Fix: disabilitare il pairing dopo la registrazione utente riuscita per prevenire il loop di pairing",
-        "es": "Fix: deshabilitar emparejamiento después del registro exitoso de usuario para evitar bucle de emparejamiento",
-        "pl": "Poprawka: wyłącz parowanie po pomyślnej rejestracji użytkownika, aby zapobiec pętli parowania",
-        "uk": "Виправлення: вимикати з'єднання після успішної реєстрації користувача для запобігання циклу з'єднання",
-        "zh-cn": "修复：成功注册用户后禁用配对，防止配对循环"
       }
     },
     "titleLang": {

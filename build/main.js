@@ -112,6 +112,8 @@ class HueEmu extends utils.Adapter {
                 yield this.hueServer.start();
                 // Initialize adapter states
                 yield this.initializeAdapterStates();
+                // Remove obsolete states from previous versions
+                yield this.cleanupObsoleteStates();
                 // Subscribe to state changes (own states)
                 this.subscribeStates("*");
                 this.log.debug(`${devices.length} device(s) loaded from configuration`);
@@ -250,6 +252,23 @@ class HueEmu extends utils.Adapter {
             // Load disableAuth state
             const disableAuthState = yield this.getStateAsync("disableAuth");
             this._disableAuth = (disableAuthState === null || disableAuthState === void 0 ? void 0 : disableAuthState.val) || false;
+        });
+    }
+    /**
+     * Remove states/channels/objects that were removed in newer adapter versions
+     */
+    cleanupObsoleteStates() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const obsoleteStates = [
+                "info.configuredDevices", // removed in 1.0.15
+            ];
+            for (const stateId of obsoleteStates) {
+                const obj = yield this.getObjectAsync(stateId);
+                if (obj) {
+                    yield this.delObjectAsync(stateId);
+                    this.log.debug(`Removed obsolete state: ${stateId}`);
+                }
+            }
         });
     }
     /**
