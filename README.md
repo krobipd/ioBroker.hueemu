@@ -49,7 +49,6 @@ Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be contr
 |--------|-------------|---------|
 | **Host** | IP address of the bridge (must be a real network IP) | — |
 | **HTTP Port** | Port for the Hue API | 8080 |
-| **UPnP Port** | SSDP discovery port | 1900 |
 | **HTTPS Port** | Optional HTTPS port | — |
 | **MAC Address** | Bridge MAC (auto-generated if empty) | — |
 
@@ -92,6 +91,19 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ---
 
+## State Tree
+
+```
+hueemu.0.
+├── startPairing         — Enable pairing mode for 50 seconds (button)
+├── disableAuth          — Disable authentication (switch)
+├── createLight          — JSON to create lights manually (legacy mode)
+└── user/                — Authenticated clients
+    └── {username}       — Client API key (created during pairing)
+```
+
+---
+
 ## Troubleshooting
 
 ### Bridge not found
@@ -114,12 +126,6 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 ---
 
 ## Changelog
-
-### 1.0.20 (2026-03-19)
-- Code: SSDP port hardcoded to 1900 (removed config fallback)
-
-### 1.0.19 (2026-03-19)
-- Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)
 
 ### 1.0.21 (2026-03-21)
 - Fix: clean up obsolete states from previous versions on adapter start
