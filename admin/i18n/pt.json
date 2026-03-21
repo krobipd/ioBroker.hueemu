@@ -33,5 +33,9 @@
     "stateSat": "Estado de saturação",
     "stateSatTooltip": "Estado numérico para saturação",
     "stateXy": "Estado de cor XY",
-    "stateXyTooltip": "Coordenadas de cor CIE xy (opcional)"
+    "stateXyTooltip": "Coordenadas de cor CIE xy (opcional)",
+    "aboutTab": "Sobre",
+    "aboutHeader": "Apoie este adaptador",
+    "aboutInfo": "Este adaptador é gratuito e de código aberto. Se o achar útil, considere apoiar o desenvolvimento com uma pequena doação.",
+    "donateButton": "Doar via PayPal"
 }

@@ -165,7 +165,11 @@ Older changelog: [CHANGELOG.md](CHANGELOG.md)
 - [ioBroker Forum](https://forum.iobroker.net/)
 - [GitHub Issues](https://github.com/krobipd/ioBroker.hueemu/issues)
 
-If this adapter is useful to you, consider supporting its development via the PayPal badge at the top of this page.
+### Support Development
+
+This adapter is free and open source. If you find it useful, consider buying me a coffee:
+
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge)](https://paypal.me/krobipd)
 
 ---
 

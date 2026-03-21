@@ -33,5 +33,9 @@
     "stateSat": "Verzadigingsstatus",
     "stateSatTooltip": "Numerieke status voor verzadiging",
     "stateXy": "XY-kleurstatus",
-    "stateXyTooltip": "CIE xy-kleurcoördinaten (optioneel)"
+    "stateXyTooltip": "CIE xy-kleurcoördinaten (optioneel)",
+    "aboutTab": "Over",
+    "aboutHeader": "Steun deze adapter",
+    "aboutInfo": "Deze adapter is gratis en open source. Als je hem nuttig vindt, overweeg dan de ontwikkeling te steunen met een kleine donatie.",
+    "donateButton": "Doneer via PayPal"
 }

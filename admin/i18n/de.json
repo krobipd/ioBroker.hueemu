@@ -33,5 +33,9 @@
     "stateSat": "Sättigung State",
     "stateSatTooltip": "Zahlen-State für Sättigung",
     "stateXy": "XY-Farbe State",
-    "stateXyTooltip": "CIE xy Farbkoordinaten (optional)"
+    "stateXyTooltip": "CIE xy Farbkoordinaten (optional)",
+    "aboutTab": "Info",
+    "aboutHeader": "Diesen Adapter unterstützen",
+    "aboutInfo": "Dieser Adapter ist kostenlos und Open Source. Wenn er dir nützlich ist, unterstütze die Entwicklung gerne mit einer kleinen Spende.",
+    "donateButton": "Über PayPal spenden"
 }

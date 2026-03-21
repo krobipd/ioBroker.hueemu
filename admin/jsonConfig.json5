@@ -222,6 +222,44 @@
                     ]
                 }
             }
+        },
+        "aboutTab": {
+            "type": "panel",
+            "label": "aboutTab",
+            "items": {
+                "aboutHeader": {
+                    "type": "header",
+                    "text": "aboutHeader",
+                    "size": 4
+                },
+                "aboutInfo": {
+                    "type": "staticText",
+                    "text": "aboutInfo",
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12,
+                    "style": {
+                        "fontSize": 14,
+                        "marginBottom": 16
+                    }
+                },
+                "_donateLink": {
+                    "type": "staticLink",
+                    "href": "https://paypal.me/krobipd",
+                    "label": "donateButton",
+                    "button": true,
+                    "variant": "outlined",
+                    "color": "primary",
+                    "icon": "favorite",
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 4,
+                    "xl": 4
+                }
+            }
         }
     }
 }

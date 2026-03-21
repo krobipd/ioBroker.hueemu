@@ -33,5 +33,9 @@
     "stateSat": "Stato saturazione",
     "stateSatTooltip": "Stato numerico per saturazione",
     "stateXy": "Stato colore XY",
-    "stateXyTooltip": "Coordinate colore CIE xy (opzionale)"
+    "stateXyTooltip": "Coordinate colore CIE xy (opzionale)",
+    "aboutTab": "Info",
+    "aboutHeader": "Supporta questo adapter",
+    "aboutInfo": "Questo adapter è gratuito e open source. Se lo trovi utile, considera di supportare lo sviluppo con una piccola donazione.",
+    "donateButton": "Dona tramite PayPal"
 }
