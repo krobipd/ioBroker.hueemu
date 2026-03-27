@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.21",
+    "version": "1.0.22",
     "news": {
+      "1.0.22": {
+        "en": "Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms",
+        "de": "Code-Review-Fixes: ungenutzte Handler entfernt, Objekt-IDs bereinigt, Adapter-Timer verwendet, Tests auf allen Plattformen",
+        "ru": "Исправления по ревью: удалены неиспользуемые обработчики, очистка ID объектов, таймеры адаптера, тесты на всех платформах",
+        "pt": "Correções de revisão: handlers não utilizados removidos, IDs de objetos sanitizados, timers do adaptador, testes em todas as plataformas",
+        "nl": "Code review fixes: ongebruikte handlers verwijderd, object-IDs opgeschoond, adapter-timers gebruikt, tests op alle platformen",
+        "fr": "Corrections de revue: handlers inutilisés supprimés, IDs objets nettoyés, timers adaptateur, tests sur toutes les plateformes",
+        "it": "Correzioni revisione codice: handler inutilizzati rimossi, ID oggetti sanitizzati, timer adattatore, test su tutte le piattaforme",
+        "es": "Correcciones de revisión: handlers no utilizados eliminados, IDs de objetos saneados, temporizadores del adaptador, pruebas en todas las plataformas",
+        "pl": "Poprawki z przeglądu kodu: usunięto nieużywane handlery, oczyszczono ID obiektów, timery adaptera, testy na wszystkich platformach",
+        "uk": "Виправлення з ревью: видалено невикористовувані обробники, очищення ID об'єктів, таймери адаптера, тести на всіх платформах",
+        "zh-cn": "代码审查修复：移除未使用的处理器，清理对象ID，使用适配器定时器，在所有平台测试"
+      },
       "1.0.21": {
         "en": "Fix: clean up obsolete states from previous versions on adapter start",
         "de": "Fix: veraltete Datenpunkte aus früheren Versionen beim Adapterstart bereinigen",
@@ -80,19 +93,6 @@
         "pl": "Czyszczenie logowania: usunięto nadmiarowy log debug onReady; tworzenie legacy lights przeniesione na poziom debug",
         "uk": "Очищення логування: видалено надлишковий лог debug onReady; створення legacy ламп переміщено на рівень debug",
         "zh-cn": "日志清理：删除冗余的onReady调试日志；旧版灯光创建移至debug级别"
-      },
-      "1.0.15": {
-        "en": "Remove redundant info.configuredDevices datapoint and verbose device startup log",
-        "de": "Redundanten info.configuredDevices Datenpunkt und ausführliches Geräte-Startlog entfernt",
-        "ru": "Удалена избыточная точка данных info.configuredDevices и подробный лог устройств при запуске",
-        "pt": "Remover ponto de dados info.configuredDevices redundante e log de dispositivos detalhado no arranque",
-        "nl": "Redundant info.configuredDevices datapunt en uitgebreide apparaat-startlog verwijderd",
-        "fr": "Suppression du point de données info.configuredDevices redondant et du journal détaillé des appareils au démarrage",
-        "it": "Rimosso datapoint info.configuredDevices ridondante e log dettagliato dispositivi all'avvio",
-        "es": "Eliminar punto de datos info.configuredDevices redundante y log detallado de dispositivos al inicio",
-        "pl": "Usunięto nadmiarowy punkt danych info.configuredDevices i szczegółowy log urządzeń przy starcie",
-        "uk": "Видалено надлишкову точку даних info.configuredDevices та детальний лог пристроїв при запуску",
-        "zh-cn": "删除冗余的info.configuredDevices数据点和详细设备启动日志"
       }
     },
     "titleLang": {

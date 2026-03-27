@@ -40,7 +40,7 @@ declare global {
  * Hue Emulator Adapter
  */
 export class HueEmu extends utils.Adapter {
-  private pairingTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private pairingTimeoutId: ioBroker.Timeout | undefined = undefined;
   private _pairingEnabled = false;
   private _disableAuth = false;
 
@@ -56,9 +56,7 @@ export class HueEmu extends utils.Adapter {
     });
 
     this.on("ready", this.onReady.bind(this));
-    this.on("objectChange", this.onObjectChange.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
-    this.on("message", this.onMessage.bind(this));
     this.on("unload", this.onUnload.bind(this));
 
     this.definition = new HueEmuDefinition(this);
@@ -74,8 +72,8 @@ export class HueEmu extends utils.Adapter {
   set pairingEnabled(value: boolean) {
     this._pairingEnabled = value;
     if (!value && this.pairingTimeoutId) {
-      clearTimeout(this.pairingTimeoutId);
-      this.pairingTimeoutId = null;
+      this.clearTimeout(this.pairingTimeoutId);
+      this.pairingTimeoutId = undefined;
     }
     void this.setState("startPairing", { ack: true, val: value });
   }
@@ -343,12 +341,12 @@ export class HueEmu extends utils.Adapter {
   /**
    * Called when adapter shuts down
    */
-  private async onUnload(callback: () => void): Promise<void> {
+  private onUnload(callback: () => void): void {
     try {
       // Clear pairing timeout
       if (this.pairingTimeoutId) {
-        clearTimeout(this.pairingTimeoutId);
-        this.pairingTimeoutId = null;
+        this.clearTimeout(this.pairingTimeoutId);
+        this.pairingTimeoutId = undefined;
       }
 
       // Stop SSDP server
@@ -356,30 +354,20 @@ export class HueEmu extends utils.Adapter {
         this.ssdpServer.stop();
       }
 
-      // Stop HTTP server
+      // Stop HTTP server (fire-and-forget — onUnload must be sync)
       if (this.hueServer) {
-        await this.hueServer.stop();
+        this.hueServer
+          .stop()
+          .catch((err: Error) =>
+            this.log.error(`Server stop error: ${err.message}`),
+          );
       }
 
-      this.log.info("Hue Emulator stopped");
+      void this.setState("info.connection", { val: false, ack: true });
       callback();
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);
       callback();
-    }
-  }
-
-  /**
-   * Called if a subscribed object changes
-   */
-  private onObjectChange(
-    id: string,
-    obj: ioBroker.Object | null | undefined,
-  ): void {
-    if (obj) {
-      this.log.debug(`Object ${id} changed: ${JSON.stringify(obj)}`);
-    } else {
-      this.log.debug(`Object ${id} deleted`);
     }
   }
 
@@ -420,38 +408,12 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Handle sendTo messages from admin UI
-   */
-  private async onMessage(obj: ioBroker.Message): Promise<void> {
-    if (!obj || !obj.command) {
-      return;
-    }
-
-    // Ignore device-manager messages
-    if (obj.command.startsWith("dm:")) {
-      return;
-    }
-
-    this.log.debug(`Received message: ${obj.command}`);
-
-    // No custom commands needed - configuration is done via jsonConfig
-    if (obj.callback) {
-      this.sendTo(
-        obj.from,
-        obj.command,
-        { error: "Unknown command" },
-        obj.callback,
-      );
-    }
-  }
-
-  /**
    * Handle startPairing state change
    */
   private handleStartPairing(state: ioBroker.State): void {
     if (this.pairingTimeoutId) {
-      clearTimeout(this.pairingTimeoutId);
-      this.pairingTimeoutId = null;
+      this.clearTimeout(this.pairingTimeoutId);
+      this.pairingTimeoutId = undefined;
     }
 
     this.pairingEnabled = state.val as boolean;
@@ -460,7 +422,7 @@ export class HueEmu extends utils.Adapter {
       this.log.info(
         "Pairing mode enabled — waiting for client to connect (50 seconds)",
       );
-      this.pairingTimeoutId = setTimeout(() => {
+      this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
         this.log.info(
@@ -470,6 +432,14 @@ export class HueEmu extends utils.Adapter {
     } else {
       this.log.info("Pairing mode disabled");
     }
+  }
+
+  /**
+   * Sanitize a name for use as an ioBroker object ID segment
+   * @param name Raw name to sanitize
+   */
+  private sanitizeId(name: string): string {
+    return (name || "").replace(this.FORBIDDEN_CHARS, "_").replace(/\./g, "_");
   }
 
   /**
@@ -486,12 +456,13 @@ export class HueEmu extends utils.Adapter {
         `Creating lights (legacy mode): ${JSON.stringify(lights)}`,
       );
 
-      Object.keys(lights).forEach((lightId) => {
+      Object.keys(lights).forEach((rawLightId) => {
+        const lightId = this.sanitizeId(rawLightId);
         try {
-          this.createLightDevice(lightId, lights);
-          this.createLightState(lightId, lights);
-          this.createLightName(lightId, lights);
-          this.createLightData(lightId, lights);
+          this.createLightDevice(lightId, lights[rawLightId]);
+          this.createLightState(lightId, lights[rawLightId]);
+          this.createLightName(lightId, lights[rawLightId]);
+          this.createLightData(lightId, lights[rawLightId]);
 
           void this.setState(id, { ack: true, val: state.val });
         } catch (error) {
@@ -505,15 +476,14 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Create light device object
+   * @param lightId Sanitized light ID
+   * @param light Light configuration object
    */
-  private createLightDevice(
-    lightId: string,
-    lights: Record<string, any>,
-  ): void {
+  private createLightDevice(lightId: string, light: Record<string, any>): void {
     void this.setObjectNotExists(lightId, {
       type: "device",
       common: {
-        name: lights[lightId].name,
+        name: light.name,
       },
       native: {},
     });
@@ -521,8 +491,10 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Create light state channel and states
+   * @param lightId Sanitized light ID
+   * @param light Light configuration object
    */
-  private createLightState(lightId: string, lights: Record<string, any>): void {
+  private createLightState(lightId: string, light: Record<string, any>): void {
     void this.setObjectNotExists(
       `${lightId}.state`,
       {
@@ -543,19 +515,22 @@ export class HueEmu extends utils.Adapter {
       },
     );
 
-    Object.keys(lights[lightId].state).forEach((stateKey) => {
+    Object.keys(light.state).forEach((rawKey) => {
+      const stateKey = this.sanitizeId(rawKey);
       this.addState(
         `${lightId}.state.${stateKey}`,
         stateKey,
-        lights[lightId].state[stateKey],
+        light.state[rawKey],
       );
     });
   }
 
   /**
    * Create light name state
+   * @param lightId Sanitized light ID
+   * @param light Light configuration object
    */
-  private createLightName(lightId: string, lights: Record<string, any>): void {
+  private createLightName(lightId: string, light: Record<string, any>): void {
     void this.setObjectNotExists(`${lightId}.name`, {
       type: "state",
       common: {
@@ -570,19 +545,21 @@ export class HueEmu extends utils.Adapter {
 
     void this.setState(`${lightId}.name`, {
       ack: true,
-      val: lights[lightId].name,
+      val: light.name,
     });
   }
 
   /**
    * Create light data state
+   * @param lightId Sanitized light ID
+   * @param light Light configuration object
    */
-  private createLightData(lightId: string, lights: Record<string, any>): void {
+  private createLightData(lightId: string, light: Record<string, any>): void {
     const data: Record<string, any> = {};
 
-    Object.keys(lights[lightId]).forEach((key) => {
+    Object.keys(light).forEach((key) => {
       if (key !== "state" && key !== "name") {
-        data[key] = lights[lightId][key];
+        data[key] = light[key];
       }
     });
 
@@ -645,14 +622,6 @@ export class HueEmu extends utils.Adapter {
         : parseInt(port.toString().trim(), 10);
     }
     throw new Error("Port not specified");
-  }
-
-  /**
-   * Parse port with default value
-   */
-  private toDefaultPort(port: any, defaultPort: number): number {
-    const parsed = this.toUndefinedPort(port);
-    return parsed ?? defaultPort;
   }
 
   /**
