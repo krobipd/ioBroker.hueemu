@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.21 (März 2026)
+**Aktuelle Version:** 1.0.22 (März 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -58,7 +58,7 @@ src/
 ## Hauptkomponenten
 
 ### HueEmu Adapter (`src/main.ts`)
-- Lifecycle: `onReady()`, `onUnload()`, `onStateChange()`, `onObjectChange()`
+- Lifecycle: `onReady()`, `onUnload()`, `onStateChange()`
 - Verwaltet: HueServer, SsdpServer, ApiHandler
 - Pairing-Modus mit 50s Timeout
 - TLS-Zertifikatsgenerierung
@@ -234,6 +234,7 @@ git push && git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.22 | 2026-03-27 | Code-Review-Fixes (mcm1957): onObjectChange/onMessage entfernt, FORBIDDEN_CHARS für IDs, this.setTimeout, CI auf allen Plattformen, README License-Format, CHANGELOG_OLD.md |
 | 1.0.21 | 2026-03-21 | Fix: obsolete States (z.B. info.configuredDevices) beim Start aufräumen |
 | 1.0.20 | 2026-03-20 | news auf max 7 Einträge (W1032 fix) |
 | 1.0.19 | 2026-03-20 | icon.svg alias für Repochecker |
