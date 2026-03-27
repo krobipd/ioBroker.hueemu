@@ -7,8 +7,6 @@
     "portTooltip": "HTTP-poort voor de Hue API (standaard: 8080)",
     "advancedSettings": "Geavanceerd (optioneel)",
     "advancedInfo": "Deze instellingen zijn optioneel. Standaardwaarden worden gebruikt als ze leeg worden gelaten.",
-    "upnpPort": "UPnP-poort",
-    "upnpPortTooltip": "SSDP-detectiepoort (standaard: 1900)",
     "httpsPort": "HTTPS-poort",
     "httpsPortTooltip": "HTTPS-poort (leeg = geen HTTPS)",
     "mac": "MAC-adres",

@@ -7,8 +7,6 @@
     "portTooltip": "Port HTTP dla API Hue (domyślnie: 8080)",
     "advancedSettings": "Zaawansowane (opcjonalne)",
     "advancedInfo": "Te ustawienia są opcjonalne. Wartości domyślne są używane, gdy pola są puste.",
-    "upnpPort": "Port UPnP",
-    "upnpPortTooltip": "Port wykrywania SSDP (domyślnie: 1900)",
     "httpsPort": "Port HTTPS",
     "httpsPortTooltip": "Port HTTPS (puste = brak HTTPS)",
     "mac": "Adres MAC",

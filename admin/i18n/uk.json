@@ -7,8 +7,6 @@
     "portTooltip": "HTTP-порт для API Hue (за замовчуванням: 8080)",
     "advancedSettings": "Розширені (необов'язково)",
     "advancedInfo": "Ці налаштування необов'язкові. Значення за замовчуванням використовуються, якщо поля порожні.",
-    "upnpPort": "Порт UPnP",
-    "upnpPortTooltip": "Порт виявлення SSDP (за замовчуванням: 1900)",
     "httpsPort": "Порт HTTPS",
     "httpsPortTooltip": "Порт HTTPS (порожньо = без HTTPS)",
     "mac": "MAC-адреса",

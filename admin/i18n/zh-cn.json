@@ -7,8 +7,6 @@
     "portTooltip": "Hue API的HTTP端口（默认：8080）",
     "advancedSettings": "高级（可选）",
     "advancedInfo": "这些设置是可选的。留空时使用默认值。",
-    "upnpPort": "UPnP端口",
-    "upnpPortTooltip": "SSDP发现端口（默认：1900）",
     "httpsPort": "HTTPS端口",
     "httpsPortTooltip": "HTTPS端口（空 = 无HTTPS）",
     "mac": "MAC地址",
