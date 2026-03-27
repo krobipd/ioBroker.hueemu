@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.22",
+    "version": "1.0.23",
     "news": {
+      "1.0.23": {
+        "en": "Admin UI: merge About tab into Network tab; update node-forge to 1.4.0; remove orphaned i18n keys",
+        "de": "Admin UI: About-Tab in Netzwerk-Tab integriert; node-forge auf 1.4.0 aktualisiert; verwaiste i18n-Keys entfernt",
+        "ru": "Admin UI: вкладка About объединена с вкладкой Network; обновление node-forge до 1.4.0; удалены устаревшие i18n-ключи",
+        "pt": "Admin UI: aba About integrada na aba Rede; node-forge atualizado para 1.4.0; chaves i18n órfãs removidas",
+        "nl": "Admin UI: About-tab samengevoegd met Netwerk-tab; node-forge bijgewerkt naar 1.4.0; verweesde i18n-sleutels verwijderd",
+        "fr": "Admin UI: onglet About fusionné dans onglet Réseau; node-forge mis à jour vers 1.4.0; clés i18n orphelines supprimées",
+        "it": "Admin UI: scheda About integrata nella scheda Rete; node-forge aggiornato a 1.4.0; chiavi i18n orfane rimosse",
+        "es": "Admin UI: pestaña About integrada en pestaña Red; node-forge actualizado a 1.4.0; claves i18n huérfanas eliminadas",
+        "pl": "Admin UI: zakładka About połączona z zakładką Sieć; node-forge zaktualizowany do 1.4.0; usunięto osierocone klucze i18n",
+        "uk": "Admin UI: вкладку About об'єднано з вкладкою Мережа; node-forge оновлено до 1.4.0; видалено осиротілі i18n-ключі",
+        "zh-cn": "管理界面：将关于标签合并到网络标签；更新node-forge到1.4.0；删除孤立的i18n键"
+      },
       "1.0.22": {
         "en": "Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms",
         "de": "Code-Review-Fixes: ungenutzte Handler entfernt, Objekt-IDs bereinigt, Adapter-Timer verwendet, Tests auf allen Plattformen",
@@ -80,19 +93,6 @@
         "pl": "Admin UI: pole host zmienione na listę rozwijaną interfejsu (wybór IP); port SSDP 1900 udokumentowany jako stały",
         "uk": "Admin UI: поле host замінено на випадаючий список інтерфейсів (вибір IP); порт SSDP 1900 задокументовано як фіксований",
         "zh-cn": "管理界面：host字段改为接口下拉菜单（IP选择器）；SSDP端口1900记录为固定"
-      },
-      "1.0.16": {
-        "en": "Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level",
-        "de": "Logging-Bereinigung: redundantes onReady-Debug-Log entfernt; Legacy-Lichterstellung auf Debug-Level verschoben",
-        "ru": "Очистка логирования: удалён избыточный лог onReady; создание legacy ламп перенесено на уровень debug",
-        "pt": "Limpeza de logging: remover log debug redundante do onReady; criação de luzes legacy movida para nível debug",
-        "nl": "Logging opruiming: redundant onReady debug-log verwijderd; legacy lights aanmaken verplaatst naar debug-niveau",
-        "fr": "Nettoyage du logging: suppression du log debug onReady redondant; création de lumières legacy déplacée au niveau debug",
-        "it": "Pulizia logging: rimosso log debug onReady ridondante; creazione luci legacy spostata al livello debug",
-        "es": "Limpieza de logging: eliminar log debug redundante de onReady; creación de luces legacy movida al nivel debug",
-        "pl": "Czyszczenie logowania: usunięto nadmiarowy log debug onReady; tworzenie legacy lights przeniesione na poziom debug",
-        "uk": "Очищення логування: видалено надлишковий лог debug onReady; створення legacy ламп переміщено на рівень debug",
-        "zh-cn": "日志清理：删除冗余的onReady调试日志；旧版灯光创建移至debug级别"
       }
     },
     "titleLang": {

@@ -1,6 +1,12 @@
 # Changelog
 ## **WORK IN PROGRESS**
 
+## 1.0.23 (2026-03-27)
+
+- Admin UI: merge About tab into Network tab (3 tabs → 2, donation as header section)
+- Remove orphaned upnpPort i18n keys from all languages
+- Update node-forge 1.3.3 → 1.4.0
+
 ## 1.0.22 (2026-03-27)
 
 - Remove unused onObjectChange and onMessage handlers (code review)

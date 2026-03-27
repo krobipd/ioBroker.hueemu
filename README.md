@@ -128,6 +128,9 @@ hueemu.0.
 
 ## Changelog
 
+### 1.0.23 (2026-03-27)
+- Admin UI: merge About tab into Network tab (3 → 2 tabs)
+
 ### 1.0.22 (2026-03-27)
 - Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms
 
@@ -145,9 +148,6 @@ hueemu.0.
 
 ### 1.0.17 (2026-03-19)
 - Admin UI: host field changed to interface dropdown (IP selector)
-
-### 1.0.16 (2026-03-19)
-- Logging cleanup: remove redundant onReady debug log; legacy lights creation moved to debug level
 
 Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 
