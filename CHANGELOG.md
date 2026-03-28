@@ -1,6 +1,10 @@
 # Changelog
 ## **WORK IN PROGRESS**
 
+## 1.0.24 (2026-03-28)
+
+- Fix on/off state conversion for string values ("false"/"0" now correctly treated as off)
+
 ## 1.0.23 (2026-03-27)
 
 - Admin UI: merge About tab into Network tab (3 tabs → 2, donation as header section)

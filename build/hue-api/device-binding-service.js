@@ -286,6 +286,10 @@ class DeviceBindingService {
         }
         switch (stateName) {
             case "on":
+                // Handle string "false"/"0" explicitly — Boolean("false") would be true
+                if (typeof value === "string") {
+                    return value !== "false" && value !== "0" && value !== "";
+                }
                 return Boolean(value);
             case "bri":
                 // Convert percentage (0-100) to Hue brightness (1-254)

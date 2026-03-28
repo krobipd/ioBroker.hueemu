@@ -128,6 +128,9 @@ hueemu.0.
 
 ## Changelog
 
+### 1.0.24 (2026-03-28)
+- Fix on/off state conversion for string values ("false"/"0" now correctly treated as off)
+
 ### 1.0.23 (2026-03-27)
 - Admin UI: merge About tab into Network tab (3 → 2 tabs)
 
@@ -145,9 +148,6 @@ hueemu.0.
 
 ### 1.0.18 (2026-03-19)
 - Logging: Bridge identity, Network and SSDP startup messages moved to debug level
-
-### 1.0.17 (2026-03-19)
-- Admin UI: host field changed to interface dropdown (IP selector)
 
 Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 

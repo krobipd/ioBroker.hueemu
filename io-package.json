@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.23",
+    "version": "1.0.24",
     "news": {
+      "1.0.24": {
+        "en": "Fix on/off state conversion for string values (Boolean(\"false\") bug)",
+        "de": "Fix: Ein/Aus-Zustandskonvertierung für String-Werte (Boolean(\"false\")-Bug)",
+        "ru": "Исправление конвертации состояния вкл/выкл для строковых значений",
+        "pt": "Correção da conversão de estado ligado/desligado para valores de string",
+        "nl": "Fix aan/uit status conversie voor string waarden",
+        "fr": "Correction de la conversion d'état on/off pour les valeurs de chaîne",
+        "it": "Fix conversione stato on/off per valori stringa",
+        "es": "Corrección de conversión de estado on/off para valores de cadena",
+        "pl": "Poprawka konwersji stanu wł/wył dla wartości tekstowych",
+        "uk": "Виправлення конвертації стану увімк/вимк для рядкових значень",
+        "zh-cn": "修复字符串值的开/关状态转换（Boolean(\"false\")错误）"
+      },
       "1.0.23": {
         "en": "Admin UI: merge About tab into Network tab; update node-forge to 1.4.0; remove orphaned i18n keys",
         "de": "Admin UI: About-Tab in Netzwerk-Tab integriert; node-forge auf 1.4.0 aktualisiert; verwaiste i18n-Keys entfernt",
@@ -80,19 +93,6 @@
         "pl": "Logowanie: komunikaty Bridge identity, Network i SSDP przy starcie przeniesione na poziom debug",
         "uk": "Логування: повідомлення Bridge identity, Network та SSDP при запуску переміщено на рівень debug",
         "zh-cn": "日志：将Bridge identity、Network和SSDP启动消息移至debug级别"
-      },
-      "1.0.17": {
-        "en": "Admin UI: host field changed to interface dropdown (IP selector); SSDP port 1900 clarified as fixed",
-        "de": "Admin UI: Host-Feld auf Interface-Dropdown umgestellt (IP-Auswahl); SSDP-Port 1900 als fest dokumentiert",
-        "ru": "Admin UI: поле host заменено на выпадающий список интерфейсов (выбор IP); порт SSDP 1900 зафиксирован",
-        "pt": "Admin UI: campo host alterado para dropdown de interface (seletor de IP); porta SSDP 1900 documentada como fixa",
-        "nl": "Admin UI: host-veld gewijzigd naar interface-dropdown (IP-selector); SSDP-poort 1900 als vast gedocumenteerd",
-        "fr": "Admin UI: champ host remplacé par un menu déroulant d'interface (sélecteur IP); port SSDP 1900 documenté comme fixe",
-        "it": "Admin UI: campo host cambiato in dropdown interfaccia (selettore IP); porta SSDP 1900 documentata come fissa",
-        "es": "Admin UI: campo host cambiado a desplegable de interfaz (selector de IP); puerto SSDP 1900 documentado como fijo",
-        "pl": "Admin UI: pole host zmienione na listę rozwijaną interfejsu (wybór IP); port SSDP 1900 udokumentowany jako stały",
-        "uk": "Admin UI: поле host замінено на випадаючий список інтерфейсів (вибір IP); порт SSDP 1900 задокументовано як фіксований",
-        "zh-cn": "管理界面：host字段改为接口下拉菜单（IP选择器）；SSDP端口1900记录为固定"
       }
     },
     "titleLang": {
