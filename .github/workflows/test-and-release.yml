@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: ioBroker/testing-action-check@v2
+      - uses: ioBroker/testing-action-check@v2.0.0
         with:
           node-version: "20.x"
           # TypeScript type checking
