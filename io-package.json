@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.24",
+    "version": "1.0.25",
     "news": {
+      "1.0.25": {
+        "en": "Modernize dev tooling (esbuild, TypeScript 5.9 pin, testing-action-check v2)",
+        "de": "Dev-Tooling modernisiert (esbuild, TypeScript 5.9 Pin, testing-action-check v2)",
+        "ru": "Модернизация инструментов разработки (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "pt": "Modernização das ferramentas de desenvolvimento (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "nl": "Ontwikkeltools gemoderniseerd (esbuild, TypeScript 5.9 pin, testing-action-check v2)",
+        "fr": "Modernisation des outils de développement (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "it": "Modernizzazione degli strumenti di sviluppo (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "es": "Modernización de herramientas de desarrollo (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "pl": "Modernizacja narzędzi programistycznych (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "uk": "Модернізація інструментів розробки (esbuild, TypeScript 5.9, testing-action-check v2)",
+        "zh-cn": "开发工具现代化（esbuild、TypeScript 5.9 固定、testing-action-check v2）"
+      },
       "1.0.24": {
         "en": "Fix on/off state conversion for string values (Boolean(\"false\") bug)",
         "de": "Fix: Ein/Aus-Zustandskonvertierung für String-Werte (Boolean(\"false\")-Bug)",
@@ -80,19 +93,6 @@
         "pl": "Admin UI: pole portu SSDP usunięte (stałe 1900 — wszyscy klienci UPnP wymagają tego portu)",
         "uk": "Admin UI: поле порту SSDP видалено (фіксовано на 1900 — усі UPnP-клієнти потребують цього порту)",
         "zh-cn": "管理界面：删除SSDP端口字段（固定为1900——所有UPnP客户端都需要此端口）"
-      },
-      "1.0.18": {
-        "en": "Logging: Bridge identity, Network and SSDP startup messages moved to debug level",
-        "de": "Logging: Bridge-Identity, Netzwerk- und SSDP-Startmeldungen auf Debug-Level verschoben",
-        "ru": "Логирование: сообщения Bridge identity, Network и SSDP при запуске перенесены на уровень debug",
-        "pt": "Logging: mensagens de Bridge identity, Network e SSDP na inicialização movidas para nível debug",
-        "nl": "Logging: Bridge identity, Network en SSDP opstartmeldingen verplaatst naar debug-niveau",
-        "fr": "Logging: messages Bridge identity, Network et SSDP au démarrage déplacés en niveau debug",
-        "it": "Logging: messaggi Bridge identity, Network e SSDP all'avvio spostati al livello debug",
-        "es": "Logging: mensajes Bridge identity, Network y SSDP al inicio movidos a nivel debug",
-        "pl": "Logowanie: komunikaty Bridge identity, Network i SSDP przy starcie przeniesione na poziom debug",
-        "uk": "Логування: повідомлення Bridge identity, Network та SSDP при запуску переміщено на рівень debug",
-        "zh-cn": "日志：将Bridge identity、Network和SSDP启动消息移至debug级别"
       }
     },
     "titleLang": {
