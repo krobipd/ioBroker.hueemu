@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.24 (März 2026)
+**Aktuelle Version:** 1.0.25 (April 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -234,6 +234,7 @@ git push && git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
+| 1.0.25 | 2026-04-03 | Dev-Tooling modernisiert (esbuild, TS 5.9 Pin, testing-action-check v2) |
 | 1.0.24 | 2026-03-28 | Fix Boolean("false") Bug in on/off State-Konvertierung |
 | 1.0.23 | 2026-03-27 | About→Netzwerk-Tab merged, verwaiste i18n-Keys entfernt |
 | 1.0.22 | 2026-03-27 | Code-Review-Fixes (mcm1957): onObjectChange/onMessage entfernt, FORBIDDEN_CHARS für IDs, this.setTimeout, CI auf allen Plattformen, README License-Format, CHANGELOG_OLD.md |
