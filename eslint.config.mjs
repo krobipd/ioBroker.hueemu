@@ -32,12 +32,15 @@ export default [
   },
   {
     ignores: [
-      "build/**",
-      "node_modules/**",
-      "test/**/*.js",
-      "admin/**",
-      "scripts/**",
-      "*.config.js",
+      ".dev-server/",
+      ".vscode/",
+      "*.test.js",
+      "test/**",
+      "*.config.mjs",
+      "build",
+      "admin",
+      "node_modules",
+      "**/adapter-config.d.ts",
     ],
   },
 ];

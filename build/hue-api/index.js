@@ -1,16 +1,41 @@
 "use strict";
-/**
- * Hue API module exports
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeviceBindingService = exports.ConfigService = exports.LightService = exports.UserService = exports.ApiHandler = void 0;
-var api_handler_1 = require("./api-handler");
-Object.defineProperty(exports, "ApiHandler", { enumerable: true, get: function () { return api_handler_1.ApiHandler; } });
-var user_service_1 = require("./user-service");
-Object.defineProperty(exports, "UserService", { enumerable: true, get: function () { return user_service_1.UserService; } });
-var light_service_1 = require("./light-service");
-Object.defineProperty(exports, "LightService", { enumerable: true, get: function () { return light_service_1.LightService; } });
-var config_service_1 = require("./config-service");
-Object.defineProperty(exports, "ConfigService", { enumerable: true, get: function () { return config_service_1.ConfigService; } });
-var device_binding_service_1 = require("./device-binding-service");
-Object.defineProperty(exports, "DeviceBindingService", { enumerable: true, get: function () { return device_binding_service_1.DeviceBindingService; } });
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var hue_api_exports = {};
+__export(hue_api_exports, {
+  ApiHandler: () => import_api_handler.ApiHandler,
+  ConfigService: () => import_config_service.ConfigService,
+  DeviceBindingService: () => import_device_binding_service.DeviceBindingService,
+  LightService: () => import_light_service.LightService,
+  UserService: () => import_user_service.UserService
+});
+module.exports = __toCommonJS(hue_api_exports);
+var import_api_handler = require("./api-handler");
+var import_user_service = require("./user-service");
+var import_light_service = require("./light-service");
+var import_config_service = require("./config-service");
+var import_device_binding_service = require("./device-binding-service");
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  ApiHandler,
+  ConfigService,
+  DeviceBindingService,
+  LightService,
+  UserService
+});
+//# sourceMappingURL=index.js.map

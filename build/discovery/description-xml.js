@@ -1,17 +1,31 @@
 "use strict";
-/**
- * UPnP Description XML Generator for Hue Bridge Emulation
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateDescriptionXml = generateDescriptionXml;
-exports.getDescriptionUrl = getDescriptionUrl;
-/**
- * Generate the UPnP description.xml content for Hue bridge discovery
- */
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var description_xml_exports = {};
+__export(description_xml_exports, {
+  generateDescriptionXml: () => generateDescriptionXml,
+  getDescriptionUrl: () => getDescriptionUrl
+});
+module.exports = __toCommonJS(description_xml_exports);
 function generateDescriptionXml(options) {
-    const { identity, host, port, urlBase } = options;
-    const baseUrl = urlBase || `http://${host}:${port}/`;
-    return `<?xml version="1.0" encoding="UTF-8" ?>
+  const { identity, host, port, urlBase } = options;
+  const baseUrl = urlBase || `http://${host}:${port}/`;
+  return `<?xml version="1.0" encoding="UTF-8" ?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
     <specVersion>
         <major>1</major>
@@ -42,9 +56,12 @@ function generateDescriptionXml(options) {
     </device>
 </root>`;
 }
-/**
- * Get SSDP location URL for the description.xml
- */
 function getDescriptionUrl(host, port) {
-    return `http://${host}:${port}/description.xml`;
+  return `http://${host}:${port}/description.xml`;
 }
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  generateDescriptionXml,
+  getDescriptionUrl
+});
+//# sourceMappingURL=description-xml.js.map

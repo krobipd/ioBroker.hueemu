@@ -121,7 +121,7 @@ export class HueServer {
     });
 
     // Add CORS headers for Hue API compatibility
-    server.addHook("onSend", async (request, reply, payload) => {
+    server.addHook("onSend", async (_request, reply, payload) => {
       reply.header("Access-Control-Allow-Origin", "*");
       reply.header(
         "Access-Control-Allow-Methods",
@@ -132,7 +132,7 @@ export class HueServer {
     });
 
     // Handle OPTIONS requests for CORS
-    server.options("*", async (request, reply) => {
+    server.options("*", async (_request, reply) => {
       reply.status(204).send();
     });
 

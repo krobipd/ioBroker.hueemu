@@ -28,7 +28,7 @@ export async function descriptionRoute(
   // Generate the XML once (it's static)
   const descriptionXml = generateDescriptionXml(descriptionOptions);
 
-  fastify.get("/description.xml", async (request, reply) => {
+  fastify.get("/description.xml", async (_request, reply) => {
     reply
       .type("application/xml")
       .header("Content-Length", Buffer.byteLength(descriptionXml))

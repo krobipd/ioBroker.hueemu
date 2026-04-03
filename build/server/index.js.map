@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/server/index.ts"],
+  "sourcesContent": ["/**\n * Server module exports\n */\n\nexport { HueServer, type HueServerOptions } from \"./hue-server\";\nexport { apiV1Routes, type ApiRoutesOptions } from \"./routes/api-v1-routes\";\nexport {\n  descriptionRoute,\n  type DescriptionRouteOptions,\n} from \"./routes/description-route\";\nexport {\n  hueErrorHandler,\n  createSuccessResponse,\n} from \"./middleware/error-handler\";\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAIA,wBAAiD;AACjD,2BAAmD;AACnD,+BAGO;AACP,2BAGO;",
+  "names": []
+}

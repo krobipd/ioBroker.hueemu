@@ -1,35 +1,49 @@
 "use strict";
-/**
- * Error handling middleware for Hue API responses
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.hueErrorHandler = hueErrorHandler;
-exports.createSuccessResponse = createSuccessResponse;
-const errors_1 = require("../../types/errors");
-/**
- * Fastify error handler that converts errors to Hue API format
- */
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var error_handler_exports = {};
+__export(error_handler_exports, {
+  createSuccessResponse: () => createSuccessResponse,
+  hueErrorHandler: () => hueErrorHandler
+});
+module.exports = __toCommonJS(error_handler_exports);
+var import_errors = require("../../types/errors");
 function hueErrorHandler(error, request, reply) {
-    // Extract the path for the error response
-    const address = request.url || "/";
-    if (error instanceof errors_1.HueApiError) {
-        // Return the Hue-formatted error
-        reply.status(200).send([error.toResponse()]);
-    }
-    else if ("validation" in error && error.validation) {
-        // Fastify validation error - convert to Hue format
-        const hueError = errors_1.HueApiError.invalidJson(address);
-        reply.status(200).send([hueError.toResponse()]);
-    }
-    else {
-        // Generic error - wrap as internal error
-        const hueError = errors_1.HueApiError.internalError(error.message || "Unknown error", address);
-        reply.status(200).send([hueError.toResponse()]);
-    }
+  const address = request.url || "/";
+  if (error instanceof import_errors.HueApiError) {
+    reply.status(200).send([error.toResponse()]);
+  } else if ("validation" in error && error.validation) {
+    const hueError = import_errors.HueApiError.invalidJson(address);
+    reply.status(200).send([hueError.toResponse()]);
+  } else {
+    const hueError = import_errors.HueApiError.internalError(
+      error.message || "Unknown error",
+      address
+    );
+    reply.status(200).send([hueError.toResponse()]);
+  }
 }
-/**
- * Create a Hue success response array
- */
 function createSuccessResponse(data) {
-    return [{ success: data }];
+  return [{ success: data }];
 }
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  createSuccessResponse,
+  hueErrorHandler
+});
+//# sourceMappingURL=error-handler.js.map
