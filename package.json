@@ -71,7 +71,7 @@
     "build": "build-adapter ts",
     "watch:ts": "build-adapter ts --watch",
     "watch": "build-adapter ts --watch",
-    "check": "tsc -p tsconfig.build.json --noEmit",
+    "check": "tsc --noEmit",
     "test:ts": "mocha --config test/.mocharc.json",
     "test:package": "mocha test/package --exit",
     "test:unit": "mocha test/unit --exit",
