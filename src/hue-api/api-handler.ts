@@ -18,7 +18,6 @@ import type {
 } from "../types/light";
 import { HueApiError } from "../types/errors";
 import { UserService, type UserServiceAdapter } from "./user-service";
-import { LightService, type LightServiceAdapter } from "./light-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import {
   DeviceBindingService,
@@ -30,7 +29,7 @@ import {
  * Combined adapter interface for the API handler
  */
 export interface ApiHandlerAdapter
-  extends UserServiceAdapter, LightServiceAdapter, DeviceBindingAdapter {
+  extends UserServiceAdapter, DeviceBindingAdapter {
   pairingEnabled: boolean;
   /**
    *
@@ -53,29 +52,15 @@ export interface ApiHandlerConfig {
 }
 
 /**
- * Light service interface (common between LightService and DeviceBindingService)
- */
-interface LightServiceInterface {
-  getAllLights(): Promise<LightsCollection>;
-  getLightById(lightId: string): Promise<Light>;
-  setLightState(
-    lightId: string,
-    stateUpdate: LightStateUpdate,
-  ): Promise<LightStateResult[]>;
-}
-
-/**
  * Main API Handler implementation
  * Implements the HueApiHandler interface and orchestrates all services
  */
 export class ApiHandler implements HueApiHandler {
   private readonly adapter: ApiHandlerAdapter;
   private readonly userService: UserService;
-  private readonly lightService: LightServiceInterface;
+  private readonly lightService: DeviceBindingService;
   private readonly configService: ConfigService;
-  private readonly deviceBindingService?: DeviceBindingService;
   private readonly logger?: Logger;
-  private readonly useDeviceBinding: boolean;
 
   /**
    *
@@ -93,51 +78,28 @@ export class ApiHandler implements HueApiHandler {
     // Initialize config service
     this.configService = new ConfigService(config.configServiceConfig);
 
-    // Determine which light service to use
+    // Initialize device binding service
     const devices = config.devices || [];
-    this.useDeviceBinding = devices.length > 0;
-
-    if (this.useDeviceBinding) {
-      // Use DeviceBindingService for admin-configured devices
-      this.deviceBindingService = new DeviceBindingService({
-        adapter: config.adapter,
-        devices,
-        logger: config.logger,
-      });
-      this.lightService = this.deviceBindingService;
-      this.log(
-        "debug",
-        `Using DeviceBindingService with ${devices.length} configured devices`,
-      );
-    } else {
-      // Fall back to legacy LightService for manually created devices
-      this.lightService = new LightService({
-        adapter: config.adapter,
-        logger: config.logger,
-      });
-      this.log(
-        "debug",
-        "Using legacy LightService (no devices configured in admin)",
-      );
-    }
+    this.lightService = new DeviceBindingService({
+      adapter: config.adapter,
+      devices,
+      logger: config.logger,
+    });
+    this.log("debug", `${devices.length} device(s) configured`);
   }
 
   /**
    * Initialize the API handler (must be called after construction)
    */
   public async initialize(): Promise<void> {
-    if (this.deviceBindingService) {
-      await this.deviceBindingService.initialize();
-    }
+    await this.lightService.initialize();
   }
 
   /**
    * Update state cache when a foreign state changes
    */
   public onStateChange(id: string, value: unknown): void {
-    if (this.deviceBindingService) {
-      this.deviceBindingService.updateStateCache(id, value);
-    }
+    this.lightService.updateStateCache(id, value);
   }
 
   /**

@@ -1,4 +1,11 @@
 # Changelog
+## 1.1.0 (2026-04-04)
+
+- Remove legacy `createLight` mode — existing devices auto-migrated to admin configuration
+- Remove LightService, definition module (~400 lines of legacy code)
+- Simplify ApiHandler (always uses DeviceBindingService)
+- Add `createLight` to obsolete state cleanup
+
 ## 1.0.26 (2026-04-04)
 
 - Migrate test infrastructure to standard pattern (tsconfig.test.json, tests in test/)

@@ -1,6 +1,6 @@
 # CLAUDE.md - ioBroker Hue Emulator Adapter
 
-**Aktuelle Version:** 1.0.26 (April 2026)
+**Aktuelle Version:** 1.1.0 (April 2026)
 
 > Allgemeines ioBroker-Wissen: siehe `../CLAUDE.md`
 
@@ -22,11 +22,7 @@ Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), dam
 
 ```
 src/
-├── main.ts                    # Adapter-Hauptklasse (HueEmu)
-├── definition/                # ioBroker-Definitionen
-│   ├── functions.ts           # Funktions-Enums
-│   ├── roles.ts               # State-Rollen
-│   └── hue-emu-definition.ts  # Definition-Klasse
+├── main.ts                    # Adapter-Hauptklasse (HueEmu) + Legacy-Migration
 ├── discovery/                 # UPnP/SSDP Discovery
 │   ├── index.ts
 │   ├── description-xml.ts     # UPnP XML Generator
@@ -36,7 +32,6 @@ src/
 │   ├── api-handler.ts         # API Orchestrator
 │   ├── config-service.ts      # Bridge-Konfiguration
 │   ├── device-binding-service.ts  # Admin-konfigurierte Geräte
-│   ├── light-service.ts       # Legacy Light Service
 │   └── user-service.ts        # Benutzer-/Auth-Verwaltung
 ├── server/                    # HTTP Server
 │   ├── index.ts
@@ -59,6 +54,7 @@ src/
 ### HueEmu Adapter (`src/main.ts`)
 - Lifecycle: `onReady()`, `onUnload()`, `onStateChange()`
 - Verwaltet: HueServer, SsdpServer, ApiHandler
+- Legacy-Migration: `migrateLegacyDevices()` konvertiert alte createLight-Geräte zu DeviceConfig
 - Pairing-Modus mit 50s Timeout
 - TLS-Zertifikatsgenerierung
 
@@ -66,8 +62,7 @@ src/
 Orchestriert alle API-Services:
 - `UserService` → Benutzer-Authentifizierung
 - `ConfigService` → Bridge-Konfiguration
-- `DeviceBindingService` → Admin-konfigurierte Geräte (primär)
-- `LightService` → Legacy-Modus
+- `DeviceBindingService` → Admin-konfigurierte Geräte
 
 ### DeviceBindingService (`src/hue-api/device-binding-service.ts`)
 Mappt Admin-konfigurierte Geräte auf ioBroker States:
@@ -206,19 +201,19 @@ Alle Fehler werden als HTTP 200 mit Hue-Format zurückgegeben:
 
 ```
 test/
-├── testMain.ts         → Unit-Tests (148 Tests):
+├── testMain.ts         → Unit-Tests (136 Tests):
 │     HueApiError (13), DescriptionXML (8), ConfigService (18),
-│     DeviceBindingService (109): Light-Typen, Wertkonvertierung,
-│     Colormode, HueEmuDefinition, createSuccessResponse, Integration
+│     DeviceBindingService (109), createSuccessResponse (3),
+│     Light type integration (5)
 └── testPackageFiles.ts → @iobroker/testing Package-Validierung (57 Tests)
 
-Total: 205 Tests (alle TypeScript, Standard-Infrastruktur)
+Total: 193 Tests (alle TypeScript, Standard-Infrastruktur)
 ```
 
 Tests werden mit `tsconfig.test.json` kompiliert und aus `build/test/` ausgeführt.
-CI (`test:integration`) führt alle 205 Tests aus.
+CI (`test:integration`) führt alle 193 Tests aus.
 
-**Nicht getestet (bewusst):** user-service (Callback-API), light-service (Legacy), api-handler (Orchestrator), ssdp-server (Netzwerk), hue-server (Framework-Glue).
+**Nicht getestet (bewusst):** user-service (Callback-API), api-handler (Orchestrator), ssdp-server (Netzwerk), hue-server (Framework-Glue).
 
 ## Repository
 
@@ -251,7 +246,8 @@ git push && git push origin vX.Y.Z
 
 | Version | Datum | Änderungen |
 |---------|-------|------------|
-| 1.0.26 | 2026-04-04 | Test-Infrastruktur auf Standard migriert (tsconfig.test.json, 205 Tests in CI) |
+| 1.1.0 | 2026-04-04 | Legacy createLight entfernt, Auto-Migration zu Admin-Config, ~400 Zeilen Legacy-Code entfernt |
+| 1.0.26 | 2026-04-04 | Test-Infrastruktur auf Standard migriert (tsconfig.test.json, 205→193 Tests in CI) |
 | 1.0.25 | 2026-04-03 | Dev-Tooling modernisiert (esbuild, TS 5.9 Pin, testing-action-check v2) |
 | 1.0.24 | 2026-03-28 | Fix Boolean("false") Bug in on/off State-Konvertierung |
 | 1.0.23 | 2026-03-27 | About→Netzwerk-Tab merged, verwaiste i18n-Keys entfernt |

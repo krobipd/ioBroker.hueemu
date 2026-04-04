@@ -34,7 +34,6 @@ module.exports = __toCommonJS(main_exports);
 var utils = __toESM(require("@iobroker/adapter-core"));
 var uuid = __toESM(require("uuid"));
 var forge = __toESM(require("node-forge"));
-var import_hue_emu_definition = require("./definition/hue-emu-definition");
 var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
@@ -43,7 +42,6 @@ class HueEmu extends utils.Adapter {
   pairingTimeoutId = void 0;
   _pairingEnabled = false;
   _disableAuth = false;
-  definition;
   hueServer = null;
   ssdpServer = null;
   apiHandler = null;
@@ -55,7 +53,6 @@ class HueEmu extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-    this.definition = new import_hue_emu_definition.HueEmuDefinition(this);
   }
   get pairingEnabled() {
     return this._pairingEnabled;
@@ -92,6 +89,10 @@ class HueEmu extends utils.Adapter {
    */
   async onReady() {
     try {
+      const migrated = await this.migrateLegacyDevices();
+      if (migrated) {
+        return;
+      }
       const emulatorConfig = await this.buildConfig();
       const logger = this.createLogger();
       const devices = this.config.devices || [];
@@ -210,18 +211,6 @@ class HueEmu extends utils.Adapter {
    * Initialize adapter states
    */
   async initializeAdapterStates() {
-    await this.setObjectNotExistsAsync("createLight", {
-      type: "state",
-      common: {
-        name: "createLight",
-        type: "string",
-        read: true,
-        write: true,
-        role: "state",
-        desc: "JSON to create lights manually (legacy mode)"
-      },
-      native: {}
-    });
     await this.setObjectNotExistsAsync("startPairing", {
       type: "state",
       common: {
@@ -255,8 +244,10 @@ class HueEmu extends utils.Adapter {
    */
   async cleanupObsoleteStates() {
     const obsoleteStates = [
-      "info.configuredDevices"
+      "info.configuredDevices",
       // removed in 1.0.15
+      "createLight"
+      // removed in 1.1.0 (legacy mode replaced by admin config + migration)
     ];
     for (const stateId of obsoleteStates) {
       const obj = await this.getObjectAsync(stateId);
@@ -317,9 +308,7 @@ class HueEmu extends utils.Adapter {
     if (state.ack) {
       return;
     }
-    if (id === `${this.namespace}.createLight`) {
-      this.handleCreateLight(id, state);
-    } else if (id === `${this.namespace}.startPairing`) {
+    if (id === `${this.namespace}.startPairing`) {
       this.handleStartPairing(state);
     } else if (id === `${this.namespace}.disableAuth`) {
       this.disableAuth = state.val;
@@ -352,156 +341,88 @@ class HueEmu extends utils.Adapter {
     }
   }
   /**
-   * Sanitize a name for use as an ioBroker object ID segment
-   * @param name Raw name to sanitize
+   * Migrate legacy devices (created via createLight JSON) to admin-configured DeviceConfig format.
+   * Legacy devices are ioBroker device objects in the adapter namespace with state/name/data children.
+   * After migration, DeviceBindingService uses the existing state objects as foreign states.
+   * @returns true if migration was performed (adapter will restart with new config)
    */
-  sanitizeId(name) {
-    return (name || "").replace(this.FORBIDDEN_CHARS, "_").replace(/\./g, "_");
-  }
-  /**
-   * Handle createLight state change (legacy mode)
-   */
-  handleCreateLight(id, state) {
-    try {
-      const lights = typeof state.val === "object" ? state.val : JSON.parse(state.val);
-      this.log.debug(
-        `Creating lights (legacy mode): ${JSON.stringify(lights)}`
-      );
-      Object.keys(lights).forEach((rawLightId) => {
-        const lightId = this.sanitizeId(rawLightId);
-        try {
-          this.createLightDevice(lightId, lights[rawLightId]);
-          this.createLightState(lightId, lights[rawLightId]);
-          this.createLightName(lightId, lights[rawLightId]);
-          this.createLightData(lightId, lights[rawLightId]);
-          void this.setState(id, { ack: true, val: state.val });
-        } catch (error) {
-          this.log.warn(`Could not create light ${lightId}: ${error}`);
-        }
-      });
-    } catch (error) {
-      this.log.warn(`Could not parse lights: ${error}`);
+  async migrateLegacyDevices() {
+    var _a;
+    if (this.config.devices && this.config.devices.length > 0) {
+      return false;
     }
-  }
-  /**
-   * Create light device object
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  createLightDevice(lightId, light) {
-    void this.setObjectNotExists(lightId, {
-      type: "device",
-      common: {
-        name: light.name
-      },
-      native: {}
-    });
-  }
-  /**
-   * Create light state channel and states
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  createLightState(lightId, light) {
-    void this.setObjectNotExists(
-      `${lightId}.state`,
-      {
-        type: "channel",
-        common: {
-          name: "state"
-        },
-        native: {}
-      },
-      (err) => {
-        if (!err) {
-          this.definition.addFunction(
-            lightId,
-            "state",
-            void 0
-          );
-        }
-      }
+    const devices = await this.getDevicesAsync();
+    if (devices.length === 0) {
+      return false;
+    }
+    this.log.info(
+      `Found ${devices.length} legacy device(s) \u2014 migrating to new configuration`
     );
-    Object.keys(light.state).forEach((rawKey) => {
-      const stateKey = this.sanitizeId(rawKey);
-      this.addState(
-        `${lightId}.state.${stateKey}`,
-        stateKey,
-        light.state[rawKey]
-      );
-    });
-  }
-  /**
-   * Create light name state
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  createLightName(lightId, light) {
-    void this.setObjectNotExists(`${lightId}.name`, {
-      type: "state",
-      common: {
-        name: "name",
-        type: "string",
-        role: "text",
-        read: true,
-        write: true
-      },
-      native: {}
-    });
-    void this.setState(`${lightId}.name`, {
-      ack: true,
-      val: light.name
-    });
-  }
-  /**
-   * Create light data state
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  createLightData(lightId, light) {
-    const data = {};
-    Object.keys(light).forEach((key) => {
-      if (key !== "state" && key !== "name") {
-        data[key] = light[key];
+    const migratedDevices = [];
+    for (const device of devices) {
+      const deviceId = device._id.substring(this.namespace.length + 1);
+      try {
+        const nameState = await this.getStateAsync(`${deviceId}.name`);
+        const name = (nameState == null ? void 0 : nameState.val) || ((_a = device.common) == null ? void 0 : _a.name) || deviceId;
+        const stateObjects = await this.getStatesOfAsync(deviceId, "state");
+        const stateKeys = new Set(
+          (stateObjects || []).map(
+            (s) => s._id.substring(s._id.lastIndexOf(".") + 1)
+          )
+        );
+        let lightType;
+        if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
+          lightType = "color";
+        } else if (stateKeys.has("ct")) {
+          lightType = "ct";
+        } else if (stateKeys.has("bri")) {
+          lightType = "dimmable";
+        } else {
+          lightType = "onoff";
+        }
+        const config = { name, lightType };
+        if (stateKeys.has("on")) {
+          config.onState = `${this.namespace}.${deviceId}.state.on`;
+        }
+        if (stateKeys.has("bri")) {
+          config.briState = `${this.namespace}.${deviceId}.state.bri`;
+        }
+        if (stateKeys.has("ct")) {
+          config.ctState = `${this.namespace}.${deviceId}.state.ct`;
+        }
+        if (stateKeys.has("hue")) {
+          config.hueState = `${this.namespace}.${deviceId}.state.hue`;
+        }
+        if (stateKeys.has("sat")) {
+          config.satState = `${this.namespace}.${deviceId}.state.sat`;
+        }
+        if (stateKeys.has("xy")) {
+          config.xyState = `${this.namespace}.${deviceId}.state.xy`;
+        }
+        migratedDevices.push(config);
+        this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
+        await this.delObjectAsync(`${deviceId}.name`).catch(() => {
+        });
+        await this.delObjectAsync(`${deviceId}.data`).catch(() => {
+        });
+        await this.delObjectAsync(`${deviceId}.state`).catch(() => {
+        });
+        await this.delObjectAsync(deviceId).catch(() => {
+        });
+      } catch (error) {
+        this.log.warn(`Could not migrate legacy device ${deviceId}: ${error}`);
       }
-    });
-    void this.setObjectNotExists(`${lightId}.data`, {
-      type: "state",
-      common: {
-        name: "data",
-        type: "object",
-        role: "state",
-        read: true,
-        write: true
-      },
-      native: {}
-    });
-    void this.setState(`${lightId}.data`, {
-      ack: true,
-      val: JSON.stringify(data)
-    });
-  }
-  /**
-   * Add a state with type detection
-   */
-  addState(id, name, value) {
-    const valueType = typeof value;
-    let commonType = "mixed";
-    if (valueType === "number" || valueType === "string" || valueType === "boolean" || valueType === "object") {
-      commonType = valueType;
     }
-    void this.setObjectNotExists(id, {
-      type: "state",
-      common: {
-        name,
-        type: commonType,
-        role: import_hue_emu_definition.HueEmuDefinition.determineRole("state", name),
-        read: true,
-        write: true
-      },
-      native: {}
+    if (migratedDevices.length === 0) {
+      return false;
+    }
+    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+      native: { devices: migratedDevices }
     });
-    void this.setState(id, { ack: true, val: value });
+    this.log.info(
+      `Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`
+    );
+    return true;
   }
   /**
    * Parse port number

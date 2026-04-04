@@ -12,11 +12,6 @@ export {
   type UserServiceConfig,
   type UserServiceAdapter,
 } from "./user-service";
-export {
-  LightService,
-  type LightServiceConfig,
-  type LightServiceAdapter,
-} from "./light-service";
 export { ConfigService, type ConfigServiceConfig } from "./config-service";
 export {
   DeviceBindingService,

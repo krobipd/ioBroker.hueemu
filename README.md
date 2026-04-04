@@ -98,7 +98,6 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 hueemu.0.
 ├── startPairing         — Enable pairing mode for 50 seconds (button)
 ├── disableAuth          — Disable authentication (switch)
-├── createLight          — JSON to create lights manually (legacy mode)
 └── user/                — Authenticated clients
     └── {username}       — Client API key (created during pairing)
 ```
@@ -106,6 +105,12 @@ hueemu.0.
 ---
 
 ## Troubleshooting
+
+### Upgrading from 0.x / legacy createLight mode
+
+If you used the old `createLight` JSON state to define lights, your devices are **automatically migrated** on first start. The adapter reads your existing device objects, converts them to the new admin configuration format, and restarts once. No manual action required — your existing scripts and automations continue to work as before.
+
+**Optional improvement:** The old system used internal adapter states as intermediaries, requiring separate scripts to control the actual devices. You can now open the adapter settings and change the state mappings to point **directly** to your device states (e.g. `hm-rpc.0.dimmer.LEVEL` instead of `hueemu.0.1.state.bri`). This eliminates the need for bridge scripts entirely.
 
 ### Bridge not found
 
@@ -127,6 +132,10 @@ hueemu.0.
 ---
 
 ## Changelog
+
+### 1.1.0 (2026-04-04)
+- Remove legacy `createLight` mode — existing devices are auto-migrated to admin configuration
+- Remove ~400 lines of legacy code (LightService, definition module)
 
 ### 1.0.26 (2026-04-04)
 - Migrate test infrastructure to standard pattern (tests now run in CI)

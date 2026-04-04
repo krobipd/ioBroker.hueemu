@@ -7,7 +7,7 @@
  * - Description XML: generation and URL building
  * - ConfigService: public/full config, buildFullState
  * - DeviceBindingService: value conversions, light management, state setting
- * - HueEmuDefinition: determineRole
+ * - Light type integration: full round-trip with DeviceBindingService
  * - Error handler: createSuccessResponse
  */
 
@@ -33,10 +33,6 @@ import {
   type DeviceConfig,
   type DeviceBindingAdapter,
 } from "../src/hue-api/device-binding-service";
-
-// --- Definitions ---
-
-import { HueEmuDefinition } from "../src/definition/hue-emu-definition";
 
 // --- Error handler ---
 
@@ -1350,82 +1346,6 @@ describe("DeviceBindingService", () => {
       );
       await service.initialize();
       expect(adapter.subscribedPatterns).to.have.length(0);
-    });
-  });
-});
-
-// =====================================================================
-// HueEmuDefinition — determineRole
-// =====================================================================
-
-describe("HueEmuDefinition", () => {
-  describe("determineRole", () => {
-    it("should return switch.light for on", () => {
-      expect(HueEmuDefinition.determineRole("state", "on")).to.equal(
-        "switch.light",
-      );
-    });
-
-    it("should return indicator.reachable for reachable", () => {
-      expect(HueEmuDefinition.determineRole("state", "reachable")).to.equal(
-        "indicator.reachable",
-      );
-    });
-
-    it("should return level.dimmer for bri", () => {
-      expect(HueEmuDefinition.determineRole("state", "bri")).to.equal(
-        "level.dimmer",
-      );
-    });
-
-    it("should return level.color.temperature for ct", () => {
-      expect(HueEmuDefinition.determineRole("state", "ct")).to.equal(
-        "level.color.temperature",
-      );
-    });
-
-    it("should return level.color.hue for hue", () => {
-      expect(HueEmuDefinition.determineRole("state", "hue")).to.equal(
-        "level.color.hue",
-      );
-    });
-
-    it("should return level.color.saturation for sat", () => {
-      expect(HueEmuDefinition.determineRole("state", "sat")).to.equal(
-        "level.color.saturation",
-      );
-    });
-
-    it("should return text for colormode", () => {
-      expect(HueEmuDefinition.determineRole("state", "colormode")).to.equal(
-        "text",
-      );
-    });
-
-    it("should return text for effect", () => {
-      expect(HueEmuDefinition.determineRole("state", "effect")).to.equal(
-        "text",
-      );
-    });
-
-    it("should return text for alert", () => {
-      expect(HueEmuDefinition.determineRole("state", "alert")).to.equal("text");
-    });
-
-    it("should return text for mode", () => {
-      expect(HueEmuDefinition.determineRole("state", "mode")).to.equal("text");
-    });
-
-    it("should return default 'state' for unknown keys", () => {
-      expect(HueEmuDefinition.determineRole("state", "unknownKey")).to.equal(
-        "state",
-      );
-    });
-
-    it("should return default 'state' for unknown channel", () => {
-      expect(HueEmuDefinition.determineRole("unknownChannel", "on")).to.equal(
-        "state",
-      );
     });
   });
 });

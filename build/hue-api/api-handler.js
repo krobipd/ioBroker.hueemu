@@ -23,7 +23,6 @@ __export(api_handler_exports, {
 module.exports = __toCommonJS(api_handler_exports);
 var import_errors = require("../types/errors");
 var import_user_service = require("./user-service");
-var import_light_service = require("./light-service");
 var import_config_service = require("./config-service");
 var import_device_binding_service = require("./device-binding-service");
 class ApiHandler {
@@ -31,9 +30,7 @@ class ApiHandler {
   userService;
   lightService;
   configService;
-  deviceBindingService;
   logger;
-  useDeviceBinding;
   /**
    *
    */
@@ -46,44 +43,24 @@ class ApiHandler {
     });
     this.configService = new import_config_service.ConfigService(config.configServiceConfig);
     const devices = config.devices || [];
-    this.useDeviceBinding = devices.length > 0;
-    if (this.useDeviceBinding) {
-      this.deviceBindingService = new import_device_binding_service.DeviceBindingService({
-        adapter: config.adapter,
-        devices,
-        logger: config.logger
-      });
-      this.lightService = this.deviceBindingService;
-      this.log(
-        "debug",
-        `Using DeviceBindingService with ${devices.length} configured devices`
-      );
-    } else {
-      this.lightService = new import_light_service.LightService({
-        adapter: config.adapter,
-        logger: config.logger
-      });
-      this.log(
-        "debug",
-        "Using legacy LightService (no devices configured in admin)"
-      );
-    }
+    this.lightService = new import_device_binding_service.DeviceBindingService({
+      adapter: config.adapter,
+      devices,
+      logger: config.logger
+    });
+    this.log("debug", `${devices.length} device(s) configured`);
   }
   /**
    * Initialize the API handler (must be called after construction)
    */
   async initialize() {
-    if (this.deviceBindingService) {
-      await this.deviceBindingService.initialize();
-    }
+    await this.lightService.initialize();
   }
   /**
    * Update state cache when a foreign state changes
    */
   onStateChange(id, value) {
-    if (this.deviceBindingService) {
-      this.deviceBindingService.updateStateCache(id, value);
-    }
+    this.lightService.updateStateCache(id, value);
   }
   /**
    * Create a new user

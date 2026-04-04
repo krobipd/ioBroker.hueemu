@@ -7,7 +7,6 @@ import * as utils from "@iobroker/adapter-core";
 import * as uuid from "uuid";
 import * as forge from "node-forge";
 
-import { HueEmuDefinition } from "./definition/hue-emu-definition";
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type DeviceConfig } from "./hue-api";
@@ -44,7 +43,6 @@ export class HueEmu extends utils.Adapter {
   private _pairingEnabled = false;
   private _disableAuth = false;
 
-  private definition: HueEmuDefinition;
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
   private apiHandler: ApiHandler | null = null;
@@ -58,8 +56,6 @@ export class HueEmu extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-
-    this.definition = new HueEmuDefinition(this);
   }
 
   get pairingEnabled(): boolean {
@@ -101,6 +97,13 @@ export class HueEmu extends utils.Adapter {
    */
   private async onReady(): Promise<void> {
     try {
+      // Migrate legacy devices (created via createLight) to admin config format
+      const migrated = await this.migrateLegacyDevices();
+      if (migrated) {
+        // Config was updated — adapter will restart automatically
+        return;
+      }
+
       // Parse and validate configuration
       const emulatorConfig = await this.buildConfig();
 
@@ -260,20 +263,6 @@ export class HueEmu extends utils.Adapter {
    * Initialize adapter states
    */
   private async initializeAdapterStates(): Promise<void> {
-    // Create createLight state (for legacy manual light creation)
-    await this.setObjectNotExistsAsync("createLight", {
-      type: "state",
-      common: {
-        name: "createLight",
-        type: "string",
-        read: true,
-        write: true,
-        role: "state",
-        desc: "JSON to create lights manually (legacy mode)",
-      },
-      native: {},
-    });
-
     // Create startPairing state
     await this.setObjectNotExistsAsync("startPairing", {
       type: "state",
@@ -314,6 +303,7 @@ export class HueEmu extends utils.Adapter {
   private async cleanupObsoleteStates(): Promise<void> {
     const obsoleteStates = [
       "info.configuredDevices", // removed in 1.0.15
+      "createLight", // removed in 1.1.0 (legacy mode replaced by admin config + migration)
     ];
 
     for (const stateId of obsoleteStates) {
@@ -395,9 +385,7 @@ export class HueEmu extends utils.Adapter {
       return;
     }
 
-    if (id === `${this.namespace}.createLight`) {
-      this.handleCreateLight(id, state);
-    } else if (id === `${this.namespace}.startPairing`) {
+    if (id === `${this.namespace}.startPairing`) {
       this.handleStartPairing(state);
     } else if (id === `${this.namespace}.disableAuth`) {
       this.disableAuth = state.val as boolean;
@@ -435,181 +423,113 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Sanitize a name for use as an ioBroker object ID segment
-   * @param name Raw name to sanitize
+   * Migrate legacy devices (created via createLight JSON) to admin-configured DeviceConfig format.
+   * Legacy devices are ioBroker device objects in the adapter namespace with state/name/data children.
+   * After migration, DeviceBindingService uses the existing state objects as foreign states.
+   * @returns true if migration was performed (adapter will restart with new config)
    */
-  private sanitizeId(name: string): string {
-    return (name || "").replace(this.FORBIDDEN_CHARS, "_").replace(/\./g, "_");
-  }
-
-  /**
-   * Handle createLight state change (legacy mode)
-   */
-  private handleCreateLight(id: string, state: ioBroker.State): void {
-    try {
-      const lights =
-        typeof state.val === "object"
-          ? state.val
-          : JSON.parse(state.val as string);
-
-      this.log.debug(
-        `Creating lights (legacy mode): ${JSON.stringify(lights)}`,
-      );
-
-      Object.keys(lights).forEach((rawLightId) => {
-        const lightId = this.sanitizeId(rawLightId);
-        try {
-          this.createLightDevice(lightId, lights[rawLightId]);
-          this.createLightState(lightId, lights[rawLightId]);
-          this.createLightName(lightId, lights[rawLightId]);
-          this.createLightData(lightId, lights[rawLightId]);
-
-          void this.setState(id, { ack: true, val: state.val });
-        } catch (error) {
-          this.log.warn(`Could not create light ${lightId}: ${error}`);
-        }
-      });
-    } catch (error) {
-      this.log.warn(`Could not parse lights: ${error}`);
+  private async migrateLegacyDevices(): Promise<boolean> {
+    // Skip if devices are already configured in admin
+    if (this.config.devices && this.config.devices.length > 0) {
+      return false;
     }
-  }
 
-  /**
-   * Create light device object
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  private createLightDevice(lightId: string, light: Record<string, any>): void {
-    void this.setObjectNotExists(lightId, {
-      type: "device",
-      common: {
-        name: light.name,
-      },
-      native: {},
-    });
-  }
+    // Check for legacy device objects in our namespace
+    const devices = await this.getDevicesAsync();
+    if (devices.length === 0) {
+      return false;
+    }
 
-  /**
-   * Create light state channel and states
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  private createLightState(lightId: string, light: Record<string, any>): void {
-    void this.setObjectNotExists(
-      `${lightId}.state`,
-      {
-        type: "channel",
-        common: {
-          name: "state",
-        },
-        native: {},
-      },
-      (err) => {
-        if (!err) {
-          this.definition.addFunction(
-            lightId,
-            "state",
-            undefined as unknown as string,
-          );
-        }
-      },
+    this.log.info(
+      `Found ${devices.length} legacy device(s) — migrating to new configuration`,
     );
 
-    Object.keys(light.state).forEach((rawKey) => {
-      const stateKey = this.sanitizeId(rawKey);
-      this.addState(
-        `${lightId}.state.${stateKey}`,
-        stateKey,
-        light.state[rawKey],
-      );
-    });
-  }
+    const migratedDevices: DeviceConfig[] = [];
 
-  /**
-   * Create light name state
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  private createLightName(lightId: string, light: Record<string, any>): void {
-    void this.setObjectNotExists(`${lightId}.name`, {
-      type: "state",
-      common: {
-        name: "name",
-        type: "string",
-        role: "text",
-        read: true,
-        write: true,
-      },
-      native: {},
-    });
+    for (const device of devices) {
+      const deviceId = device._id.substring(this.namespace.length + 1);
 
-    void this.setState(`${lightId}.name`, {
-      ack: true,
-      val: light.name,
-    });
-  }
+      try {
+        // Read device name from name state or device common.name
+        const nameState = await this.getStateAsync(`${deviceId}.name`);
+        const name =
+          (nameState?.val as string) ||
+          (device.common?.name as string) ||
+          deviceId;
 
-  /**
-   * Create light data state
-   * @param lightId Sanitized light ID
-   * @param light Light configuration object
-   */
-  private createLightData(lightId: string, light: Record<string, any>): void {
-    const data: Record<string, any> = {};
+        // Read state channel to find available state keys
+        const stateObjects = await this.getStatesOfAsync(deviceId, "state");
+        const stateKeys = new Set(
+          (stateObjects || []).map((s) =>
+            s._id.substring(s._id.lastIndexOf(".") + 1),
+          ),
+        );
 
-    Object.keys(light).forEach((key) => {
-      if (key !== "state" && key !== "name") {
-        data[key] = light[key];
+        // Determine light type from available states
+        let lightType: "onoff" | "dimmable" | "ct" | "color";
+        if (
+          stateKeys.has("hue") ||
+          stateKeys.has("sat") ||
+          stateKeys.has("xy")
+        ) {
+          lightType = "color";
+        } else if (stateKeys.has("ct")) {
+          lightType = "ct";
+        } else if (stateKeys.has("bri")) {
+          lightType = "dimmable";
+        } else {
+          lightType = "onoff";
+        }
+
+        // Build DeviceConfig with state IDs pointing to existing internal states
+        const config: DeviceConfig = { name, lightType };
+
+        if (stateKeys.has("on")) {
+          config.onState = `${this.namespace}.${deviceId}.state.on`;
+        }
+        if (stateKeys.has("bri")) {
+          config.briState = `${this.namespace}.${deviceId}.state.bri`;
+        }
+        if (stateKeys.has("ct")) {
+          config.ctState = `${this.namespace}.${deviceId}.state.ct`;
+        }
+        if (stateKeys.has("hue")) {
+          config.hueState = `${this.namespace}.${deviceId}.state.hue`;
+        }
+        if (stateKeys.has("sat")) {
+          config.satState = `${this.namespace}.${deviceId}.state.sat`;
+        }
+        if (stateKeys.has("xy")) {
+          config.xyState = `${this.namespace}.${deviceId}.state.xy`;
+        }
+
+        migratedDevices.push(config);
+        this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
+
+        // Clean up legacy-only wrapper objects (keep state.* objects for DeviceBindingService)
+        await this.delObjectAsync(`${deviceId}.name`).catch(() => {});
+        await this.delObjectAsync(`${deviceId}.data`).catch(() => {});
+        await this.delObjectAsync(`${deviceId}.state`).catch(() => {}); // channel only
+        await this.delObjectAsync(deviceId).catch(() => {}); // device wrapper
+      } catch (error) {
+        this.log.warn(`Could not migrate legacy device ${deviceId}: ${error}`);
       }
-    });
-
-    void this.setObjectNotExists(`${lightId}.data`, {
-      type: "state",
-      common: {
-        name: "data",
-        type: "object",
-        role: "state",
-        read: true,
-        write: true,
-      },
-      native: {},
-    });
-
-    void this.setState(`${lightId}.data`, {
-      ack: true,
-      val: JSON.stringify(data),
-    });
-  }
-
-  /**
-   * Add a state with type detection
-   */
-  private addState(id: string, name: string, value: any): void {
-    const valueType = typeof value;
-    let commonType: ioBroker.CommonType = "mixed";
-
-    if (
-      valueType === "number" ||
-      valueType === "string" ||
-      valueType === "boolean" ||
-      valueType === "object"
-    ) {
-      commonType = valueType;
     }
 
-    void this.setObjectNotExists(id, {
-      type: "state",
-      common: {
-        name,
-        type: commonType,
-        role: HueEmuDefinition.determineRole("state", name),
-        read: true,
-        write: true,
-      },
-      native: {},
+    if (migratedDevices.length === 0) {
+      return false;
+    }
+
+    // Save migrated devices to adapter config (triggers automatic restart)
+    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+      native: { devices: migratedDevices },
     });
 
-    void this.setState(id, { ack: true, val: value });
+    this.log.info(
+      `Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`,
+    );
+
+    return true;
   }
 
   /**

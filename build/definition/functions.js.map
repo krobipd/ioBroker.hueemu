@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../src/definition/functions.ts"],
-  "sourcesContent": ["export const FUNCTIONS: { [FunctionName: string]: string } = {\n  state: \"light\",\n};\n"],
-  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,MAAM,YAAgD;AAAA,EAC3D,OAAO;AACT;",
-  "names": []
-}

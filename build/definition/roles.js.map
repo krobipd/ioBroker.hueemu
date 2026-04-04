@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../src/definition/roles.ts"],
-  "sourcesContent": ["export const ROLES: { [TypeName: string]: { [KeyName: string]: string } } = {\n  state: {\n    on: \"switch.light\",\n    reachable: \"indicator.reachable\",\n    mode: \"text\",\n    alert: \"text\",\n    colormode: \"text\",\n    bri: \"level.dimmer\",\n    // TODO: not sure if this is suitable\n    ct: \"level.color.temperature\",\n    hue: \"level.color.hue\",\n    sat: \"level.color.saturation\",\n    effect: \"text\",\n  },\n};\n"],
-  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,MAAM,QAA+D;AAAA,EAC1E,OAAO;AAAA,IACL,IAAI;AAAA,IACJ,WAAW;AAAA,IACX,MAAM;AAAA,IACN,OAAO;AAAA,IACP,WAAW;AAAA,IACX,KAAK;AAAA;AAAA,IAEL,IAAI;AAAA,IACJ,KAAK;AAAA,IACL,KAAK;AAAA,IACL,QAAQ;AAAA,EACV;AACF;",
-  "names": []
-}

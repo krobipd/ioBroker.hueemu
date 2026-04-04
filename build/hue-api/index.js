@@ -21,13 +21,11 @@ __export(hue_api_exports, {
   ApiHandler: () => import_api_handler.ApiHandler,
   ConfigService: () => import_config_service.ConfigService,
   DeviceBindingService: () => import_device_binding_service.DeviceBindingService,
-  LightService: () => import_light_service.LightService,
   UserService: () => import_user_service.UserService
 });
 module.exports = __toCommonJS(hue_api_exports);
 var import_api_handler = require("./api-handler");
 var import_user_service = require("./user-service");
-var import_light_service = require("./light-service");
 var import_config_service = require("./config-service");
 var import_device_binding_service = require("./device-binding-service");
 // Annotate the CommonJS export names for ESM import in node:
@@ -35,7 +33,6 @@ var import_device_binding_service = require("./device-binding-service");
   ApiHandler,
   ConfigService,
   DeviceBindingService,
-  LightService,
   UserService
 });
 //# sourceMappingURL=index.js.map
