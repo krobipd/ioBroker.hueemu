@@ -146,9 +146,6 @@ hueemu.0.
 ### 1.0.21 (2026-03-21)
 - Fix: clean up obsolete states from previous versions on adapter start
 
-### 1.0.20 (2026-03-19)
-- Code: SSDP port hardcoded to 1900 (removed config fallback)
-
 Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 
 ---
