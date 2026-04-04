@@ -15,36 +15,36 @@ import { expect } from "chai";
 
 // --- Types & Errors ---
 
-import { HueApiError, HueErrorType } from "./types/errors";
-import { generateBridgeId, generateSerialNumber } from "./types/config";
+import { HueApiError, HueErrorType } from "../src/types/errors";
+import { generateBridgeId, generateSerialNumber } from "../src/types/config";
 
 // --- Discovery ---
 
 import {
   generateDescriptionXml,
   getDescriptionUrl,
-} from "./discovery/description-xml";
+} from "../src/discovery/description-xml";
 
 // --- Services ---
 
-import { ConfigService } from "./hue-api/config-service";
+import { ConfigService } from "../src/hue-api/config-service";
 import {
   DeviceBindingService,
   type DeviceConfig,
   type DeviceBindingAdapter,
-} from "./hue-api/device-binding-service";
+} from "../src/hue-api/device-binding-service";
 
 // --- Definitions ---
 
-import { HueEmuDefinition } from "./definition/hue-emu-definition";
+import { HueEmuDefinition } from "../src/definition/hue-emu-definition";
 
 // --- Error handler ---
 
-import { createSuccessResponse } from "./server/middleware/error-handler";
+import { createSuccessResponse } from "../src/server/middleware/error-handler";
 
 // --- Types for mocks ---
 
-import type { BridgeIdentity, Logger } from "./types/config";
+import type { BridgeIdentity, Logger } from "../src/types/config";
 
 // =====================================================================
 // Mock helpers

@@ -17,6 +17,9 @@ dist/
 !eslint.config.mjs
 !scripts/*.js
 
+# Test build output (not committed — only production build/ is committed)
+build/test/
+
 # Tests & Coverage
 coverage/
 .nyc_output/

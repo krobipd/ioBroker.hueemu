@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.0.25",
+    "version": "1.0.26",
     "news": {
+      "1.0.26": {
+        "en": "Migrate test infrastructure to standard pattern (tests now run in CI)",
+        "de": "Test-Infrastruktur auf Standard-Pattern migriert (Tests laufen jetzt in CI)",
+        "ru": "Миграция тестовой инфраструктуры на стандартный шаблон (тесты теперь запускаются в CI)",
+        "pt": "Migrar infraestrutura de testes para padrão standard (testes agora rodam no CI)",
+        "nl": "Testinfrastructuur gemigreerd naar standaardpatroon (tests draaien nu in CI)",
+        "fr": "Migration de l'infrastructure de test vers le modèle standard (les tests s'exécutent maintenant dans CI)",
+        "it": "Migrata infrastruttura di test al pattern standard (i test ora vengono eseguiti in CI)",
+        "es": "Migrar infraestructura de pruebas al patrón estándar (las pruebas ahora se ejecutan en CI)",
+        "pl": "Migracja infrastruktury testowej do standardowego wzorca (testy teraz działają w CI)",
+        "uk": "Міграція тестової інфраструктури на стандартний шаблон (тести тепер запускаються в CI)",
+        "zh-cn": "将测试基础设施迁移到标准模式（测试现在在CI中运行）"
+      },
       "1.0.25": {
         "en": "Modernize dev tooling (esbuild, TypeScript 5.9 pin, testing-action-check v2)",
         "de": "Dev-Tooling modernisiert (esbuild, TypeScript 5.9 Pin, testing-action-check v2)",
@@ -80,19 +93,6 @@
         "pl": "Kod: port SSDP ustawiony na stałe 1900 (usunięto fallback konfiguracji)",
         "uk": "Код: порт SSDP жорстко встановлено на 1900 (fallback конфігу видалено)",
         "zh-cn": "代码：SSDP端口硬编码为1900（删除配置回退）"
-      },
-      "1.0.19": {
-        "en": "Admin UI: SSDP port field removed (fixed at 1900 — all UPnP clients require this port)",
-        "de": "Admin UI: SSDP-Port-Feld entfernt (fest auf 1900 — alle UPnP-Clients benötigen diesen Port)",
-        "ru": "Admin UI: поле порта SSDP удалено (фиксировано на 1900 — все UPnP-клиенты требуют этот порт)",
-        "pt": "Admin UI: campo de porta SSDP removido (fixo em 1900 — todos os clientes UPnP exigem esta porta)",
-        "nl": "Admin UI: SSDP-poortveld verwijderd (vast op 1900 — alle UPnP-clients vereisen deze poort)",
-        "fr": "Admin UI: champ port SSDP supprimé (fixé à 1900 — tous les clients UPnP nécessitent ce port)",
-        "it": "Admin UI: campo porta SSDP rimosso (fisso a 1900 — tutti i client UPnP richiedono questa porta)",
-        "es": "Admin UI: campo de puerto SSDP eliminado (fijo en 1900 — todos los clientes UPnP requieren este puerto)",
-        "pl": "Admin UI: pole portu SSDP usunięte (stałe 1900 — wszyscy klienci UPnP wymagają tego portu)",
-        "uk": "Admin UI: поле порту SSDP видалено (фіксовано на 1900 — усі UPnP-клієнти потребують цього порту)",
-        "zh-cn": "管理界面：删除SSDP端口字段（固定为1900——所有UPnP客户端都需要此端口）"
       }
     },
     "titleLang": {

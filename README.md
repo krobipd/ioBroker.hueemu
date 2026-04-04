@@ -128,6 +128,9 @@ hueemu.0.
 
 ## Changelog
 
+### 1.0.26 (2026-04-04)
+- Migrate test infrastructure to standard pattern (tests now run in CI)
+
 ### 1.0.25 (2026-04-03)
 - Modernize dev tooling (esbuild, TypeScript 5.9 pin, testing-action-check v2)
 
@@ -145,9 +148,6 @@ hueemu.0.
 
 ### 1.0.20 (2026-03-19)
 - Code: SSDP port hardcoded to 1900 (removed config fallback)
-
-### 1.0.19 (2026-03-19)
-- Admin UI: SSDP port field removed (fixed at 1900)
 
 Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 

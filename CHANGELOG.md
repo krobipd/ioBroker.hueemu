@@ -1,4 +1,10 @@
 # Changelog
+## 1.0.26 (2026-04-04)
+
+- Migrate test infrastructure to standard pattern (tsconfig.test.json, tests in test/)
+- Unit tests (148) now run in CI via test:integration (previously only ran locally)
+- Remove ts-node, source-map-support devDependencies
+
 ## 1.0.25 (2026-04-03)
 
 - Modernize dev tooling: esbuild via build-adapter, @tsconfig/node20, rimraf, TypeScript ~5.9.3 pin
