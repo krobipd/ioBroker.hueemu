@@ -23,7 +23,7 @@ Der **ioBroker Hue Emulator** emuliert eine Philips Hue Bridge (v2, BSB002), dam
 ```
 src/
 ├── main.ts                    # Adapter-Hauptklasse (HueEmu)
-├── main.test.ts               # Unit-Tests
+├── main.test.ts               # Unit-Tests (148 Tests: DeviceBinding, HueApiError, XML)
 ├── definition/                # ioBroker-Definitionen
 │   ├── functions.ts           # Funktions-Enums
 │   ├── roles.ts               # State-Rollen
