@@ -11,7 +11,7 @@
 
 <img src="https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/master/admin/hue-emu-logo.png" width="100" />
 
-Emulates a Philips Hue Bridge (v2, BSB002) so that ioBroker devices can be controlled via Alexa, Google Home, and other Hue-compatible smart home systems.
+Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so that ioBroker devices can be controlled via Alexa, Google Home, and other Hue-compatible smart home systems.
 
 ---
 
@@ -155,7 +155,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.0.22 (2026-03-27)
 - Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms
 
-Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
+Older changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
