@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für Alexa, Google Home, Harmony Hub.
 
-- **Version:** 1.1.1 (April 2026)
+- **Version:** 1.1.2 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634
@@ -66,6 +66,7 @@ Nicht getestet (bewusst): UserService (Callback-API), ApiHandler (Orchestrator),
 
 | Version | Highlights |
 |---------|------------|
+| 1.1.2 | Kompakter Startup-Log, Detail-Logs auf debug |
 | 1.1.1 | Redundante Scripts entfernt, Doku komprimiert |
 | 1.1.0 | Legacy createLight entfernt, Auto-Migration, ~400 Zeilen Legacy-Code weg |
 | 1.0.26 | Test-Infrastruktur Standard (tsconfig.test.json) |
