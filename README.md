@@ -133,6 +133,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.1.1 (2026-04-05)
+- Remove redundant scripts, compress documentation
+
 ### 1.1.0 (2026-04-04)
 - Remove legacy `createLight` mode — existing devices are auto-migrated to admin configuration
 - Remove ~400 lines of legacy code (LightService, definition module)
@@ -151,9 +154,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.0.22 (2026-03-27)
 - Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms
-
-### 1.0.21 (2026-03-21)
-- Fix: clean up obsolete states from previous versions on adapter start
 
 Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 

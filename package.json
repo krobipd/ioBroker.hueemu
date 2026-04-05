@@ -1,6 +1,6 @@
 {
   "name": "iobroker.hueemu",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Hue Bridge Emulator - Modernized 2026",
   "author": {
     "name": "Christopher Holomek",
@@ -63,26 +63,19 @@
     "LICENSE"
   ],
   "scripts": {
-    "prepare": "test -d build || npm run build",
     "prebuild": "rimraf build",
-    "build:ts": "build-adapter ts",
     "build": "build-adapter ts",
-    "watch:ts": "build-adapter ts --watch",
     "watch": "build-adapter ts --watch",
     "check": "tsc --noEmit",
     "build:test": "tsc -p tsconfig.test.json",
     "test:package": "npm run build:test && mocha --exit \"build/test/testPackageFiles.js\"",
     "test:integration": "npm run build:test && mocha --exit \"build/test/**/*.js\"",
     "test": "npm run build:test && mocha --exit \"build/test/**/*.js\"",
-    "check:structure": "bash ./scripts/check-structure.sh",
-    "clean:project": "bash ./scripts/cleanup-project.sh",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "pack": "npm run build && npm pack",
     "release": "release-script"
   },
   "bugs": {
     "url": "https://github.com/krobipd/ioBroker.hueemu/issues"
-  },
-  "readmeFilename": "README.md"
+  }
 }

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "news": {
+      "1.1.1": {
+        "en": "Remove redundant scripts, compress documentation",
+        "de": "Redundante Scripts entfernt, Dokumentation komprimiert",
+        "ru": "Удалены избыточные скрипты, сжата документация",
+        "pt": "Scripts redundantes removidos, documentacao comprimida",
+        "nl": "Overbodige scripts verwijderd, documentatie gecomprimeerd",
+        "fr": "Scripts redondants supprimes, documentation comprimee",
+        "it": "Script ridondanti rimossi, documentazione compressa",
+        "es": "Scripts redundantes eliminados, documentacion comprimida",
+        "pl": "Usunieto nadmiarowe skrypty, skompresowano dokumentacje",
+        "uk": "Видалено зайвi скрипти, стиснуто документацiю",
+        "zh-cn": "移除冗余脚本，压缩文档"
+      },
       "1.1.0": {
         "en": "Remove legacy createLight mode — existing devices auto-migrated to admin config",
         "de": "Legacy createLight-Modus entfernt — bestehende Geräte werden automatisch in Admin-Konfiguration migriert",
@@ -80,19 +93,6 @@
         "pl": "Poprawki z przeglądu kodu: usunięto nieużywane handlery, oczyszczono ID obiektów, timery adaptera, testy na wszystkich platformach",
         "uk": "Виправлення з ревью: видалено невикористовувані обробники, очищення ID об'єктів, таймери адаптера, тести на всіх платформах",
         "zh-cn": "代码审查修复：移除未使用的处理器，清理对象ID，使用适配器定时器，在所有平台测试"
-      },
-      "1.0.21": {
-        "en": "Fix: clean up obsolete states from previous versions on adapter start",
-        "de": "Fix: veraltete Datenpunkte aus früheren Versionen beim Adapterstart bereinigen",
-        "ru": "Исправление: удаление устаревших состояний из предыдущих версий при запуске адаптера",
-        "pt": "Fix: limpar estados obsoletos de versões anteriores no arranque do adaptador",
-        "nl": "Fix: verouderde states van eerdere versies opruimen bij adapterstart",
-        "fr": "Fix: nettoyer les états obsolètes des versions précédentes au démarrage de l adaptateur",
-        "it": "Fix: pulizia stati obsoleti dalle versioni precedenti all avvio dell adattatore",
-        "es": "Fix: limpiar estados obsoletos de versiones anteriores al iniciar el adaptador",
-        "pl": "Poprawka: usuwanie przestarzałych stanów z poprzednich wersji przy starcie adaptera",
-        "uk": "Виправлення: видалення застарілих станів з попередніх версій при запуску адаптера",
-        "zh-cn": "修复：适配器启动时清理旧版本的过时数据点"
       }
     },
     "titleLang": {
