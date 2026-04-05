@@ -123,8 +123,9 @@ class HueEmu extends utils.Adapter {
       await this.initializeAdapterStates();
       await this.cleanupObsoleteStates();
       this.subscribeStates("*");
-      this.log.debug(`${devices.length} device(s) loaded from configuration`);
-      this.log.info("Hue Emulator started successfully");
+      this.log.info(
+        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? `, HTTPS :${emulatorConfig.https.port}` : ""}, ${devices.length} device(s)`
+      );
     } catch (error) {
       this.log.error(`Failed to start Hue Emulator: ${error}`);
     }
@@ -184,7 +185,7 @@ class HueEmu extends utils.Adapter {
    * Generate a self-signed certificate for HTTPS
    */
   async generateCertificate() {
-    this.log.info("Generating self-signed certificate for HTTPS");
+    this.log.debug("Generating self-signed certificate for HTTPS");
     const keys = forge.pki.rsa.generateKeyPair(2048);
     const cert = forge.pki.createCertificate();
     cert.publicKey = keys.publicKey;

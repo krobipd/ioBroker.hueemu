@@ -133,6 +133,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.1.2 (2026-04-05)
+- Compact startup log, move detail logs to debug level
+
 ### 1.1.1 (2026-04-05)
 - Remove redundant scripts, compress documentation
 
@@ -151,9 +154,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.0.23 (2026-03-27)
 - Admin UI: merge About tab into Network tab (3 → 2 tabs)
-
-### 1.0.22 (2026-03-27)
-- Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

@@ -110,7 +110,7 @@ export class ApiHandler implements HueApiHandler {
     body: CreateUserRequest,
   ): Promise<string> {
     this.log(
-      "info",
+      "debug",
       `Pairing request: devicetype=${body.devicetype}, generateclientkey=${body.generateclientkey}`,
     );
 
@@ -124,21 +124,17 @@ export class ApiHandler implements HueApiHandler {
       | undefined;
 
     if (providedUsername) {
-      this.log("info", `Using provided username: ${providedUsername}`);
+      this.log("debug", `Using provided username: ${providedUsername}`);
     }
 
     const username = await this.userService.createUser(
       providedUsername,
       body.devicetype,
     );
-    this.log("info", `Created user: ${username}`);
+    this.log("info", `Paired client "${body.devicetype}" as user ${username}`);
 
     // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
     this.adapter.pairingEnabled = false;
-    this.log(
-      "info",
-      "Pairing mode disabled after successful user registration",
-    );
 
     return username;
   }

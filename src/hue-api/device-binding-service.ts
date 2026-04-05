@@ -171,7 +171,7 @@ export class DeviceBindingService {
    */
   public async initialize(): Promise<void> {
     this.log(
-      "info",
+      "debug",
       `Initializing device binding service with ${this.devices.length} devices`,
     );
 

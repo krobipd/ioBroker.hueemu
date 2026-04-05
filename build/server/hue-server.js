@@ -59,7 +59,7 @@ class HueServer {
       host: this.config.host || "0.0.0.0"
     });
     this.log(
-      "info",
+      "debug",
       `HTTP server listening on ${this.config.host}:${this.config.port}`
     );
     if (this.config.https) {
@@ -69,7 +69,7 @@ class HueServer {
         host: this.config.host || "0.0.0.0"
       });
       this.log(
-        "info",
+        "debug",
         `HTTPS server listening on ${this.config.host}:${this.config.https.port}`
       );
     }
@@ -86,7 +86,7 @@ class HueServer {
       promises.push(this.httpsServer.close());
     }
     await Promise.all(promises);
-    this.log("info", "All servers stopped");
+    this.log("debug", "All servers stopped");
   }
   /**
    * Create a Fastify server instance

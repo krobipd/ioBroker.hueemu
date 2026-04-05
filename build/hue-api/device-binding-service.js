@@ -94,7 +94,7 @@ class DeviceBindingService {
    */
   async initialize() {
     this.log(
-      "info",
+      "debug",
       `Initializing device binding service with ${this.devices.length} devices`
     );
     for (const device of this.devices) {

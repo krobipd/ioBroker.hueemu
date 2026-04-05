@@ -68,7 +68,7 @@ class ApiHandler {
   async createUser(req, body) {
     var _a;
     this.log(
-      "info",
+      "debug",
       `Pairing request: devicetype=${body.devicetype}, generateclientkey=${body.generateclientkey}`
     );
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
@@ -76,18 +76,14 @@ class ApiHandler {
     }
     const providedUsername = (_a = req.body) == null ? void 0 : _a.username;
     if (providedUsername) {
-      this.log("info", `Using provided username: ${providedUsername}`);
+      this.log("debug", `Using provided username: ${providedUsername}`);
     }
     const username = await this.userService.createUser(
       providedUsername,
       body.devicetype
     );
-    this.log("info", `Created user: ${username}`);
+    this.log("info", `Paired client "${body.devicetype}" as user ${username}`);
     this.adapter.pairingEnabled = false;
-    this.log(
-      "info",
-      "Pairing mode disabled after successful user registration"
-    );
     return username;
   }
   /**

@@ -63,7 +63,7 @@ export class UserService {
     username: string,
     devicetype = "unknown",
   ): Promise<void> {
-    this.log("info", `Creating user: ${username} for device: ${devicetype}`);
+    this.log("debug", `Creating user: ${username} for device: ${devicetype}`);
 
     // Ensure user folder exists
     await this.ensureUserFolder();

@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.2 (2026-04-05)
+
+- Compact startup log (single info line with host, port, device count)
+- Move server, SSDP, and device binding detail logs to debug level
+- Remove redundant pairing and user creation log messages
+
 ## 1.1.1 (2026-04-05)
 
 - Remove redundant scripts (`build:ts`, `watch:ts`, `prepare`, `pack`, `check:structure`, `clean:project`)

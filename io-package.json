@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "news": {
+      "1.1.2": {
+        "en": "Compact startup log, move detail logs to debug level",
+        "de": "Kompakter Start-Log, Detail-Logs auf Debug-Level verschoben",
+        "ru": "Компактный стартовый лог, детальные логи перенесены на уровень debug",
+        "pt": "Log de inicialização compacto, logs de detalhe movidos para nível debug",
+        "nl": "Compact opstartlog, detaillogs verplaatst naar debugniveau",
+        "fr": "Log de démarrage compact, logs de détail déplacés au niveau debug",
+        "it": "Log di avvio compatto, log di dettaglio spostati a livello debug",
+        "es": "Registro de inicio compacto, registros de detalle movidos al nivel debug",
+        "pl": "Kompaktowy log startowy, logi szczegółowe przeniesione na poziom debug",
+        "uk": "Компактний стартовий лог, детальні логи переміщено на рівень debug",
+        "zh-cn": "紧凑的启动日志，详细日志移至debug级别"
+      },
       "1.1.1": {
         "en": "Remove redundant scripts, compress documentation",
         "de": "Redundante Scripts entfernt, Dokumentation komprimiert",
@@ -80,19 +93,6 @@
         "pl": "Admin UI: zakładka About połączona z zakładką Sieć; node-forge zaktualizowany do 1.4.0; usunięto osierocone klucze i18n",
         "uk": "Admin UI: вкладку About об'єднано з вкладкою Мережа; node-forge оновлено до 1.4.0; видалено осиротілі i18n-ключі",
         "zh-cn": "管理界面：将关于标签合并到网络标签；更新node-forge到1.4.0；删除孤立的i18n键"
-      },
-      "1.0.22": {
-        "en": "Code review fixes: remove unused handlers, sanitize object IDs, use adapter timers, test on all platforms",
-        "de": "Code-Review-Fixes: ungenutzte Handler entfernt, Objekt-IDs bereinigt, Adapter-Timer verwendet, Tests auf allen Plattformen",
-        "ru": "Исправления по ревью: удалены неиспользуемые обработчики, очистка ID объектов, таймеры адаптера, тесты на всех платформах",
-        "pt": "Correções de revisão: handlers não utilizados removidos, IDs de objetos sanitizados, timers do adaptador, testes em todas as plataformas",
-        "nl": "Code review fixes: ongebruikte handlers verwijderd, object-IDs opgeschoond, adapter-timers gebruikt, tests op alle platformen",
-        "fr": "Corrections de revue: handlers inutilisés supprimés, IDs objets nettoyés, timers adaptateur, tests sur toutes les plateformes",
-        "it": "Correzioni revisione codice: handler inutilizzati rimossi, ID oggetti sanitizzati, timer adattatore, test su tutte le piattaforme",
-        "es": "Correcciones de revisión: handlers no utilizados eliminados, IDs de objetos saneados, temporizadores del adaptador, pruebas en todas las plataformas",
-        "pl": "Poprawki z przeglądu kodu: usunięto nieużywane handlery, oczyszczono ID obiektów, timery adaptera, testy na wszystkich platformach",
-        "uk": "Виправлення з ревью: видалено невикористовувані обробники, очищення ID об'єктів, таймери адаптера, тести на всіх платформах",
-        "zh-cn": "代码审查修复：移除未使用的处理器，清理对象ID，使用适配器定时器，在所有平台测试"
       }
     },
     "titleLang": {

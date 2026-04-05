@@ -46,7 +46,7 @@ class UserService {
    * Add a new user
    */
   async addUser(username, devicetype = "unknown") {
-    this.log("info", `Creating user: ${username} for device: ${devicetype}`);
+    this.log("debug", `Creating user: ${username} for device: ${devicetype}`);
     await this.ensureUserFolder();
     return new Promise((resolve) => {
       this.adapter.setObjectNotExists(

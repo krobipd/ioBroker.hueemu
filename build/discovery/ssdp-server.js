@@ -95,7 +95,7 @@ class HueSsdpServer {
     if (this.server && this.isRunning) {
       this.server.stop();
       this.isRunning = false;
-      this.log("info", "SSDP server stopped");
+      this.log("debug", "SSDP server stopped");
     }
   }
   /**

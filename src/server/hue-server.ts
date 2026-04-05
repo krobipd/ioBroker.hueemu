@@ -53,7 +53,7 @@ export class HueServer {
     });
 
     this.log(
-      "info",
+      "debug",
       `HTTP server listening on ${this.config.host}:${this.config.port}`,
     );
 
@@ -66,7 +66,7 @@ export class HueServer {
       });
 
       this.log(
-        "info",
+        "debug",
         `HTTPS server listening on ${this.config.host}:${this.config.https.port}`,
       );
     }
@@ -87,7 +87,7 @@ export class HueServer {
     }
 
     await Promise.all(promises);
-    this.log("info", "All servers stopped");
+    this.log("debug", "All servers stopped");
   }
 
   /**
