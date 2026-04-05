@@ -356,7 +356,6 @@ export class HueEmu extends utils.Adapter {
           );
       }
 
-      void this.setState("info.connection", { val: false, ack: true });
       callback();
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);

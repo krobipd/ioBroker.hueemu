@@ -133,6 +133,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.1.3 (2026-04-05)
+- Remove unused `info.connection` state (no external connection to track)
+
 ### 1.1.2 (2026-04-05)
 - Compact startup log, move detail logs to debug level
 
@@ -151,9 +154,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.0.24 (2026-03-28)
 - Fix on/off state conversion for string values ("false"/"0" now correctly treated as off)
-
-### 1.0.23 (2026-03-27)
-- Admin UI: merge About tab into Network tab (3 → 2 tabs)
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "news": {
+      "1.1.3": {
+        "en": "Remove unused info.connection state (no external connection to track)",
+        "de": "Ungenutzten info.connection State entfernt (keine externe Verbindung vorhanden)",
+        "ru": "Удалено неиспользуемое состояние info.connection (нет внешнего подключения)",
+        "pt": "Removido estado info.connection não utilizado (sem conexão externa)",
+        "nl": "Ongebruikte info.connection status verwijderd (geen externe verbinding)",
+        "fr": "Suppression de l état info.connection inutilisé (pas de connexion externe)",
+        "it": "Rimosso stato info.connection inutilizzato (nessuna connessione esterna)",
+        "es": "Eliminado estado info.connection no utilizado (sin conexión externa)",
+        "pl": "Usunięto nieużywany stan info.connection (brak połączenia zewnętrznego)",
+        "uk": "Видалено невикористаний стан info.connection (зовнішнє з'єднання відсутнє)",
+        "zh-cn": "移除未使用的 info.connection 状态（无外部连接）"
+      },
       "1.1.2": {
         "en": "Compact startup log, move detail logs to debug level",
         "de": "Kompakter Start-Log, Detail-Logs auf Debug-Level verschoben",
@@ -80,19 +93,6 @@
         "pl": "Poprawka konwersji stanu wł/wył dla wartości tekstowych",
         "uk": "Виправлення конвертації стану увімк/вимк для рядкових значень",
         "zh-cn": "修复字符串值的开/关状态转换（Boolean(\"false\")错误）"
-      },
-      "1.0.23": {
-        "en": "Admin UI: merge About tab into Network tab; update node-forge to 1.4.0; remove orphaned i18n keys",
-        "de": "Admin UI: About-Tab in Netzwerk-Tab integriert; node-forge auf 1.4.0 aktualisiert; verwaiste i18n-Keys entfernt",
-        "ru": "Admin UI: вкладка About объединена с вкладкой Network; обновление node-forge до 1.4.0; удалены устаревшие i18n-ключи",
-        "pt": "Admin UI: aba About integrada na aba Rede; node-forge atualizado para 1.4.0; chaves i18n órfãs removidas",
-        "nl": "Admin UI: About-tab samengevoegd met Netwerk-tab; node-forge bijgewerkt naar 1.4.0; verweesde i18n-sleutels verwijderd",
-        "fr": "Admin UI: onglet About fusionné dans onglet Réseau; node-forge mis à jour vers 1.4.0; clés i18n orphelines supprimées",
-        "it": "Admin UI: scheda About integrata nella scheda Rete; node-forge aggiornato a 1.4.0; chiavi i18n orfane rimosse",
-        "es": "Admin UI: pestaña About integrada en pestaña Red; node-forge actualizado a 1.4.0; claves i18n huérfanas eliminadas",
-        "pl": "Admin UI: zakładka About połączona z zakładką Sieć; node-forge zaktualizowany do 1.4.0; usunięto osierocone klucze i18n",
-        "uk": "Admin UI: вкладку About об'єднано з вкладкою Мережа; node-forge оновлено до 1.4.0; видалено осиротілі i18n-ключі",
-        "zh-cn": "管理界面：将关于标签合并到网络标签；更新node-forge到1.4.0；删除孤立的i18n键"
       }
     },
     "titleLang": {

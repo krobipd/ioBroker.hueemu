@@ -287,7 +287,6 @@ class HueEmu extends utils.Adapter {
           (err) => this.log.error(`Server stop error: ${err.message}`)
         );
       }
-      void this.setState("info.connection", { val: false, ack: true });
       callback();
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);
