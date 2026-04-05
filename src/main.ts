@@ -306,6 +306,7 @@ export class HueEmu extends utils.Adapter {
   private async cleanupObsoleteStates(): Promise<void> {
     const obsoleteStates = [
       "info.configuredDevices", // removed in 1.0.15
+      "info.connection", // removed in 1.1.3 (adapter is a server, no outbound connection)
       "createLight", // removed in 1.1.0 (legacy mode replaced by admin config + migration)
     ];
 
@@ -314,6 +315,21 @@ export class HueEmu extends utils.Adapter {
       if (obj) {
         await this.delObjectAsync(stateId);
         this.log.debug(`Removed obsolete state: ${stateId}`);
+
+        // Clean up empty parent channel/folder
+        const parentId = stateId.includes(".")
+          ? stateId.substring(0, stateId.lastIndexOf("."))
+          : null;
+        if (parentId) {
+          const children = await this.getObjectListAsync({
+            startkey: `${this.namespace}.${parentId}.`,
+            endkey: `${this.namespace}.${parentId}.\u9999`,
+          });
+          if (children?.rows.length === 0) {
+            await this.delObjectAsync(parentId);
+            this.log.debug(`Removed empty parent: ${parentId}`);
+          }
+        }
       }
     }
   }

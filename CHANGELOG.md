@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.4 (2026-04-05)
+
+- Add `info.connection` to obsolete state cleanup (was set but never created as object)
+- Clean up empty parent channels/folders after removing obsolete states
+
 ## 1.1.3 (2026-04-05)
 
 - Remove unused `info.connection` state (adapter is a server, not a client — no external connection to track)

@@ -133,6 +133,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.1.4 (2026-04-05)
+- Clean up obsolete `info.connection` state, remove empty parent folders after state cleanup
+
 ### 1.1.3 (2026-04-05)
 - Remove unused `info.connection` state (no external connection to track)
 
@@ -148,9 +151,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.0.26 (2026-04-04)
 - Migrate test infrastructure to standard pattern (tests now run in CI)
-
-### 1.0.25 (2026-04-03)
-- Modernize dev tooling (esbuild, TypeScript 5.9 pin, testing-action-check v2)
 
 ### 1.0.24 (2026-03-28)
 - Fix on/off state conversion for string values ("false"/"0" now correctly treated as off)
