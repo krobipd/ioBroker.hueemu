@@ -307,6 +307,7 @@ export class HueEmu extends utils.Adapter {
     const obsoleteStates = [
       "info.configuredDevices", // removed in 1.0.15
       "info.connection", // removed in 1.1.3 (adapter is a server, no outbound connection)
+      "info", // empty folder after info.* states removed
       "createLight", // removed in 1.1.0 (legacy mode replaced by admin config + migration)
     ];
 
@@ -332,6 +333,65 @@ export class HueEmu extends utils.Adapter {
         }
       }
     }
+
+    // Migrate "user" folder → "clients" (renamed in v1.2.0)
+    await this.migrateUserToClients();
+  }
+
+  /**
+   * Migrate legacy "user" folder to "clients" folder.
+   * Copies paired client states, then removes the old "user" folder.
+   */
+  private async migrateUserToClients(): Promise<void> {
+    const userFolder = await this.getObjectAsync("user");
+    if (!userFolder) {
+      return;
+    }
+
+    // Find all states under user.*
+    const children = await this.getObjectListAsync({
+      startkey: `${this.namespace}.user.`,
+      endkey: `${this.namespace}.user.\u9999`,
+    });
+
+    if (children?.rows && children.rows.length > 0) {
+      // Create clients folder first
+      await this.setObjectNotExistsAsync("clients", {
+        type: "meta",
+        common: { name: "Paired Clients", type: "meta.folder" as any },
+        native: {},
+      });
+
+      for (const row of children.rows) {
+        const oldId = row.id.replace(`${this.namespace}.`, "");
+        const username = oldId.replace("user.", "");
+        const newId = `clients.${username}`;
+
+        // Read current value
+        const state = await this.getStateAsync(oldId);
+
+        // Copy object with same common/native
+        const obj = row.value;
+        await this.setObjectNotExistsAsync(newId, {
+          type: "state",
+          common: obj.common as ioBroker.StateCommon,
+          native: obj.native || {},
+        });
+        if (state?.val !== undefined && state?.val !== null) {
+          await this.setStateAsync(newId, { val: state.val, ack: true });
+        }
+
+        // Remove old state
+        await this.delObjectAsync(oldId);
+        this.log.debug(`Migrated client ${username}: user → clients`);
+      }
+    }
+
+    // Remove old "user" folder
+    await this.delObjectAsync("user");
+    this.log.info(
+      `Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`,
+    );
   }
 
   /**

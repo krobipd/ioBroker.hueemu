@@ -1,4 +1,10 @@
 # Changelog
+## 1.2.0 (2026-04-06)
+
+- Rename `user` folder to `clients` — paired endpoints (Alexa, Harmony, Google Home) are clients, not users
+- Automatic migration of existing paired clients from `user/` to `clients/` on startup
+- Add explicit `info` folder cleanup to obsolete state removal
+
 ## 1.1.4 (2026-04-05)
 
 - Add `info.connection` to obsolete state cleanup (was set but never created as object)

@@ -76,7 +76,7 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 1. ioBroker Objects → `hueemu.0` → set **`startPairing`** to `true`
 2. Start the device search / pairing in your client app within **50 seconds**
-3. After successful pairing a new entry appears under `hueemu.0.users.*`
+3. After successful pairing a new entry appears under `hueemu.0.clients.*`
 
 ### Connecting with Alexa
 
@@ -98,7 +98,7 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 hueemu.0.
 ├── startPairing         — Enable pairing mode for 50 seconds (button)
 ├── disableAuth          — Disable authentication (switch)
-└── user/                — Authenticated clients
+└── clients/             — Paired client devices (Alexa, Google Home, Harmony Hub, etc.)
     └── {username}       — Client API key (created during pairing)
 ```
 
@@ -133,6 +133,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.2.0 (2026-04-06)
+- Rename `user` folder to `clients` — clearer naming for paired endpoints (Alexa, Harmony, etc.)
+- Automatic migration of existing paired clients on startup
+
 ### 1.1.4 (2026-04-05)
 - Clean up obsolete `info.connection` state, remove empty parent folders after state cleanup
 
@@ -147,13 +151,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.1.0 (2026-04-04)
 - Remove legacy `createLight` mode — existing devices are auto-migrated to admin configuration
-- Remove ~400 lines of legacy code (LightService, definition module)
 
 ### 1.0.26 (2026-04-04)
 - Migrate test infrastructure to standard pattern (tests now run in CI)
-
-### 1.0.24 (2026-03-28)
-- Fix on/off state conversion for string values ("false"/"0" now correctly treated as off)
 
 Older changelog: [CHANGELOG.md](CHANGELOG.md)
 

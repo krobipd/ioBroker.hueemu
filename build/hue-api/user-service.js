@@ -43,14 +43,14 @@ class UserService {
     this.logger = config.logger;
   }
   /**
-   * Add a new user
+   * Add a new client (Hue API "user")
    */
   async addUser(username, devicetype = "unknown") {
-    this.log("debug", `Creating user: ${username} for device: ${devicetype}`);
-    await this.ensureUserFolder();
+    this.log("debug", `Creating client: ${username} (${devicetype})`);
+    await this.ensureClientsFolder();
     return new Promise((resolve) => {
       this.adapter.setObjectNotExists(
-        `user.${username}`,
+        `clients.${username}`,
         {
           type: "state",
           common: {
@@ -64,7 +64,7 @@ class UserService {
         },
         () => {
           this.adapter.setState(
-            `user.${username}`,
+            `clients.${username}`,
             {
               ack: true,
               val: username
@@ -86,38 +86,38 @@ class UserService {
     return username;
   }
   /**
-   * Check if a user is authenticated
+   * Check if a client is authenticated (has paired with the bridge)
    */
   async isUserAuthenticated(username) {
     return new Promise((resolve) => {
-      this.adapter.getStatesOf("user", void 0, (err, stateObjects) => {
+      this.adapter.getStatesOf("clients", void 0, (err, stateObjects) => {
         if (err || !stateObjects) {
-          this.log("debug", `No user states found: ${err}`);
+          this.log("debug", `No client states found: ${err}`);
           resolve(false);
           return;
         }
         const found = stateObjects.some((state) => {
-          const id = state._id.substring(this.adapter.namespace.length + 6);
+          const id = state._id.substring(this.adapter.namespace.length + 9);
           return id === username;
         });
         if (found) {
-          this.log("debug", `User authenticated: ${username}`);
+          this.log("debug", `Client authenticated: ${username}`);
         }
         resolve(found);
       });
     });
   }
   /**
-   * Ensure the user folder exists
+   * Ensure the clients folder exists
    */
-  async ensureUserFolder() {
+  async ensureClientsFolder() {
     return new Promise((resolve) => {
       this.adapter.setObjectNotExists(
-        "user",
+        "clients",
         {
           type: "meta",
           common: {
-            name: "user",
+            name: "Paired Clients",
             type: "meta.folder"
           },
           native: {}

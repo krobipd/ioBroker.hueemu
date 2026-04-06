@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.1.4",
+    "version": "1.2.0",
     "news": {
+      "1.2.0": {
+        "en": "Rename user folder to clients — clearer naming for paired endpoints, automatic migration",
+        "de": "Ordner user in clients umbenannt — klarere Bezeichnung für verbundene Endgeräte, automatische Migration",
+        "ru": "Переименование папки user в clients — более чёткое название для подключённых устройств, автоматическая миграция",
+        "pt": "Renomear pasta user para clients — nomenclatura mais clara para endpoints emparelhados, migração automática",
+        "nl": "Map user hernoemd naar clients — duidelijkere naamgeving voor gekoppelde apparaten, automatische migratie",
+        "fr": "Dossier user renommé en clients — nommage plus clair pour les appareils appairés, migration automatique",
+        "it": "Cartella user rinominata in clients — denominazione più chiara per endpoint accoppiati, migrazione automatica",
+        "es": "Carpeta user renombrada a clients — nomenclatura más clara para endpoints emparejados, migración automática",
+        "pl": "Zmiana nazwy folderu user na clients — jaśniejsze nazewnictwo dla sparowanych urządzeń, automatyczna migracja",
+        "uk": "Папку user перейменовано на clients — зрозуміліша назва для підключених пристроїв, автоматична міграція",
+        "zh-cn": "将 user 文件夹重命名为 clients — 更清晰的已配对端点命名，自动迁移"
+      },
       "1.1.4": {
         "en": "Clean up obsolete info.connection state, remove empty parent folders after state cleanup",
         "de": "Veralteten info.connection State aufräumen, leere Eltern-Ordner nach State-Cleanup löschen",
@@ -80,19 +93,6 @@
         "pl": "Migracja infrastruktury testowej do standardowego wzorca (testy teraz działają w CI)",
         "uk": "Міграція тестової інфраструктури на стандартний шаблон (тести тепер запускаються в CI)",
         "zh-cn": "将测试基础设施迁移到标准模式（测试现在在CI中运行）"
-      },
-      "1.0.25": {
-        "en": "Modernize dev tooling (esbuild, TypeScript 5.9 pin, testing-action-check v2)",
-        "de": "Dev-Tooling modernisiert (esbuild, TypeScript 5.9 Pin, testing-action-check v2)",
-        "ru": "Модернизация инструментов разработки (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "pt": "Modernização das ferramentas de desenvolvimento (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "nl": "Ontwikkeltools gemoderniseerd (esbuild, TypeScript 5.9 pin, testing-action-check v2)",
-        "fr": "Modernisation des outils de développement (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "it": "Modernizzazione degli strumenti di sviluppo (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "es": "Modernización de herramientas de desarrollo (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "pl": "Modernizacja narzędzi programistycznych (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "uk": "Модернізація інструментів розробки (esbuild, TypeScript 5.9, testing-action-check v2)",
-        "zh-cn": "开发工具现代化（esbuild、TypeScript 5.9 固定、testing-action-check v2）"
       }
     },
     "titleLang": {

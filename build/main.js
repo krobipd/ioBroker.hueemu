@@ -249,6 +249,8 @@ class HueEmu extends utils.Adapter {
       // removed in 1.0.15
       "info.connection",
       // removed in 1.1.3 (adapter is a server, no outbound connection)
+      "info",
+      // empty folder after info.* states removed
       "createLight"
       // removed in 1.1.0 (legacy mode replaced by admin config + migration)
     ];
@@ -270,6 +272,50 @@ class HueEmu extends utils.Adapter {
         }
       }
     }
+    await this.migrateUserToClients();
+  }
+  /**
+   * Migrate legacy "user" folder to "clients" folder.
+   * Copies paired client states, then removes the old "user" folder.
+   */
+  async migrateUserToClients() {
+    var _a, _b;
+    const userFolder = await this.getObjectAsync("user");
+    if (!userFolder) {
+      return;
+    }
+    const children = await this.getObjectListAsync({
+      startkey: `${this.namespace}.user.`,
+      endkey: `${this.namespace}.user.\u9999`
+    });
+    if ((children == null ? void 0 : children.rows) && children.rows.length > 0) {
+      await this.setObjectNotExistsAsync("clients", {
+        type: "meta",
+        common: { name: "Paired Clients", type: "meta.folder" },
+        native: {}
+      });
+      for (const row of children.rows) {
+        const oldId = row.id.replace(`${this.namespace}.`, "");
+        const username = oldId.replace("user.", "");
+        const newId = `clients.${username}`;
+        const state = await this.getStateAsync(oldId);
+        const obj = row.value;
+        await this.setObjectNotExistsAsync(newId, {
+          type: "state",
+          common: obj.common,
+          native: obj.native || {}
+        });
+        if ((state == null ? void 0 : state.val) !== void 0 && (state == null ? void 0 : state.val) !== null) {
+          await this.setStateAsync(newId, { val: state.val, ack: true });
+        }
+        await this.delObjectAsync(oldId);
+        this.log.debug(`Migrated client ${username}: user \u2192 clients`);
+      }
+    }
+    await this.delObjectAsync("user");
+    this.log.info(
+      `Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`
+    );
   }
   /**
    * Create a logger adapter for the modules
