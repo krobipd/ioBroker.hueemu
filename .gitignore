@@ -16,6 +16,8 @@ dist/
 !admin/**/*.js
 !eslint.config.mjs
 !scripts/*.js
+!test/package.js
+!test/integration.js
 
 # Test build output (not committed — only production build/ is committed)
 build/test/
