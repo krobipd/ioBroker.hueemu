@@ -80,7 +80,7 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 
 ### Connecting with Alexa
 
-> **Important:** Newer Alexa firmware requires the bridge to run on **port 80**. If Alexa cannot find the bridge on the default port (8080), change the HTTP port to 80 in the adapter settings.
+> **Tip:** If Alexa cannot find the bridge, try changing the HTTP port to **80** in the adapter settings — some Alexa firmware versions only discover bridges on port 80.
 
 1. Activate pairing (see above)
 2. Alexa App → Devices → `+` → Philips Hue
