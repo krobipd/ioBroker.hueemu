@@ -71,7 +71,7 @@
     "test:ts": "npm run build:test && mocha --exit \"build/test/testMain.js\"",
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
-    "test": "npm run test:ts && npm run test:package",
+    "test": "npm run build && npm run test:ts && npm run test:package",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "release": "release-script"

@@ -1,115 +1,30 @@
-# ============================================
-# .gitignore für ioBroker.hueemu
-# ============================================
+# macOS
+.DS_Store
 
-# Dependencies
+# Node.js
 node_modules/
+npm-debug.log*
 
-# Build output (build/ is committed for ioBroker repochecker CDN access)
-dist/
-*.js
-*.js.map
-*.d.ts
-*.tsbuildinfo
-!build/**
-!admin/*.js
-!admin/**/*.js
-!eslint.config.mjs
-!scripts/*.js
-!test/package.js
-!test/integration.js
-
-# Test build output (not committed — only production build/ is committed)
-build/test/
-
-# Tests & Coverage
-coverage/
-.nyc_output/
-test-results/
-*.lcov
-
-# ============================================
-# CHAOS VERHINDERN - Backup & Alte Dateien
-# ============================================
-*.old
-*.backup
-*.bak
-*.tmp
-*.temp
-*~
-*.orig
-*.save
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
 *.swp
 *.swo
 
-# macOS Duplikate (Finder-Kopien)
-* 2.*
-* 3.*
-* copy.*
-* Copy.*
-*Kopie*
-
-# Versionierte Duplikate
-*-v1.*
-*-v2.*
-*-v3.*
-*-backup-*
-*-old-*
-
-# Experimentelle Dateien
-*-optimized.*
-*-experimental.*
-*-test.*
-*-neu.*
-*-alt.*
-
-# ============================================
-# Editor & IDE
-# ============================================
-.vscode/*
-!.vscode/settings.json
-.idea/
-
-# Xcode
-*.xcodeproj/
-*.xcworkspace/
-xcuserdata/
-
-# ============================================
-# Logs
-# ============================================
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ============================================
-# OS Generated
-# ============================================
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# ============================================
-# CI/CD Generated
+# ioBroker repochecker
 .commitinfo
 
-# Environment & Secrets
-# ============================================
+# ioBroker
+admin/i18n/flat.txt
+.dev-server/
+
+# Build & Test
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Environment
 .env
 .env.local
-.env.*.local
-
-# ============================================
-# ioBroker Specific
-# ============================================
-.dev-server/
-admin/build/
-admin/tmp/
-.cleanup-backups/
-backup-*.tar.gz
