@@ -130,16 +130,6 @@ export class HueSsdpServer {
   }
 
   /**
-   * Send an SSDP notify message
-   */
-  public notify(): void {
-    if (this.server && this.isRunning) {
-      // Trigger an immediate advertisement
-      this.log("debug", "Sending SSDP notify");
-    }
-  }
-
-  /**
    * Check if server is running
    */
   public get running(): boolean {

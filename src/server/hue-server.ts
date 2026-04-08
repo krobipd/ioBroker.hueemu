@@ -32,9 +32,6 @@ export class HueServer {
   private readonly handler: HueApiHandler;
   private readonly logger?: Logger;
 
-  /**
-   *
-   */
   constructor(options: HueServerOptions) {
     this.config = options.config;
     this.handler = options.handler;

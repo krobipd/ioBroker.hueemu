@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "news": {
+      "1.2.1": {
+        "en": "Restore standard integration tests, add FORBIDDEN_CHARS sanitization for object IDs, remove CHANGELOG.md",
+        "de": "Standard-Integrationstests wiederhergestellt, FORBIDDEN_CHARS-Sanitisierung für Objekt-IDs, CHANGELOG.md entfernt",
+        "ru": "Восстановлены стандартные интеграционные тесты, добавлена санитизация FORBIDDEN_CHARS для ID объектов, удалён CHANGELOG.md",
+        "pt": "Testes de integração padrão restaurados, sanitização FORBIDDEN_CHARS para IDs de objetos, CHANGELOG.md removido",
+        "nl": "Standaard integratietests hersteld, FORBIDDEN_CHARS-sanitisatie voor object-ID's, CHANGELOG.md verwijderd",
+        "fr": "Tests d'intégration standard restaurés, assainissement FORBIDDEN_CHARS pour les ID d'objets, CHANGELOG.md supprimé",
+        "it": "Test di integrazione standard ripristinati, sanitizzazione FORBIDDEN_CHARS per ID oggetti, CHANGELOG.md rimosso",
+        "es": "Tests de integración estándar restaurados, sanitización FORBIDDEN_CHARS para IDs de objetos, CHANGELOG.md eliminado",
+        "pl": "Przywrócono standardowe testy integracyjne, sanityzacja FORBIDDEN_CHARS dla ID obiektów, usunięto CHANGELOG.md",
+        "uk": "Відновлено стандартні інтеграційні тести, санітизація FORBIDDEN_CHARS для ID об'єктів, видалено CHANGELOG.md",
+        "zh-cn": "恢复标准集成测试，添加 FORBIDDEN_CHARS 对象ID清理，删除 CHANGELOG.md"
+      },
       "1.2.0": {
         "en": "Rename user folder to clients — clearer naming for paired endpoints, automatic migration",
         "de": "Ordner user in clients umbenannt — klarere Bezeichnung für verbundene Endgeräte, automatische Migration",
@@ -80,19 +93,6 @@
         "pl": "Usunięto tryb legacy createLight — istniejące urządzenia automatycznie migrowane do konfiguracji admin",
         "uk": "Видалено застарілий режим createLight — наявні пристрої автоматично мігруються до конфігурації admin",
         "zh-cn": "移除旧版 createLight 模式 — 现有设备自动迁移到管理配置"
-      },
-      "1.0.26": {
-        "en": "Migrate test infrastructure to standard pattern (tests now run in CI)",
-        "de": "Test-Infrastruktur auf Standard-Pattern migriert (Tests laufen jetzt in CI)",
-        "ru": "Миграция тестовой инфраструктуры на стандартный шаблон (тесты теперь запускаются в CI)",
-        "pt": "Migrar infraestrutura de testes para padrão standard (testes agora rodam no CI)",
-        "nl": "Testinfrastructuur gemigreerd naar standaardpatroon (tests draaien nu in CI)",
-        "fr": "Migration de l'infrastructure de test vers le modèle standard (les tests s'exécutent maintenant dans CI)",
-        "it": "Migrata infrastruttura di test al pattern standard (i test ora vengono eseguiti in CI)",
-        "es": "Migrar infraestructura de pruebas al patrón estándar (las pruebas ahora se ejecutan en CI)",
-        "pl": "Migracja infrastruktury testowej do standardowego wzorca (testy teraz działają w CI)",
-        "uk": "Міграція тестової інфраструктури на стандартний шаблон (тести тепер запускаються в CI)",
-        "zh-cn": "将测试基础设施迁移到标准模式（测试现在在CI中运行）"
       }
     },
     "titleLang": {

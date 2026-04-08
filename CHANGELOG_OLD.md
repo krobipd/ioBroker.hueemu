@@ -1,5 +1,86 @@
 # Older Changelog
 
+## [1.1.0] - 2026-04-04
+
+- Remove legacy `createLight` mode — existing devices are auto-migrated to admin configuration
+- Remove LightService, definition module (~400 lines of legacy code)
+- Simplify ApiHandler (always uses DeviceBindingService)
+- Add `createLight` to obsolete state cleanup
+
+## [1.0.26] - 2026-04-04
+
+- Migrate test infrastructure to standard pattern (tsconfig.test.json, tests in test/)
+- Unit tests (148) now run in CI via test:integration (previously only ran locally)
+- Remove ts-node, source-map-support devDependencies
+
+## [1.0.25] - 2026-04-03
+
+- Modernize dev tooling: esbuild via build-adapter, @tsconfig/node20, rimraf, TypeScript ~5.9.3 pin
+- Upgrade testing-action-check to v2.0.0
+- Dependabot: monthly schedule, auto-merge skips major updates
+- Branch protection: require check-and-lint status check
+
+## [1.0.24] - 2026-03-28
+
+- Fix on/off state conversion for string values ("false"/"0" now correctly treated as off)
+
+## [1.0.23] - 2026-03-27
+
+- Admin UI: merge About tab into Network tab (3 tabs → 2, donation as header section)
+- Remove orphaned upnpPort i18n keys from all languages
+
+## [1.0.22] - 2026-03-27
+
+- Remove unused onObjectChange and onMessage handlers (code review)
+- Sanitize external object IDs with FORBIDDEN_CHARS in legacy light creation
+- Use adapter setTimeout/clearTimeout instead of native timers
+- Add Windows and macOS to CI test matrix
+- README: standard license format with full MIT text (W6009 fix)
+- Split old changelog into CHANGELOG_OLD.md
+
+## [1.0.21] - 2026-03-21
+
+- Trim io-package.json news to max 7 entries (W1032 repochecker warning)
+
+## [1.0.16] - 2026-03-19
+
+- Fix floating promises (add void to all async calls)
+
+## [1.0.15] - 2026-03-19
+
+- Fix trailing comma in io-package.json (invalid JSON)
+- Trim changelog to last 5 versions
+
+## [1.0.9] - 2026-03-19
+
+- Persist UDN/MAC to config for stable bridge identity across restarts
+- Auto-generate MAC from UDN when not configured
+- Add lowercase SSDP USN for Harmony Hub compatibility
+- Log client IP on pairing, set linkbutton dynamically
+
+## [1.0.8] - 2026-03-18
+
+- Add groups action endpoint for Harmony Hub compatibility
+
+## [1.0.7] - 2026-03-18
+
+- Enable npm Trusted Publishing (OIDC), remove legacy npm-token
+
+## [1.0.6] - 2026-03-17
+
+- Resolve ioBroker repochecker errors and warnings
+- Fix release-script before_commit config
+
+## [1.0.5] - 2026-03-16
+
+- Add responsive size attributes to jsonConfig (E6005/E7001 fixes)
+- Fix io-package.json news versions (E2004)
+
+## [1.0.3] - 2026-03-15
+
+- Update dependencies, remove dead code
+- Refactor documentation structure
+
 ## [1.0.2] - 2026-03-15
 
 ### Added

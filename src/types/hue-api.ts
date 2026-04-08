@@ -14,9 +14,6 @@ import type {
  */
 export interface CreateUserRequest {
   devicetype: string;
-  /**
-   *
-   */
   generateclientkey?: boolean;
   username?: string;
 }
@@ -25,9 +22,6 @@ export interface CreateUserRequest {
  * User creation success response
  */
 export interface CreateUserSuccessResponse {
-  /**
-   *
-   */
   success: {
     username: string;
     clientkey?: string;
@@ -38,13 +32,7 @@ export interface CreateUserSuccessResponse {
  * Bridge whitelist entry
  */
 export interface WhitelistEntry {
-  /**
-   *
-   */
   "last use date": string;
-  /**
-   *
-   */
   "create date": string;
   name: string;
 }
@@ -54,29 +42,14 @@ export interface WhitelistEntry {
  */
 export interface BridgeConfigPublic {
   name: string;
-  /**
-   *
-   */
   datastoreversion: string;
   swversion: string;
-  /**
-   *
-   */
   apiversion: string;
   mac: string;
-  /**
-   *
-   */
   bridgeid: string;
   factorynew: boolean;
-  /**
-   *
-   */
   replacesbridgeid: string | null;
   modelid: string;
-  /**
-   *
-   */
   starterkitid: string;
 }
 
@@ -84,27 +57,12 @@ export interface BridgeConfigPublic {
  * Full bridge configuration (requires auth)
  */
 export interface BridgeConfigFull extends BridgeConfigPublic {
-  /**
-   *
-   */
   ipaddress?: string;
   netmask?: string;
-  /**
-   *
-   */
   gateway?: string;
-  /**
-   *
-   */
   dhcp?: boolean;
   portalservices?: boolean;
-  /**
-   *
-   */
   portalconnection?: string;
-  /**
-   *
-   */
   portalstate?: {
     signedon: boolean;
     incoming: boolean;
@@ -112,19 +70,10 @@ export interface BridgeConfigFull extends BridgeConfigPublic {
     communication: string;
   };
   linkbutton?: boolean;
-  /**
-   *
-   */
   touchlink?: boolean;
   zigbeechannel?: number;
-  /**
-   *
-   */
   UTC?: string;
   localtime?: string;
-  /**
-   *
-   */
   timezone?: string;
   whitelist?: Record<string, WhitelistEntry>;
 }
@@ -138,33 +87,12 @@ export type EmptyObject = Record<string, never>;
  * Full state response (GET /api/:username)
  */
 export interface FullState {
-  /**
-   *
-   */
   lights: LightsCollection;
-  /**
-   *
-   */
   groups: EmptyObject;
-  /**
-   *
-   */
   config: BridgeConfigFull;
-  /**
-   *
-   */
   schedules: EmptyObject;
-  /**
-   *
-   */
   scenes: EmptyObject;
-  /**
-   *
-   */
   rules: EmptyObject;
-  /**
-   *
-   */
   sensors: EmptyObject;
   resourcelinks: EmptyObject;
 }
@@ -173,23 +101,11 @@ export interface FullState {
  * Incoming HTTP request information
  */
 export interface HueRequest {
-  /**
-   *
-   */
   method: string;
-  /**
-   *
-   */
   url: string;
   params: Record<string, string>;
-  /**
-   *
-   */
   body: unknown;
   headers: Record<string, string | string[] | undefined>;
-  /**
-   *
-   */
   ip?: string;
 }
 

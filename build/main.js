@@ -38,6 +38,9 @@ var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
 var import_config = require("./types/config");
+function sanitizeId(id) {
+  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
+}
 class HueEmu extends utils.Adapter {
   pairingTimeoutId = void 0;
   _pairingEnabled = false;
@@ -57,9 +60,6 @@ class HueEmu extends utils.Adapter {
   get pairingEnabled() {
     return this._pairingEnabled;
   }
-  /**
-   *
-   */
   set pairingEnabled(value) {
     this._pairingEnabled = value;
     if (!value && this.pairingTimeoutId) {
@@ -68,15 +68,9 @@ class HueEmu extends utils.Adapter {
     }
     void this.setState("startPairing", { ack: true, val: value });
   }
-  /**
-   *
-   */
   get disableAuth() {
     return this._disableAuth;
   }
-  /**
-   *
-   */
   set disableAuth(value) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
@@ -297,7 +291,7 @@ class HueEmu extends utils.Adapter {
       for (const row of children.rows) {
         const oldId = row.id.replace(`${this.namespace}.`, "");
         const username = oldId.replace("user.", "");
-        const newId = `clients.${username}`;
+        const newId = `clients.${sanitizeId(username)}`;
         const state = await this.getStateAsync(oldId);
         const obj = row.value;
         await this.setObjectNotExistsAsync(newId, {

@@ -31,9 +31,6 @@ import {
 export interface ApiHandlerAdapter
   extends UserServiceAdapter, DeviceBindingAdapter {
   pairingEnabled: boolean;
-  /**
-   *
-   */
   disableAuth: boolean;
 }
 
@@ -62,9 +59,6 @@ export class ApiHandler implements HueApiHandler {
   private readonly configService: ConfigService;
   private readonly logger?: Logger;
 
-  /**
-   *
-   */
   constructor(config: ApiHandlerConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;

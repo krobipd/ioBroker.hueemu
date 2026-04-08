@@ -6,13 +6,19 @@ import * as uuid from "uuid";
 import type { Logger } from "../types/config";
 
 /**
+ * Sanitize a string for use as ioBroker object ID segment.
+ * Replaces everything except [A-Za-z0-9-_] with underscore.
+ * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.
+ */
+function sanitizeId(id: string): string {
+  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
+}
+
+/**
  * Adapter interface for user service
  */
 export interface UserServiceAdapter {
   namespace: string;
-  /**
-   *
-   */
   log: ioBroker.Logger;
   setObjectNotExists(
     id: string,
@@ -48,9 +54,6 @@ export class UserService {
   private readonly adapter: UserServiceAdapter;
   private readonly logger?: Logger;
 
-  /**
-   *
-   */
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
@@ -63,15 +66,16 @@ export class UserService {
     username: string,
     devicetype = "unknown",
   ): Promise<void> {
-    this.log("debug", `Creating client: ${username} (${devicetype})`);
+    const safeUsername = sanitizeId(username);
+    this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
 
     // Ensure clients folder exists
     await this.ensureClientsFolder();
 
-    // Create client state
+    // Create client state (sanitizeId: FORBIDDEN_CHARS compliance)
     return new Promise((resolve) => {
       this.adapter.setObjectNotExists(
-        `clients.${username}`,
+        `clients.${safeUsername}`,
         {
           type: "state",
           common: {
@@ -85,7 +89,7 @@ export class UserService {
         },
         () => {
           this.adapter.setState(
-            `clients.${username}`,
+            `clients.${safeUsername}`,
             {
               ack: true,
               val: username,
@@ -119,6 +123,7 @@ export class UserService {
    * Check if a client is authenticated (has paired with the bridge)
    */
   public async isUserAuthenticated(username: string): Promise<boolean> {
+    const safeUsername = sanitizeId(username);
     return new Promise((resolve) => {
       this.adapter.getStatesOf("clients", undefined, (err, stateObjects) => {
         if (err || !stateObjects) {
@@ -129,7 +134,7 @@ export class UserService {
 
         const found = stateObjects.some((state) => {
           const id = state._id.substring(this.adapter.namespace.length + 9); // +1 for '.' and +8 for 'clients.'
-          return id === username;
+          return id === safeUsername;
         });
 
         if (found) {

@@ -32,12 +32,12 @@ __export(user_service_exports, {
 });
 module.exports = __toCommonJS(user_service_exports);
 var uuid = __toESM(require("uuid"));
+function sanitizeId(id) {
+  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
+}
 class UserService {
   adapter;
   logger;
-  /**
-   *
-   */
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
@@ -46,11 +46,12 @@ class UserService {
    * Add a new client (Hue API "user")
    */
   async addUser(username, devicetype = "unknown") {
-    this.log("debug", `Creating client: ${username} (${devicetype})`);
+    const safeUsername = sanitizeId(username);
+    this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
     await this.ensureClientsFolder();
     return new Promise((resolve) => {
       this.adapter.setObjectNotExists(
-        `clients.${username}`,
+        `clients.${safeUsername}`,
         {
           type: "state",
           common: {
@@ -64,7 +65,7 @@ class UserService {
         },
         () => {
           this.adapter.setState(
-            `clients.${username}`,
+            `clients.${safeUsername}`,
             {
               ack: true,
               val: username
@@ -89,6 +90,7 @@ class UserService {
    * Check if a client is authenticated (has paired with the bridge)
    */
   async isUserAuthenticated(username) {
+    const safeUsername = sanitizeId(username);
     return new Promise((resolve) => {
       this.adapter.getStatesOf("clients", void 0, (err, stateObjects) => {
         if (err || !stateObjects) {
@@ -98,7 +100,7 @@ class UserService {
         }
         const found = stateObjects.some((state) => {
           const id = state._id.substring(this.adapter.namespace.length + 9);
-          return id === username;
+          return id === safeUsername;
         });
         if (found) {
           this.log("debug", `Client authenticated: ${username}`);

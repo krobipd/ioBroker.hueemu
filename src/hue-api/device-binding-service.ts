@@ -47,28 +47,13 @@ const LIGHT_TYPES = {
  * Device configuration from admin UI (jsonConfig format)
  */
 export interface DeviceConfig {
-  /**
-   *
-   */
   name: string;
   lightType: keyof typeof LIGHT_TYPES;
   // State mappings
   onState?: string;
-  /**
-   *
-   */
   briState?: string;
-  /**
-   *
-   */
   ctState?: string;
-  /**
-   *
-   */
   hueState?: string;
-  /**
-   *
-   */
   satState?: string;
   xyState?: string;
 }
@@ -89,18 +74,9 @@ const STATE_TO_CONFIG: Record<string, keyof DeviceConfig> = {
  * Adapter interface for device binding service
  */
 export interface DeviceBindingAdapter {
-  /**
-   *
-   */
   namespace: string;
   log: ioBroker.Logger;
-  /**
-   *
-   */
   getForeignStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
-  /**
-   *
-   */
   setForeignStateAsync(
     id: string,
     state: ioBroker.SettableState,
@@ -112,13 +88,7 @@ export interface DeviceBindingAdapter {
  * Device binding service configuration
  */
 export interface DeviceBindingServiceConfig {
-  /**
-   *
-   */
   adapter: DeviceBindingAdapter;
-  /**
-   *
-   */
   devices: DeviceConfig[];
   logger?: Logger;
 }

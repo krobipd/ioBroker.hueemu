@@ -62,9 +62,6 @@ export interface LightState {
  * Light software update state
  */
 export interface LightSwUpdate {
-  /**
-   *
-   */
   state:
     | "noupdates"
     | "transferring"
@@ -78,19 +75,10 @@ export interface LightSwUpdate {
  * Light control capabilities
  */
 export interface LightControlCapabilities {
-  /**
-   *
-   */
   mindimlevel?: number;
   maxlumen?: number;
-  /**
-   *
-   */
   colorgamuttype?: string;
   colorgamut?: [[number, number], [number, number], [number, number]];
-  /**
-   *
-   */
   ct?: {
     min: number;
     max: number;
@@ -101,9 +89,6 @@ export interface LightControlCapabilities {
  * Light streaming capabilities
  */
 export interface LightStreamingCapabilities {
-  /**
-   *
-   */
   renderer: boolean;
   proxy: boolean;
 }
@@ -112,9 +97,6 @@ export interface LightStreamingCapabilities {
  * Light capabilities
  */
 export interface LightCapabilities {
-  /**
-   *
-   */
   certified: boolean;
   control?: LightControlCapabilities;
   streaming?: LightStreamingCapabilities;
@@ -124,9 +106,6 @@ export interface LightCapabilities {
  * Light startup configuration
  */
 export interface LightStartup {
-  /**
-   *
-   */
   mode: "powerfail" | "lastonstate" | "custom";
   configured: boolean;
 }
@@ -135,18 +114,9 @@ export interface LightStartup {
  * Light configuration
  */
 export interface LightConfig {
-  /**
-   *
-   */
   archetype?: string;
   function?: string;
-  /**
-   *
-   */
   direction?: string;
-  /**
-   *
-   */
   startup?: LightStartup;
 }
 
@@ -193,38 +163,17 @@ export interface LightsCollection {
  * Light state update request
  */
 export interface LightStateUpdate {
-  /**
-   *
-   */
   on?: boolean;
-  /**
-   *
-   */
   bri?: number;
   hue?: number;
   sat?: number;
-  /**
-   *
-   */
   ct?: number;
   xy?: [number, number];
-  /**
-   *
-   */
   effect?: LightEffect;
   alert?: LightAlert;
   transitiontime?: number;
-  /**
-   *
-   */
   bri_inc?: number;
-  /**
-   *
-   */
   sat_inc?: number;
-  /**
-   *
-   */
   hue_inc?: number;
   ct_inc?: number;
   xy_inc?: [number, number];
@@ -234,9 +183,6 @@ export interface LightStateUpdate {
  * Success response for state updates
  */
 export interface LightStateSuccessResponse {
-  /**
-   *
-   */
   success: {
     [path: string]: unknown;
   };

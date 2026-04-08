@@ -8,9 +8,6 @@
 export interface TlsConfig {
   port: number;
   cert: string;
-  /**
-   *
-   */
   key: string;
 }
 
@@ -55,9 +52,6 @@ export interface HueEmulatorConfig {
  */
 export interface Logger {
   silly(message: string): void;
-  /**
-   *
-   */
   debug(message: string): void;
   info(message: string): void;
   warn(message: string): void;

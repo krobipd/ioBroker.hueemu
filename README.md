@@ -133,6 +133,12 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.2.1 (2026-04-08)
+- Restore standard integration tests (create-adapter compatible)
+- Add FORBIDDEN_CHARS sanitization for all external object IDs
+- Remove CHANGELOG.md (changelog in README + CHANGELOG_OLD.md)
+- Remove dead code, clean up empty JSDoc stubs
+
 ### 1.2.0 (2026-04-06)
 - Rename `user` folder to `clients` — clearer naming for paired endpoints (Alexa, Harmony, etc.)
 - Automatic migration of existing paired clients on startup
@@ -149,13 +155,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.1.1 (2026-04-05)
 - Remove redundant scripts, compress documentation
 
-### 1.1.0 (2026-04-04)
-- Remove legacy `createLight` mode — existing devices are auto-migrated to admin configuration
-
-### 1.0.26 (2026-04-04)
-- Migrate test infrastructure to standard pattern (tests now run in CI)
-
-Older changelog: [CHANGELOG.md](CHANGELOG.md)
+Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
 
 ---
 

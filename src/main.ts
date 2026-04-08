@@ -18,6 +18,15 @@ import type {
 } from "./types/config";
 import { generateBridgeId, generateSerialNumber } from "./types/config";
 
+/**
+ * Sanitize a string for use as ioBroker object ID segment.
+ * Replaces everything except [A-Za-z0-9-_] with underscore.
+ * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.
+ */
+function sanitizeId(id: string): string {
+  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
+}
+
 // Augment the adapter.config object with the actual types
 declare global {
   namespace ioBroker {
@@ -62,9 +71,6 @@ export class HueEmu extends utils.Adapter {
     return this._pairingEnabled;
   }
 
-  /**
-   *
-   */
   set pairingEnabled(value: boolean) {
     this._pairingEnabled = value;
     if (!value && this.pairingTimeoutId) {
@@ -74,16 +80,10 @@ export class HueEmu extends utils.Adapter {
     void this.setState("startPairing", { ack: true, val: value });
   }
 
-  /**
-   *
-   */
   get disableAuth(): boolean {
     return this._disableAuth;
   }
 
-  /**
-   *
-   */
   set disableAuth(value: boolean) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
@@ -365,7 +365,7 @@ export class HueEmu extends utils.Adapter {
       for (const row of children.rows) {
         const oldId = row.id.replace(`${this.namespace}.`, "");
         const username = oldId.replace("user.", "");
-        const newId = `clients.${username}`;
+        const newId = `clients.${sanitizeId(username)}`;
 
         // Read current value
         const state = await this.getStateAsync(oldId);

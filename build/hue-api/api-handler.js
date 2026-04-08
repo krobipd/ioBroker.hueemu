@@ -31,9 +31,6 @@ class ApiHandler {
   lightService;
   configService;
   logger;
-  /**
-   *
-   */
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;

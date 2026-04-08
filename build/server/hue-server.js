@@ -41,9 +41,6 @@ class HueServer {
   config;
   handler;
   logger;
-  /**
-   *
-   */
   constructor(options) {
     this.config = options.config;
     this.handler = options.handler;

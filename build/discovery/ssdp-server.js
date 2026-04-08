@@ -99,14 +99,6 @@ class HueSsdpServer {
     }
   }
   /**
-   * Send an SSDP notify message
-   */
-  notify() {
-    if (this.server && this.isRunning) {
-      this.log("debug", "Sending SSDP notify");
-    }
-  }
-  /**
    * Check if server is running
    */
   get running() {
