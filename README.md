@@ -135,6 +135,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.2.2 (2026-04-11)
+- Remove redundant `actions/checkout@v6` from CI workflow (ioBroker testing actions handle checkout internally)
+- Fix `readme` URL in io-package.json (master → main)
+
 ### 1.2.1 (2026-04-08)
 - Restore standard integration tests (create-adapter compatible)
 - Add FORBIDDEN_CHARS sanitization for all external object IDs
@@ -157,7 +161,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.1.1 (2026-04-05)
 - Remove redundant scripts, compress documentation
 
-Older changelog: [CHANGELOG_OLD.md](CHANGELOG_OLD.md)
+Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ---
 

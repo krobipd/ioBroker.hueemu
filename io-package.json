@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "news": {
+      "1.2.2": {
+        "en": "Remove redundant actions/checkout from CI workflow, fix readme URL (master→main)",
+        "de": "Redundantes actions/checkout aus CI-Workflow entfernt, Readme-URL korrigiert (master→main)",
+        "ru": "Удалён избыточный actions/checkout из CI-воркфлоу, исправлена ссылка readme (master→main)",
+        "pt": "Removido actions/checkout redundante do workflow CI, corrigido URL do readme (master→main)",
+        "nl": "Overbodige actions/checkout verwijderd uit CI-workflow, readme-URL gecorrigeerd (master→main)",
+        "fr": "Suppression de actions/checkout redondant du workflow CI, correction de l'URL readme (master→main)",
+        "it": "Rimosso actions/checkout ridondante dal workflow CI, corretta URL readme (master→main)",
+        "es": "Eliminado actions/checkout redundante del flujo CI, corregida URL del readme (master→main)",
+        "pl": "Usunięto nadmiarowy actions/checkout z workflow CI, poprawiono URL readme (master→main)",
+        "uk": "Видалено зайвий actions/checkout з CI-воркфлоу, виправлено URL readme (master→main)",
+        "zh-cn": "从CI工作流中移除多余的actions/checkout，修正readme URL（master→main）"
+      },
       "1.2.1": {
         "en": "Restore standard integration tests, add FORBIDDEN_CHARS sanitization for object IDs, remove CHANGELOG.md",
         "de": "Standard-Integrationstests wiederhergestellt, FORBIDDEN_CHARS-Sanitisierung für Objekt-IDs, CHANGELOG.md entfernt",
@@ -81,18 +94,18 @@
         "uk": "Видалено зайвi скрипти, стиснуто документацiю",
         "zh-cn": "移除冗余脚本，压缩文档"
       },
-      "1.1.0": {
-        "en": "Remove legacy createLight mode — existing devices auto-migrated to admin config",
-        "de": "Legacy createLight-Modus entfernt — bestehende Geräte werden automatisch in Admin-Konfiguration migriert",
-        "ru": "Удалён устаревший режим createLight — существующие устройства автоматически мигрируют в конфигурацию admin",
-        "pt": "Modo legado createLight removido — dispositivos existentes migrados automaticamente para configuração admin",
-        "nl": "Legacy createLight-modus verwijderd — bestaande apparaten automatisch gemigreerd naar admin-configuratie",
-        "fr": "Mode hérité createLight supprimé — les appareils existants sont automatiquement migrés vers la configuration admin",
-        "it": "Modalità legacy createLight rimossa — dispositivi esistenti migrati automaticamente alla configurazione admin",
-        "es": "Modo heredado createLight eliminado — dispositivos existentes migrados automáticamente a configuración admin",
-        "pl": "Usunięto tryb legacy createLight — istniejące urządzenia automatycznie migrowane do konfiguracji admin",
-        "uk": "Видалено застарілий режим createLight — наявні пристрої автоматично мігруються до конфігурації admin",
-        "zh-cn": "移除旧版 createLight 模式 — 现有设备自动迁移到管理配置"
+      "1.1.1": {
+        "en": "Remove redundant scripts, compress documentation",
+        "de": "Redundante Scripts entfernt, Dokumentation komprimiert",
+        "ru": "Удалены избыточные скрипты, сжата документация",
+        "pt": "Scripts redundantes removidos, documentacao comprimida",
+        "nl": "Overbodige scripts verwijderd, documentatie gecomprimeerd",
+        "fr": "Scripts redondants supprimes, documentation comprimee",
+        "it": "Script ridondanti rimossi, documentazione compressa",
+        "es": "Scripts redundantes eliminados, documentacion comprimida",
+        "pl": "Usunieto nadmiarowe skrypty, skompresowano dokumentacje",
+        "uk": "Видалено зайвi скрипти, стиснуто документацiю",
+        "zh-cn": "移除冗余脚本，压缩文档"
       }
     },
     "titleLang": {
@@ -139,7 +152,7 @@
     "icon": "hue-emu-logo.png",
     "enabled": false,
     "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/main/admin/hue-emu-logo.png",
-    "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/master/README.md",
+    "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/main/README.md",
     "loglevel": "info",
     "mode": "daemon",
     "type": "lighting",
