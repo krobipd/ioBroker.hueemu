@@ -1,5 +1,9 @@
 # Older Changelog
 
+## [1.1.1] - 2026-04-05
+
+- Remove redundant scripts, compress documentation
+
 ## [1.1.0] - 2026-04-04
 
 - Remove legacy `createLight` mode — existing devices are auto-migrated to admin configuration

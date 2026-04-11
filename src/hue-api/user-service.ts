@@ -4,15 +4,7 @@
 
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
-
-/**
- * Sanitize a string for use as ioBroker object ID segment.
- * Replaces everything except [A-Za-z0-9-_] with underscore.
- * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.
- */
-function sanitizeId(id: string): string {
-  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
-}
+import { sanitizeId } from "../types/utils";
 
 /**
  * Adapter interface for user service
@@ -87,14 +79,26 @@ export class UserService {
           },
           native: { username },
         },
-        () => {
+        (err) => {
+          if (err) {
+            this.log(
+              "warn",
+              `Failed to create client object ${safeUsername}: ${err}`,
+            );
+          }
           this.adapter.setState(
             `clients.${safeUsername}`,
             {
               ack: true,
               val: username,
             },
-            () => {
+            (err2) => {
+              if (err2) {
+                this.log(
+                  "warn",
+                  `Failed to set client state ${safeUsername}: ${err2}`,
+                );
+              }
               resolve();
             },
           );
@@ -161,7 +165,10 @@ export class UserService {
           },
           native: {},
         },
-        () => {
+        (err) => {
+          if (err) {
+            this.log("warn", `Failed to create clients folder: ${err}`);
+          }
           resolve();
         },
       );

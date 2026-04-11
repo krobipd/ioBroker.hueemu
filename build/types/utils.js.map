@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/types/utils.ts"],
+  "sourcesContent": ["/**\n * Shared utility functions\n */\n\n/**\n * Sanitize a string for use as ioBroker object ID segment.\n * Replaces everything except [A-Za-z0-9-_] with underscore.\n * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.\n */\nexport function sanitizeId(id: string): string {\n  return id.replace(/[^A-Za-z0-9\\-_]/g, \"_\");\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AASO,SAAS,WAAW,IAAoB;AAC7C,SAAO,GAAG,QAAQ,oBAAoB,GAAG;AAC3C;",
+  "names": []
+}

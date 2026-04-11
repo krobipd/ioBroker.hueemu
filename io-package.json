@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "news": {
+      "1.2.3": {
+        "en": "Extract shared sanitizeId utility (DRY), add Hue API constants, improve error handling, split tests into focused modules",
+        "de": "Gemeinsame sanitizeId-Funktion extrahiert (DRY), Hue-API-Konstanten hinzugefügt, Fehlerbehandlung verbessert, Tests in fokussierte Module aufgeteilt",
+        "ru": "Извлечена общая утилита sanitizeId (DRY), добавлены константы Hue API, улучшена обработка ошибок, тесты разделены на модули",
+        "pt": "Utilitário sanitizeId compartilhado extraído (DRY), constantes Hue API adicionadas, tratamento de erros melhorado, testes divididos em módulos",
+        "nl": "Gedeelde sanitizeId-functie geëxtraheerd (DRY), Hue API-constanten toegevoegd, foutafhandeling verbeterd, tests opgesplitst in modules",
+        "fr": "Utilitaire sanitizeId partagé extrait (DRY), constantes Hue API ajoutées, gestion des erreurs améliorée, tests divisés en modules",
+        "it": "Utilità condivisa sanitizeId estratta (DRY), costanti Hue API aggiunte, gestione errori migliorata, test suddivisi in moduli",
+        "es": "Utilidad compartida sanitizeId extraída (DRY), constantes Hue API añadidas, manejo de errores mejorado, tests divididos en módulos",
+        "pl": "Wyodrębniono wspólną funkcję sanitizeId (DRY), dodano stałe Hue API, poprawiono obsługę błędów, testy podzielone na moduły",
+        "uk": "Виділено спільну утиліту sanitizeId (DRY), додано константи Hue API, покращено обробку помилок, тести розділено на модулі",
+        "zh-cn": "提取共享 sanitizeId 工具函数（DRY），添加 Hue API 常量，改进错误处理，拆分测试为独立模块"
+      },
       "1.2.2": {
         "en": "Remove redundant actions/checkout from CI workflow, fix readme URL (master→main)",
         "de": "Redundantes actions/checkout aus CI-Workflow entfernt, Readme-URL korrigiert (master→main)",
@@ -80,32 +93,6 @@
         "pl": "Kompaktowy log startowy, logi szczegółowe przeniesione na poziom debug",
         "uk": "Компактний стартовий лог, детальні логи переміщено на рівень debug",
         "zh-cn": "紧凑的启动日志，详细日志移至debug级别"
-      },
-      "1.1.1": {
-        "en": "Remove redundant scripts, compress documentation",
-        "de": "Redundante Scripts entfernt, Dokumentation komprimiert",
-        "ru": "Удалены избыточные скрипты, сжата документация",
-        "pt": "Scripts redundantes removidos, documentacao comprimida",
-        "nl": "Overbodige scripts verwijderd, documentatie gecomprimeerd",
-        "fr": "Scripts redondants supprimes, documentation comprimee",
-        "it": "Script ridondanti rimossi, documentazione compressa",
-        "es": "Scripts redundantes eliminados, documentacion comprimida",
-        "pl": "Usunieto nadmiarowe skrypty, skompresowano dokumentacje",
-        "uk": "Видалено зайвi скрипти, стиснуто документацiю",
-        "zh-cn": "移除冗余脚本，压缩文档"
-      },
-      "1.1.1": {
-        "en": "Remove redundant scripts, compress documentation",
-        "de": "Redundante Scripts entfernt, Dokumentation komprimiert",
-        "ru": "Удалены избыточные скрипты, сжата документация",
-        "pt": "Scripts redundantes removidos, documentacao comprimida",
-        "nl": "Overbodige scripts verwijderd, documentatie gecomprimeerd",
-        "fr": "Scripts redondants supprimes, documentation comprimee",
-        "it": "Script ridondanti rimossi, documentazione compressa",
-        "es": "Scripts redundantes eliminados, documentacion comprimida",
-        "pl": "Usunieto nadmiarowe skrypty, skompresowano dokumentacje",
-        "uk": "Видалено зайвi скрипти, стиснуто документацiю",
-        "zh-cn": "移除冗余脚本，压缩文档"
       }
     },
     "titleLang": {

@@ -38,14 +38,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
 const uuid = __importStar(require("uuid"));
-/**
- * Sanitize a string for use as ioBroker object ID segment.
- * Replaces everything except [A-Za-z0-9-_] with underscore.
- * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.
- */
-function sanitizeId(id) {
-    return id.replace(/[^A-Za-z0-9\-_]/g, "_");
-}
+const utils_1 = require("../types/utils");
 /**
  * Service for managing Hue API users
  */
@@ -60,7 +53,7 @@ class UserService {
      * Add a new client (Hue API "user")
      */
     async addUser(username, devicetype = "unknown") {
-        const safeUsername = sanitizeId(username);
+        const safeUsername = (0, utils_1.sanitizeId)(username);
         this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
         // Ensure clients folder exists
         await this.ensureClientsFolder();
@@ -76,11 +69,17 @@ class UserService {
                     write: false,
                 },
                 native: { username },
-            }, () => {
+            }, (err) => {
+                if (err) {
+                    this.log("warn", `Failed to create client object ${safeUsername}: ${err}`);
+                }
                 this.adapter.setState(`clients.${safeUsername}`, {
                     ack: true,
                     val: username,
-                }, () => {
+                }, (err2) => {
+                    if (err2) {
+                        this.log("warn", `Failed to set client state ${safeUsername}: ${err2}`);
+                    }
                     resolve();
                 });
             });
@@ -100,7 +99,7 @@ class UserService {
      * Check if a client is authenticated (has paired with the bridge)
      */
     async isUserAuthenticated(username) {
-        const safeUsername = sanitizeId(username);
+        const safeUsername = (0, utils_1.sanitizeId)(username);
         return new Promise((resolve) => {
             this.adapter.getStatesOf("clients", undefined, (err, stateObjects) => {
                 if (err || !stateObjects) {
@@ -131,7 +130,10 @@ class UserService {
                     type: "meta.folder",
                 },
                 native: {},
-            }, () => {
+            }, (err) => {
+                if (err) {
+                    this.log("warn", `Failed to create clients folder: ${err}`);
+                }
                 resolve();
             });
         });

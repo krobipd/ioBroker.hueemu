@@ -17,15 +17,7 @@ import type {
   Logger,
 } from "./types/config";
 import { generateBridgeId, generateSerialNumber } from "./types/config";
-
-/**
- * Sanitize a string for use as ioBroker object ID segment.
- * Replaces everything except [A-Za-z0-9-_] with underscore.
- * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.
- */
-function sanitizeId(id: string): string {
-  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
-}
+import { sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
 declare global {
@@ -48,6 +40,9 @@ declare global {
  * Hue Emulator Adapter
  */
 export class HueEmu extends utils.Adapter {
+  /** Pairing window duration in milliseconds (50 seconds) */
+  private static readonly PAIRING_TIMEOUT_MS = 50_000;
+
   private pairingTimeoutId: ioBroker.Timeout | undefined = undefined;
   private _pairingEnabled = false;
   private _disableAuth = false;
@@ -275,7 +270,7 @@ export class HueEmu extends utils.Adapter {
         role: "button",
         write: true,
         read: true,
-        desc: "Enable pairing mode for 50 seconds",
+        desc: `Enable pairing mode for ${HueEmu.PAIRING_TIMEOUT_MS / 1000} seconds`,
       },
       native: {},
     });
@@ -485,16 +480,17 @@ export class HueEmu extends utils.Adapter {
     this.pairingEnabled = state.val as boolean;
 
     if (state.val) {
+      const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
       this.log.info(
-        "Pairing mode enabled — waiting for client to connect (50 seconds)",
+        `Pairing mode enabled — waiting for client to connect (${seconds} seconds)`,
       );
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
         this.log.info(
-          "Pairing mode automatically disabled after 50 seconds timeout",
+          `Pairing mode automatically disabled after ${seconds} seconds timeout`,
         );
-      }, 50000);
+      }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
       this.log.info("Pairing mode disabled");
     }

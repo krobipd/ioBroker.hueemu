@@ -32,9 +32,7 @@ __export(user_service_exports, {
 });
 module.exports = __toCommonJS(user_service_exports);
 var uuid = __toESM(require("uuid"));
-function sanitizeId(id) {
-  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
-}
+var import_utils = require("../types/utils");
 class UserService {
   adapter;
   logger;
@@ -46,7 +44,7 @@ class UserService {
    * Add a new client (Hue API "user")
    */
   async addUser(username, devicetype = "unknown") {
-    const safeUsername = sanitizeId(username);
+    const safeUsername = (0, import_utils.sanitizeId)(username);
     this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
     await this.ensureClientsFolder();
     return new Promise((resolve) => {
@@ -63,14 +61,26 @@ class UserService {
           },
           native: { username }
         },
-        () => {
+        (err) => {
+          if (err) {
+            this.log(
+              "warn",
+              `Failed to create client object ${safeUsername}: ${err}`
+            );
+          }
           this.adapter.setState(
             `clients.${safeUsername}`,
             {
               ack: true,
               val: username
             },
-            () => {
+            (err2) => {
+              if (err2) {
+                this.log(
+                  "warn",
+                  `Failed to set client state ${safeUsername}: ${err2}`
+                );
+              }
               resolve();
             }
           );
@@ -90,7 +100,7 @@ class UserService {
    * Check if a client is authenticated (has paired with the bridge)
    */
   async isUserAuthenticated(username) {
-    const safeUsername = sanitizeId(username);
+    const safeUsername = (0, import_utils.sanitizeId)(username);
     return new Promise((resolve) => {
       this.adapter.getStatesOf("clients", void 0, (err, stateObjects) => {
         if (err || !stateObjects) {
@@ -124,7 +134,10 @@ class UserService {
           },
           native: {}
         },
-        () => {
+        (err) => {
+          if (err) {
+            this.log("warn", `Failed to create clients folder: ${err}`);
+          }
           resolve();
         }
       );

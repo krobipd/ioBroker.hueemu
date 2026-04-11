@@ -21,7 +21,7 @@ export default [
       "@typescript-eslint/restrict-template-expressions": "off",
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-namespace": "off",
-      "@typescript-eslint/no-floating-promises": "warn",
+      "@typescript-eslint/no-floating-promises": "error",
       "jsdoc/require-jsdoc": "off",
       "jsdoc/require-param": "off",
       "jsdoc/require-returns": "off",

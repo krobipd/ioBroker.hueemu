@@ -6,10 +6,10 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für Alexa, Google Home, Harmony Hub.
 
-- **Version:** 1.2.0 (April 2026)
+- **Version:** 1.2.3 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
-- **Repository PR:** ioBroker/ioBroker.repositories#5634
+- **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED)
 - **Original Author:** Christopher Holomek (@holomekc) — Fork, modernisiert 2026
 - **Runtime-Deps:** `@iobroker/adapter-core`, `fastify`, `node-ssdp`, `node-forge`, `uuid`
 
@@ -33,6 +33,7 @@ src/types/                        → config, errors, hue-api, light
 1. **Fastify** statt Express — schneller, besseres TypeScript-Support
 2. **SSDP Port 1900 hardcoded** — UPnP-Standard, alle Clients scannen fix diesen Port
 3. **host = bind + advertise** — IP wird für SSDP-Location UND Server-Bind verwendet → kein 0.0.0.0
+4. **Port 8080 Default** — Harmony funktioniert mit 8080. Alexa neuere FW braucht Port 80 (User-Sache, README dokumentiert).
 4. **onoff → LWB007/Dimmable** — Harmony kennt "On/Off light" nicht, fällt sonst auf Farb-Controls zurück
 5. **capabilities-Feld weggelassen** — ha-bridge-kompatibel
 6. **Pairing 50s Timeout** — Auto-Add aller Usernames während Fenster (Alexa/Harmony Kompatibilität)
@@ -53,38 +54,48 @@ src/types/                        → config, errors, hue-api, light
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (193)
+## Tests (146 custom + 57 standard = 203)
 
 ```
-test/testMain.ts         → HueApiError (13), DescriptionXML (8), ConfigService (18),
-                           DeviceBindingService (109), Error handler + Light types (8)
-test/testPackageFiles.ts → @iobroker/testing (57)
+test/testUtils.ts          → 10: sanitizeId (shared utility)
+test/testErrors.ts         → 16: HueApiError, createSuccessResponse
+test/testConfig.ts         → 25: generateBridgeId, generateSerialNumber, ConfigService
+test/testDiscovery.ts      → 10: UPnP description XML, URL building
+test/testDeviceBinding.ts  → 85: DeviceBindingService, value conversion, light types
+test/testHelpers.ts        → Shared mock factories (no tests)
+test/package.js            → 57 standard: @iobroker/testing packageFiles
+test/integration.js        → standard: @iobroker/testing integration (CI only)
 ```
+
+**WICHTIG:** .gitignore hat `*.js` — test/package.js und test/integration.js haben Ausnahmen!
 
 Nicht getestet (bewusst): UserService (Callback-API), ApiHandler (Orchestrator), SSDP (Netzwerk).
+
+## FORBIDDEN_CHARS
+
+`sanitizeId()` in `types/utils.ts` (shared) — ersetzt `[^A-Za-z0-9-_]` durch `_`.
+Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von Alexa/Harmony), migrierte Legacy-User.
 
 ## Versionshistorie
 
 | Version | Highlights |
 |---------|------------|
-| 1.2.0 | Rename user→clients (Endgeräte), Auto-Migration, info-Ordner Cleanup |
-| 1.1.4 | Obsolete info.connection Cleanup + leere Eltern-Ordner löschen |
-| 1.1.3 | Ungenutzten info.connection setState entfernt |
-| 1.1.2 | Kompakter Startup-Log, Detail-Logs auf debug |
-| 1.1.1 | Redundante Scripts entfernt, Doku komprimiert |
-| 1.1.0 | Legacy createLight entfernt, Auto-Migration, ~400 Zeilen Legacy-Code weg |
-| 1.0.26 | Test-Infrastruktur Standard (tsconfig.test.json) |
-| 1.0.25 | Dev-Tooling modernisiert (esbuild, TS 5.9 Pin) |
-| 1.0.24 | Fix Boolean("false") Bug in on/off |
+| 1.2.3 | DRY refactoring (sanitizeId, Hue-Konstanten), Tests aufgeteilt (5 Module) |
+| 1.2.2 | CI cleanup (actions/checkout entfernt), readme URL master→main |
+| 1.2.1 | Standard-Tests (integration.js, package.js), FORBIDDEN_CHARS sanitization, CHANGELOG.md entfernt |
+| 1.2.0 | Rename user→clients, Auto-Migration |
+| 1.1.0 | Legacy createLight entfernt, Auto-Migration |
 | 1.0.22 | Code-Review mcm1957: FORBIDDEN_CHARS, this.setTimeout, CI cross-platform |
-| 1.0.9 | Stabile Bridge-Identität (UDN/MAC persistieren) |
 | 1.0.0 | Major Rewrite: Fastify, moderne Admin UI |
 
 ## Befehle
 
 ```bash
-npm run build        # Production (esbuild)
-npm run build:test   # Test build (tsc)
-npm test             # Build + mocha
-npm run lint         # ESLint + Prettier
+npm run build           # Production (esbuild)
+npm run build:test      # Test build (tsc)
+npm run test:ts         # Custom Unit-Tests (136)
+npm run test:package    # Standard Package-Tests (57)
+npm run test:integration # Standard Integration-Tests (CI)
+npm test                # test:ts + test:package (lokal)
+npm run lint            # ESLint + Prettier
 ```

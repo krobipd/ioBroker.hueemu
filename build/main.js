@@ -38,10 +38,10 @@ var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
 var import_config = require("./types/config");
-function sanitizeId(id) {
-  return id.replace(/[^A-Za-z0-9\-_]/g, "_");
-}
+var import_utils = require("./types/utils");
 class HueEmu extends utils.Adapter {
+  /** Pairing window duration in milliseconds (50 seconds) */
+  static PAIRING_TIMEOUT_MS = 5e4;
   pairingTimeoutId = void 0;
   _pairingEnabled = false;
   _disableAuth = false;
@@ -214,7 +214,7 @@ class HueEmu extends utils.Adapter {
         role: "button",
         write: true,
         read: true,
-        desc: "Enable pairing mode for 50 seconds"
+        desc: `Enable pairing mode for ${HueEmu.PAIRING_TIMEOUT_MS / 1e3} seconds`
       },
       native: {}
     });
@@ -291,7 +291,7 @@ class HueEmu extends utils.Adapter {
       for (const row of children.rows) {
         const oldId = row.id.replace(`${this.namespace}.`, "");
         const username = oldId.replace("user.", "");
-        const newId = `clients.${sanitizeId(username)}`;
+        const newId = `clients.${(0, import_utils.sanitizeId)(username)}`;
         const state = await this.getStateAsync(oldId);
         const obj = row.value;
         await this.setObjectNotExistsAsync(newId, {
@@ -379,16 +379,17 @@ class HueEmu extends utils.Adapter {
     }
     this.pairingEnabled = state.val;
     if (state.val) {
+      const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1e3;
       this.log.info(
-        "Pairing mode enabled \u2014 waiting for client to connect (50 seconds)"
+        `Pairing mode enabled \u2014 waiting for client to connect (${seconds} seconds)`
       );
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
         this.log.info(
-          "Pairing mode automatically disabled after 50 seconds timeout"
+          `Pairing mode automatically disabled after ${seconds} seconds timeout`
         );
-      }, 5e4);
+      }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
       this.log.info("Pairing mode disabled");
     }

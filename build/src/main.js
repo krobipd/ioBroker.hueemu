@@ -45,18 +45,13 @@ const server_1 = require("./server");
 const discovery_1 = require("./discovery");
 const hue_api_1 = require("./hue-api");
 const config_1 = require("./types/config");
-/**
- * Sanitize a string for use as ioBroker object ID segment.
- * Replaces everything except [A-Za-z0-9-_] with underscore.
- * See: adapter.FORBIDDEN_CHARS, ioBroker object ID requirements.
- */
-function sanitizeId(id) {
-    return id.replace(/[^A-Za-z0-9\-_]/g, "_");
-}
+const utils_1 = require("./types/utils");
 /**
  * Hue Emulator Adapter
  */
 class HueEmu extends utils.Adapter {
+    /** Pairing window duration in milliseconds (50 seconds) */
+    static PAIRING_TIMEOUT_MS = 50_000;
     pairingTimeoutId = undefined;
     _pairingEnabled = false;
     _disableAuth = false;
@@ -239,7 +234,7 @@ class HueEmu extends utils.Adapter {
                 role: "button",
                 write: true,
                 read: true,
-                desc: "Enable pairing mode for 50 seconds",
+                desc: `Enable pairing mode for ${HueEmu.PAIRING_TIMEOUT_MS / 1000} seconds`,
             },
             native: {},
         });
@@ -319,7 +314,7 @@ class HueEmu extends utils.Adapter {
             for (const row of children.rows) {
                 const oldId = row.id.replace(`${this.namespace}.`, "");
                 const username = oldId.replace("user.", "");
-                const newId = `clients.${sanitizeId(username)}`;
+                const newId = `clients.${(0, utils_1.sanitizeId)(username)}`;
                 // Read current value
                 const state = await this.getStateAsync(oldId);
                 // Copy object with same common/native
@@ -418,12 +413,13 @@ class HueEmu extends utils.Adapter {
         }
         this.pairingEnabled = state.val;
         if (state.val) {
-            this.log.info("Pairing mode enabled — waiting for client to connect (50 seconds)");
+            const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
+            this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
             this.pairingTimeoutId = this.setTimeout(() => {
                 this._pairingEnabled = false;
                 void this.setState("startPairing", { ack: true, val: false });
-                this.log.info("Pairing mode automatically disabled after 50 seconds timeout");
-            }, 50000);
+                this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
+            }, HueEmu.PAIRING_TIMEOUT_MS);
         }
         else {
             this.log.info("Pairing mode disabled");

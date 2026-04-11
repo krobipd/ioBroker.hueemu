@@ -135,6 +135,16 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.2.3 (2026-04-11)
+- Extract shared `sanitizeId` utility module (DRY)
+- Add Hue API value range constants for readability
+- Add pairing timeout constant
+- Improve callback error handling in UserService
+- Replace `as any` with type-safe casts in DeviceBindingService
+- Enforce `no-floating-promises` as error
+- Split monolithic test file into focused modules (146 tests)
+- Fix duplicate io-package.json news entry
+
 ### 1.2.2 (2026-04-11)
 - Remove redundant `actions/checkout@v6` from CI workflow (ioBroker testing actions handle checkout internally)
 - Fix `readme` URL in io-package.json (master → main)
@@ -157,9 +167,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.1.2 (2026-04-05)
 - Compact startup log, move detail logs to debug level
-
-### 1.1.1 (2026-04-05)
-- Remove redundant scripts, compress documentation
 
 Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

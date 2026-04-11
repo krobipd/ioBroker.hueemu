@@ -1,6 +1,6 @@
 {
   "name": "iobroker.hueemu",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Hue Bridge Emulator - Modernized 2026",
   "author": {
     "name": "Christopher Holomek",
@@ -68,7 +68,7 @@
     "watch": "build-adapter ts --watch",
     "check": "tsc --noEmit",
     "build:test": "tsc -p tsconfig.test.json",
-    "test:ts": "npm run build:test && mocha --exit \"build/test/testMain.js\"",
+    "test:ts": "npm run build:test && mocha --exit \"build/test/test*.js\"",
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
     "test": "npm run build && npm run test:ts && npm run test:package",

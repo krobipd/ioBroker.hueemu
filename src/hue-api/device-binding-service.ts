@@ -13,6 +13,16 @@ import type {
 } from "../types/light";
 import { HueApiError } from "../types/errors";
 
+/** Hue API value ranges (per Philips Hue API specification) */
+const HUE_BRI_MIN = 1;
+const HUE_BRI_MAX = 254;
+const HUE_HUE_MAX = 65535;
+const HUE_SAT_MAX = 254;
+const HUE_CT_MIN = 153;
+const HUE_CT_MAX = 500;
+const HUE_CT_DEFAULT = 250;
+const HUE_XY_DEFAULT: [number, number] = [0.5, 0.5];
+
 /**
  * Light type definitions matching the admin UI
  */
@@ -227,11 +237,12 @@ export class DeviceBindingService {
       if (stateId) {
         const value = await this.getStateValue(stateId, stateName);
         if (value !== undefined) {
-          (state as any)[stateName] = value;
+          (state as Record<string, unknown>)[stateName] = value;
         }
       } else {
         // Provide default values for unmapped states
-        (state as any)[stateName] = this.getDefaultValue(stateName);
+        (state as Record<string, unknown>)[stateName] =
+          this.getDefaultValue(stateName);
       }
     }
 
@@ -376,37 +387,43 @@ export class DeviceBindingService {
         if (typeof value === "number") {
           if (value <= 1) {
             // Already in 0-1 range, convert to 1-254
-            return Math.round(value * 254);
+            return Math.round(value * HUE_BRI_MAX);
           } else if (value <= 100) {
             // Percentage, convert to 1-254
-            return Math.max(1, Math.round((value / 100) * 254));
+            return Math.max(
+              HUE_BRI_MIN,
+              Math.round((value / 100) * HUE_BRI_MAX),
+            );
           }
-          return Math.min(254, Math.max(1, Math.round(value)));
+          return Math.min(
+            HUE_BRI_MAX,
+            Math.max(HUE_BRI_MIN, Math.round(value)),
+          );
         }
-        return 254;
+        return HUE_BRI_MAX;
       case "hue":
         // Hue is 0-65535
         if (typeof value === "number") {
-          return Math.min(65535, Math.max(0, Math.round(value)));
+          return Math.min(HUE_HUE_MAX, Math.max(0, Math.round(value)));
         }
         return 0;
       case "sat":
         // Saturation is 0-254
         if (typeof value === "number") {
           if (value <= 1) {
-            return Math.round(value * 254);
+            return Math.round(value * HUE_SAT_MAX);
           } else if (value <= 100) {
-            return Math.round((value / 100) * 254);
+            return Math.round((value / 100) * HUE_SAT_MAX);
           }
-          return Math.min(254, Math.max(0, Math.round(value)));
+          return Math.min(HUE_SAT_MAX, Math.max(0, Math.round(value)));
         }
-        return 254;
+        return HUE_SAT_MAX;
       case "ct":
         // Color temperature in mireds (153-500)
         if (typeof value === "number") {
-          return Math.min(500, Math.max(153, Math.round(value)));
+          return Math.min(HUE_CT_MAX, Math.max(HUE_CT_MIN, Math.round(value)));
         }
-        return 250;
+        return HUE_CT_DEFAULT;
       case "xy":
         // XY as array [x, y]
         if (Array.isArray(value) && value.length >= 2) {
@@ -418,7 +435,7 @@ export class DeviceBindingService {
             return parts.slice(0, 2) as [number, number];
           }
         }
-        return [0.5, 0.5];
+        return HUE_XY_DEFAULT;
       default:
         return value;
     }
@@ -435,22 +452,21 @@ export class DeviceBindingService {
       case "on":
         return Boolean(value);
       case "bri":
-        // Keep as 1-254 for now
         return typeof value === "number"
-          ? Math.min(254, Math.max(1, value))
-          : 254;
+          ? Math.min(HUE_BRI_MAX, Math.max(HUE_BRI_MIN, value))
+          : HUE_BRI_MAX;
       case "hue":
         return typeof value === "number"
-          ? Math.min(65535, Math.max(0, value))
+          ? Math.min(HUE_HUE_MAX, Math.max(0, value))
           : 0;
       case "sat":
         return typeof value === "number"
-          ? Math.min(254, Math.max(0, value))
-          : 254;
+          ? Math.min(HUE_SAT_MAX, Math.max(0, value))
+          : HUE_SAT_MAX;
       case "ct":
         return typeof value === "number"
-          ? Math.min(500, Math.max(153, value))
-          : 250;
+          ? Math.min(HUE_CT_MAX, Math.max(HUE_CT_MIN, value))
+          : HUE_CT_DEFAULT;
       case "xy":
         if (Array.isArray(value)) {
           return JSON.stringify(value);
@@ -472,15 +488,15 @@ export class DeviceBindingService {
       case "on":
         return false;
       case "bri":
-        return 254;
+        return HUE_BRI_MAX;
       case "hue":
         return 0;
       case "sat":
-        return 254;
+        return HUE_SAT_MAX;
       case "ct":
-        return 250;
+        return HUE_CT_DEFAULT;
       case "xy":
-        return [0.5, 0.5];
+        return HUE_XY_DEFAULT;
       case "effect":
         return "none";
       case "alert":
