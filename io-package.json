@@ -138,7 +138,7 @@
     "platform": "Javascript/Node.js",
     "icon": "hue-emu-logo.png",
     "enabled": false,
-    "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/master/admin/hue-emu-logo.png",
+    "extIcon": "https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/main/admin/hue-emu-logo.png",
     "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/master/README.md",
     "loglevel": "info",
     "mode": "daemon",
