@@ -12,21 +12,18 @@ import { sanitizeId } from "../types/utils";
 export interface UserServiceAdapter {
   namespace: string;
   log: ioBroker.Logger;
-  setObjectNotExists(
+  setObjectNotExistsAsync(
     id: string,
     obj: ioBroker.SettableObject,
-    callback?: ioBroker.SetObjectCallback,
-  ): void;
-  setState(
+  ): Promise<{ id: string }>;
+  setStateAsync(
     id: string,
     state: ioBroker.SettableState,
-    callback?: ioBroker.SetStateCallback,
-  ): void;
-  getStatesOf(
-    parentDevice: string | undefined,
-    parentChannel: string | undefined,
-    callback: ioBroker.GetObjectsCallback3<ioBroker.StateObject>,
-  ): void;
+  ): Promise<{ id: string }>;
+  getStatesOfAsync(
+    parentDevice?: string,
+    parentChannel?: string,
+  ): Promise<ioBroker.StateObject[]>;
 }
 
 /**
@@ -35,8 +32,8 @@ export interface UserServiceAdapter {
 export interface UserServiceConfig {
   /** Adapter instance */
   adapter: UserServiceAdapter;
-  /** Optional logger */
-  logger?: Logger;
+  /** Logger */
+  logger: Logger;
 }
 
 /**
@@ -44,7 +41,7 @@ export interface UserServiceConfig {
  */
 export class UserService {
   private readonly adapter: UserServiceAdapter;
-  private readonly logger?: Logger;
+  private readonly logger: Logger;
 
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
@@ -65,46 +62,33 @@ export class UserService {
     await this.ensureClientsFolder();
 
     // Create client state (sanitizeId: FORBIDDEN_CHARS compliance)
-    return new Promise((resolve) => {
-      this.adapter.setObjectNotExists(
-        `clients.${safeUsername}`,
-        {
-          type: "state",
-          common: {
-            name: devicetype,
-            type: "string",
-            role: "text",
-            read: true,
-            write: false,
-          },
-          native: { username },
+    try {
+      await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
+        type: "state",
+        common: {
+          name: devicetype,
+          type: "string",
+          role: "text",
+          read: true,
+          write: false,
         },
-        (err) => {
-          if (err) {
-            this.log(
-              "warn",
-              `Failed to create client object ${safeUsername}: ${err}`,
-            );
-          }
-          this.adapter.setState(
-            `clients.${safeUsername}`,
-            {
-              ack: true,
-              val: username,
-            },
-            (err2) => {
-              if (err2) {
-                this.log(
-                  "warn",
-                  `Failed to set client state ${safeUsername}: ${err2}`,
-                );
-              }
-              resolve();
-            },
-          );
-        },
+        native: { username },
+      });
+    } catch (err) {
+      this.log(
+        "warn",
+        `Failed to create client object ${safeUsername}: ${err}`,
       );
-    });
+    }
+
+    try {
+      await this.adapter.setStateAsync(`clients.${safeUsername}`, {
+        ack: true,
+        val: username,
+      });
+    } catch (err) {
+      this.log("warn", `Failed to set client state ${safeUsername}: ${err}`);
+    }
   }
 
   /**
@@ -128,64 +112,53 @@ export class UserService {
    */
   public async isUserAuthenticated(username: string): Promise<boolean> {
     const safeUsername = sanitizeId(username);
-    return new Promise((resolve) => {
-      this.adapter.getStatesOf("clients", undefined, (err, stateObjects) => {
-        if (err || !stateObjects) {
-          this.log("debug", `No client states found: ${err}`);
-          resolve(false);
-          return;
-        }
 
-        const found = stateObjects.some((state) => {
-          const id = state._id.substring(this.adapter.namespace.length + 9); // +1 for '.' and +8 for 'clients.'
-          return id === safeUsername;
-        });
+    let stateObjects: ioBroker.StateObject[];
+    try {
+      stateObjects = await this.adapter.getStatesOfAsync("clients", undefined);
+    } catch (err) {
+      this.log("debug", `No client states found: ${err}`);
+      return false;
+    }
 
-        if (found) {
-          this.log("debug", `Client authenticated: ${username}`);
-        }
+    if (!stateObjects || stateObjects.length === 0) {
+      return false;
+    }
 
-        resolve(found);
-      });
+    const found = stateObjects.some((state) => {
+      const id = state._id.substring(this.adapter.namespace.length + 9); // +1 for '.' and +8 for 'clients.'
+      return id === safeUsername;
     });
+
+    if (found) {
+      this.log("debug", `Client authenticated: ${username}`);
+    }
+
+    return found;
   }
 
   /**
    * Ensure the clients folder exists
    */
   private async ensureClientsFolder(): Promise<void> {
-    return new Promise((resolve) => {
-      this.adapter.setObjectNotExists(
-        "clients",
-        {
-          type: "meta",
-          common: {
-            name: "Paired Clients",
-            type: "meta.folder",
-          },
-          native: {},
+    try {
+      await this.adapter.setObjectNotExistsAsync("clients", {
+        type: "meta",
+        common: {
+          name: "Paired Clients",
+          type: "meta.folder",
         },
-        (err) => {
-          if (err) {
-            this.log("warn", `Failed to create clients folder: ${err}`);
-          }
-          resolve();
-        },
-      );
-    });
+        native: {},
+      });
+    } catch (err) {
+      this.log("warn", `Failed to create clients folder: ${err}`);
+    }
   }
 
-  /**
-   * Log a message
-   */
   private log(
     level: "debug" | "info" | "warn" | "error",
     message: string,
   ): void {
-    if (this.logger) {
-      this.logger[level](message);
-    } else {
-      this.adapter.log[level](message);
-    }
+    this.logger[level](message);
   }
 }

@@ -172,15 +172,8 @@ class ApiHandler {
   isAuthDisabled() {
     return this.adapter.disableAuth;
   }
-  /**
-   * Log a message
-   */
   log(level, message) {
-    if (this.logger) {
-      this.logger[level](message);
-    } else {
-      this.adapter.log[level](message);
-    }
+    this.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

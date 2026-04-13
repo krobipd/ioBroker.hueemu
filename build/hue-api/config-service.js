@@ -21,6 +21,7 @@ __export(config_service_exports, {
   ConfigService: () => ConfigService
 });
 module.exports = __toCommonJS(config_service_exports);
+var import_config = require("../types/config");
 class ConfigService {
   identity;
   discoveryHost;
@@ -28,7 +29,7 @@ class ConfigService {
   static SW_VERSION = "1941132080";
   static API_VERSION = "1.41.0";
   static DATASTORE_VERSION = "98";
-  static MODEL_ID = "BSB002";
+  static MODEL_ID = import_config.BRIDGE_MODEL_ID;
   static BRIDGE_NAME = "Philips hue";
   constructor(config) {
     this.identity = config.identity;

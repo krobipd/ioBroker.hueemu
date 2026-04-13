@@ -18,10 +18,12 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var config_exports = {};
 __export(config_exports, {
+  BRIDGE_MODEL_ID: () => BRIDGE_MODEL_ID,
   generateBridgeId: () => generateBridgeId,
   generateSerialNumber: () => generateSerialNumber
 });
 module.exports = __toCommonJS(config_exports);
+const BRIDGE_MODEL_ID = "BSB002";
 function generateBridgeId(mac) {
   const cleanMac = mac.replace(/:/g, "").toUpperCase();
   return `${cleanMac.slice(0, 6)}FFFE${cleanMac.slice(6)}`;
@@ -31,6 +33,7 @@ function generateSerialNumber(mac) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  BRIDGE_MODEL_ID,
   generateBridgeId,
   generateSerialNumber
 });

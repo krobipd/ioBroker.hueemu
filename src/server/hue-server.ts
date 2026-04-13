@@ -17,8 +17,8 @@ export interface HueServerOptions {
   config: HueEmulatorConfig;
   /** API handler implementation */
   handler: HueApiHandler;
-  /** Optional logger */
-  logger?: Logger;
+  /** Logger */
+  logger: Logger;
 }
 
 /**
@@ -30,7 +30,7 @@ export class HueServer {
   private httpsServer: FastifyInstance | null = null;
   private readonly config: HueEmulatorConfig;
   private readonly handler: HueApiHandler;
-  private readonly logger?: Logger;
+  private readonly logger: Logger;
 
   constructor(options: HueServerOptions) {
     this.config = options.config;
@@ -153,15 +153,10 @@ export class HueServer {
     return server;
   }
 
-  /**
-   * Log a message
-   */
   private log(
     level: "debug" | "info" | "warn" | "error",
     message: string,
   ): void {
-    if (this.logger) {
-      this.logger[level](message);
-    }
+    this.logger[level](message);
   }
 }

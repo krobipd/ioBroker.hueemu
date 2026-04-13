@@ -2,7 +2,7 @@
  * Configuration Service for Hue API
  */
 
-import type { BridgeIdentity } from "../types/config";
+import { BRIDGE_MODEL_ID, type BridgeIdentity } from "../types/config";
 import type {
   BridgeConfigPublic,
   BridgeConfigFull,
@@ -31,7 +31,7 @@ export class ConfigService {
   private static readonly SW_VERSION = "1941132080";
   private static readonly API_VERSION = "1.41.0";
   private static readonly DATASTORE_VERSION = "98";
-  private static readonly MODEL_ID = "BSB002";
+  private static readonly MODEL_ID = BRIDGE_MODEL_ID;
   private static readonly BRIDGE_NAME = "Philips hue";
 
   constructor(config: ConfigServiceConfig) {

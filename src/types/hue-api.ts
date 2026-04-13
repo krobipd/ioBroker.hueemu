@@ -19,16 +19,6 @@ export interface CreateUserRequest {
 }
 
 /**
- * User creation success response
- */
-export interface CreateUserSuccessResponse {
-  success: {
-    username: string;
-    clientkey?: string;
-  };
-}
-
-/**
  * Bridge whitelist entry
  */
 export interface WhitelistEntry {

@@ -134,13 +134,8 @@ class HueServer {
     server.get("/health", async () => ({ status: "ok" }));
     return server;
   }
-  /**
-   * Log a message
-   */
   log(level, message) {
-    if (this.logger) {
-      this.logger[level](message);
-    }
+    this.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

@@ -51,6 +51,12 @@ async function handleErrors(request, reply, handler) {
     }
   }
 }
+async function requireAuth(handler, username, address) {
+  const isAuth = await handler.isUserAuthenticated(username);
+  if (!isAuth && !handler.isAuthDisabled()) {
+    throw import_errors.HueApiError.unauthorizedUser(address);
+  }
+}
 async function apiV1Routes(fastify, options) {
   const { handler } = options;
   fastify.post("/api", async (request, reply) => {
@@ -70,10 +76,7 @@ async function apiV1Routes(fastify, options) {
       await handleErrors(request, reply, async () => {
         const hueReq = toHueRequest(request);
         const { username } = request.params;
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw import_errors.HueApiError.unauthorizedUser(`/api/${username}`);
-        }
+        await requireAuth(handler, username, `/api/${username}`);
         return handler.getFullState(hueReq, username);
       });
     }
@@ -94,10 +97,7 @@ async function apiV1Routes(fastify, options) {
       await handleErrors(request, reply, async () => {
         const hueReq = toHueRequest(request);
         const { username } = request.params;
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw import_errors.HueApiError.unauthorizedUser(`/api/${username}/lights`);
-        }
+        await requireAuth(handler, username, `/api/${username}/lights`);
         return handler.getAllLights(hueReq, username);
       });
     }
@@ -108,10 +108,7 @@ async function apiV1Routes(fastify, options) {
       await handleErrors(request, reply, async () => {
         const hueReq = toHueRequest(request);
         const { username, id } = request.params;
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw import_errors.HueApiError.unauthorizedUser(`/api/${username}/lights/${id}`);
-        }
+        await requireAuth(handler, username, `/api/${username}/lights/${id}`);
         return handler.getLightById(hueReq, username, id);
       });
     }
@@ -123,12 +120,11 @@ async function apiV1Routes(fastify, options) {
         const hueReq = toHueRequest(request);
         const { username, id } = request.params;
         const stateUpdate = request.body;
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw import_errors.HueApiError.unauthorizedUser(
-            `/api/${username}/lights/${id}/state`
-          );
-        }
+        await requireAuth(
+          handler,
+          username,
+          `/api/${username}/lights/${id}/state`
+        );
         if (!stateUpdate || typeof stateUpdate !== "object") {
           throw import_errors.HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
         }
@@ -143,12 +139,11 @@ async function apiV1Routes(fastify, options) {
         const hueReq = toHueRequest(request);
         const { username, id } = request.params;
         const stateUpdate = request.body;
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw import_errors.HueApiError.unauthorizedUser(
-            `/api/${username}/groups/${id}/action`
-          );
-        }
+        await requireAuth(
+          handler,
+          username,
+          `/api/${username}/groups/${id}/action`
+        );
         if (!stateUpdate || typeof stateUpdate !== "object") {
           throw import_errors.HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
         }
@@ -169,12 +164,11 @@ async function apiV1Routes(fastify, options) {
       async (request, reply) => {
         await handleErrors(request, reply, async () => {
           const { username } = request.params;
-          const isAuth = await handler.isUserAuthenticated(username);
-          if (!isAuth && !handler.isAuthDisabled()) {
-            throw import_errors.HueApiError.unauthorizedUser(
-              `/api/${username}/${collection}`
-            );
-          }
+          await requireAuth(
+            handler,
+            username,
+            `/api/${username}/${collection}`
+          );
           return {};
         });
       }

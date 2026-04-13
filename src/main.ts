@@ -16,7 +16,11 @@ import type {
   TlsConfig,
   Logger,
 } from "./types/config";
-import { generateBridgeId, generateSerialNumber } from "./types/config";
+import {
+  BRIDGE_MODEL_ID,
+  generateBridgeId,
+  generateSerialNumber,
+} from "./types/config";
 import { sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -187,14 +191,14 @@ export class HueEmu extends utils.Adapter {
       udn,
       mac,
       bridgeId: generateBridgeId(mac),
-      modelId: "BSB002",
+      modelId: BRIDGE_MODEL_ID,
       serialNumber: generateSerialNumber(mac),
     };
 
     // Build TLS config if HTTPS is enabled
     let https: TlsConfig | undefined;
     if (httpsPort) {
-      const cert = await this.generateCertificate();
+      const cert = this.generateCertificate();
       https = {
         port: httpsPort,
         cert: cert.certificate,
@@ -224,10 +228,10 @@ export class HueEmu extends utils.Adapter {
   /**
    * Generate a self-signed certificate for HTTPS
    */
-  private async generateCertificate(): Promise<{
+  private generateCertificate(): {
     certificate: string;
     privateKey: string;
-  }> {
+  } {
     this.log.debug("Generating self-signed certificate for HTTPS");
 
     const keys = forge.pki.rsa.generateKeyPair(2048);
@@ -426,10 +430,9 @@ export class HueEmu extends utils.Adapter {
             this.log.error(`Server stop error: ${err.message}`),
           );
       }
-
-      callback();
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);
+    } finally {
       callback();
     }
   }

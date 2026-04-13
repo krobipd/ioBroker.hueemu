@@ -78,6 +78,21 @@ async function handleErrors(
 }
 
 /**
+ * Verify the user is authenticated (or auth is disabled).
+ * Throws HueApiError.unauthorizedUser if not.
+ */
+async function requireAuth(
+  handler: HueApiHandler,
+  username: string,
+  address: string,
+): Promise<void> {
+  const isAuth = await handler.isUserAuthenticated(username);
+  if (!isAuth && !handler.isAuthDisabled()) {
+    throw HueApiError.unauthorizedUser(address);
+  }
+}
+
+/**
  * Fastify plugin that registers all Hue API v1 routes
  */
 export async function apiV1Routes(
@@ -108,12 +123,7 @@ export async function apiV1Routes(
       await handleErrors(request, reply, async () => {
         const hueReq = toHueRequest(request);
         const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}`);
-        }
-
+        await requireAuth(handler, username, `/api/${username}`);
         return handler.getFullState(hueReq, username);
       });
     },
@@ -140,12 +150,7 @@ export async function apiV1Routes(
       await handleErrors(request, reply, async () => {
         const hueReq = toHueRequest(request);
         const { username } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/lights`);
-        }
-
+        await requireAuth(handler, username, `/api/${username}/lights`);
         return handler.getAllLights(hueReq, username);
       });
     },
@@ -158,12 +163,7 @@ export async function apiV1Routes(
       await handleErrors(request, reply, async () => {
         const hueReq = toHueRequest(request);
         const { username, id } = request.params;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(`/api/${username}/lights/${id}`);
-        }
-
+        await requireAuth(handler, username, `/api/${username}/lights/${id}`);
         return handler.getLightById(hueReq, username, id);
       });
     },
@@ -177,13 +177,11 @@ export async function apiV1Routes(
         const hueReq = toHueRequest(request);
         const { username, id } = request.params;
         const stateUpdate = request.body as LightStateUpdate;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(
-            `/api/${username}/lights/${id}/state`,
-          );
-        }
+        await requireAuth(
+          handler,
+          username,
+          `/api/${username}/lights/${id}/state`,
+        );
 
         if (!stateUpdate || typeof stateUpdate !== "object") {
           throw HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
@@ -202,13 +200,11 @@ export async function apiV1Routes(
         const hueReq = toHueRequest(request);
         const { username, id } = request.params;
         const stateUpdate = request.body as LightStateUpdate;
-
-        const isAuth = await handler.isUserAuthenticated(username);
-        if (!isAuth && !handler.isAuthDisabled()) {
-          throw HueApiError.unauthorizedUser(
-            `/api/${username}/groups/${id}/action`,
-          );
-        }
+        await requireAuth(
+          handler,
+          username,
+          `/api/${username}/groups/${id}/action`,
+        );
 
         if (!stateUpdate || typeof stateUpdate !== "object") {
           throw HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
@@ -233,14 +229,11 @@ export async function apiV1Routes(
       async (request, reply) => {
         await handleErrors(request, reply, async () => {
           const { username } = request.params;
-
-          const isAuth = await handler.isUserAuthenticated(username);
-          if (!isAuth && !handler.isAuthDisabled()) {
-            throw HueApiError.unauthorizedUser(
-              `/api/${username}/${collection}`,
-            );
-          }
-
+          await requireAuth(
+            handler,
+            username,
+            `/api/${username}/${collection}`,
+          );
           return {};
         });
       },

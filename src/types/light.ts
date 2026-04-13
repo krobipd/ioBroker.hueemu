@@ -3,15 +3,12 @@
  */
 
 /**
- * Hue light types
+ * Hue light types (only types used by the emulator)
  */
 export type LightType =
-  | "On/Off light"
-  | "On/Off plug-in unit"
   | "Dimmable light"
   | "Color temperature light"
-  | "Extended color light"
-  | "Color light";
+  | "Extended color light";
 
 /**
  * Light color modes
@@ -59,75 +56,11 @@ export interface LightState {
 }
 
 /**
- * Light software update state
- */
-export interface LightSwUpdate {
-  state:
-    | "noupdates"
-    | "transferring"
-    | "installing"
-    | "readytoinstall"
-    | "anyreadytoinstall";
-  lastinstall: string;
-}
-
-/**
- * Light control capabilities
- */
-export interface LightControlCapabilities {
-  mindimlevel?: number;
-  maxlumen?: number;
-  colorgamuttype?: string;
-  colorgamut?: [[number, number], [number, number], [number, number]];
-  ct?: {
-    min: number;
-    max: number;
-  };
-}
-
-/**
- * Light streaming capabilities
- */
-export interface LightStreamingCapabilities {
-  renderer: boolean;
-  proxy: boolean;
-}
-
-/**
- * Light capabilities
- */
-export interface LightCapabilities {
-  certified: boolean;
-  control?: LightControlCapabilities;
-  streaming?: LightStreamingCapabilities;
-}
-
-/**
- * Light startup configuration
- */
-export interface LightStartup {
-  mode: "powerfail" | "lastonstate" | "custom";
-  configured: boolean;
-}
-
-/**
- * Light configuration
- */
-export interface LightConfig {
-  archetype?: string;
-  function?: string;
-  direction?: string;
-  startup?: LightStartup;
-}
-
-/**
  * Full light object as returned by the Hue API
  */
 export interface Light {
   /** Current light state */
   state: LightState;
-  /** Software update information */
-  swupdate?: LightSwUpdate;
   /** Light type */
   type: LightType;
   /** User-defined name */
@@ -138,18 +71,10 @@ export interface Light {
   manufacturername?: string;
   /** Product name */
   productname?: string;
-  /** Light capabilities */
-  capabilities?: LightCapabilities;
-  /** Light configuration */
-  config?: LightConfig;
   /** Unique ID (MAC-based) */
   uniqueid: string;
   /** Software version */
   swversion?: string;
-  /** Software config ID */
-  swconfigid?: string;
-  /** Product ID */
-  productid?: string;
 }
 
 /**

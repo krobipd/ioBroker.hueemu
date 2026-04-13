@@ -146,12 +146,12 @@ class HueEmu extends utils.Adapter {
       udn,
       mac,
       bridgeId: (0, import_config.generateBridgeId)(mac),
-      modelId: "BSB002",
+      modelId: import_config.BRIDGE_MODEL_ID,
       serialNumber: (0, import_config.generateSerialNumber)(mac)
     };
     let https;
     if (httpsPort) {
-      const cert = await this.generateCertificate();
+      const cert = this.generateCertificate();
       https = {
         port: httpsPort,
         cert: cert.certificate,
@@ -178,7 +178,7 @@ class HueEmu extends utils.Adapter {
   /**
    * Generate a self-signed certificate for HTTPS
    */
-  async generateCertificate() {
+  generateCertificate() {
     this.log.debug("Generating self-signed certificate for HTTPS");
     const keys = forge.pki.rsa.generateKeyPair(2048);
     const cert = forge.pki.createCertificate();
@@ -340,9 +340,9 @@ class HueEmu extends utils.Adapter {
           (err) => this.log.error(`Server stop error: ${err.message}`)
         );
       }
-      callback();
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);
+    } finally {
       callback();
     }
   }

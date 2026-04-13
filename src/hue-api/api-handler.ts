@@ -44,8 +44,8 @@ export interface ApiHandlerConfig {
   configServiceConfig: ConfigServiceConfig;
   /** Device configurations from admin UI */
   devices?: DeviceConfig[];
-  /** Optional logger */
-  logger?: Logger;
+  /** Logger */
+  logger: Logger;
 }
 
 /**
@@ -57,7 +57,7 @@ export class ApiHandler implements HueApiHandler {
   private readonly userService: UserService;
   private readonly lightService: DeviceBindingService;
   private readonly configService: ConfigService;
-  private readonly logger?: Logger;
+  private readonly logger: Logger;
 
   constructor(config: ApiHandlerConfig) {
     this.adapter = config.adapter;
@@ -266,17 +266,10 @@ export class ApiHandler implements HueApiHandler {
     return this.adapter.disableAuth;
   }
 
-  /**
-   * Log a message
-   */
   private log(
     level: "debug" | "info" | "warn" | "error",
     message: string,
   ): void {
-    if (this.logger) {
-      this.logger[level](message);
-    } else {
-      this.adapter.log[level](message);
-    }
+    this.logger[level](message);
   }
 }

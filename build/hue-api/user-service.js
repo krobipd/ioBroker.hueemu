@@ -47,46 +47,32 @@ class UserService {
     const safeUsername = (0, import_utils.sanitizeId)(username);
     this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
     await this.ensureClientsFolder();
-    return new Promise((resolve) => {
-      this.adapter.setObjectNotExists(
-        `clients.${safeUsername}`,
-        {
-          type: "state",
-          common: {
-            name: devicetype,
-            type: "string",
-            role: "text",
-            read: true,
-            write: false
-          },
-          native: { username }
+    try {
+      await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
+        type: "state",
+        common: {
+          name: devicetype,
+          type: "string",
+          role: "text",
+          read: true,
+          write: false
         },
-        (err) => {
-          if (err) {
-            this.log(
-              "warn",
-              `Failed to create client object ${safeUsername}: ${err}`
-            );
-          }
-          this.adapter.setState(
-            `clients.${safeUsername}`,
-            {
-              ack: true,
-              val: username
-            },
-            (err2) => {
-              if (err2) {
-                this.log(
-                  "warn",
-                  `Failed to set client state ${safeUsername}: ${err2}`
-                );
-              }
-              resolve();
-            }
-          );
-        }
+        native: { username }
+      });
+    } catch (err) {
+      this.log(
+        "warn",
+        `Failed to create client object ${safeUsername}: ${err}`
       );
-    });
+    }
+    try {
+      await this.adapter.setStateAsync(`clients.${safeUsername}`, {
+        ack: true,
+        val: username
+      });
+    } catch (err) {
+      this.log("warn", `Failed to set client state ${safeUsername}: ${err}`);
+    }
   }
   /**
    * Create a new user with optional provided username
@@ -101,57 +87,44 @@ class UserService {
    */
   async isUserAuthenticated(username) {
     const safeUsername = (0, import_utils.sanitizeId)(username);
-    return new Promise((resolve) => {
-      this.adapter.getStatesOf("clients", void 0, (err, stateObjects) => {
-        if (err || !stateObjects) {
-          this.log("debug", `No client states found: ${err}`);
-          resolve(false);
-          return;
-        }
-        const found = stateObjects.some((state) => {
-          const id = state._id.substring(this.adapter.namespace.length + 9);
-          return id === safeUsername;
-        });
-        if (found) {
-          this.log("debug", `Client authenticated: ${username}`);
-        }
-        resolve(found);
-      });
+    let stateObjects;
+    try {
+      stateObjects = await this.adapter.getStatesOfAsync("clients", void 0);
+    } catch (err) {
+      this.log("debug", `No client states found: ${err}`);
+      return false;
+    }
+    if (!stateObjects || stateObjects.length === 0) {
+      return false;
+    }
+    const found = stateObjects.some((state) => {
+      const id = state._id.substring(this.adapter.namespace.length + 9);
+      return id === safeUsername;
     });
+    if (found) {
+      this.log("debug", `Client authenticated: ${username}`);
+    }
+    return found;
   }
   /**
    * Ensure the clients folder exists
    */
   async ensureClientsFolder() {
-    return new Promise((resolve) => {
-      this.adapter.setObjectNotExists(
-        "clients",
-        {
-          type: "meta",
-          common: {
-            name: "Paired Clients",
-            type: "meta.folder"
-          },
-          native: {}
+    try {
+      await this.adapter.setObjectNotExistsAsync("clients", {
+        type: "meta",
+        common: {
+          name: "Paired Clients",
+          type: "meta.folder"
         },
-        (err) => {
-          if (err) {
-            this.log("warn", `Failed to create clients folder: ${err}`);
-          }
-          resolve();
-        }
-      );
-    });
-  }
-  /**
-   * Log a message
-   */
-  log(level, message) {
-    if (this.logger) {
-      this.logger[level](message);
-    } else {
-      this.adapter.log[level](message);
+        native: {}
+      });
+    } catch (err) {
+      this.log("warn", `Failed to create clients folder: ${err}`);
     }
+  }
+  log(level, message) {
+    this.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

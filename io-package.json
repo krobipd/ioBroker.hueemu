@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "news": {
+      "1.2.4": {
+        "en": "Dead code cleanup, DRY refactoring (requireAuth, MODEL_ID), UserService async API, safer onUnload",
+        "de": "Toter Code entfernt, DRY-Refactoring (requireAuth, MODEL_ID), UserService auf Async-API, sichereres onUnload",
+        "ru": "Удалён мёртвый код, DRY-рефакторинг (requireAuth, MODEL_ID), UserService на async API, безопасный onUnload",
+        "pt": "Código morto removido, refatoração DRY (requireAuth, MODEL_ID), UserService API assíncrona, onUnload mais seguro",
+        "nl": "Dode code verwijderd, DRY-refactoring (requireAuth, MODEL_ID), UserService async API, veiliger onUnload",
+        "fr": "Code mort supprimé, refactoring DRY (requireAuth, MODEL_ID), API async UserService, onUnload plus sûr",
+        "it": "Codice morto rimosso, refactoring DRY (requireAuth, MODEL_ID), API async UserService, onUnload più sicuro",
+        "es": "Código muerto eliminado, refactorización DRY (requireAuth, MODEL_ID), API async UserService, onUnload más seguro",
+        "pl": "Usunięto martwy kod, refaktoryzacja DRY (requireAuth, MODEL_ID), async API UserService, bezpieczniejszy onUnload",
+        "uk": "Видалено мертвий код, DRY-рефакторинг (requireAuth, MODEL_ID), async API UserService, безпечніший onUnload",
+        "zh-cn": "清理死代码，DRY重构（requireAuth、MODEL_ID），UserService异步API，更安全的onUnload"
+      },
       "1.2.3": {
         "en": "Extract shared sanitizeId utility (DRY), add Hue API constants, improve error handling, split tests into focused modules",
         "de": "Gemeinsame sanitizeId-Funktion extrahiert (DRY), Hue-API-Konstanten hinzugefügt, Fehlerbehandlung verbessert, Tests in fokussierte Module aufgeteilt",
@@ -80,19 +93,6 @@
         "pl": "Usunięto nieużywany stan info.connection (brak połączenia zewnętrznego)",
         "uk": "Видалено невикористаний стан info.connection (зовнішнє з'єднання відсутнє)",
         "zh-cn": "移除未使用的 info.connection 状态（无外部连接）"
-      },
-      "1.1.2": {
-        "en": "Compact startup log, move detail logs to debug level",
-        "de": "Kompakter Start-Log, Detail-Logs auf Debug-Level verschoben",
-        "ru": "Компактный стартовый лог, детальные логи перенесены на уровень debug",
-        "pt": "Log de inicialização compacto, logs de detalhe movidos para nível debug",
-        "nl": "Compact opstartlog, detaillogs verplaatst naar debugniveau",
-        "fr": "Log de démarrage compact, logs de détail déplacés au niveau debug",
-        "it": "Log di avvio compatto, log di dettaglio spostati a livello debug",
-        "es": "Registro de inicio compacto, registros de detalle movidos al nivel debug",
-        "pl": "Kompaktowy log startowy, logi szczegółowe przeniesione na poziom debug",
-        "uk": "Компактний стартовий лог, детальні логи переміщено на рівень debug",
-        "zh-cn": "紧凑的启动日志，详细日志移至debug级别"
       }
     },
     "titleLang": {
@@ -174,19 +174,6 @@
   },
   "objects": [],
   "instanceObjects": [
-    {
-      "_id": "createLight",
-      "type": "state",
-      "common": {
-        "name": "createLight",
-        "type": "string",
-        "read": true,
-        "write": true,
-        "role": "state",
-        "desc": "JSON to create lights manually (legacy mode)"
-      },
-      "native": {}
-    },
     {
       "_id": "startPairing",
       "type": "state",

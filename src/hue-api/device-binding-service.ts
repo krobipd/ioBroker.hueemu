@@ -100,7 +100,7 @@ export interface DeviceBindingAdapter {
 export interface DeviceBindingServiceConfig {
   adapter: DeviceBindingAdapter;
   devices: DeviceConfig[];
-  logger?: Logger;
+  logger: Logger;
 }
 
 /**
@@ -109,7 +109,7 @@ export interface DeviceBindingServiceConfig {
 export class DeviceBindingService {
   private readonly adapter: DeviceBindingAdapter;
   private readonly devices: DeviceConfig[];
-  private readonly logger?: Logger;
+  private readonly logger: Logger;
   private stateCache: Map<string, unknown> = new Map();
 
   constructor(config: DeviceBindingServiceConfig) {
@@ -506,17 +506,10 @@ export class DeviceBindingService {
     }
   }
 
-  /**
-   * Log a message
-   */
   private log(
     level: "debug" | "info" | "warn" | "error",
     message: string,
   ): void {
-    if (this.logger) {
-      this.logger[level](message);
-    } else {
-      this.adapter.log[level](message);
-    }
+    this.logger[level](message);
   }
 }

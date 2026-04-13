@@ -104,13 +104,8 @@ class HueSsdpServer {
   get running() {
     return this.isRunning;
   }
-  /**
-   * Log a message
-   */
   log(level, message) {
-    if (this.config.logger) {
-      this.config.logger[level](message);
-    }
+    this.config.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

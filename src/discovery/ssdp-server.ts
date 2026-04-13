@@ -31,8 +31,8 @@ export interface SsdpServerConfig {
   port: number;
   /** SSDP port (default: 1900) */
   ssdpPort?: number;
-  /** Optional logger */
-  logger?: Logger;
+  /** Logger */
+  logger: Logger;
 }
 
 /**
@@ -40,9 +40,7 @@ export interface SsdpServerConfig {
  */
 export class HueSsdpServer {
   private server: SsdpServer | null = null;
-  private readonly config: Required<Omit<SsdpServerConfig, "logger">> & {
-    logger?: Logger;
-  };
+  private readonly config: Required<SsdpServerConfig>;
   private isRunning = false;
 
   constructor(config: SsdpServerConfig) {
@@ -136,15 +134,10 @@ export class HueSsdpServer {
     return this.isRunning;
   }
 
-  /**
-   * Log a message
-   */
   private log(
     level: "debug" | "info" | "warn" | "error",
     message: string,
   ): void {
-    if (this.config.logger) {
-      this.config.logger[level](message);
-    }
+    this.config.logger[level](message);
   }
 }

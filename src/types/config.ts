@@ -58,6 +58,9 @@ export interface Logger {
   error(message: string): void;
 }
 
+/** Hue Bridge model ID (BSB002 = Bridge v2) */
+export const BRIDGE_MODEL_ID = "BSB002";
+
 /**
  * Generate bridge ID from MAC address
  */
