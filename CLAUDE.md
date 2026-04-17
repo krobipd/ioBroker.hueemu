@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für Alexa, Google Home, Harmony Hub.
 
-- **Version:** 1.2.3 (April 2026)
+- **Version:** 1.2.4 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED)
@@ -69,7 +69,7 @@ test/integration.js        → standard: @iobroker/testing integration (CI only)
 
 **WICHTIG:** .gitignore hat `*.js` — test/package.js und test/integration.js haben Ausnahmen!
 
-Nicht getestet (bewusst): UserService (Callback-API), ApiHandler (Orchestrator), SSDP (Netzwerk).
+Nicht getestet (bewusst): UserService (Async-API), ApiHandler (Orchestrator), SSDP (Netzwerk).
 
 ## FORBIDDEN_CHARS
 
@@ -80,6 +80,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.2.4 | Dead code cleanup, DRY (requireAuth, BRIDGE_MODEL_ID), UserService async, try/finally onUnload, logger required |
 | 1.2.3 | DRY refactoring (sanitizeId, Hue-Konstanten), Tests aufgeteilt (5 Module) |
 | 1.2.2 | CI cleanup (actions/checkout entfernt), readme URL master→main |
 | 1.2.1 | Standard-Tests (integration.js, package.js), FORBIDDEN_CHARS sanitization, CHANGELOG.md entfernt |
@@ -93,7 +94,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 ```bash
 npm run build           # Production (esbuild)
 npm run build:test      # Test build (tsc)
-npm run test:ts         # Custom Unit-Tests (136)
+npm run test:ts         # Custom Unit-Tests (146)
 npm run test:package    # Standard Package-Tests (57)
 npm run test:integration # Standard Integration-Tests (CI)
 npm test                # test:ts + test:package (lokal)
