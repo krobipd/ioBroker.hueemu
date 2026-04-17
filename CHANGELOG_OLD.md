@@ -1,5 +1,8 @@
 # Older Changes
 
+## 1.1.3 (2026-04-05)
+- Remove unused `info.connection` state (no external connection to track)
+
 ## 1.1.2 (2026-04-05)
 - Compact startup log, move detail logs to debug level
 

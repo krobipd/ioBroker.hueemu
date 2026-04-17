@@ -147,6 +147,12 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.2.5 (2026-04-17)
+- Reposition adapter for legacy Hue-only clients (older Echo, Logitech Harmony, Bosch Smart Home Controller, etc.) and point modern voice-assistant users at the official Matter adapter
+- Rewrite `titleLang`, `desc` and `package.json` description; fix broken translations across all 11 languages
+- Drop Harmony brand-drop from `hostTooltip` in admin UI (all 11 languages)
+- README cleanup: remove filler sentences and parenthetical brand lists
+
 ### 1.2.4 (2026-04-13)
 - Remove dead types from light model (6 unused interfaces, 3 unused LightType variants)
 - Refactor UserService from callback to async API (removes ~40 lines boilerplate)
@@ -183,9 +189,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.1.4 (2026-04-05)
 - Clean up obsolete `info.connection` state, remove empty parent folders after state cleanup
-
-### 1.1.3 (2026-04-05)
-- Remove unused `info.connection` state (no external connection to track)
 
 Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

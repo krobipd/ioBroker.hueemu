@@ -4,9 +4,9 @@
 
 ## Projekt
 
-**ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für Alexa, Google Home, Harmony Hub.
+**ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.2.4 (April 2026)
+- **Version:** 1.2.5 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED)
@@ -80,6 +80,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.2.5 | Docs-Release: Matter-aware repositioning, Metadaten in 11 Sprachen neu geschrieben, Harmony-Namedrop aus i18n raus |
 | 1.2.4 | Dead code cleanup, DRY (requireAuth, BRIDGE_MODEL_ID), UserService async, try/finally onUnload, logger required |
 | 1.2.3 | DRY refactoring (sanitizeId, Hue-Konstanten), Tests aufgeteilt (5 Module) |
 | 1.2.2 | CI cleanup (actions/checkout entfernt), readme URL master→main |

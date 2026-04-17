@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.4",
+    "version": "1.2.5",
     "news": {
+      "1.2.5": {
+        "en": "Documentation: reframe for legacy Hue-only clients, rewrite metadata across all 11 languages",
+        "de": "Dokumentation: Neu positioniert für ältere Hue-only-Clients, Metadaten in 11 Sprachen überarbeitet",
+        "ru": "Документация: переработка для старых Hue-only-клиентов, обновлены метаданные на 11 языках",
+        "pt": "Documentação: repositionada para clientes antigos somente Hue, metadados reescritos em 11 idiomas",
+        "nl": "Documentatie: herpositionering voor oudere Hue-only clients, metadata herschreven in 11 talen",
+        "fr": "Documentation : repositionnement pour les clients anciens supportant uniquement Hue, métadonnées réécrites dans 11 langues",
+        "it": "Documentazione: riposizionamento per client datati che supportano solo Hue, metadati riscritti in 11 lingue",
+        "es": "Documentación: reposicionamiento para clientes antiguos que solo admiten Hue, metadatos reescritos en 11 idiomas",
+        "pl": "Dokumentacja: nowe pozycjonowanie dla starszych klientów obsługujących tylko Hue, metadane przepisane w 11 językach",
+        "uk": "Документація: репозиціонування для старих Hue-only клієнтів, метадані оновлено 11 мовами",
+        "zh-cn": "文档：重新定位为面向仅支持 Hue 的旧客户端，11 种语言的元数据已重写"
+      },
       "1.2.4": {
         "en": "Dead code cleanup, DRY refactoring (requireAuth, MODEL_ID), UserService async API, safer onUnload",
         "de": "Toter Code entfernt, DRY-Refactoring (requireAuth, MODEL_ID), UserService auf Async-API, sichereres onUnload",
@@ -80,19 +93,6 @@
         "pl": "Usunięcie przestarzałego stanu info.connection, usuwanie pustych folderów nadrzędnych po czyszczeniu",
         "uk": "Очищення застарілого стану info.connection, видалення порожніх батьківських папок після очищення",
         "zh-cn": "清理过时的 info.connection 状态，状态清理后删除空父文件夹"
-      },
-      "1.1.3": {
-        "en": "Remove unused info.connection state (no external connection to track)",
-        "de": "Ungenutzten info.connection State entfernt (keine externe Verbindung vorhanden)",
-        "ru": "Удалено неиспользуемое состояние info.connection (нет внешнего подключения)",
-        "pt": "Removido estado info.connection não utilizado (sem conexão externa)",
-        "nl": "Ongebruikte info.connection status verwijderd (geen externe verbinding)",
-        "fr": "Suppression de l état info.connection inutilisé (pas de connexion externe)",
-        "it": "Rimosso stato info.connection inutilizzato (nessuna connessione esterna)",
-        "es": "Eliminado estado info.connection no utilizado (sin conexión externa)",
-        "pl": "Usunięto nieużywany stan info.connection (brak połączenia zewnętrznego)",
-        "uk": "Видалено невикористаний стан info.connection (зовнішнє з'єднання відсутнє)",
-        "zh-cn": "移除未使用的 info.connection 状态（无外部连接）"
       }
     },
     "titleLang": {
