@@ -11,16 +11,26 @@
 
 <img src="https://raw.githubusercontent.com/krobipd/ioBroker.hueemu/main/admin/hue-emu-logo.png" width="100" />
 
-Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so that ioBroker devices can be controlled via Alexa, Google Home, and other Hue-compatible smart home systems.
+Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so that ioBroker devices appear as Hue lights to clients that only support the Hue API.
+
+---
+
+## When to use this adapter
+
+**Use it if you want to control ioBroker states from an older device or app that only speaks the Hue API.** Examples: Logitech Harmony Hub, Bosch Smart Home Controller, legacy Echo firmware, in-wall touch panels, abandoned dashboard apps, old control systems with a Hue plugin.
+
+### Modern Alexa, Google Home or Apple Home — use the Matter adapter instead
+
+Modern voice assistants all support Matter directly. Use the [ioBroker Matter adapter](https://github.com/ioBroker/ioBroker.matter) — it's the right tool for that. This adapter is only for clients that don't have a Matter option.
 
 ---
 
 ## Features
 
-- **Hue Bridge Emulation** — Full Hue API v1 compatibility
-- **UPnP/SSDP Discovery** — Automatic detection by smart home systems
-- **Modern Admin UI** — JSON-Config for easy device configuration
-- **Flexible Device Types** — On/Off, Dimmable, Color Temperature, RGB lights
+- **Hue API v1** — Bridge model BSB002 (Hue Bridge v2)
+- **UPnP/SSDP Discovery** — Automatic detection by any Hue-compatible client
+- **Direct state mapping** — Point to any ioBroker state, no bridge scripts
+- **Light types** — On/Off, Dimmable, Color Temperature, RGB
 
 ---
 
@@ -37,7 +47,7 @@ Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so tha
 | Port | Protocol | Purpose | Configurable |
 |------|----------|---------|--------------|
 | 8080 | TCP/HTTP | Hue Bridge API | Yes — clients are informed via SSDP |
-| 1900 | UDP      | SSDP/UPnP Discovery | No — fixed (all UPnP clients including Harmony, Alexa, Google Home scan exactly this port) |
+| 1900 | UDP      | SSDP/UPnP Discovery | No — fixed by the UPnP standard |
 | —    | TCP/HTTPS | Optional TLS (if configured) | Yes |
 
 ---
@@ -72,13 +82,15 @@ Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so tha
 
 ### Pairing
 
-Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing must be activated:
+Before any client can connect, pairing must be activated:
 
 1. ioBroker Objects → `hueemu.0` → set **`startPairing`** to `true`
 2. Start the device search / pairing in your client app within **50 seconds**
 3. After successful pairing a new entry appears under `hueemu.0.clients.*`
 
-### Connecting with Alexa
+### Connecting with Alexa (older Echo without Matter)
+
+> If you have a current Echo, use the [Matter adapter](https://github.com/ioBroker/ioBroker.matter) instead.
 
 > **Tip:** If Alexa cannot find the bridge, try changing the HTTP port to **80** in the adapter settings — some Alexa firmware versions only discover bridges on port 80.
 
@@ -100,7 +112,7 @@ Before any client (Alexa, Google Home, Harmony Hub, etc.) can connect, pairing m
 hueemu.0.
 ├── startPairing         — Enable pairing mode for 50 seconds (button)
 ├── disableAuth          — Disable authentication (switch)
-└── clients/             — Paired client devices (Alexa, Google Home, Harmony Hub, etc.)
+└── clients/             — Paired client devices
     └── {username}       — Client API key (created during pairing)
 ```
 
@@ -112,7 +124,7 @@ hueemu.0.
 
 If you used the old `createLight` JSON state to define lights, your devices are **automatically migrated** on first start. The adapter reads your existing device objects, converts them to the new admin configuration format, and restarts once. No manual action required — your existing scripts and automations continue to work as before.
 
-**Optional improvement:** The old system used internal adapter states as intermediaries, requiring separate scripts to control the actual devices. You can now open the adapter settings and change the state mappings to point **directly** to your device states (e.g. `hm-rpc.0.dimmer.LEVEL` instead of `hueemu.0.1.state.bri`). This eliminates the need for bridge scripts entirely.
+**Optional improvement:** The old system used internal adapter states as intermediaries, requiring separate scripts to control the actual devices. You can now open the adapter settings and change the state mappings to point **directly** to your device states (e.g. `hm-rpc.0.dimmer.LEVEL` instead of `hueemu.0.1.state.bri`).
 
 ### Bridge not found
 
@@ -183,7 +195,7 @@ Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 **Original Author:** Christopher Holomek ([@holomekc](https://github.com/holomekc))
 
-**Modernization (2026):** krobi
+**Modernization:** krobi
 
 ---
 

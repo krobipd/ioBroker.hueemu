@@ -1,7 +1,7 @@
 {
   "name": "iobroker.hueemu",
   "version": "1.2.4",
-  "description": "Hue Bridge Emulator - Modernized 2026",
+  "description": "ioBroker adapter that emulates a Philips Hue Bridge (v2)",
   "author": {
     "name": "Christopher Holomek",
     "email": "holomekc.github@gmail.com"
