@@ -30,6 +30,19 @@ const HUE_CT_MIN = 153;
 const HUE_CT_MAX = 500;
 const HUE_CT_DEFAULT = 250;
 const HUE_XY_DEFAULT = [0.5, 0.5];
+function coerceFiniteNumber(v) {
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return v;
+  }
+  if (typeof v === "string" && v.length > 0) {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+function clampRound(v, min, max) {
+  return Math.min(max, Math.max(min, Math.round(v)));
+}
 const LIGHT_TYPES = {
   onoff: {
     name: "Dimmable light",
@@ -283,53 +296,60 @@ class DeviceBindingService {
           return value !== "false" && value !== "0" && value !== "";
         }
         return Boolean(value);
-      case "bri":
-        if (typeof value === "number") {
-          if (value <= 1) {
-            return Math.round(value * HUE_BRI_MAX);
-          } else if (value <= 100) {
-            return Math.max(
-              HUE_BRI_MIN,
-              Math.round(value / 100 * HUE_BRI_MAX)
-            );
-          }
-          return Math.min(
-            HUE_BRI_MAX,
-            Math.max(HUE_BRI_MIN, Math.round(value))
-          );
+      case "bri": {
+        const n = coerceFiniteNumber(value);
+        if (n === null) {
+          return HUE_BRI_MAX;
         }
-        return HUE_BRI_MAX;
-      case "hue":
-        if (typeof value === "number") {
-          return Math.min(HUE_HUE_MAX, Math.max(0, Math.round(value)));
+        if (n <= 1) {
+          return Math.round(n * HUE_BRI_MAX);
         }
-        return 0;
-      case "sat":
-        if (typeof value === "number") {
-          if (value <= 1) {
-            return Math.round(value * HUE_SAT_MAX);
-          } else if (value <= 100) {
-            return Math.round(value / 100 * HUE_SAT_MAX);
-          }
-          return Math.min(HUE_SAT_MAX, Math.max(0, Math.round(value)));
+        if (n <= 100) {
+          return Math.max(HUE_BRI_MIN, Math.round(n / 100 * HUE_BRI_MAX));
         }
-        return HUE_SAT_MAX;
-      case "ct":
-        if (typeof value === "number") {
-          return Math.min(HUE_CT_MAX, Math.max(HUE_CT_MIN, Math.round(value)));
+        return clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+      }
+      case "hue": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+      }
+      case "sat": {
+        const n = coerceFiniteNumber(value);
+        if (n === null) {
+          return HUE_SAT_MAX;
         }
-        return HUE_CT_DEFAULT;
-      case "xy":
+        if (n <= 1) {
+          return Math.round(n * HUE_SAT_MAX);
+        }
+        if (n <= 100) {
+          return Math.round(n / 100 * HUE_SAT_MAX);
+        }
+        return clampRound(n, 0, HUE_SAT_MAX);
+      }
+      case "ct": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+      }
+      case "xy": {
         if (Array.isArray(value) && value.length >= 2) {
-          return value.slice(0, 2);
+          const x = coerceFiniteNumber(value[0]);
+          const y = coerceFiniteNumber(value[1]);
+          if (x !== null && y !== null) {
+            return [x, y];
+          }
         }
         if (typeof value === "string") {
-          const parts = value.split(",").map(Number);
-          if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-            return parts.slice(0, 2);
+          const parts = value.split(",");
+          if (parts.length >= 2) {
+            const x = coerceFiniteNumber(parts[0]);
+            const y = coerceFiniteNumber(parts[1]);
+            if (x !== null && y !== null) {
+              return [x, y];
+            }
           }
         }
         return HUE_XY_DEFAULT;
+      }
       default:
         return value;
     }
@@ -341,21 +361,29 @@ class DeviceBindingService {
     switch (stateName) {
       case "on":
         return Boolean(value);
-      case "bri":
-        return typeof value === "number" ? Math.min(HUE_BRI_MAX, Math.max(HUE_BRI_MIN, value)) : HUE_BRI_MAX;
-      case "hue":
-        return typeof value === "number" ? Math.min(HUE_HUE_MAX, Math.max(0, value)) : 0;
-      case "sat":
-        return typeof value === "number" ? Math.min(HUE_SAT_MAX, Math.max(0, value)) : HUE_SAT_MAX;
-      case "ct":
-        return typeof value === "number" ? Math.min(HUE_CT_MAX, Math.max(HUE_CT_MIN, value)) : HUE_CT_DEFAULT;
+      case "bri": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? HUE_BRI_MAX : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+      }
+      case "hue": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+      }
+      case "sat": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? HUE_SAT_MAX : clampRound(n, 0, HUE_SAT_MAX);
+      }
+      case "ct": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+      }
       case "xy":
         if (Array.isArray(value)) {
           return JSON.stringify(value);
         }
         return String(value);
       default:
-        if (typeof value === "object") {
+        if (value !== null && typeof value === "object") {
           return JSON.stringify(value);
         }
         return value;

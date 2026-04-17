@@ -103,19 +103,29 @@ export class ApiHandler implements HueApiHandler {
     req: HueRequest,
     body: CreateUserRequest,
   ): Promise<string> {
+    // Sanitize devicetype at the boundary — routes already require string,
+    // but belt-and-braces in case createUser is called from another path.
+    const devicetype =
+      typeof body.devicetype === "string" && body.devicetype.length > 0
+        ? body.devicetype
+        : "unknown";
+
     this.log(
       "debug",
-      `Pairing request: devicetype=${body.devicetype}, generateclientkey=${body.generateclientkey}`,
+      `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`,
     );
 
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw HueApiError.linkButtonNotPressed("/api");
     }
 
-    // Use provided username or generate new one
-    const providedUsername = (req.body as Record<string, unknown>)?.username as
-      | string
-      | undefined;
+    // Use provided username only if it's a non-empty string; otherwise generate
+    const rawUsername = (req.body as Record<string, unknown> | undefined)
+      ?.username;
+    const providedUsername =
+      typeof rawUsername === "string" && rawUsername.length > 0
+        ? rawUsername
+        : undefined;
 
     if (providedUsername) {
       this.log("debug", `Using provided username: ${providedUsername}`);
@@ -123,9 +133,9 @@ export class ApiHandler implements HueApiHandler {
 
     const username = await this.userService.createUser(
       providedUsername,
-      body.devicetype,
+      devicetype,
     );
-    this.log("info", `Paired client "${body.devicetype}" as user ${username}`);
+    this.log("info", `Paired client "${devicetype}" as user ${username}`);
 
     // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
     this.adapter.pairingEnabled = false;

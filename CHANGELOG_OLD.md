@@ -1,5 +1,8 @@
 # Older Changes
 
+## 1.1.4 (2026-04-05)
+- Clean up obsolete `info.connection` state, remove empty parent folders after state cleanup
+
 ## 1.1.3 (2026-04-05)
 - Remove unused `info.connection` state (no external connection to track)
 

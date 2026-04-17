@@ -147,6 +147,11 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### 1.2.6 (2026-04-18)
+- Harden request-body validation on all write endpoints (POST /api, PUT /lights/:id/state, PUT /groups/:id/action): reject arrays and wrong-typed `devicetype`, keep Hue-style error responses
+- Harden numeric coercion in both directions on `bri`, `hue`, `sat`, `ct`, `xy`: reject `NaN`/`Infinity`, round fractional values, fall back to defaults on junk input
+- Expand test coverage 146 → 226 (add `testApiRoutes`, `testApiHandler`, `testUserService`, plus edge-case cases for value conversion)
+
 ### 1.2.5 (2026-04-17)
 - Reposition adapter for legacy Hue-only clients (older Echo, Logitech Harmony, Bosch Smart Home Controller, etc.) and point modern voice-assistant users at the official Matter adapter
 - Rewrite `titleLang`, `desc` and `package.json` description; fix broken translations across all 11 languages
@@ -186,9 +191,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.2.0 (2026-04-06)
 - Rename `user` folder to `clients` — clearer naming for paired endpoints (Alexa, Harmony, etc.)
 - Automatic migration of existing paired clients on startup
-
-### 1.1.4 (2026-04-05)
-- Clean up obsolete `info.connection` state, remove empty parent folders after state cleanup
 
 Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

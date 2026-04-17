@@ -62,10 +62,11 @@ async function apiV1Routes(fastify, options) {
   fastify.post("/api", async (request, reply) => {
     await handleErrors(request, reply, async () => {
       const hueReq = toHueRequest(request);
-      const body = request.body;
-      if (!body || !body.devicetype) {
+      const raw = request.body;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof raw.devicetype !== "string" || raw.devicetype.length === 0) {
         throw import_errors.HueApiError.missingParameters("/api");
       }
+      const body = raw;
       const username = await handler.createUser(hueReq, body);
       return (0, import_error_handler.createSuccessResponse)({ username });
     });
@@ -125,7 +126,7 @@ async function apiV1Routes(fastify, options) {
           username,
           `/api/${username}/lights/${id}/state`
         );
-        if (!stateUpdate || typeof stateUpdate !== "object") {
+        if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
           throw import_errors.HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
         }
         return handler.setLightState(hueReq, username, id, stateUpdate);
@@ -144,7 +145,7 @@ async function apiV1Routes(fastify, options) {
           username,
           `/api/${username}/groups/${id}/action`
         );
-        if (!stateUpdate || typeof stateUpdate !== "object") {
+        if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
           throw import_errors.HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
         }
         return handler.setGroupAction(hueReq, username, id, stateUpdate);

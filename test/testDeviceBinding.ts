@@ -651,6 +651,137 @@ describe("DeviceBindingService", () => {
         expect(light.state.xy).to.deep.equal([0.5, 0.5]);
       });
     });
+
+    // API-drift guards: malformed foreign-state values must not produce NaN/
+    // Infinity or leak non-primitive values into the Hue response.
+    describe("malformed foreign-state values (reading)", () => {
+      it("bri NaN falls back to default 254", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri" }],
+          { "test.bri": Number.NaN },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.bri).to.equal(254);
+      });
+
+      it("bri Infinity falls back to default 254", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri" }],
+          { "test.bri": Number.POSITIVE_INFINITY },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.bri).to.equal(254);
+      });
+
+      it("bri object falls back to default 254", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri" }],
+          { "test.bri": { nested: 42 } },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.bri).to.equal(254);
+      });
+
+      it('bri numeric string "50" converts as percentage', async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri" }],
+          { "test.bri": "50" },
+        );
+        const light = await service.getLightById("1");
+        // 50/100 * 254 = 127
+        expect(light.state.bri).to.equal(127);
+      });
+
+      it("hue NaN falls back to 0", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", hueState: "test.hue" }],
+          { "test.hue": Number.NaN },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.hue).to.equal(0);
+      });
+
+      it('hue numeric string "12345" is coerced', async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", hueState: "test.hue" }],
+          { "test.hue": "12345" },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.hue).to.equal(12345);
+      });
+
+      it("sat NaN falls back to default 254", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", satState: "test.sat" }],
+          { "test.sat": Number.NaN },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.sat).to.equal(254);
+      });
+
+      it("ct NaN falls back to default 250", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "ct", ctState: "test.ct" }],
+          { "test.ct": Number.NaN },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.ct).to.equal(250);
+      });
+
+      it("ct -Infinity falls back to default 250", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "ct", ctState: "test.ct" }],
+          { "test.ct": Number.NEGATIVE_INFINITY },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.ct).to.equal(250);
+      });
+
+      it('ct numeric string "200" is coerced', async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "ct", ctState: "test.ct" }],
+          { "test.ct": "200" },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.ct).to.equal(200);
+      });
+
+      it("xy array with NaN entry falls back to default", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", xyState: "test.xy" }],
+          { "test.xy": [Number.NaN, 0.4] },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+      });
+
+      it("xy array with non-numeric entries falls back to default", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", xyState: "test.xy" }],
+          { "test.xy": ["foo", "bar"] },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+      });
+
+      it('xy string "nan,0.4" falls back to default', async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", xyState: "test.xy" }],
+          { "test.xy": "nan,0.4" },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+      });
+
+      it('xy string of numeric values "0.33,0.29" parses', async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", xyState: "test.xy" }],
+          { "test.xy": "0.33,0.29" },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.xy).to.deep.equal([0.33, 0.29]);
+      });
+    });
   });
 
   // =====================================================================
@@ -720,6 +851,106 @@ describe("DeviceBindingService", () => {
       ]);
       await service.setLightState("1", { xy: [0.3, 0.4] });
       expect(adapter.writtenStates.get("test.xy")).to.equal("[0.3,0.4]");
+    });
+
+    // API-drift guards: malformed incoming Hue-client values must not leak
+    // NaN / Infinity / non-primitive payloads into ioBroker states.
+    describe("malformed incoming Hue values (writing)", () => {
+      it("bri NaN falls back to default 254", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "dimmable", briState: "test.bri" },
+        ]);
+        await service.setLightState("1", {
+          bri: Number.NaN,
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.bri")).to.equal(254);
+      });
+
+      it("bri Infinity clamps to 254", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "dimmable", briState: "test.bri" },
+        ]);
+        await service.setLightState("1", {
+          bri: Number.POSITIVE_INFINITY,
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.bri")).to.equal(254);
+      });
+
+      it("bri fractional value is rounded", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "dimmable", briState: "test.bri" },
+        ]);
+        await service.setLightState("1", { bri: 200.7 });
+        expect(adapter.writtenStates.get("test.bri")).to.equal(201);
+      });
+
+      it('bri numeric string "150" is coerced', async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "dimmable", briState: "test.bri" },
+        ]);
+        await service.setLightState("1", {
+          bri: "150",
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.bri")).to.equal(150);
+      });
+
+      it("hue NaN falls back to 0", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "color", hueState: "test.hue" },
+        ]);
+        await service.setLightState("1", {
+          hue: Number.NaN,
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.hue")).to.equal(0);
+      });
+
+      it("hue object falls back to 0", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "color", hueState: "test.hue" },
+        ]);
+        await service.setLightState("1", {
+          hue: { foo: 1 },
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.hue")).to.equal(0);
+      });
+
+      it("sat Infinity clamps to 254", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "color", satState: "test.sat" },
+        ]);
+        await service.setLightState("1", {
+          sat: Number.POSITIVE_INFINITY,
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.sat")).to.equal(254);
+      });
+
+      it("ct NaN falls back to default 250", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "ct", ctState: "test.ct" },
+        ]);
+        await service.setLightState("1", {
+          ct: Number.NaN,
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.ct")).to.equal(250);
+      });
+
+      it('ct numeric string "200" is coerced', async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "ct", ctState: "test.ct" },
+        ]);
+        await service.setLightState("1", {
+          ct: "200",
+        } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.ct")).to.equal(200);
+      });
+
+      it("ct fractional is rounded", async () => {
+        const { service, adapter } = createService([
+          { name: "Test", lightType: "ct", ctState: "test.ct" },
+        ]);
+        await service.setLightState("1", { ct: 200.4 });
+        expect(adapter.writtenStates.get("test.ct")).to.equal(200);
+      });
     });
   });
 

@@ -105,12 +105,20 @@ export async function apiV1Routes(
   fastify.post("/api", async (request: FastifyRequest, reply: FastifyReply) => {
     await handleErrors(request, reply, async () => {
       const hueReq = toHueRequest(request);
-      const body = request.body as CreateUserRequest;
+      const raw = request.body;
 
-      if (!body || !body.devicetype) {
+      // Body must be a plain object with a non-empty string devicetype
+      if (
+        !raw ||
+        typeof raw !== "object" ||
+        Array.isArray(raw) ||
+        typeof (raw as Record<string, unknown>).devicetype !== "string" ||
+        ((raw as Record<string, unknown>).devicetype as string).length === 0
+      ) {
         throw HueApiError.missingParameters("/api");
       }
 
+      const body = raw as CreateUserRequest;
       const username = await handler.createUser(hueReq, body);
       return createSuccessResponse({ username });
     });
@@ -183,7 +191,11 @@ export async function apiV1Routes(
           `/api/${username}/lights/${id}/state`,
         );
 
-        if (!stateUpdate || typeof stateUpdate !== "object") {
+        if (
+          !stateUpdate ||
+          typeof stateUpdate !== "object" ||
+          Array.isArray(stateUpdate)
+        ) {
           throw HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
         }
 
@@ -206,7 +218,11 @@ export async function apiV1Routes(
           `/api/${username}/groups/${id}/action`,
         );
 
-        if (!stateUpdate || typeof stateUpdate !== "object") {
+        if (
+          !stateUpdate ||
+          typeof stateUpdate !== "object" ||
+          Array.isArray(stateUpdate)
+        ) {
           throw HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
         }
 

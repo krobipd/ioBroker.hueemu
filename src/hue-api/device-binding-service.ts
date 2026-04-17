@@ -24,6 +24,35 @@ const HUE_CT_DEFAULT = 250;
 const HUE_XY_DEFAULT: [number, number] = [0.5, 0.5];
 
 /**
+ * Coerce a value to a finite number. Accepts numbers and numeric strings.
+ * Returns null for anything else — guards against malformed state values
+ * from foreign adapters and malformed Hue client payloads.
+ *
+ * @param v Value to coerce
+ */
+function coerceFiniteNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return v;
+  }
+  if (typeof v === "string" && v.length > 0) {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * Clamp a finite number into an integer range.
+ *
+ * @param v Finite input number
+ * @param min Minimum (inclusive)
+ * @param max Maximum (inclusive)
+ */
+function clampRound(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(v)));
+}
+
+/**
  * Light type definitions matching the admin UI
  */
 const LIGHT_TYPES = {
@@ -382,60 +411,66 @@ export class DeviceBindingService {
           return value !== "false" && value !== "0" && value !== "";
         }
         return Boolean(value);
-      case "bri":
+      case "bri": {
         // Convert percentage (0-100) to Hue brightness (1-254)
-        if (typeof value === "number") {
-          if (value <= 1) {
-            // Already in 0-1 range, convert to 1-254
-            return Math.round(value * HUE_BRI_MAX);
-          } else if (value <= 100) {
-            // Percentage, convert to 1-254
-            return Math.max(
-              HUE_BRI_MIN,
-              Math.round((value / 100) * HUE_BRI_MAX),
-            );
-          }
-          return Math.min(
-            HUE_BRI_MAX,
-            Math.max(HUE_BRI_MIN, Math.round(value)),
-          );
+        const n = coerceFiniteNumber(value);
+        if (n === null) {
+          return HUE_BRI_MAX;
         }
-        return HUE_BRI_MAX;
-      case "hue":
-        // Hue is 0-65535
-        if (typeof value === "number") {
-          return Math.min(HUE_HUE_MAX, Math.max(0, Math.round(value)));
+        if (n <= 1) {
+          // Already in 0-1 range, convert to 1-254
+          return Math.round(n * HUE_BRI_MAX);
         }
-        return 0;
-      case "sat":
-        // Saturation is 0-254
-        if (typeof value === "number") {
-          if (value <= 1) {
-            return Math.round(value * HUE_SAT_MAX);
-          } else if (value <= 100) {
-            return Math.round((value / 100) * HUE_SAT_MAX);
-          }
-          return Math.min(HUE_SAT_MAX, Math.max(0, Math.round(value)));
+        if (n <= 100) {
+          // Percentage, convert to 1-254
+          return Math.max(HUE_BRI_MIN, Math.round((n / 100) * HUE_BRI_MAX));
         }
-        return HUE_SAT_MAX;
-      case "ct":
-        // Color temperature in mireds (153-500)
-        if (typeof value === "number") {
-          return Math.min(HUE_CT_MAX, Math.max(HUE_CT_MIN, Math.round(value)));
+        return clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+      }
+      case "hue": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+      }
+      case "sat": {
+        const n = coerceFiniteNumber(value);
+        if (n === null) {
+          return HUE_SAT_MAX;
         }
-        return HUE_CT_DEFAULT;
-      case "xy":
-        // XY as array [x, y]
+        if (n <= 1) {
+          return Math.round(n * HUE_SAT_MAX);
+        }
+        if (n <= 100) {
+          return Math.round((n / 100) * HUE_SAT_MAX);
+        }
+        return clampRound(n, 0, HUE_SAT_MAX);
+      }
+      case "ct": {
+        const n = coerceFiniteNumber(value);
+        return n === null
+          ? HUE_CT_DEFAULT
+          : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+      }
+      case "xy": {
+        // XY as array [x, y] — both entries must be finite numbers
         if (Array.isArray(value) && value.length >= 2) {
-          return value.slice(0, 2) as [number, number];
+          const x = coerceFiniteNumber(value[0]);
+          const y = coerceFiniteNumber(value[1]);
+          if (x !== null && y !== null) {
+            return [x, y] as [number, number];
+          }
         }
         if (typeof value === "string") {
-          const parts = value.split(",").map(Number);
-          if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-            return parts.slice(0, 2) as [number, number];
+          const parts = value.split(",");
+          if (parts.length >= 2) {
+            const x = coerceFiniteNumber(parts[0]);
+            const y = coerceFiniteNumber(parts[1]);
+            if (x !== null && y !== null) {
+              return [x, y] as [number, number];
+            }
           }
         }
         return HUE_XY_DEFAULT;
+      }
       default:
         return value;
     }
@@ -451,29 +486,33 @@ export class DeviceBindingService {
     switch (stateName) {
       case "on":
         return Boolean(value);
-      case "bri":
-        return typeof value === "number"
-          ? Math.min(HUE_BRI_MAX, Math.max(HUE_BRI_MIN, value))
-          : HUE_BRI_MAX;
-      case "hue":
-        return typeof value === "number"
-          ? Math.min(HUE_HUE_MAX, Math.max(0, value))
-          : 0;
-      case "sat":
-        return typeof value === "number"
-          ? Math.min(HUE_SAT_MAX, Math.max(0, value))
-          : HUE_SAT_MAX;
-      case "ct":
-        return typeof value === "number"
-          ? Math.min(HUE_CT_MAX, Math.max(HUE_CT_MIN, value))
-          : HUE_CT_DEFAULT;
+      case "bri": {
+        const n = coerceFiniteNumber(value);
+        return n === null
+          ? HUE_BRI_MAX
+          : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+      }
+      case "hue": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+      }
+      case "sat": {
+        const n = coerceFiniteNumber(value);
+        return n === null ? HUE_SAT_MAX : clampRound(n, 0, HUE_SAT_MAX);
+      }
+      case "ct": {
+        const n = coerceFiniteNumber(value);
+        return n === null
+          ? HUE_CT_DEFAULT
+          : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+      }
       case "xy":
         if (Array.isArray(value)) {
           return JSON.stringify(value);
         }
         return String(value);
       default:
-        if (typeof value === "object") {
+        if (value !== null && typeof value === "object") {
           return JSON.stringify(value);
         }
         return value as ioBroker.StateValue;

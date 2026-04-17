@@ -64,22 +64,24 @@ class ApiHandler {
    */
   async createUser(req, body) {
     var _a;
+    const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
     this.log(
       "debug",
-      `Pairing request: devicetype=${body.devicetype}, generateclientkey=${body.generateclientkey}`
+      `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`
     );
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw import_errors.HueApiError.linkButtonNotPressed("/api");
     }
-    const providedUsername = (_a = req.body) == null ? void 0 : _a.username;
+    const rawUsername = (_a = req.body) == null ? void 0 : _a.username;
+    const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : void 0;
     if (providedUsername) {
       this.log("debug", `Using provided username: ${providedUsername}`);
     }
     const username = await this.userService.createUser(
       providedUsername,
-      body.devicetype
+      devicetype
     );
-    this.log("info", `Paired client "${body.devicetype}" as user ${username}`);
+    this.log("info", `Paired client "${devicetype}" as user ${username}`);
     this.adapter.pairingEnabled = false;
     return username;
   }

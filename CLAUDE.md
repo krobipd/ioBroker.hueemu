@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.2.5 (April 2026)
+- **Version:** 1.2.6 (April 2026)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED)
@@ -54,14 +54,17 @@ src/types/                        → config, errors, hue-api, light
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (146 custom + 57 standard = 203)
+## Tests (226 custom + 57 standard = 283)
 
 ```
 test/testUtils.ts          → 10: sanitizeId (shared utility)
 test/testErrors.ts         → 16: HueApiError, createSuccessResponse
 test/testConfig.ts         → 25: generateBridgeId, generateSerialNumber, ConfigService
 test/testDiscovery.ts      → 10: UPnP description XML, URL building
-test/testDeviceBinding.ts  → 85: DeviceBindingService, value conversion, light types
+test/testDeviceBinding.ts  → 109: DeviceBindingService, value conversion, edge cases (NaN/Infinity/objects)
+test/testUserService.ts    → 18: addUser sanitization, createUser, isUserAuthenticated
+test/testApiHandler.ts     → 18: auth/pairing gates, malformed devicetype, fallback
+test/testApiRoutes.ts      → 18: Fastify route tests (inject), body validation, auth
 test/testHelpers.ts        → Shared mock factories (no tests)
 test/package.js            → 57 standard: @iobroker/testing packageFiles
 test/integration.js        → standard: @iobroker/testing integration (CI only)
@@ -69,7 +72,7 @@ test/integration.js        → standard: @iobroker/testing integration (CI only)
 
 **WICHTIG:** .gitignore hat `*.js` — test/package.js und test/integration.js haben Ausnahmen!
 
-Nicht getestet (bewusst): UserService (Async-API), ApiHandler (Orchestrator), SSDP (Netzwerk).
+API-Drift-Härtung: incoming Hue-API bodies und foreign-state values werden type-guarded.
 
 ## FORBIDDEN_CHARS
 
@@ -80,6 +83,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.2.6 | API-Boundary-Härtung: Type-Guards für eingehende Hue-Bodies, numerische Koerzierung (NaN/Infinity/Schrottwerte) für bri/hue/sat/ct/xy, Tests 146 → 226 |
 | 1.2.5 | Docs-Release: Matter-aware repositioning, Metadaten in 11 Sprachen neu geschrieben, Harmony-Namedrop aus i18n raus |
 | 1.2.4 | Dead code cleanup, DRY (requireAuth, BRIDGE_MODEL_ID), UserService async, try/finally onUnload, logger required |
 | 1.2.3 | DRY refactoring (sanitizeId, Hue-Konstanten), Tests aufgeteilt (5 Module) |

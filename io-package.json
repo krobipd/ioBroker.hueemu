@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.5",
+    "version": "1.2.6",
     "news": {
+      "1.2.6": {
+        "en": "Harden boundaries: type-guard incoming Hue-API bodies, coerce numeric fields (bri/hue/sat/ct/xy) against NaN/Infinity/non-string junk; expand tests 146 → 226",
+        "de": "Härtung der API-Grenzen: Typ-Guards für eingehende Hue-API-Bodies, numerische Felder (bri/hue/sat/ct/xy) robust gegen NaN/Infinity/Schrottwerte; Tests 146 → 226",
+        "ru": "Усиление границ API: типовые проверки входящих тел Hue-API, числовые поля (bri/hue/sat/ct/xy) защищены от NaN/Infinity/мусора; тесты 146 → 226",
+        "pt": "Fortalecimento das fronteiras: type guards para corpos Hue-API recebidos, campos numéricos (bri/hue/sat/ct/xy) robustos contra NaN/Infinity/lixo; testes 146 → 226",
+        "nl": "Grenzen verhard: type-guards voor inkomende Hue-API-bodies, numerieke velden (bri/hue/sat/ct/xy) bestand tegen NaN/Infinity/rommel; tests 146 → 226",
+        "fr": "Renforcement des frontières : type-guards sur les corps Hue-API entrants, champs numériques (bri/hue/sat/ct/xy) blindés contre NaN/Infinity/valeurs invalides ; tests 146 → 226",
+        "it": "Rinforzo dei confini: type-guard sui body Hue-API in ingresso, campi numerici (bri/hue/sat/ct/xy) robusti contro NaN/Infinity/spazzatura; test 146 → 226",
+        "es": "Endurecimiento de límites: type-guards para cuerpos Hue-API entrantes, campos numéricos (bri/hue/sat/ct/xy) a prueba de NaN/Infinity/basura; pruebas 146 → 226",
+        "pl": "Wzmocnienie granic: type-guardy dla przychodzących ciał Hue-API, pola numeryczne (bri/hue/sat/ct/xy) odporne na NaN/Infinity/śmieci; testy 146 → 226",
+        "uk": "Посилення меж: type-guards для вхідних тіл Hue-API, числові поля (bri/hue/sat/ct/xy) стійкі до NaN/Infinity/сміття; тести 146 → 226",
+        "zh-cn": "API边界加固：对进入的Hue-API请求体做类型守卫，数值字段（bri/hue/sat/ct/xy）对NaN/Infinity/异常值健壮化；测试146 → 226"
+      },
       "1.2.5": {
         "en": "Documentation: reframe for legacy Hue-only clients, rewrite metadata across all 11 languages",
         "de": "Dokumentation: Neu positioniert für ältere Hue-only-Clients, Metadaten in 11 Sprachen überarbeitet",
@@ -80,19 +93,6 @@
         "pl": "Zmiana nazwy folderu user na clients — jaśniejsze nazewnictwo dla sparowanych urządzeń, automatyczna migracja",
         "uk": "Папку user перейменовано на clients — зрозуміліша назва для підключених пристроїв, автоматична міграція",
         "zh-cn": "将 user 文件夹重命名为 clients — 更清晰的已配对端点命名，自动迁移"
-      },
-      "1.1.4": {
-        "en": "Clean up obsolete info.connection state, remove empty parent folders after state cleanup",
-        "de": "Veralteten info.connection State aufräumen, leere Eltern-Ordner nach State-Cleanup löschen",
-        "ru": "Очистка устаревшего состояния info.connection, удаление пустых родительских папок после очистки",
-        "pt": "Limpar estado info.connection obsoleto, remover pastas pai vazias após limpeza de estados",
-        "nl": "Verouderde info.connection status opruimen, lege bovenliggende mappen verwijderen na opschonen",
-        "fr": "Nettoyage de l'état info.connection obsolète, suppression des dossiers parents vides après nettoyage",
-        "it": "Pulizia stato info.connection obsoleto, rimozione cartelle padre vuote dopo pulizia stati",
-        "es": "Limpiar estado info.connection obsoleto, eliminar carpetas padre vacías tras limpieza de estados",
-        "pl": "Usunięcie przestarzałego stanu info.connection, usuwanie pustych folderów nadrzędnych po czyszczeniu",
-        "uk": "Очищення застарілого стану info.connection, видалення порожніх батьківських папок після очищення",
-        "zh-cn": "清理过时的 info.connection 状态，状态清理后删除空父文件夹"
       }
     },
     "titleLang": {
