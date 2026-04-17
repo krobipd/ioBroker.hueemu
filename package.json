@@ -9,11 +9,11 @@
   "contributors": [
     {
       "name": "krobi",
-      "role": "Modernization & Optimization (2026)"
+      "role": "Modernization & Optimization"
     },
     {
-      "name": "AI Assistant",
-      "role": "Architecture & Implementation Support (2026)"
+      "name": "Claude (Anthropic)",
+      "role": "Coding assistance"
     }
   ],
   "homepage": "https://github.com/krobipd/ioBroker.hueemu",
