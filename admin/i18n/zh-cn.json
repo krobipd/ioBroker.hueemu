@@ -2,7 +2,7 @@
     "networkSettings": "网络",
     "serverSettings": "服务器",
     "host": "主机 / IP地址",
-    "hostTooltip": "选择监听的网络接口。此IP也通过SSDP广播——Harmony等客户端通过此地址连接。",
+    "hostTooltip": "选择监听的网络接口。此IP也通过SSDP广播——客户端通过此地址连接。",
     "port": "端口",
     "portTooltip": "Hue API的HTTP端口（默认：8080）",
     "advancedSettings": "高级（可选）",

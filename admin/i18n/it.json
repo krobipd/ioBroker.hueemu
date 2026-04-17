@@ -2,7 +2,7 @@
     "networkSettings": "Rete",
     "serverSettings": "Server",
     "host": "Host / Indirizzo IP",
-    "hostTooltip": "Seleziona l'interfaccia di rete. Questo IP viene anche annunciato via SSDP — Harmony e altri client si connettono a questo indirizzo.",
+    "hostTooltip": "Seleziona l'interfaccia di rete. Questo IP viene anche annunciato via SSDP — i client si connettono a questo indirizzo.",
     "port": "Porta",
     "portTooltip": "Porta HTTP per l'API Hue (predefinito: 8080)",
     "advancedSettings": "Avanzato (opzionale)",
