@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "news": {
+      "1.2.7": {
+        "en": "Proactive sync with parcelapp v0.2.14 learnings: tsconfig.test.json now emits to build-test/ instead of build/ (prevents build/src + build/test duplicates), declare clients as instance object (meta/folder, 11 languages), wrap async onReady with .catch() as defense-in-depth",
+        "de": "Proaktive Übernahme der parcelapp v0.2.14 Learnings: tsconfig.test.json schreibt nach build-test/ statt build/ (verhindert build/src + build/test Duplikate), clients als instance object deklariert (meta/folder, 11 Sprachen), async onReady mit .catch() gehärtet",
+        "ru": "Проактивная синхронизация с учётом уроков parcelapp v0.2.14: tsconfig.test.json собирает в build-test/ вместо build/ (предотвращает дубли build/src + build/test), clients объявлен как instance object (meta/folder, 11 языков), async onReady обёрнут в .catch()",
+        "pt": "Sincronização proativa com as lições do parcelapp v0.2.14: tsconfig.test.json agora emite para build-test/ em vez de build/ (evita duplicados build/src + build/test), clients declarado como instance object (meta/folder, 11 línguas), onReady assíncrono envolvido em .catch()",
+        "nl": "Proactieve synchronisatie met parcelapp v0.2.14 learnings: tsconfig.test.json schrijft naar build-test/ in plaats van build/ (voorkomt build/src + build/test duplicaten), clients als instance object gedeclareerd (meta/folder, 11 talen), async onReady omhuld met .catch()",
+        "fr": "Synchronisation proactive avec les enseignements de parcelapp v0.2.14 : tsconfig.test.json émet vers build-test/ au lieu de build/ (évite les doublons build/src + build/test), clients déclaré comme instance object (meta/folder, 11 langues), onReady asynchrone protégé par .catch()",
+        "it": "Sincronizzazione proattiva con i learning di parcelapp v0.2.14: tsconfig.test.json emette in build-test/ invece di build/ (previene duplicati build/src + build/test), clients dichiarato come instance object (meta/folder, 11 lingue), onReady asincrono protetto con .catch()",
+        "es": "Sincronización proactiva con aprendizajes de parcelapp v0.2.14: tsconfig.test.json escribe en build-test/ en lugar de build/ (evita duplicados build/src + build/test), clients declarado como instance object (meta/folder, 11 idiomas), onReady asíncrono protegido con .catch()",
+        "pl": "Proaktywna synchronizacja z parcelapp v0.2.14: tsconfig.test.json zapisuje do build-test/ zamiast build/ (zapobiega duplikatom build/src + build/test), clients zadeklarowany jako instance object (meta/folder, 11 języków), asynchroniczny onReady zabezpieczony .catch()",
+        "uk": "Проактивна синхронізація з уроками parcelapp v0.2.14: tsconfig.test.json збирає у build-test/ замість build/ (запобігає дублям build/src + build/test), clients оголошено як instance object (meta/folder, 11 мов), async onReady захищено .catch()",
+        "zh-cn": "主动采纳 parcelapp v0.2.14 经验教训：tsconfig.test.json 改为输出到 build-test/ 而非 build/（避免 build/src + build/test 重复），将 clients 声明为 instance object（meta/folder，11 种语言），异步 onReady 使用 .catch() 加固"
+      },
       "1.2.6": {
         "en": "Harden boundaries: type-guard incoming Hue-API bodies, coerce numeric fields (bri/hue/sat/ct/xy) against NaN/Infinity/non-string junk; expand tests 146 → 226",
         "de": "Härtung der API-Grenzen: Typ-Guards für eingehende Hue-API-Bodies, numerische Felder (bri/hue/sat/ct/xy) robust gegen NaN/Infinity/Schrottwerte; Tests 146 → 226",
@@ -80,19 +93,6 @@
         "pl": "Przywrócono standardowe testy integracyjne, sanityzacja FORBIDDEN_CHARS dla ID obiektów, usunięto CHANGELOG.md",
         "uk": "Відновлено стандартні інтеграційні тести, санітизація FORBIDDEN_CHARS для ID об'єктів, видалено CHANGELOG.md",
         "zh-cn": "恢复标准集成测试，添加 FORBIDDEN_CHARS 对象ID清理，删除 CHANGELOG.md"
-      },
-      "1.2.0": {
-        "en": "Rename user folder to clients — clearer naming for paired endpoints, automatic migration",
-        "de": "Ordner user in clients umbenannt — klarere Bezeichnung für verbundene Endgeräte, automatische Migration",
-        "ru": "Переименование папки user в clients — более чёткое название для подключённых устройств, автоматическая миграция",
-        "pt": "Renomear pasta user para clients — nomenclatura mais clara para endpoints emparelhados, migração automática",
-        "nl": "Map user hernoemd naar clients — duidelijkere naamgeving voor gekoppelde apparaten, automatische migratie",
-        "fr": "Dossier user renommé en clients — nommage plus clair pour les appareils appairés, migration automatique",
-        "it": "Cartella user rinominata in clients — denominazione più chiara per endpoint accoppiati, migrazione automatica",
-        "es": "Carpeta user renombrada a clients — nomenclatura más clara para endpoints emparejados, migración automática",
-        "pl": "Zmiana nazwy folderu user na clients — jaśniejsze nazewnictwo dla sparowanych urządzeń, automatyczna migracja",
-        "uk": "Папку user перейменовано на clients — зрозуміліша назва для підключених пристроїв, автоматична міграція",
-        "zh-cn": "将 user 文件夹重命名为 clients — 更清晰的已配对端点命名，自动迁移"
       }
     },
     "titleLang": {

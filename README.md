@@ -146,8 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-
-### **WORK IN PROGRESS**
+### 1.2.7 (2026-04-23)
 - Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
 - Declare `clients` meta-folder as an instance object so the parent exists before `clients.<username>` children are created dynamically by the user service.
 - Wrap async `onReady` handler with `.catch()` as defense-in-depth — keeps the adapter from turning a future refactor error into an unhandled rejection → restart loop.
@@ -182,24 +181,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Enforce `no-floating-promises` as error
 - Split monolithic test file into focused modules (146 tests)
 - Fix duplicate io-package.json news entry
-
-### 1.2.2 (2026-04-11)
-- Remove redundant `actions/checkout@v6` from CI workflow (ioBroker testing actions handle checkout internally)
-- Fix `readme` URL in io-package.json (master → main)
-
-### 1.2.1 (2026-04-08)
-- Restore standard integration tests (create-adapter compatible)
-- Add FORBIDDEN_CHARS sanitization for all external object IDs
-- Remove CHANGELOG.md (changelog in README + CHANGELOG_OLD.md)
-- Remove dead code, clean up empty JSDoc stubs
-
-### 1.2.0 (2026-04-06)
-- Rename `user` folder to `clients` — clearer naming for paired endpoints (Alexa, Harmony, etc.)
-- Automatic migration of existing paired clients on startup
-
-Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
-
----
 
 ## Credits
 
