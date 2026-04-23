@@ -147,6 +147,11 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 
+### **WORK IN PROGRESS**
+- Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
+- Declare `clients` meta-folder as an instance object so the parent exists before `clients.<username>` children are created dynamically by the user service.
+- Wrap async `onReady` handler with `.catch()` as defense-in-depth — keeps the adapter from turning a future refactor error into an unhandled rejection → restart loop.
+
 ### 1.2.6 (2026-04-18)
 - Harden request-body validation on all write endpoints (POST /api, PUT /lights/:id/state, PUT /groups/:id/action): reject arrays and wrong-typed `devicetype`, keep Hue-style error responses
 - Harden numeric coercion in both directions on `bri`, `hue`, `sat`, `ct`, `xy`: reject `NaN`/`Infinity`, round fractional values, fall back to defaults on junk input

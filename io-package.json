@@ -199,6 +199,27 @@
         "desc": "Disable authentication (allow all requests)"
       },
       "native": {}
+    },
+    {
+      "_id": "clients",
+      "type": "meta",
+      "common": {
+        "name": {
+          "en": "Paired Clients",
+          "de": "Verbundene Clients",
+          "ru": "Связанные клиенты",
+          "pt": "Clientes emparelhados",
+          "nl": "Gekoppelde clients",
+          "fr": "Clients appariés",
+          "it": "Client accoppiati",
+          "es": "Clientes emparejados",
+          "pl": "Sparowane klienty",
+          "uk": "Спарені клієнти",
+          "zh-cn": "已配对客户端"
+        },
+        "type": "meta.folder"
+      },
+      "native": {}
     }
   ]
 }

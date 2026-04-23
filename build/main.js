@@ -53,7 +53,13 @@ class HueEmu extends utils.Adapter {
       ...options,
       name: "hueemu"
     });
-    this.on("ready", this.onReady.bind(this));
+    this.on("ready", () => {
+      this.onReady().catch(
+        (err) => this.log.error(
+          `onReady failed: ${err instanceof Error ? err.message : String(err)}`
+        )
+      );
+    });
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
   }

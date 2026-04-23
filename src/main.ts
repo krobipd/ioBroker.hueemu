@@ -61,7 +61,16 @@ export class HueEmu extends utils.Adapter {
       name: "hueemu",
     });
 
-    this.on("ready", this.onReady.bind(this));
+    // Defense in depth: even though onReady has an inner try/catch, wrap the
+    // async handler so a future refactor that moves code outside the try block
+    // cannot turn a bug into an unhandled promise rejection (→ SIGKILL → loop).
+    this.on("ready", () => {
+      this.onReady().catch((err: unknown) =>
+        this.log.error(
+          `onReady failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    });
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
   }
