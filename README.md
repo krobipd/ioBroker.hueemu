@@ -146,6 +146,13 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+
+### **WORK IN PROGRESS**
+- Process-level `unhandledRejection` / `uncaughtException` handlers added as last-line-of-defence against fire-and-forget rejections.
+- Stop shipping the `manual-review` release-script plugin — adapter-only consequence.
+- Min js-controller correction: was `>=7.0.0`, restored to repochecker-recommended `>=6.0.11` (Source: `ioBroker.repochecker/lib/M1000_IOPackageJson.js`).
+- `@types/iobroker` bumped to `^7.1.1`.
+
 ### 1.2.7 (2026-04-23)
 - Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
 - Declare `clients` meta-folder as an instance object so the parent exists before `clients.<username>` children are created dynamically by the user service.

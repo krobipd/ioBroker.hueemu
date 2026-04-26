@@ -54,6 +54,8 @@ export class HueEmu extends utils.Adapter {
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
   private apiHandler: ApiHandler | null = null;
+  private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
+  private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({
@@ -73,6 +75,20 @@ export class HueEmu extends utils.Adapter {
     });
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
+
+    // Last-line-of-defence against unhandled rejections / sync throws from
+    // fire-and-forget paths. The per-handler wrappers cover documented async
+    // paths; this catches anything that slips past during refactors.
+    this.unhandledRejectionHandler = (reason: unknown) => {
+      this.log.error(
+        `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`,
+      );
+    };
+    this.uncaughtExceptionHandler = (err: Error) => {
+      this.log.error(`Uncaught exception: ${err.message}`);
+    };
+    process.on("unhandledRejection", this.unhandledRejectionHandler);
+    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
 
   get pairingEnabled(): boolean {
@@ -438,6 +454,16 @@ export class HueEmu extends utils.Adapter {
           .catch((err: Error) =>
             this.log.error(`Server stop error: ${err.message}`),
           );
+      }
+
+      // Detach process-level last-line-of-defence handlers
+      if (this.unhandledRejectionHandler) {
+        process.off("unhandledRejection", this.unhandledRejectionHandler);
+        this.unhandledRejectionHandler = null;
+      }
+      if (this.uncaughtExceptionHandler) {
+        process.off("uncaughtException", this.uncaughtExceptionHandler);
+        this.uncaughtExceptionHandler = null;
       }
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);

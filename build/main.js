@@ -48,6 +48,8 @@ class HueEmu extends utils.Adapter {
   hueServer = null;
   ssdpServer = null;
   apiHandler = null;
+  unhandledRejectionHandler = null;
+  uncaughtExceptionHandler = null;
   constructor(options = {}) {
     super({
       ...options,
@@ -62,6 +64,16 @@ class HueEmu extends utils.Adapter {
     });
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
+    this.unhandledRejectionHandler = (reason) => {
+      this.log.error(
+        `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`
+      );
+    };
+    this.uncaughtExceptionHandler = (err) => {
+      this.log.error(`Uncaught exception: ${err.message}`);
+    };
+    process.on("unhandledRejection", this.unhandledRejectionHandler);
+    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
   get pairingEnabled() {
     return this._pairingEnabled;
@@ -345,6 +357,14 @@ class HueEmu extends utils.Adapter {
         this.hueServer.stop().catch(
           (err) => this.log.error(`Server stop error: ${err.message}`)
         );
+      }
+      if (this.unhandledRejectionHandler) {
+        process.off("unhandledRejection", this.unhandledRejectionHandler);
+        this.unhandledRejectionHandler = null;
+      }
+      if (this.uncaughtExceptionHandler) {
+        process.off("uncaughtException", this.uncaughtExceptionHandler);
+        this.uncaughtExceptionHandler = null;
       }
     } catch (error) {
       this.log.error(`Error during shutdown: ${error}`);

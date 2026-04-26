@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.2.7 (WIP — proactive sync with parcelapp v0.2.14 learnings)
+- **Version:** 1.2.8 (2026-04-26 — process.on defense + js-controller >=6.0.11 + manual-review-plugin raus)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED)
@@ -83,7 +83,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
-| 1.2.7 (WIP) | tsconfig.test.json → outDir `./build-test` (verhindert `build/src`+`build/test`-Duplikate), `clients` als instanceObject (meta/folder, 11-sprachig), `.catch()`-Wrapper für onReady (defense-in-depth) |
+| 1.2.7 | tsconfig.test.json → outDir `./build-test` (verhindert `build/src`+`build/test`-Duplikate), `clients` als instanceObject (meta/folder, 11-sprachig), `.catch()`-Wrapper für onReady (defense-in-depth) |
 | 1.2.6 | API-Boundary-Härtung: Type-Guards für eingehende Hue-Bodies, numerische Koerzierung (NaN/Infinity/Schrottwerte) für bri/hue/sat/ct/xy, Tests 146 → 226 |
 | 1.2.5 | Docs-Release: Matter-aware repositioning, Metadaten in 11 Sprachen neu geschrieben, Harmony-Namedrop aus i18n raus |
 | 1.2.4 | Dead code cleanup, DRY (requireAuth, BRIDGE_MODEL_ID), UserService async, try/finally onUnload, logger required |
