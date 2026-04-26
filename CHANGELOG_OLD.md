@@ -1,4 +1,14 @@
 # Older Changes
+## 1.2.3 (2026-04-11)
+- Extract shared `sanitizeId` utility module (DRY)
+- Add Hue API value range constants for readability
+- Add pairing timeout constant
+- Improve callback error handling in UserService
+- Replace `as any` with type-safe casts in DeviceBindingService
+- Enforce `no-floating-promises` as error
+- Split monolithic test file into focused modules (146 tests)
+- Fix duplicate io-package.json news entry
+
 ## 1.2.2 (2026-04-11)
 - Remove redundant `actions/checkout@v6` from CI workflow (ioBroker testing actions handle checkout internally)
 - Fix `readme` URL in io-package.json (master → main)

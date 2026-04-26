@@ -37,7 +37,7 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 ## Requirements
 
 - **Node.js >= 20**
-- **ioBroker js-controller >= 7.0.0**
+- **ioBroker js-controller >= 6.0.11**
 - **ioBroker Admin >= 7.6.20**
 
 ---
@@ -146,8 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-
-### **WORK IN PROGRESS**
+### 1.2.8 (2026-04-26)
 - Process-level `unhandledRejection` / `uncaughtException` handlers added as last-line-of-defence against fire-and-forget rejections.
 - Stop shipping the `manual-review` release-script plugin — adapter-only consequence.
 - Min js-controller correction: was `>=7.0.0`, restored to repochecker-recommended `>=6.0.11` (Source: `ioBroker.repochecker/lib/M1000_IOPackageJson.js`).
@@ -178,16 +177,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Use `try/finally` in onUnload for safer shutdown
 - Remove dead `createLight` instanceObject from io-package.json
 - Remove synchronous `generateCertificate` from being unnecessarily async
-
-### 1.2.3 (2026-04-11)
-- Extract shared `sanitizeId` utility module (DRY)
-- Add Hue API value range constants for readability
-- Add pairing timeout constant
-- Improve callback error handling in UserService
-- Replace `as any` with type-safe casts in DeviceBindingService
-- Enforce `no-floating-promises` as error
-- Split monolithic test file into focused modules (146 tests)
-- Fix duplicate io-package.json news entry
 
 ## Credits
 

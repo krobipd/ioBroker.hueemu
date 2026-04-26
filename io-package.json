@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.7",
+    "version": "1.2.8",
     "news": {
+      "1.2.8": {
+        "en": "Process-level unhandledRejection/uncaughtException handlers added as last-line-of-defence. Stop shipping the manual-review release-script plugin. Min js-controller correction: was >=7.0.0, restored to repochecker-recommended >=6.0.11 (Source: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker bumped to ^7.1.1.",
+        "de": "Process-level unhandledRejection/uncaughtException-Handler als Last-Line-of-Defence hinzugefügt. Das manual-review-Release-Script-Plugin entfällt. js-controller-Mindestversion-Korrektur: war >=7.0.0, korrigiert auf Repochecker-recommended >=6.0.11 (Quelle: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker auf ^7.1.1 angehoben.",
+        "ru": "Process-level обробники unhandledRejection/uncaughtException додано як last-line-of-defence. Manual-review release-script plugin більше не постачається. Корекція мінімальної версії js-controller: було >=7.0.0, відновлено на repochecker-recommended >=6.0.11 (Джерело: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker оновлено до ^7.1.1.",
+        "pt": "Handlers process-level unhandledRejection/uncaughtException adicionados como last-line-of-defence. O plugin manual-review do release-script foi removido. Correção da versão mínima de js-controller: era >=7.0.0, restaurada para repochecker-recommended >=6.0.11 (Fonte: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker atualizado para ^7.1.1.",
+        "nl": "Process-level unhandledRejection/uncaughtException-handlers toegevoegd als last-line-of-defence. Het manual-review release-script plugin wordt niet meer meegeleverd. Correctie minimale js-controller-versie: was >=7.0.0, hersteld naar repochecker-recommended >=6.0.11 (Bron: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker verhoogd naar ^7.1.1.",
+        "fr": "Handlers process-level unhandledRejection/uncaughtException ajoutés en last-line-of-defence. Le plugin manual-review du release-script n'est plus livré. Correction de la version minimale de js-controller: était >=7.0.0, restaurée à repochecker-recommended >=6.0.11 (Source: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker porté à ^7.1.1.",
+        "it": "Handler process-level unhandledRejection/uncaughtException aggiunti come last-line-of-defence. Il plugin manual-review del release-script non viene più distribuito. Correzione versione minima di js-controller: era >=7.0.0, ripristinata a repochecker-recommended >=6.0.11 (Fonte: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker alzato a ^7.1.1.",
+        "es": "Handlers process-level unhandledRejection/uncaughtException añadidos como last-line-of-defence. El plugin manual-review del release-script ya no se incluye. Corrección de versión mínima js-controller: era >=7.0.0, restaurada a repochecker-recommended >=6.0.11 (Fuente: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker elevado a ^7.1.1.",
+        "pl": "Handlery process-level unhandledRejection/uncaughtException dodane jako last-line-of-defence. Plugin manual-review release-script nie jest już dostarczany. Korekcja minimalnej wersji js-controller: było >=7.0.0, przywrócono do repochecker-recommended >=6.0.11 (Źródło: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker podniesione do ^7.1.1.",
+        "uk": "Process-level обробники unhandledRejection/uncaughtException додано як last-line-of-defence. Manual-review release-script plugin більше не постачається. Корекція мінімальної версії js-controller: було >=7.0.0, відновлено на repochecker-recommended >=6.0.11 (Джерело: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker оновлено до ^7.1.1.",
+        "zh-cn": "新增进程级 unhandledRejection/uncaughtException 处理器作为 last-line-of-defence。manual-review release-script 插件不再随包发布。js-controller 最低版本更正：从 >=7.0.0 恢复为 repochecker 推荐的 >=6.0.11（来源：ioBroker.repochecker/lib/M1000_IOPackageJson.js）。@types/iobroker 升级至 ^7.1.1。"
+      },
       "1.2.7": {
         "en": "Proactive sync with parcelapp v0.2.14 learnings: tsconfig.test.json now emits to build-test/ instead of build/ (prevents build/src + build/test duplicates), declare clients as instance object (meta/folder, 11 languages), wrap async onReady with .catch() as defense-in-depth",
         "de": "Proaktive Übernahme der parcelapp v0.2.14 Learnings: tsconfig.test.json schreibt nach build-test/ statt build/ (verhindert build/src + build/test Duplikate), clients als instance object deklariert (meta/folder, 11 Sprachen), async onReady mit .catch() gehärtet",
@@ -80,19 +93,6 @@
         "pl": "Usunięto nadmiarowy actions/checkout z workflow CI, poprawiono URL readme (master→main)",
         "uk": "Видалено зайвий actions/checkout з CI-воркфлоу, виправлено URL readme (master→main)",
         "zh-cn": "从CI工作流中移除多余的actions/checkout，修正readme URL（master→main）"
-      },
-      "1.2.1": {
-        "en": "Restore standard integration tests, add FORBIDDEN_CHARS sanitization for object IDs, remove CHANGELOG.md",
-        "de": "Standard-Integrationstests wiederhergestellt, FORBIDDEN_CHARS-Sanitisierung für Objekt-IDs, CHANGELOG.md entfernt",
-        "ru": "Восстановлены стандартные интеграционные тесты, добавлена санитизация FORBIDDEN_CHARS для ID объектов, удалён CHANGELOG.md",
-        "pt": "Testes de integração padrão restaurados, sanitização FORBIDDEN_CHARS para IDs de objetos, CHANGELOG.md removido",
-        "nl": "Standaard integratietests hersteld, FORBIDDEN_CHARS-sanitisatie voor object-ID's, CHANGELOG.md verwijderd",
-        "fr": "Tests d'intégration standard restaurés, assainissement FORBIDDEN_CHARS pour les ID d'objets, CHANGELOG.md supprimé",
-        "it": "Test di integrazione standard ripristinati, sanitizzazione FORBIDDEN_CHARS per ID oggetti, CHANGELOG.md rimosso",
-        "es": "Tests de integración estándar restaurados, sanitización FORBIDDEN_CHARS para IDs de objetos, CHANGELOG.md eliminado",
-        "pl": "Przywrócono standardowe testy integracyjne, sanityzacja FORBIDDEN_CHARS dla ID obiektów, usunięto CHANGELOG.md",
-        "uk": "Відновлено стандартні інтеграційні тести, санітизація FORBIDDEN_CHARS для ID об'єктів, видалено CHANGELOG.md",
-        "zh-cn": "恢复标准集成测试，添加 FORBIDDEN_CHARS 对象ID清理，删除 CHANGELOG.md"
       }
     },
     "titleLang": {
