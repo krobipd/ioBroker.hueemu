@@ -49,10 +49,7 @@ export class HueServer {
       host: this.config.host || "0.0.0.0",
     });
 
-    this.log(
-      "debug",
-      `HTTP server listening on ${this.config.host}:${this.config.port}`,
-    );
+    this.log("debug", `HTTP server listening on ${this.config.host}:${this.config.port}`);
 
     // Start HTTPS server if configured
     if (this.config.https) {
@@ -62,10 +59,7 @@ export class HueServer {
         host: this.config.host || "0.0.0.0",
       });
 
-      this.log(
-        "debug",
-        `HTTPS server listening on ${this.config.host}:${this.config.https.port}`,
-      );
+      this.log("debug", `HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
     }
   }
 
@@ -120,10 +114,7 @@ export class HueServer {
     // Add CORS headers for Hue API compatibility
     server.addHook("onSend", async (_request, reply, payload) => {
       reply.header("Access-Control-Allow-Origin", "*");
-      reply.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS",
-      );
+      reply.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
       reply.header("Access-Control-Allow-Headers", "Content-Type");
       return payload;
     });
@@ -153,10 +144,7 @@ export class HueServer {
     return server;
   }
 
-  private log(
-    level: "debug" | "info" | "warn" | "error",
-    message: string,
-  ): void {
+  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
     this.logger[level](message);
   }
 }

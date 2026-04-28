@@ -4,21 +4,21 @@
 
 import { expect } from "chai";
 import Fastify, { type FastifyInstance } from "fastify";
-import { apiV1Routes } from "../src/server/routes/api-v1-routes";
-import { hueErrorHandler } from "../src/server/middleware/error-handler";
+import { apiV1Routes } from "./api-v1-routes";
+import { hueErrorHandler } from "../middleware/error-handler";
 import type {
   HueApiHandler,
   HueRequest,
   CreateUserRequest,
   FullState,
   BridgeConfigPublic,
-} from "../src/types/hue-api";
+} from "../../types/hue-api";
 import type {
   Light,
   LightsCollection,
   LightStateUpdate,
   LightStateResult,
-} from "../src/types/light";
+} from "../../types/light";
 
 interface MockHandlerCalls {
   createUser: Array<{ req: HueRequest; body: CreateUserRequest }>;

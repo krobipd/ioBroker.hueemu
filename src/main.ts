@@ -10,17 +10,8 @@ import * as forge from "node-forge";
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type DeviceConfig } from "./hue-api";
-import type {
-  HueEmulatorConfig,
-  BridgeIdentity,
-  TlsConfig,
-  Logger,
-} from "./types/config";
-import {
-  BRIDGE_MODEL_ID,
-  generateBridgeId,
-  generateSerialNumber,
-} from "./types/config";
+import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
+import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber } from "./types/config";
 import { sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -68,9 +59,7 @@ export class HueEmu extends utils.Adapter {
     // cannot turn a bug into an unhandled promise rejection (→ SIGKILL → loop).
     this.on("ready", () => {
       this.onReady().catch((err: unknown) =>
-        this.log.error(
-          `onReady failed: ${err instanceof Error ? err.message : String(err)}`,
-        ),
+        this.log.error(`onReady failed: ${err instanceof Error ? err.message : String(err)}`),
       );
     });
     this.on("stateChange", this.onStateChange.bind(this));
@@ -80,9 +69,7 @@ export class HueEmu extends utils.Adapter {
     // fire-and-forget paths. The per-handler wrappers cover documented async
     // paths; this catches anything that slips past during refactors.
     this.unhandledRejectionHandler = (reason: unknown) => {
-      this.log.error(
-        `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`,
-      );
+      this.log.error(`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`);
     };
     this.uncaughtExceptionHandler = (err: Error) => {
       this.log.error(`Uncaught exception: ${err.message}`);
@@ -111,9 +98,7 @@ export class HueEmu extends utils.Adapter {
   set disableAuth(value: boolean) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
-    this.log.info(
-      `Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`,
-    );
+    this.log.info(`Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`);
   }
 
   /**
@@ -234,9 +219,7 @@ export class HueEmu extends utils.Adapter {
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
     );
-    this.log.debug(
-      `Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`,
-    );
+    this.log.debug(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
     this.log.debug(`UDN: ${identity.udn}`);
 
     return {
@@ -266,9 +249,7 @@ export class HueEmu extends utils.Adapter {
     cert.serialNumber = "01";
     cert.validity.notBefore = new Date();
     cert.validity.notAfter = new Date();
-    cert.validity.notAfter.setFullYear(
-      cert.validity.notBefore.getFullYear() + 10,
-    );
+    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
 
     const attrs = [
       { name: "commonName", value: "Philips Hue" },
@@ -342,9 +323,7 @@ export class HueEmu extends utils.Adapter {
         this.log.debug(`Removed obsolete state: ${stateId}`);
 
         // Clean up empty parent channel/folder
-        const parentId = stateId.includes(".")
-          ? stateId.substring(0, stateId.lastIndexOf("."))
-          : null;
+        const parentId = stateId.includes(".") ? stateId.substring(0, stateId.lastIndexOf(".")) : null;
         if (parentId) {
           const children = await this.getObjectListAsync({
             startkey: `${this.namespace}.${parentId}.`,
@@ -413,9 +392,7 @@ export class HueEmu extends utils.Adapter {
 
     // Remove old "user" folder
     await this.delObjectAsync("user");
-    this.log.info(
-      `Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`,
-    );
+    this.log.info(`Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`);
   }
 
   /**
@@ -449,11 +426,7 @@ export class HueEmu extends utils.Adapter {
 
       // Stop HTTP server (fire-and-forget — onUnload must be sync)
       if (this.hueServer) {
-        this.hueServer
-          .stop()
-          .catch((err: Error) =>
-            this.log.error(`Server stop error: ${err.message}`),
-          );
+        this.hueServer.stop().catch((err: Error) => this.log.error(`Server stop error: ${err.message}`));
       }
 
       // Detach process-level last-line-of-defence handlers
@@ -475,10 +448,7 @@ export class HueEmu extends utils.Adapter {
   /**
    * Called if a subscribed state changes
    */
-  private onStateChange(
-    id: string,
-    state: ioBroker.State | null | undefined,
-  ): void {
+  private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
     if (!state) {
       this.log.debug(`State ${id} deleted`);
       return;
@@ -519,15 +489,11 @@ export class HueEmu extends utils.Adapter {
 
     if (state.val) {
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
-      this.log.info(
-        `Pairing mode enabled — waiting for client to connect (${seconds} seconds)`,
-      );
+      this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
-        this.log.info(
-          `Pairing mode automatically disabled after ${seconds} seconds timeout`,
-        );
+        this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
       this.log.info("Pairing mode disabled");
@@ -552,9 +518,7 @@ export class HueEmu extends utils.Adapter {
       return false;
     }
 
-    this.log.info(
-      `Found ${devices.length} legacy device(s) — migrating to new configuration`,
-    );
+    this.log.info(`Found ${devices.length} legacy device(s) — migrating to new configuration`);
 
     const migratedDevices: DeviceConfig[] = [];
 
@@ -564,26 +528,15 @@ export class HueEmu extends utils.Adapter {
       try {
         // Read device name from name state or device common.name
         const nameState = await this.getStateAsync(`${deviceId}.name`);
-        const name =
-          (nameState?.val as string) ||
-          (device.common?.name as string) ||
-          deviceId;
+        const name = (nameState?.val as string) || (device.common?.name as string) || deviceId;
 
         // Read state channel to find available state keys
         const stateObjects = await this.getStatesOfAsync(deviceId, "state");
-        const stateKeys = new Set(
-          (stateObjects || []).map((s) =>
-            s._id.substring(s._id.lastIndexOf(".") + 1),
-          ),
-        );
+        const stateKeys = new Set((stateObjects || []).map(s => s._id.substring(s._id.lastIndexOf(".") + 1)));
 
         // Determine light type from available states
         let lightType: "onoff" | "dimmable" | "ct" | "color";
-        if (
-          stateKeys.has("hue") ||
-          stateKeys.has("sat") ||
-          stateKeys.has("xy")
-        ) {
+        if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
           lightType = "color";
         } else if (stateKeys.has("ct")) {
           lightType = "ct";
@@ -637,9 +590,7 @@ export class HueEmu extends utils.Adapter {
       native: { devices: migratedDevices },
     });
 
-    this.log.info(
-      `Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`,
-    );
+    this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
 
     return true;
   }
@@ -649,9 +600,7 @@ export class HueEmu extends utils.Adapter {
    */
   private toPort(port: any): number {
     if (port) {
-      return typeof port === "number"
-        ? port
-        : parseInt(port.toString().trim(), 10);
+      return typeof port === "number" ? port : parseInt(port.toString().trim(), 10);
     }
     throw new Error("Port not specified");
   }
@@ -677,8 +626,7 @@ export class HueEmu extends utils.Adapter {
 
 if (require.main !== module) {
   // Export the constructor in compact mode
-  module.exports = (options: Partial<utils.AdapterOptions> | undefined) =>
-    new HueEmu(options);
+  module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new HueEmu(options);
 } else {
   // Start the instance directly
   (() => new HueEmu())();

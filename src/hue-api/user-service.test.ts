@@ -3,8 +3,8 @@
  */
 
 import { expect } from "chai";
-import { UserService, type UserServiceAdapter } from "../src/hue-api/user-service";
-import { createMockLogger } from "./testHelpers";
+import { UserService, type UserServiceAdapter } from "./user-service";
+import { createMockLogger } from "../../test/test-helpers";
 
 interface MockUserAdapter extends UserServiceAdapter {
   writtenObjects: Map<string, ioBroker.SettableObject>;

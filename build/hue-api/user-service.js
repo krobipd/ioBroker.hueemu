@@ -60,10 +60,7 @@ class UserService {
         native: { username }
       });
     } catch (err) {
-      this.log(
-        "warn",
-        `Failed to create client object ${safeUsername}: ${err}`
-      );
+      this.log("warn", `Failed to create client object ${safeUsername}: ${err}`);
     }
     try {
       await this.adapter.setStateAsync(`clients.${safeUsername}`, {

@@ -6,12 +6,14 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.2.8 (2026-04-26 — process.on defense + js-controller >=6.0.11 + manual-review-plugin raus)
+- **Version:** 1.2.9 (2026-04-28 — Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
-- **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED)
+- **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
 - **Original Author:** Christopher Holomek (@holomekc) — Fork, modernisiert 2026
 - **Runtime-Deps:** `@iobroker/adapter-core`, `fastify`, `node-ssdp`, `node-forge`, `uuid`
+- **Test-Setup:** offizieller ioBroker.example/TypeScript-Standard — Tests neben Source unter `src/**/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` als Shared-Mock-Factory außerhalb src/
+- **`@types/node` an `engines.node`-Min gekoppelt:** `^20.x` weil `engines.node: ">=20"`
 
 ## Architektur
 

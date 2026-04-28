@@ -31,10 +31,7 @@ function hueErrorHandler(error, request, reply) {
     const hueError = import_errors.HueApiError.invalidJson(address);
     reply.status(200).send([hueError.toResponse()]);
   } else {
-    const hueError = import_errors.HueApiError.internalError(
-      error.message || "Unknown error",
-      address
-    );
+    const hueError = import_errors.HueApiError.internalError(error.message || "Unknown error", address);
     reply.status(200).send([hueError.toResponse()]);
   }
 }

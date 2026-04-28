@@ -101,29 +101,19 @@ class HueApiError extends Error {
     return new HueApiError(2 /* INVALID_JSON */, address);
   }
   static resourceNotAvailable(resource, address = "") {
-    return new HueApiError(3 /* RESOURCE_NOT_AVAILABLE */, address, [
-      resource
-    ]);
+    return new HueApiError(3 /* RESOURCE_NOT_AVAILABLE */, address, [resource]);
   }
   static methodNotAvailable(method, resource, address = "") {
-    return new HueApiError(4 /* METHOD_NOT_AVAILABLE */, address, [
-      method,
-      resource
-    ]);
+    return new HueApiError(4 /* METHOD_NOT_AVAILABLE */, address, [method, resource]);
   }
   static missingParameters(address = "") {
     return new HueApiError(5 /* MISSING_PARAMETERS */, address);
   }
   static parameterNotAvailable(parameter, address = "") {
-    return new HueApiError(6 /* PARAMETER_NOT_AVAILABLE */, address, [
-      parameter
-    ]);
+    return new HueApiError(6 /* PARAMETER_NOT_AVAILABLE */, address, [parameter]);
   }
   static invalidParameterValue(value, parameter, address = "") {
-    return new HueApiError(7 /* INVALID_PARAMETER_VALUE */, address, [
-      value,
-      parameter
-    ]);
+    return new HueApiError(7 /* INVALID_PARAMETER_VALUE */, address, [value, parameter]);
   }
   static linkButtonNotPressed(address = "") {
     return new HueApiError(101 /* LINK_BUTTON_NOT_PRESSED */, address);

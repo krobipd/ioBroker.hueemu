@@ -114,10 +114,7 @@ class DeviceBindingService {
    * Initialize the service - subscribe to all mapped states
    */
   async initialize() {
-    this.log(
-      "debug",
-      `Initializing device binding service with ${this.devices.length} devices`
-    );
+    this.log("debug", `Initializing device binding service with ${this.devices.length} devices`);
     for (const device of this.devices) {
       for (const stateId of this.getAllStateIds(device)) {
         this.adapter.subscribeForeignStates(stateId);
@@ -219,10 +216,7 @@ class DeviceBindingService {
   async setLightState(lightId, stateUpdate) {
     const index = parseInt(lightId, 10) - 1;
     if (index < 0 || index >= this.devices.length) {
-      throw import_errors.HueApiError.resourceNotAvailable(
-        lightId,
-        `/lights/${lightId}/state`
-      );
+      throw import_errors.HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}/state`);
     }
     const device = this.devices[index];
     const results = [];
@@ -249,9 +243,7 @@ class DeviceBindingService {
         this.log("debug", `Set ${stateId} to ${convertedValue}`);
       } catch (error) {
         this.log("error", `Failed to set ${stateId}: ${error}`);
-        results.push(
-          import_errors.HueApiError.resourceNotAvailable(lightId, address).toResponse()
-        );
+        results.push(import_errors.HueApiError.resourceNotAvailable(lightId, address).toResponse());
       }
     }
     return results;
@@ -267,10 +259,7 @@ class DeviceBindingService {
    */
   async getStateValue(stateId, stateName) {
     if (this.stateCache.has(stateId)) {
-      return this.convertValueFromState(
-        stateName,
-        this.stateCache.get(stateId)
-      );
+      return this.convertValueFromState(stateName, this.stateCache.get(stateId));
     }
     try {
       const state = await this.adapter.getForeignStateAsync(stateId);

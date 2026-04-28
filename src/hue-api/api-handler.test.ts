@@ -3,10 +3,10 @@
  */
 
 import { expect } from "chai";
-import { ApiHandler, type ApiHandlerAdapter } from "../src/hue-api/api-handler";
-import type { HueRequest, CreateUserRequest } from "../src/types/hue-api";
-import { HueApiError, HueErrorType } from "../src/types/errors";
-import { createMockLogger, createTestIdentity } from "./testHelpers";
+import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
+import type { HueRequest, CreateUserRequest } from "../types/hue-api";
+import { HueApiError, HueErrorType } from "../types/errors";
+import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
 
 interface MockApiAdapter extends ApiHandlerAdapter {
   writtenObjects: Map<string, ioBroker.SettableObject>;

@@ -3,8 +3,8 @@
  */
 
 import { expect } from "chai";
-import { HueApiError, HueErrorType } from "../src/types/errors";
-import { createSuccessResponse } from "../src/server/middleware/error-handler";
+import { HueApiError, HueErrorType } from "./errors";
+import { createSuccessResponse } from "../server/middleware/error-handler";
 
 describe("HueApiError", () => {
   describe("factory methods", () => {

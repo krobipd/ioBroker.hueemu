@@ -31,19 +31,16 @@ const ERROR_DESCRIPTIONS: Record<HueErrorType, string> = {
   [HueErrorType.UNAUTHORIZED_USER]: "unauthorized user",
   [HueErrorType.INVALID_JSON]: "body contains invalid JSON",
   [HueErrorType.RESOURCE_NOT_AVAILABLE]: "resource, {0}, not available",
-  [HueErrorType.METHOD_NOT_AVAILABLE]:
-    "method, {0}, not available for resource, {1}",
+  [HueErrorType.METHOD_NOT_AVAILABLE]: "method, {0}, not available for resource, {1}",
   [HueErrorType.MISSING_PARAMETERS]: "missing parameters in body",
   [HueErrorType.PARAMETER_NOT_AVAILABLE]: "parameter, {0}, not available",
-  [HueErrorType.INVALID_PARAMETER_VALUE]:
-    "invalid value, {0}, for parameter, {1}",
+  [HueErrorType.INVALID_PARAMETER_VALUE]: "invalid value, {0}, for parameter, {1}",
   [HueErrorType.PARAMETER_NOT_MODIFIABLE]: "parameter, {0}, is not modifiable",
   [HueErrorType.INTERNAL_ERROR]: "internal error, {0}",
   [HueErrorType.LINK_BUTTON_NOT_PRESSED]: "link button not pressed",
   [HueErrorType.DHCP_CANNOT_BE_DISABLED]: "DHCP cannot be disabled",
   [HueErrorType.INVALID_UPDATE_STATE]: "invalid update state",
-  [HueErrorType.DEVICE_IS_OFF]:
-    "parameter, {0}, is not modifiable. Device is set to off.",
+  [HueErrorType.DEVICE_IS_OFF]: "parameter, {0}, is not modifiable. Device is set to off.",
   [HueErrorType.GROUP_TABLE_FULL]: "group table full",
   [HueErrorType.LIGHT_LIST_FULL]: "light list full",
   [HueErrorType.DEVICE_IS_NOT_MODIFIABLE]: "device, {0}, is not modifiable",
@@ -68,11 +65,7 @@ export class HueApiError extends Error {
   public readonly address: string;
   public readonly params: string[];
 
-  private constructor(
-    type: HueErrorType,
-    address: string,
-    params: string[] = [],
-  ) {
+  private constructor(type: HueErrorType, address: string, params: string[] = []) {
     const description = HueApiError.formatDescription(type, params);
     super(description);
     this.type = type;
@@ -84,10 +77,7 @@ export class HueApiError extends Error {
   /**
    * Format error description with parameters
    */
-  private static formatDescription(
-    type: HueErrorType,
-    params: string[],
-  ): string {
+  private static formatDescription(type: HueErrorType, params: string[]): string {
     let desc = ERROR_DESCRIPTIONS[type] || "unknown error";
     params.forEach((param, index) => {
       desc = desc.replace(`{${index}}`, param);
@@ -119,20 +109,11 @@ export class HueApiError extends Error {
   }
 
   static resourceNotAvailable(resource: string, address = ""): HueApiError {
-    return new HueApiError(HueErrorType.RESOURCE_NOT_AVAILABLE, address, [
-      resource,
-    ]);
+    return new HueApiError(HueErrorType.RESOURCE_NOT_AVAILABLE, address, [resource]);
   }
 
-  static methodNotAvailable(
-    method: string,
-    resource: string,
-    address = "",
-  ): HueApiError {
-    return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [
-      method,
-      resource,
-    ]);
+  static methodNotAvailable(method: string, resource: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [method, resource]);
   }
 
   static missingParameters(address = ""): HueApiError {
@@ -140,20 +121,11 @@ export class HueApiError extends Error {
   }
 
   static parameterNotAvailable(parameter: string, address = ""): HueApiError {
-    return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [
-      parameter,
-    ]);
+    return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [parameter]);
   }
 
-  static invalidParameterValue(
-    value: string,
-    parameter: string,
-    address = "",
-  ): HueApiError {
-    return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [
-      value,
-      parameter,
-    ]);
+  static invalidParameterValue(value: string, parameter: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [value, parameter]);
   }
 
   static linkButtonNotPressed(address = ""): HueApiError {

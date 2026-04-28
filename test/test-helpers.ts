@@ -2,9 +2,7 @@
  * Shared test helpers and mocks
  */
 
-import type {
-  DeviceBindingAdapter,
-} from "../src/hue-api/device-binding-service";
+import type { DeviceBindingAdapter } from "../src/hue-api/device-binding-service";
 import type { BridgeIdentity, Logger } from "../src/types/config";
 
 export function createMockLogger(): Logger {
@@ -17,9 +15,7 @@ export function createMockLogger(): Logger {
   };
 }
 
-export function createMockDeviceBindingAdapter(
-  stateValues: Record<string, unknown> = {},
-): DeviceBindingAdapter & {
+export function createMockDeviceBindingAdapter(stateValues: Record<string, unknown> = {}): DeviceBindingAdapter & {
   writtenStates: Map<string, unknown>;
   subscribedPatterns: string[];
 } {

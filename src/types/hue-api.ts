@@ -2,12 +2,7 @@
  * Hue API request/response types
  */
 
-import type {
-  Light,
-  LightsCollection,
-  LightStateUpdate,
-  LightStateResult,
-} from "./light";
+import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "./light";
 
 /**
  * User creation request
@@ -126,11 +121,7 @@ export interface HueApiHandler {
   /**
    * Get single light (GET /api/:username/lights/:id)
    */
-  getLightById(
-    req: HueRequest,
-    username: string,
-    lightId: string,
-  ): Promise<Light>;
+  getLightById(req: HueRequest, username: string, lightId: string): Promise<Light>;
 
   /**
    * Set light state (PUT /api/:username/lights/:id/state)

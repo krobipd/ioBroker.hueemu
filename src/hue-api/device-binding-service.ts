@@ -4,13 +4,7 @@
  */
 
 import type { Logger } from "../types/config";
-import type {
-  Light,
-  LightsCollection,
-  LightState,
-  LightStateUpdate,
-  LightStateResult,
-} from "../types/light";
+import type { Light, LightsCollection, LightState, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
 
 /** Hue API value ranges (per Philips Hue API specification) */
@@ -116,10 +110,7 @@ export interface DeviceBindingAdapter {
   namespace: string;
   log: ioBroker.Logger;
   getForeignStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
-  setForeignStateAsync(
-    id: string,
-    state: ioBroker.SettableState,
-  ): Promise<void>;
+  setForeignStateAsync(id: string, state: ioBroker.SettableState): Promise<void>;
   subscribeForeignStates(pattern: string): void;
 }
 
@@ -150,10 +141,7 @@ export class DeviceBindingService {
   /**
    * Get state ID from device config for a given state name
    */
-  private getStateId(
-    device: DeviceConfig,
-    stateName: string,
-  ): string | undefined {
+  private getStateId(device: DeviceConfig, stateName: string): string | undefined {
     const configKey = STATE_TO_CONFIG[stateName];
     if (configKey) {
       return device[configKey];
@@ -179,10 +167,7 @@ export class DeviceBindingService {
    * Initialize the service - subscribe to all mapped states
    */
   public async initialize(): Promise<void> {
-    this.log(
-      "debug",
-      `Initializing device binding service with ${this.devices.length} devices`,
-    );
+    this.log("debug", `Initializing device binding service with ${this.devices.length} devices`);
 
     // Subscribe to all mapped states
     for (const device of this.devices) {
@@ -270,8 +255,7 @@ export class DeviceBindingService {
         }
       } else {
         // Provide default values for unmapped states
-        (state as Record<string, unknown>)[stateName] =
-          this.getDefaultValue(stateName);
+        (state as Record<string, unknown>)[stateName] = this.getDefaultValue(stateName);
       }
     }
 
@@ -306,17 +290,11 @@ export class DeviceBindingService {
   /**
    * Set light state
    */
-  public async setLightState(
-    lightId: string,
-    stateUpdate: LightStateUpdate,
-  ): Promise<LightStateResult[]> {
+  public async setLightState(lightId: string, stateUpdate: LightStateUpdate): Promise<LightStateResult[]> {
     const index = parseInt(lightId, 10) - 1;
 
     if (index < 0 || index >= this.devices.length) {
-      throw HueApiError.resourceNotAvailable(
-        lightId,
-        `/lights/${lightId}/state`,
-      );
+      throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}/state`);
     }
 
     const device = this.devices[index];
@@ -351,9 +329,7 @@ export class DeviceBindingService {
         this.log("debug", `Set ${stateId} to ${convertedValue}`);
       } catch (error) {
         this.log("error", `Failed to set ${stateId}: ${error}`);
-        results.push(
-          HueApiError.resourceNotAvailable(lightId, address).toResponse(),
-        );
+        results.push(HueApiError.resourceNotAvailable(lightId, address).toResponse());
       }
     }
 
@@ -370,16 +346,10 @@ export class DeviceBindingService {
   /**
    * Get state value from cache or adapter
    */
-  private async getStateValue(
-    stateId: string,
-    stateName: string,
-  ): Promise<unknown> {
+  private async getStateValue(stateId: string, stateName: string): Promise<unknown> {
     // Try cache first
     if (this.stateCache.has(stateId)) {
-      return this.convertValueFromState(
-        stateName,
-        this.stateCache.get(stateId),
-      );
+      return this.convertValueFromState(stateName, this.stateCache.get(stateId));
     }
 
     // Fetch from adapter
@@ -446,9 +416,7 @@ export class DeviceBindingService {
       }
       case "ct": {
         const n = coerceFiniteNumber(value);
-        return n === null
-          ? HUE_CT_DEFAULT
-          : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
       }
       case "xy": {
         // XY as array [x, y] — both entries must be finite numbers
@@ -479,18 +447,13 @@ export class DeviceBindingService {
   /**
    * Convert value from Hue API format to ioBroker state
    */
-  private convertValueForState(
-    stateName: string,
-    value: unknown,
-  ): ioBroker.StateValue {
+  private convertValueForState(stateName: string, value: unknown): ioBroker.StateValue {
     switch (stateName) {
       case "on":
         return Boolean(value);
       case "bri": {
         const n = coerceFiniteNumber(value);
-        return n === null
-          ? HUE_BRI_MAX
-          : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+        return n === null ? HUE_BRI_MAX : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
       }
       case "hue": {
         const n = coerceFiniteNumber(value);
@@ -502,9 +465,7 @@ export class DeviceBindingService {
       }
       case "ct": {
         const n = coerceFiniteNumber(value);
-        return n === null
-          ? HUE_CT_DEFAULT
-          : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
       }
       case "xy":
         if (Array.isArray(value)) {
@@ -545,10 +506,7 @@ export class DeviceBindingService {
     }
   }
 
-  private log(
-    level: "debug" | "info" | "warn" | "error",
-    message: string,
-  ): void {
+  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
     this.logger[level](message);
   }
 }

@@ -65,10 +65,7 @@ class ApiHandler {
   async createUser(req, body) {
     var _a;
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
-    this.log(
-      "debug",
-      `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`
-    );
+    this.log("debug", `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw import_errors.HueApiError.linkButtonNotPressed("/api");
     }
@@ -77,10 +74,7 @@ class ApiHandler {
     if (providedUsername) {
       this.log("debug", `Using provided username: ${providedUsername}`);
     }
-    const username = await this.userService.createUser(
-      providedUsername,
-      devicetype
-    );
+    const username = await this.userService.createUser(providedUsername, devicetype);
     this.log("info", `Paired client "${devicetype}" as user ${username}`);
     this.adapter.pairingEnabled = false;
     return username;
@@ -132,10 +126,7 @@ class ApiHandler {
     await Promise.all(
       Object.keys(lights).map(
         (lightId) => this.lightService.setLightState(lightId, state).catch((err) => {
-          this.log(
-            "warn",
-            `Group action: failed to set light ${lightId}: ${err}`
-          );
+          this.log("warn", `Group action: failed to set light ${lightId}: ${err}`);
         })
       )
     );

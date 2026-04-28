@@ -3,9 +3,9 @@
  */
 
 import { expect } from "chai";
-import { generateBridgeId, generateSerialNumber } from "../src/types/config";
-import { ConfigService } from "../src/hue-api/config-service";
-import { createTestIdentity } from "./testHelpers";
+import { generateBridgeId, generateSerialNumber } from "./config";
+import { ConfigService } from "../hue-api/config-service";
+import { createTestIdentity } from "../../test/test-helpers";
 
 describe("Config utilities", () => {
   describe("generateBridgeId", () => {

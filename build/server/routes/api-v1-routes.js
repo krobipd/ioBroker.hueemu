@@ -71,119 +71,76 @@ async function apiV1Routes(fastify, options) {
       return (0, import_error_handler.createSuccessResponse)({ username });
     });
   });
-  fastify.get(
-    "/api/:username",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        const { username } = request.params;
-        await requireAuth(handler, username, `/api/${username}`);
-        return handler.getFullState(hueReq, username);
-      });
-    }
-  );
-  fastify.get(
-    "/api/:username/config",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        const { username } = request.params;
-        return handler.getConfig(hueReq, username);
-      });
-    }
-  );
-  fastify.get(
-    "/api/:username/lights",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        const { username } = request.params;
-        await requireAuth(handler, username, `/api/${username}/lights`);
-        return handler.getAllLights(hueReq, username);
-      });
-    }
-  );
-  fastify.get(
-    "/api/:username/lights/:id",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        const { username, id } = request.params;
-        await requireAuth(handler, username, `/api/${username}/lights/${id}`);
-        return handler.getLightById(hueReq, username, id);
-      });
-    }
-  );
-  fastify.put(
-    "/api/:username/lights/:id/state",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        const { username, id } = request.params;
-        const stateUpdate = request.body;
-        await requireAuth(
-          handler,
-          username,
-          `/api/${username}/lights/${id}/state`
-        );
-        if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
-          throw import_errors.HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
-        }
-        return handler.setLightState(hueReq, username, id, stateUpdate);
-      });
-    }
-  );
-  fastify.put(
-    "/api/:username/groups/:id/action",
-    async (request, reply) => {
-      await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        const { username, id } = request.params;
-        const stateUpdate = request.body;
-        await requireAuth(
-          handler,
-          username,
-          `/api/${username}/groups/${id}/action`
-        );
-        if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
-          throw import_errors.HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
-        }
-        return handler.setGroupAction(hueReq, username, id, stateUpdate);
-      });
-    }
-  );
-  for (const collection of [
-    "groups",
-    "schedules",
-    "scenes",
-    "sensors",
-    "rules",
-    "resourcelinks"
-  ]) {
-    fastify.get(
-      `/api/:username/${collection}`,
-      async (request, reply) => {
-        await handleErrors(request, reply, async () => {
-          const { username } = request.params;
-          await requireAuth(
-            handler,
-            username,
-            `/api/${username}/${collection}`
-          );
-          return {};
-        });
+  fastify.get("/api/:username", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      const { username } = request.params;
+      await requireAuth(handler, username, `/api/${username}`);
+      return handler.getFullState(hueReq, username);
+    });
+  });
+  fastify.get("/api/:username/config", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      const { username } = request.params;
+      return handler.getConfig(hueReq, username);
+    });
+  });
+  fastify.get("/api/:username/lights", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      const { username } = request.params;
+      await requireAuth(handler, username, `/api/${username}/lights`);
+      return handler.getAllLights(hueReq, username);
+    });
+  });
+  fastify.get("/api/:username/lights/:id", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      const { username, id } = request.params;
+      await requireAuth(handler, username, `/api/${username}/lights/${id}`);
+      return handler.getLightById(hueReq, username, id);
+    });
+  });
+  fastify.put("/api/:username/lights/:id/state", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      const { username, id } = request.params;
+      const stateUpdate = request.body;
+      await requireAuth(handler, username, `/api/${username}/lights/${id}/state`);
+      if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
+        throw import_errors.HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
       }
-    );
-  }
-  fastify.all(
-    "/api/*",
-    async (request, reply) => {
+      return handler.setLightState(hueReq, username, id, stateUpdate);
+    });
+  });
+  fastify.put("/api/:username/groups/:id/action", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      const { username, id } = request.params;
+      const stateUpdate = request.body;
+      await requireAuth(handler, username, `/api/${username}/groups/${id}/action`);
+      if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
+        throw import_errors.HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
+      }
+      return handler.setGroupAction(hueReq, username, id, stateUpdate);
+    });
+  });
+  for (const collection of ["groups", "schedules", "scenes", "sensors", "rules", "resourcelinks"]) {
+    fastify.get(`/api/:username/${collection}`, async (request, reply) => {
       await handleErrors(request, reply, async () => {
-        const hueReq = toHueRequest(request);
-        return handler.fallback(hueReq);
+        const { username } = request.params;
+        await requireAuth(handler, username, `/api/${username}/${collection}`);
+        return {};
       });
-    }
-  );
+    });
+  }
+  fastify.all("/api/*", async (request, reply) => {
+    await handleErrors(request, reply, async () => {
+      const hueReq = toHueRequest(request);
+      return handler.fallback(hueReq);
+    });
+  });
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

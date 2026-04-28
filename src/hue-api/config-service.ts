@@ -3,11 +3,7 @@
  */
 
 import { BRIDGE_MODEL_ID, type BridgeIdentity } from "../types/config";
-import type {
-  BridgeConfigPublic,
-  BridgeConfigFull,
-  FullState,
-} from "../types/hue-api";
+import type { BridgeConfigPublic, BridgeConfigFull, FullState } from "../types/hue-api";
 import type { LightsCollection } from "../types/light";
 
 /**

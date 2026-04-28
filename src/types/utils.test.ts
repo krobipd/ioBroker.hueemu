@@ -3,7 +3,7 @@
  */
 
 import { expect } from "chai";
-import { sanitizeId } from "../src/types/utils";
+import { sanitizeId } from "./utils";
 
 describe("sanitizeId", () => {
   it("should pass through alphanumeric strings unchanged", () => {

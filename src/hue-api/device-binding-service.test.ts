@@ -3,12 +3,12 @@
  */
 
 import { expect } from "chai";
-import { HueApiError, HueErrorType } from "../src/types/errors";
+import { HueApiError, HueErrorType } from "../types/errors";
 import {
   DeviceBindingService,
   type DeviceConfig,
-} from "../src/hue-api/device-binding-service";
-import { createMockDeviceBindingAdapter, createMockLogger } from "./testHelpers";
+} from "./device-binding-service";
+import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
 
 // Helper to create service with test devices
 function createService(

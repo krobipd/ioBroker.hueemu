@@ -1,7 +1,7 @@
 {
   "version": 3,
   "sources": ["../../src/discovery/index.ts"],
-  "sourcesContent": ["/**\n * Discovery module exports\n */\n\nexport { HueSsdpServer, type SsdpServerConfig } from \"./ssdp-server\";\nexport {\n  generateDescriptionXml,\n  getDescriptionUrl,\n  type DescriptionXmlOptions,\n} from \"./description-xml\";\n"],
-  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAIA,yBAAqD;AACrD,6BAIO;",
+  "sourcesContent": ["/**\n * Discovery module exports\n */\n\nexport { HueSsdpServer, type SsdpServerConfig } from \"./ssdp-server\";\nexport { generateDescriptionXml, getDescriptionUrl, type DescriptionXmlOptions } from \"./description-xml\";\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAIA,yBAAqD;AACrD,6BAAsF;",
   "names": []
 }

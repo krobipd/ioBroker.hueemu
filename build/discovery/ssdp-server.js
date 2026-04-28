@@ -79,10 +79,7 @@ class HueSsdpServer {
         });
       });
       this.isRunning = true;
-      this.log(
-        "debug",
-        `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`
-      );
+      this.log("debug", `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
     } catch (error) {
       this.log("error", `Failed to start SSDP server: ${error}`);
       throw error;

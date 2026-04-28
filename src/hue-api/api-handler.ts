@@ -3,33 +3,17 @@
  */
 
 import type { Logger } from "../types/config";
-import type {
-  HueApiHandler,
-  HueRequest,
-  CreateUserRequest,
-  FullState,
-  BridgeConfigPublic,
-} from "../types/hue-api";
-import type {
-  Light,
-  LightsCollection,
-  LightStateUpdate,
-  LightStateResult,
-} from "../types/light";
+import type { HueApiHandler, HueRequest, CreateUserRequest, FullState, BridgeConfigPublic } from "../types/hue-api";
+import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
 import { UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
-import {
-  DeviceBindingService,
-  type DeviceConfig,
-  type DeviceBindingAdapter,
-} from "./device-binding-service";
+import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
 
 /**
  * Combined adapter interface for the API handler
  */
-export interface ApiHandlerAdapter
-  extends UserServiceAdapter, DeviceBindingAdapter {
+export interface ApiHandlerAdapter extends UserServiceAdapter, DeviceBindingAdapter {
   pairingEnabled: boolean;
   disableAuth: boolean;
 }
@@ -99,42 +83,26 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Create a new user
    */
-  public async createUser(
-    req: HueRequest,
-    body: CreateUserRequest,
-  ): Promise<string> {
+  public async createUser(req: HueRequest, body: CreateUserRequest): Promise<string> {
     // Sanitize devicetype at the boundary — routes already require string,
     // but belt-and-braces in case createUser is called from another path.
-    const devicetype =
-      typeof body.devicetype === "string" && body.devicetype.length > 0
-        ? body.devicetype
-        : "unknown";
+    const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
 
-    this.log(
-      "debug",
-      `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`,
-    );
+    this.log("debug", `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
 
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw HueApiError.linkButtonNotPressed("/api");
     }
 
     // Use provided username only if it's a non-empty string; otherwise generate
-    const rawUsername = (req.body as Record<string, unknown> | undefined)
-      ?.username;
-    const providedUsername =
-      typeof rawUsername === "string" && rawUsername.length > 0
-        ? rawUsername
-        : undefined;
+    const rawUsername = (req.body as Record<string, unknown> | undefined)?.username;
+    const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : undefined;
 
     if (providedUsername) {
       this.log("debug", `Using provided username: ${providedUsername}`);
     }
 
-    const username = await this.userService.createUser(
-      providedUsername,
-      devicetype,
-    );
+    const username = await this.userService.createUser(providedUsername, devicetype);
     this.log("info", `Paired client "${devicetype}" as user ${username}`);
 
     // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
@@ -146,10 +114,7 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get full bridge state
    */
-  public async getFullState(
-    _req: HueRequest,
-    username: string,
-  ): Promise<FullState> {
+  public async getFullState(_req: HueRequest, username: string): Promise<FullState> {
     this.log("debug", `Get full state for user: ${username}`);
 
     const lights = await this.lightService.getAllLights();
@@ -161,10 +126,7 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get bridge configuration
    */
-  public async getConfig(
-    _req: HueRequest,
-    _username: string,
-  ): Promise<BridgeConfigPublic> {
+  public async getConfig(_req: HueRequest, _username: string): Promise<BridgeConfigPublic> {
     this.log("debug", "Get config");
     return this.configService.getConfig();
   }
@@ -172,10 +134,7 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get all lights
    */
-  public async getAllLights(
-    _req: HueRequest,
-    _username: string,
-  ): Promise<LightsCollection> {
+  public async getAllLights(_req: HueRequest, _username: string): Promise<LightsCollection> {
     this.log("debug", "Get all lights");
     return this.lightService.getAllLights();
   }
@@ -183,11 +142,7 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get a single light by ID
    */
-  public async getLightById(
-    _req: HueRequest,
-    _username: string,
-    lightId: string,
-  ): Promise<Light> {
+  public async getLightById(_req: HueRequest, _username: string, lightId: string): Promise<Light> {
     this.log("debug", `Get light: ${lightId}`);
     return this.lightService.getLightById(lightId);
   }
@@ -220,15 +175,10 @@ export class ApiHandler implements HueApiHandler {
 
     // Apply state to all lights in parallel
     await Promise.all(
-      Object.keys(lights).map((lightId) =>
-        this.lightService
-          .setLightState(lightId, state)
-          .catch((err: unknown) => {
-            this.log(
-              "warn",
-              `Group action: failed to set light ${lightId}: ${err}`,
-            );
-          }),
+      Object.keys(lights).map(lightId =>
+        this.lightService.setLightState(lightId, state).catch((err: unknown) => {
+          this.log("warn", `Group action: failed to set light ${lightId}: ${err}`);
+        }),
       ),
     );
 
@@ -276,10 +226,7 @@ export class ApiHandler implements HueApiHandler {
     return this.adapter.disableAuth;
   }
 
-  private log(
-    level: "debug" | "info" | "warn" | "error",
-    message: string,
-  ): void {
+  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
     this.logger[level](message);
   }
 }

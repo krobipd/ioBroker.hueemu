@@ -6,8 +6,8 @@ import { expect } from "chai";
 import {
   generateDescriptionXml,
   getDescriptionUrl,
-} from "../src/discovery/description-xml";
-import { createTestIdentity } from "./testHelpers";
+} from "./description-xml";
+import { createTestIdentity } from "../../test/test-helpers";
 
 describe("Description XML", () => {
   const identity = createTestIdentity();

@@ -146,6 +146,15 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
+  - Test setup migrated: tests now live next to source under `src/**/*.test.ts` (mirroring the modular sub-folders), shared mock factory moved to `test/test-helpers.ts`. Removed `tsconfig.test.json` + `build-test/`, added `test/mocharc.custom.json` + `test/mocha.setup.js` + `test/tsconfig.json` + `test/.eslintrc.json`
+  - `@types/node` rolled back from `^25.6.0` to `^20.19.24` so type defs match `engines.node: ">=20"`
+  - Dependabot now ignores major bumps for `@types/node`, `typescript`, `eslint`, `actions/checkout`, `actions/setup-node`
+  - `nyc` config + `coverage` script added
+  - `prettier.config.mjs` made explicit with project-style overrides
+  - Orphan `.github/auto-merge.yml` removed (active workflow is `automerge-dependabot.yml` using `gh pr merge`)
+
 ### 1.2.8 (2026-04-26)
 - Process-level `unhandledRejection` / `uncaughtException` handlers added as last-line-of-defence against fire-and-forget rejections.
 - Stop shipping the `manual-review` release-script plugin — adapter-only consequence.

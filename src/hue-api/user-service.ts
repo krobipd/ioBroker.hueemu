@@ -12,18 +12,9 @@ import { sanitizeId } from "../types/utils";
 export interface UserServiceAdapter {
   namespace: string;
   log: ioBroker.Logger;
-  setObjectNotExistsAsync(
-    id: string,
-    obj: ioBroker.SettableObject,
-  ): Promise<{ id: string }>;
-  setStateAsync(
-    id: string,
-    state: ioBroker.SettableState,
-  ): Promise<{ id: string }>;
-  getStatesOfAsync(
-    parentDevice?: string,
-    parentChannel?: string,
-  ): Promise<ioBroker.StateObject[]>;
+  setObjectNotExistsAsync(id: string, obj: ioBroker.SettableObject): Promise<{ id: string }>;
+  setStateAsync(id: string, state: ioBroker.SettableState): Promise<{ id: string }>;
+  getStatesOfAsync(parentDevice?: string, parentChannel?: string): Promise<ioBroker.StateObject[]>;
 }
 
 /**
@@ -51,10 +42,7 @@ export class UserService {
   /**
    * Add a new client (Hue API "user")
    */
-  public async addUser(
-    username: string,
-    devicetype = "unknown",
-  ): Promise<void> {
+  public async addUser(username: string, devicetype = "unknown"): Promise<void> {
     const safeUsername = sanitizeId(username);
     this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
 
@@ -75,10 +63,7 @@ export class UserService {
         native: { username },
       });
     } catch (err) {
-      this.log(
-        "warn",
-        `Failed to create client object ${safeUsername}: ${err}`,
-      );
+      this.log("warn", `Failed to create client object ${safeUsername}: ${err}`);
     }
 
     try {
@@ -94,14 +79,8 @@ export class UserService {
   /**
    * Create a new user with optional provided username
    */
-  public async createUser(
-    providedUsername?: string,
-    devicetype = "unknown",
-  ): Promise<string> {
-    const username =
-      providedUsername && providedUsername.length > 0
-        ? providedUsername
-        : uuid.v4();
+  public async createUser(providedUsername?: string, devicetype = "unknown"): Promise<string> {
+    const username = providedUsername && providedUsername.length > 0 ? providedUsername : uuid.v4();
 
     await this.addUser(username, devicetype);
     return username;
@@ -125,7 +104,7 @@ export class UserService {
       return false;
     }
 
-    const found = stateObjects.some((state) => {
+    const found = stateObjects.some(state => {
       const id = state._id.substring(this.adapter.namespace.length + 9); // +1 for '.' and +8 for 'clients.'
       return id === safeUsername;
     });
@@ -155,10 +134,7 @@ export class UserService {
     }
   }
 
-  private log(
-    level: "debug" | "info" | "warn" | "error",
-    message: string,
-  ): void {
+  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
     this.logger[level](message);
   }
 }

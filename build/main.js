@@ -57,17 +57,13 @@ class HueEmu extends utils.Adapter {
     });
     this.on("ready", () => {
       this.onReady().catch(
-        (err) => this.log.error(
-          `onReady failed: ${err instanceof Error ? err.message : String(err)}`
-        )
+        (err) => this.log.error(`onReady failed: ${err instanceof Error ? err.message : String(err)}`)
       );
     });
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
     this.unhandledRejectionHandler = (reason) => {
-      this.log.error(
-        `Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`
-      );
+      this.log.error(`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`);
     };
     this.uncaughtExceptionHandler = (err) => {
       this.log.error(`Uncaught exception: ${err.message}`);
@@ -92,9 +88,7 @@ class HueEmu extends utils.Adapter {
   set disableAuth(value) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
-    this.log.info(
-      `Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`
-    );
+    this.log.info(`Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`);
   }
   /**
    * Called when databases are connected and adapter received configuration
@@ -179,9 +173,7 @@ class HueEmu extends utils.Adapter {
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`
     );
-    this.log.debug(
-      `Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`
-    );
+    this.log.debug(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
     this.log.debug(`UDN: ${identity.udn}`);
     return {
       host,
@@ -204,9 +196,7 @@ class HueEmu extends utils.Adapter {
     cert.serialNumber = "01";
     cert.validity.notBefore = /* @__PURE__ */ new Date();
     cert.validity.notAfter = /* @__PURE__ */ new Date();
-    cert.validity.notAfter.setFullYear(
-      cert.validity.notBefore.getFullYear() + 10
-    );
+    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
     const attrs = [
       { name: "commonName", value: "Philips Hue" },
       { name: "countryName", value: "NL" },
@@ -325,9 +315,7 @@ class HueEmu extends utils.Adapter {
       }
     }
     await this.delObjectAsync("user");
-    this.log.info(
-      `Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`
-    );
+    this.log.info(`Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`);
   }
   /**
    * Create a logger adapter for the modules
@@ -354,9 +342,7 @@ class HueEmu extends utils.Adapter {
         this.ssdpServer.stop();
       }
       if (this.hueServer) {
-        this.hueServer.stop().catch(
-          (err) => this.log.error(`Server stop error: ${err.message}`)
-        );
+        this.hueServer.stop().catch((err) => this.log.error(`Server stop error: ${err.message}`));
       }
       if (this.unhandledRejectionHandler) {
         process.off("unhandledRejection", this.unhandledRejectionHandler);
@@ -406,15 +392,11 @@ class HueEmu extends utils.Adapter {
     this.pairingEnabled = state.val;
     if (state.val) {
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1e3;
-      this.log.info(
-        `Pairing mode enabled \u2014 waiting for client to connect (${seconds} seconds)`
-      );
+      this.log.info(`Pairing mode enabled \u2014 waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
-        this.log.info(
-          `Pairing mode automatically disabled after ${seconds} seconds timeout`
-        );
+        this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
       this.log.info("Pairing mode disabled");
@@ -435,9 +417,7 @@ class HueEmu extends utils.Adapter {
     if (devices.length === 0) {
       return false;
     }
-    this.log.info(
-      `Found ${devices.length} legacy device(s) \u2014 migrating to new configuration`
-    );
+    this.log.info(`Found ${devices.length} legacy device(s) \u2014 migrating to new configuration`);
     const migratedDevices = [];
     for (const device of devices) {
       const deviceId = device._id.substring(this.namespace.length + 1);
@@ -445,11 +425,7 @@ class HueEmu extends utils.Adapter {
         const nameState = await this.getStateAsync(`${deviceId}.name`);
         const name = (nameState == null ? void 0 : nameState.val) || ((_a = device.common) == null ? void 0 : _a.name) || deviceId;
         const stateObjects = await this.getStatesOfAsync(deviceId, "state");
-        const stateKeys = new Set(
-          (stateObjects || []).map(
-            (s) => s._id.substring(s._id.lastIndexOf(".") + 1)
-          )
-        );
+        const stateKeys = new Set((stateObjects || []).map((s) => s._id.substring(s._id.lastIndexOf(".") + 1)));
         let lightType;
         if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
           lightType = "color";
@@ -499,9 +475,7 @@ class HueEmu extends utils.Adapter {
     await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
       native: { devices: migratedDevices }
     });
-    this.log.info(
-      `Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`
-    );
+    this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
     return true;
   }
   /**

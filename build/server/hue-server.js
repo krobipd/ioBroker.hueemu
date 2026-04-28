@@ -55,20 +55,14 @@ class HueServer {
       port: this.config.port,
       host: this.config.host || "0.0.0.0"
     });
-    this.log(
-      "debug",
-      `HTTP server listening on ${this.config.host}:${this.config.port}`
-    );
+    this.log("debug", `HTTP server listening on ${this.config.host}:${this.config.port}`);
     if (this.config.https) {
       this.httpsServer = await this.createServer(true);
       await this.httpsServer.listen({
         port: this.config.https.port,
         host: this.config.host || "0.0.0.0"
       });
-      this.log(
-        "debug",
-        `HTTPS server listening on ${this.config.host}:${this.config.https.port}`
-      );
+      this.log("debug", `HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
     }
   }
   /**
@@ -111,10 +105,7 @@ class HueServer {
     });
     server.addHook("onSend", async (_request, reply, payload) => {
       reply.header("Access-Control-Allow-Origin", "*");
-      reply.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS"
-      );
+      reply.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
       reply.header("Access-Control-Allow-Headers", "Content-Type");
       return payload;
     });

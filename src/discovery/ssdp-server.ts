@@ -106,10 +106,7 @@ export class HueSsdpServer {
       });
 
       this.isRunning = true;
-      this.log(
-        "debug",
-        `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`,
-      );
+      this.log("debug", `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
     } catch (error) {
       this.log("error", `Failed to start SSDP server: ${error}`);
       throw error;
@@ -134,10 +131,7 @@ export class HueSsdpServer {
     return this.isRunning;
   }
 
-  private log(
-    level: "debug" | "info" | "warn" | "error",
-    message: string,
-  ): void {
+  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
     this.config.logger[level](message);
   }
 }

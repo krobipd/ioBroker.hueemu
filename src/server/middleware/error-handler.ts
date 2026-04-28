@@ -25,10 +25,7 @@ export function hueErrorHandler(
     reply.status(200).send([hueError.toResponse()]);
   } else {
     // Generic error - wrap as internal error
-    const hueError = HueApiError.internalError(
-      error.message || "Unknown error",
-      address,
-    );
+    const hueError = HueApiError.internalError(error.message || "Unknown error", address);
     reply.status(200).send([hueError.toResponse()]);
   }
 }
@@ -36,8 +33,6 @@ export function hueErrorHandler(
 /**
  * Create a Hue success response array
  */
-export function createSuccessResponse(
-  data: Record<string, unknown>,
-): unknown[] {
+export function createSuccessResponse(data: Record<string, unknown>): unknown[] {
   return [{ success: data }];
 }
