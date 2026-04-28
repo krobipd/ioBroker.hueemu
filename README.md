@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.2.9 (2026-04-28)
 - Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
   - Test setup migrated: tests now live next to source under `src/**/*.test.ts` (mirroring the modular sub-folders), shared mock factory moved to `test/test-helpers.ts`. Removed `tsconfig.test.json` + `build-test/`, added `test/mocharc.custom.json` + `test/mocha.setup.js` + `test/tsconfig.json` + `test/.eslintrc.json`
   - `@types/node` rolled back from `^25.6.0` to `^20.19.24` so type defs match `engines.node: ">=20"`

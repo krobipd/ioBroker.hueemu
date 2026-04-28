@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.2.8",
+    "version": "1.2.9",
     "news": {
+      "1.2.9": {
+        "en": "Audit cleanup against the upstream ioBroker.example/TypeScript standard: tests under src/**/*.test.ts (modular sub-folders), shared mock factory at test/test-helpers.ts, @types/node aligned with engines (>=20), dependabot ignores major bumps.",
+        "de": "Audit-Cleanup gegen den ioBroker.example/TypeScript-Standard: Tests unter src/**/*.test.ts (modulare Sub-Ordner), Shared-Mock-Factory unter test/test-helpers.ts, @types/node an engines (>=20) gekoppelt, dependabot ignoriert Major-Bumps.",
+        "ru": "Аудит-очистка по стандарту ioBroker.example/TypeScript: тесты в src/**/*.test.ts, общие моки в test/test-helpers.ts, @types/node привязан к engines (>=20), dependabot игнорирует мажорные обновления.",
+        "pt": "Limpeza de auditoria conforme padrão ioBroker.example/TypeScript: testes em src/**/*.test.ts, mocks compartilhados em test/test-helpers.ts, @types/node alinhado com engines (>=20), dependabot ignora bumps maiores.",
+        "nl": "Audit-opschoning volgens ioBroker.example/TypeScript-standaard: tests onder src/**/*.test.ts, gedeelde mocks in test/test-helpers.ts, @types/node gekoppeld aan engines (>=20), dependabot negeert major bumps.",
+        "fr": "Nettoyage d'audit selon la norme ioBroker.example/TypeScript : tests dans src/**/*.test.ts, mocks partagés dans test/test-helpers.ts, @types/node aligné avec engines (>=20), dependabot ignore les bumps majeurs.",
+        "it": "Pulizia audit secondo standard ioBroker.example/TypeScript: test in src/**/*.test.ts, mock condivisi in test/test-helpers.ts, @types/node allineato a engines (>=20), dependabot ignora i bump major.",
+        "es": "Limpieza de auditoría conforme al estándar ioBroker.example/TypeScript: tests en src/**/*.test.ts, mocks compartidos en test/test-helpers.ts, @types/node alineado con engines (>=20), dependabot ignora bumps mayores.",
+        "pl": "Porządkowanie audytowe zgodnie ze standardem ioBroker.example/TypeScript: testy w src/**/*.test.ts, współdzielone mocki w test/test-helpers.ts, @types/node powiązany z engines (>=20), dependabot ignoruje główne bumpy.",
+        "uk": "Аудит-очищення за стандартом ioBroker.example/TypeScript: тести в src/**/*.test.ts, спільні моки в test/test-helpers.ts, @types/node прив'язаний до engines (>=20), dependabot ігнорує мажорні бампи.",
+        "zh-cn": "依照 ioBroker.example/TypeScript 标准的审计清理：测试在 src/**/*.test.ts 下（模块化子目录），共享 mocks 在 test/test-helpers.ts，@types/node 与 engines (>=20) 对齐，dependabot 忽略主要版本升级。"
+      },
       "1.2.8": {
         "en": "Process-level unhandledRejection/uncaughtException handlers added as last-line-of-defence. Stop shipping the manual-review release-script plugin. Min js-controller correction: was >=7.0.0, restored to repochecker-recommended >=6.0.11 (Source: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker bumped to ^7.1.1.",
         "de": "Process-level unhandledRejection/uncaughtException-Handler als Last-Line-of-Defence hinzugefügt. Das manual-review-Release-Script-Plugin entfällt. js-controller-Mindestversion-Korrektur: war >=7.0.0, korrigiert auf Repochecker-recommended >=6.0.11 (Quelle: ioBroker.repochecker/lib/M1000_IOPackageJson.js). @types/iobroker auf ^7.1.1 angehoben.",
@@ -80,19 +93,6 @@
         "pl": "Wyodrębniono wspólną funkcję sanitizeId (DRY), dodano stałe Hue API, poprawiono obsługę błędów, testy podzielone na moduły",
         "uk": "Виділено спільну утиліту sanitizeId (DRY), додано константи Hue API, покращено обробку помилок, тести розділено на модулі",
         "zh-cn": "提取共享 sanitizeId 工具函数（DRY），添加 Hue API 常量，改进错误处理，拆分测试为独立模块"
-      },
-      "1.2.2": {
-        "en": "Remove redundant actions/checkout from CI workflow, fix readme URL (master→main)",
-        "de": "Redundantes actions/checkout aus CI-Workflow entfernt, Readme-URL korrigiert (master→main)",
-        "ru": "Удалён избыточный actions/checkout из CI-воркфлоу, исправлена ссылка readme (master→main)",
-        "pt": "Removido actions/checkout redundante do workflow CI, corrigido URL do readme (master→main)",
-        "nl": "Overbodige actions/checkout verwijderd uit CI-workflow, readme-URL gecorrigeerd (master→main)",
-        "fr": "Suppression de actions/checkout redondant du workflow CI, correction de l'URL readme (master→main)",
-        "it": "Rimosso actions/checkout ridondante dal workflow CI, corretta URL readme (master→main)",
-        "es": "Eliminado actions/checkout redundante del flujo CI, corregida URL del readme (master→main)",
-        "pl": "Usunięto nadmiarowy actions/checkout z workflow CI, poprawiono URL readme (master→main)",
-        "uk": "Видалено зайвий actions/checkout з CI-воркфлоу, виправлено URL readme (master→main)",
-        "zh-cn": "从CI工作流中移除多余的actions/checkout，修正readme URL（master→main）"
       }
     },
     "titleLang": {
