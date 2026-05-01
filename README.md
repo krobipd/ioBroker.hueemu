@@ -146,6 +146,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Internal cleanup: `admin/i18n/` migrated to upstream pattern (per-language subdirectories), `jsonConfig.json5` → `jsonConfig.json`.
+
 ### 1.3.2 (2026-05-01)
 - Documentation: rewrote release notes for v1.2.5–v1.3.1 in user-friendly style across all languages.
 
