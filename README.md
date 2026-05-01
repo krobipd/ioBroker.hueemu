@@ -37,8 +37,8 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 ## Requirements
 
 - **Node.js >= 20**
-- **ioBroker js-controller >= 6.0.11**
-- **ioBroker Admin >= 7.6.20**
+- **ioBroker js-controller >= 7.0.7**
+- **ioBroker Admin >= 7.7.22**
 
 ---
 
@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.3.0 (2026-05-01)
 - Cleanup wave aligned with parcelapp v0.3.0 + beszel v0.3.8
 - Added `format` / `format:check` npm-scripts and explicit `prettier.config.mjs` (project style: spaces, double-quotes)
 - Added `supportedMessages.stopInstance: true` so admin can soft-stop the instance over the message bus
@@ -179,21 +179,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Harden numeric coercion in both directions on `bri`, `hue`, `sat`, `ct`, `xy`: reject `NaN`/`Infinity`, round fractional values, fall back to defaults on junk input
 - Expand test coverage 146 → 226 (add `testApiRoutes`, `testApiHandler`, `testUserService`, plus edge-case cases for value conversion)
 
-### 1.2.5 (2026-04-17)
-- Reposition adapter for legacy Hue-only clients (older Echo, Logitech Harmony, Bosch Smart Home Controller, etc.) and point modern voice-assistant users at the official Matter adapter
-- Rewrite `titleLang`, `desc` and `package.json` description; fix broken translations across all 11 languages
-- Drop Harmony brand-drop from `hostTooltip` in admin UI (all 11 languages)
-- README cleanup: remove filler sentences and parenthetical brand lists
-
-### 1.2.4 (2026-04-13)
-- Remove dead types from light model (6 unused interfaces, 3 unused LightType variants)
-- Refactor UserService from callback to async API (removes ~40 lines boilerplate)
-- Extract `requireAuth()` helper in API routes (DRY, 6 duplicated auth checks → 1 function)
-- Centralize `BRIDGE_MODEL_ID` constant (was duplicated in config-service and main)
-- Make logger required in all services (removes conditional null-checks in 5 files)
-- Use `try/finally` in onUnload for safer shutdown
-- Remove dead `createLight` instanceObject from io-package.json
-- Remove synchronous `generateCertificate` from being unnecessarily async
+Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ## Credits
 

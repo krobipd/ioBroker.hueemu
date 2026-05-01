@@ -1,4 +1,20 @@
 # Older Changes
+## 1.2.5 (2026-04-17)
+- Reposition adapter for legacy Hue-only clients (older Echo, Logitech Harmony, Bosch Smart Home Controller, etc.) and point modern voice-assistant users at the official Matter adapter
+- Rewrite `titleLang`, `desc` and `package.json` description; fix broken translations across all 11 languages
+- Drop Harmony brand-drop from `hostTooltip` in admin UI (all 11 languages)
+- README cleanup: remove filler sentences and parenthetical brand lists
+
+## 1.2.4 (2026-04-13)
+- Remove dead types from light model (6 unused interfaces, 3 unused LightType variants)
+- Refactor UserService from callback to async API (removes ~40 lines boilerplate)
+- Extract `requireAuth()` helper in API routes (DRY, 6 duplicated auth checks → 1 function)
+- Centralize `BRIDGE_MODEL_ID` constant (was duplicated in config-service and main)
+- Make logger required in all services (removes conditional null-checks in 5 files)
+- Use `try/finally` in onUnload for safer shutdown
+- Remove dead `createLight` instanceObject from io-package.json
+- Remove synchronous `generateCertificate` from being unnecessarily async
+
 ## 1.2.3 (2026-04-11)
 - Extract shared `sanitizeId` utility module (DRY)
 - Add Hue API value range constants for readability
@@ -22,8 +38,6 @@
 ## 1.2.0 (2026-04-06)
 - Rename `user` folder to `clients` — clearer naming for paired endpoints (Alexa, Harmony, etc.)
 - Automatic migration of existing paired clients on startup
-
-Older entries have been moved to [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
 ---
 
