@@ -147,15 +147,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Changelog
 ### 1.3.1 (2026-05-01)
-- Hotfix: hand-written translations for the v1.3.0 news entry across all 11 languages — replaces auto-translation glitches around proper nouns (`parcelapp` / `beszel` / `hueemu`) and tech vocabulary (`Stall` → `stable`, untranslated `Migrated` / `Cleaned`, NL truncation). Code unchanged.
+- Improved news translations for v1.3.0.
 
 ### 1.3.0 (2026-05-01)
-- Cleanup wave aligned with parcelapp v0.3.0 + beszel v0.3.8
-- Added `format` / `format:check` npm-scripts and explicit `prettier.config.mjs` (project style: spaces, double-quotes)
-- Added `supportedMessages.stopInstance: true` so admin can soft-stop the instance over the message bus
-- Migrated `repochecker-version-gate` workflow from `M1000_IOPackageJson.js` parsing to `sources-dist-stable.json` (covers every ioBroker dep, not just js-controller + admin)
-- Cleaned `tsconfig.build.json` exclude (dropped a dead `src/test-helpers.ts` reference; the helper lives at `test/test-helpers.ts`)
-- Auto-synced via release-mode: `js-controller >=7.0.7`, `admin >=7.7.22` (latest stable from `sources-dist-stable.json`)
+- Internal cleanup. Stable-sync: `js-controller >=7.0.7`, `admin >=7.7.22`.
 
 ### 1.2.9 (2026-04-28)
 - Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
