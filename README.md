@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.3.2 (2026-05-01)
 - Documentation: rewrote release notes for v1.2.5–v1.3.1 in user-friendly style across all languages.
 
 ### 1.3.1 (2026-05-01)
@@ -162,9 +162,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.2.8 (2026-04-26)
 - Crash defense: process-level error handlers.
 - Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
-
-### 1.2.7 (2026-04-23)
-- Internal hardening. No user-facing changes.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

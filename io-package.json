@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.3.1",
+    "version": "1.3.2",
     "news": {
-      "NEXT": {
+      "1.3.2": {
         "en": "Documentation: rewrote release notes in user-friendly style across all languages.",
         "de": "Dokumentation: Release-Notes in alle Sprachen User-orientiert neu geschrieben.",
         "ru": "Документация: примечания к релизу переписаны в дружественном к пользователю стиле на всех языках.",
@@ -93,19 +93,6 @@
         "pl": "Wzmocnienie API: odrzuca nieprawidłowe wartości bri/hue/sat/ct/xy z zewnętrznych state (brak crashów przy NaN/Infinity/śmieciach).",
         "uk": "Зміцнення API: відхиляє некоректні значення bri/hue/sat/ct/xy із зовнішніх state (більше немає збоїв на NaN/Infinity/сміття).",
         "zh-cn": "API 加固：拒绝来自外部 state 的无效 bri/hue/sat/ct/xy 值（不再因 NaN/Infinity/垃圾值崩溃）。"
-      },
-      "1.2.5": {
-        "en": "Documentation: clearer scope (legacy Hue-only clients), fixed translations across 11 languages.",
-        "de": "Dokumentation: klarerer Scope (Legacy-Hue-only-Clients), Übersetzungen in 11 Sprachen korrigiert.",
-        "ru": "Документация: более чёткий scope (legacy Hue-only-клиенты), исправлены переводы на 11 языках.",
-        "pt": "Documentação: escopo mais claro (clientes legacy Hue-only), traduções corrigidas em 11 idiomas.",
-        "nl": "Documentatie: duidelijker scope (legacy Hue-only-clients), vertalingen gecorrigeerd in 11 talen.",
-        "fr": "Documentation : portée plus claire (clients legacy Hue-only), traductions corrigées en 11 langues.",
-        "it": "Documentazione: scope più chiaro (client legacy Hue-only), traduzioni corrette in 11 lingue.",
-        "es": "Documentación: scope más claro (clientes legacy Hue-only), traducciones corregidas en 11 idiomas.",
-        "pl": "Dokumentacja: jaśniejszy scope (legacy klienci Hue-only), poprawione tłumaczenia w 11 językach.",
-        "uk": "Документація: чіткіший scope (legacy Hue-only-клієнти), виправлені переклади 11 мовами.",
-        "zh-cn": "文档：更清晰的范围（legacy Hue-only 客户端），修正了 11 种语言的翻译。"
       }
     },
     "titleLang": {

@@ -1,4 +1,7 @@
 # Older Changes
+## 1.2.7 (2026-04-23)
+- Internal hardening. No user-facing changes.
+
 ## 1.2.6 (2026-04-18)
 - API hardening: request-body validation + numeric coercion (bri/hue/sat/ct/xy).
 
