@@ -146,21 +146,25 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Documentation: rewrote release notes for v1.2.5–v1.3.1 in user-friendly style across all languages.
+
 ### 1.3.1 (2026-05-01)
-- Improved news translations for v1.3.0.
+- Documentation: corrected machine-translated news entry for v1.3.0 across all languages.
 
 ### 1.3.0 (2026-05-01)
-- Internal cleanup. Stable-sync: `js-controller >=7.0.7`, `admin >=7.7.22`.
+- Adapter can now be stopped cleanly via admin's stop-instance message.
+- Requires `js-controller >=7.0.7`, `admin >=7.7.22`.
 
 ### 1.2.9 (2026-04-28)
-- Internal cleanup against ioBroker.example/TypeScript standard.
+- Internal cleanup. No user-facing changes.
 
 ### 1.2.8 (2026-04-26)
-- Crash defense: process-level `unhandledRejection` handlers.
-- Min `js-controller >=6.0.11` (was `>=7.0.0`).
+- Crash defense: process-level error handlers.
+- Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
 
 ### 1.2.7 (2026-04-23)
-- Defense-in-depth: `clients` meta-folder as instance object, `.catch()` wrap on async `onReady`.
+- Internal hardening. No user-facing changes.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
