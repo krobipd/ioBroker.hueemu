@@ -146,6 +146,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Hotfix: hand-written translations for the v1.3.0 news entry across all 11 languages — replaces auto-translation glitches around proper nouns (`parcelapp` / `beszel` / `hueemu`) and tech vocabulary (`Stall` → `stable`, untranslated `Migrated` / `Cleaned`, NL truncation). Code unchanged.
+
 ### 1.3.0 (2026-05-01)
 - Cleanup wave aligned with parcelapp v0.3.0 + beszel v0.3.8
 - Added `format` / `format:check` npm-scripts and explicit `prettier.config.mjs` (project style: spaces, double-quotes)

@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.3.0 (2026-05-01 — Cleanup-Welle analog parcelapp v0.3.0 + beszel v0.3.8)
+- **Version:** 1.3.1 (2026-05-01 — Translation-Hotfix für news[1.3.0])
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
@@ -85,6 +85,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.3.1 | Translation-Hotfix: handgeschriebene 11-Sprachen-Übersetzungen für news[1.3.0] (Auto-Translate hatte Eigennamen + Tech-Vokabeln verfälscht). Plus: neuer Standard `news.NEXT`-Pre-fill umgeht den Translate-Adapter dauerhaft (siehe `feedback_translate_adapter_fallback`). Kein Code-Change |
 | 1.3.0 | Cleanup-Welle analog parcelapp v0.3.0 + beszel v0.3.8: `format`/`format:check` npm-scripts, `supportedMessages.stopInstance: true`, Workflow `repochecker-version-gate` auf sources-dist-stable, `tsconfig.build.json` exclude entdoppelt, CLAUDE.md Tests-Sektion + Befehle aktualisiert. Auto via release-mode: js-controller `>=7.0.7`, admin `>=7.7.22` |
 | 1.2.9 | Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard: tsconfig.test.json gelöscht, Tests in `src/<sub>/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` ausserhalb src/, dependabot ignore-Block, Tests 146 → 226 |
 | 1.2.7 | tsconfig.test.json → outDir `./build-test` (verhindert `build/src`+`build/test`-Duplikate), `clients` als instanceObject (meta/folder, 11-sprachig), `.catch()`-Wrapper für onReady (defense-in-depth) |
