@@ -150,6 +150,9 @@
     "connectionType": "local",
     "dataSource": "push",
     "tier": 3,
+    "supportedMessages": {
+      "stopInstance": true
+    },
     "dependencies": [
       {
         "js-controller": ">=6.0.11"

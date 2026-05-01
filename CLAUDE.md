@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.2.9 (2026-04-28 — Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard)
+- **Version:** 1.3.0 (2026-05-01 — Cleanup-Welle analog parcelapp v0.3.0 + beszel v0.3.8)
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
@@ -56,20 +56,20 @@ src/types/                        → config, errors, hue-api, light
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (226 custom + 57 standard = 283)
+## Tests (226 custom + 57 standard + 1 integration = 284)
 
 ```
-test/testUtils.ts          → 10: sanitizeId (shared utility)
-test/testErrors.ts         → 16: HueApiError, createSuccessResponse
-test/testConfig.ts         → 25: generateBridgeId, generateSerialNumber, ConfigService
-test/testDiscovery.ts      → 10: UPnP description XML, URL building
-test/testDeviceBinding.ts  → 109: DeviceBindingService, value conversion, edge cases (NaN/Infinity/objects)
-test/testUserService.ts    → 18: addUser sanitization, createUser, isUserAuthenticated
-test/testApiHandler.ts     → 18: auth/pairing gates, malformed devicetype, fallback
-test/testApiRoutes.ts      → 18: Fastify route tests (inject), body validation, auth
-test/testHelpers.ts        → Shared mock factories (no tests)
-test/package.js            → 57 standard: @iobroker/testing packageFiles
-test/integration.js        → standard: @iobroker/testing integration (CI only)
+src/types/utils.test.ts                    → 10: sanitizeId (shared utility)
+src/types/errors.test.ts                   → 16: HueApiError, createSuccessResponse
+src/types/config.test.ts                   → 25: generateBridgeId, generateSerialNumber, ConfigService
+src/discovery/index.test.ts                → 10: UPnP description XML, URL building
+src/hue-api/device-binding-service.test.ts → 109: DeviceBindingService, value conversion, edge cases (NaN/Infinity/objects)
+src/hue-api/user-service.test.ts           → 18: addUser sanitization, createUser, isUserAuthenticated
+src/hue-api/api-handler.test.ts            → 18: auth/pairing gates, malformed devicetype, fallback
+src/server/routes/api-v1-routes.test.ts    → 20: Fastify route tests (inject), body validation, auth
+test/test-helpers.ts                       → Shared mock factories (no tests, ausserhalb src/)
+test/package.js                            → 57 standard: @iobroker/testing packageFiles
+test/integration.js                        → 1 standard: @iobroker/testing integration (CI only)
 ```
 
 **WICHTIG:** .gitignore hat `*.js` — test/package.js und test/integration.js haben Ausnahmen!
@@ -85,6 +85,8 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.3.0 | Cleanup-Welle analog parcelapp v0.3.0 + beszel v0.3.8: `format`/`format:check` npm-scripts, `supportedMessages.stopInstance: true`, Workflow `repochecker-version-gate` auf sources-dist-stable, `tsconfig.build.json` exclude entdoppelt, CLAUDE.md Tests-Sektion + Befehle aktualisiert. Auto via release-mode: js-controller `>=7.0.7`, admin `>=7.7.22` |
+| 1.2.9 | Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard: tsconfig.test.json gelöscht, Tests in `src/<sub>/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` ausserhalb src/, dependabot ignore-Block, Tests 146 → 226 |
 | 1.2.7 | tsconfig.test.json → outDir `./build-test` (verhindert `build/src`+`build/test`-Duplikate), `clients` als instanceObject (meta/folder, 11-sprachig), `.catch()`-Wrapper für onReady (defense-in-depth) |
 | 1.2.6 | API-Boundary-Härtung: Type-Guards für eingehende Hue-Bodies, numerische Koerzierung (NaN/Infinity/Schrottwerte) für bri/hue/sat/ct/xy, Tests 146 → 226 |
 | 1.2.5 | Docs-Release: Matter-aware repositioning, Metadaten in 11 Sprachen neu geschrieben, Harmony-Namedrop aus i18n raus |
@@ -100,11 +102,14 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 ## Befehle
 
 ```bash
-npm run build           # Production (esbuild)
-npm run build:test      # Test build (tsc)
-npm run test:ts         # Custom Unit-Tests (146)
-npm run test:package    # Standard Package-Tests (57)
-npm run test:integration # Standard Integration-Tests (CI)
-npm test                # test:ts + test:package (lokal)
-npm run lint            # ESLint + Prettier
+npm run build            # Production (esbuild via build-adapter)
+npm run check            # tsc --noEmit (Type-Check ohne Build)
+npm run test:ts          # Unit-Tests via ts-node (226)
+npm run test:package     # Standard Package-Tests (57)
+npm run test:integration # Standard Integration-Tests (1, CI only)
+npm test                 # test:ts + test:package (lokal)
+npm run lint             # ESLint
+npm run lint:fix         # ESLint --fix
+npm run format           # Prettier --write
+npm run format:check     # Prettier --check
 ```

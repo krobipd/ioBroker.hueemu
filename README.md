@@ -146,6 +146,14 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Cleanup wave aligned with parcelapp v0.3.0 + beszel v0.3.8
+- Added `format` / `format:check` npm-scripts and explicit `prettier.config.mjs` (project style: spaces, double-quotes)
+- Added `supportedMessages.stopInstance: true` so admin can soft-stop the instance over the message bus
+- Migrated `repochecker-version-gate` workflow from `M1000_IOPackageJson.js` parsing to `sources-dist-stable.json` (covers every ioBroker dep, not just js-controller + admin)
+- Cleaned `tsconfig.build.json` exclude (dropped a dead `src/test-helpers.ts` reference; the helper lives at `test/test-helpers.ts`)
+- Auto-synced via release-mode: `js-controller >=7.0.7`, `admin >=7.7.22` (latest stable from `sources-dist-stable.json`)
+
 ### 1.2.9 (2026-04-28)
 - Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
   - Test setup migrated: tests now live next to source under `src/**/*.test.ts` (mirroring the modular sub-folders), shared mock factory moved to `test/test-helpers.ts`. Removed `tsconfig.test.json` + `build-test/`, added `test/mocharc.custom.json` + `test/mocha.setup.js` + `test/tsconfig.json` + `test/.eslintrc.json`
