@@ -153,24 +153,14 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Internal cleanup. Stable-sync: `js-controller >=7.0.7`, `admin >=7.7.22`.
 
 ### 1.2.9 (2026-04-28)
-- Audit cleanup against the upstream `ioBroker.example/TypeScript` full standard:
-  - Test setup migrated: tests now live next to source under `src/**/*.test.ts` (mirroring the modular sub-folders), shared mock factory moved to `test/test-helpers.ts`. Removed `tsconfig.test.json` + `build-test/`, added `test/mocharc.custom.json` + `test/mocha.setup.js` + `test/tsconfig.json` + `test/.eslintrc.json`
-  - `@types/node` rolled back from `^25.6.0` to `^20.19.24` so type defs match `engines.node: ">=20"`
-  - Dependabot now ignores major bumps for `@types/node`, `typescript`, `eslint`, `actions/checkout`, `actions/setup-node`
-  - `nyc` config + `coverage` script added
-  - `prettier.config.mjs` made explicit with project-style overrides
-  - Orphan `.github/auto-merge.yml` removed (active workflow is `automerge-dependabot.yml` using `gh pr merge`)
+- Internal cleanup against ioBroker.example/TypeScript standard.
 
 ### 1.2.8 (2026-04-26)
-- Process-level `unhandledRejection` / `uncaughtException` handlers added as last-line-of-defence against fire-and-forget rejections.
-- Stop shipping the `manual-review` release-script plugin — adapter-only consequence.
-- Min js-controller correction: was `>=7.0.0`, restored to repochecker-recommended `>=6.0.11` (Source: `ioBroker.repochecker/lib/M1000_IOPackageJson.js`).
-- `@types/iobroker` bumped to `^7.1.1`.
+- Crash defense: process-level `unhandledRejection` handlers.
+- Min `js-controller >=6.0.11` (was `>=7.0.0`).
 
 ### 1.2.7 (2026-04-23)
-- Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
-- Declare `clients` meta-folder as an instance object so the parent exists before `clients.<username>` children are created dynamically by the user service.
-- Wrap async `onReady` handler with `.catch()` as defense-in-depth — keeps the adapter from turning a future refactor error into an unhandled rejection → restart loop.
+- Defense-in-depth: `clients` meta-folder as instance object, `.catch()` wrap on async `onReady`.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
