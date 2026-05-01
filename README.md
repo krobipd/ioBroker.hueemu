@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.3.1 (2026-05-01)
 - Hotfix: hand-written translations for the v1.3.0 news entry across all 11 languages — replaces auto-translation glitches around proper nouns (`parcelapp` / `beszel` / `hueemu`) and tech vocabulary (`Stall` → `stable`, untranslated `Migrated` / `Cleaned`, NL truncation). Code unchanged.
 
 ### 1.3.0 (2026-05-01)
@@ -176,11 +176,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Separate test-build output (`build-test/`) from production `build/`, so `npm test` no longer risks leaving duplicated `build/src` + `build/test` trees in the published package.
 - Declare `clients` meta-folder as an instance object so the parent exists before `clients.<username>` children are created dynamically by the user service.
 - Wrap async `onReady` handler with `.catch()` as defense-in-depth — keeps the adapter from turning a future refactor error into an unhandled rejection → restart loop.
-
-### 1.2.6 (2026-04-18)
-- Harden request-body validation on all write endpoints (POST /api, PUT /lights/:id/state, PUT /groups/:id/action): reject arrays and wrong-typed `devicetype`, keep Hue-style error responses
-- Harden numeric coercion in both directions on `bri`, `hue`, `sat`, `ct`, `xy`: reject `NaN`/`Infinity`, round fractional values, fall back to defaults on junk input
-- Expand test coverage 146 → 226 (add `testApiRoutes`, `testApiHandler`, `testUserService`, plus edge-case cases for value conversion)
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

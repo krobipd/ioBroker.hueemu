@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "news": {
-      "NEXT": {
+      "1.3.1": {
         "en": "Hotfix: hand-written translations for v1.3.0 news entry across 11 languages — replaces auto-translation glitches around proper nouns (parcelapp/beszel/hueemu) and tech vocabulary. Code unchanged.",
         "de": "Hotfix: Handgeschriebene Übersetzungen für news v1.3.0 in 11 Sprachen — ersetzt Auto-Übersetzungs-Murks bei Eigennamen (parcelapp/beszel/hueemu) und Tech-Vokabeln. Code unverändert.",
         "ru": "Hotfix: ручные переводы для news v1.3.0 на 11 языках — заменяют автопереводческий мусор для собственных имён (parcelapp/beszel/hueemu) и технической лексики. Код без изменений.",
@@ -93,19 +93,6 @@
         "pl": "Dokumentacja: nowe pozycjonowanie dla starszych klientów obsługujących tylko Hue, metadane przepisane w 11 językach",
         "uk": "Документація: репозиціонування для старих Hue-only клієнтів, метадані оновлено 11 мовами",
         "zh-cn": "文档：重新定位为面向仅支持 Hue 的旧客户端，11 种语言的元数据已重写"
-      },
-      "1.2.4": {
-        "en": "Dead code cleanup, DRY refactoring (requireAuth, MODEL_ID), UserService async API, safer onUnload",
-        "de": "Toter Code entfernt, DRY-Refactoring (requireAuth, MODEL_ID), UserService auf Async-API, sichereres onUnload",
-        "ru": "Удалён мёртвый код, DRY-рефакторинг (requireAuth, MODEL_ID), UserService на async API, безопасный onUnload",
-        "pt": "Código morto removido, refatoração DRY (requireAuth, MODEL_ID), UserService API assíncrona, onUnload mais seguro",
-        "nl": "Dode code verwijderd, DRY-refactoring (requireAuth, MODEL_ID), UserService async API, veiliger onUnload",
-        "fr": "Code mort supprimé, refactoring DRY (requireAuth, MODEL_ID), API async UserService, onUnload plus sûr",
-        "it": "Codice morto rimosso, refactoring DRY (requireAuth, MODEL_ID), API async UserService, onUnload più sicuro",
-        "es": "Código muerto eliminado, refactorización DRY (requireAuth, MODEL_ID), API async UserService, onUnload más seguro",
-        "pl": "Usunięto martwy kod, refaktoryzacja DRY (requireAuth, MODEL_ID), async API UserService, bezpieczniejszy onUnload",
-        "uk": "Видалено мертвий код, DRY-рефакторинг (requireAuth, MODEL_ID), async API UserService, безпечніший onUnload",
-        "zh-cn": "清理死代码，DRY重构（requireAuth、MODEL_ID），UserService异步API，更安全的onUnload"
       }
     },
     "titleLang": {
