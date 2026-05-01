@@ -361,7 +361,7 @@ export class HueEmu extends utils.Adapter {
       // Create clients folder first
       await this.setObjectNotExistsAsync("clients", {
         type: "meta",
-        common: { name: "Paired Clients", type: "meta.folder" as any },
+        common: { name: "Paired Clients", type: "meta.folder" },
         native: {},
       });
 

@@ -76,7 +76,7 @@ export class HueSsdpServer {
         udn: `uuid:${this.config.identity.udn}`,
       };
 
-      this.server = new SsdpServer(serverOptions as any);
+      this.server = new SsdpServer(serverOptions);
 
       // Add the Basic device type that Hue apps search for
       // Register both cases since some clients (e.g. Harmony Hub) use lowercase

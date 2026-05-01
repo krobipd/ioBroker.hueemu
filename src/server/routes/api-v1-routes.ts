@@ -36,7 +36,7 @@ function toHueRequest(request: FastifyRequest): HueRequest {
     url: request.url,
     params: (request.params as Record<string, string>) || {},
     body: request.body,
-    headers: request.headers as Record<string, string | string[] | undefined>,
+    headers: request.headers,
     ip: request.ip,
   };
 }
