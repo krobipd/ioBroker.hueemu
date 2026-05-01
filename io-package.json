@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "news": {
-      "NEXT": {
+      "1.3.3": {
         "en": "Internal cleanup: admin/i18n migrated to upstream pattern (per-language subdirectories), jsonConfig.json5 → jsonConfig.json.",
         "de": "Interne Bereinigung: admin/i18n auf Upstream-Pattern migriert (Pro-Sprache-Unterordner), jsonConfig.json5 → jsonConfig.json.",
         "ru": "Внутренняя очистка: admin/i18n переведён на upstream-паттерн (подпапки по языкам), jsonConfig.json5 → jsonConfig.json.",
@@ -93,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
         "zh-cn": "内部清理。对用户无可见变化。"
-      },
-      "1.2.6": {
-        "en": "API hardening: rejects invalid bri/hue/sat/ct/xy values from external states (no more crashes on NaN/Infinity/junk).",
-        "de": "API-Härtung: weist ungültige bri/hue/sat/ct/xy-Werte aus externen States ab (keine Crashes mehr bei NaN/Infinity/Schrott).",
-        "ru": "Усиление API: отклоняет некорректные значения bri/hue/sat/ct/xy из внешних state (больше нет сбоев при NaN/Infinity/мусоре).",
-        "pt": "Endurecimento da API: rejeita valores bri/hue/sat/ct/xy inválidos de states externos (sem mais falhas em NaN/Infinity/lixo).",
-        "nl": "API-verharding: weigert ongeldige bri/hue/sat/ct/xy-waarden uit externe states (geen crashes meer bij NaN/Infinity/rommel).",
-        "fr": "Durcissement de l'API : rejette les valeurs bri/hue/sat/ct/xy invalides depuis les states externes (plus de crashs sur NaN/Infinity/données invalides).",
-        "it": "Hardening API: rifiuta valori bri/hue/sat/ct/xy non validi da state esterni (niente più crash su NaN/Infinity/spazzatura).",
-        "es": "Endurecimiento de API: rechaza valores bri/hue/sat/ct/xy inválidos desde states externos (sin más fallos en NaN/Infinity/basura).",
-        "pl": "Wzmocnienie API: odrzuca nieprawidłowe wartości bri/hue/sat/ct/xy z zewnętrznych state (brak crashów przy NaN/Infinity/śmieciach).",
-        "uk": "Зміцнення API: відхиляє некоректні значення bri/hue/sat/ct/xy із зовнішніх state (більше немає збоїв на NaN/Infinity/сміття).",
-        "zh-cn": "API 加固：拒绝来自外部 state 的无效 bri/hue/sat/ct/xy 值（不再因 NaN/Infinity/垃圾值崩溃）。"
       }
     },
     "titleLang": {

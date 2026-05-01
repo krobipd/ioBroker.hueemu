@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.3.3 (2026-05-01)
 - Internal cleanup: `admin/i18n/` migrated to upstream pattern (per-language subdirectories), `jsonConfig.json5` → `jsonConfig.json`.
 
 ### 1.3.2 (2026-05-01)
@@ -161,10 +161,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.2.9 (2026-04-28)
 - Internal cleanup. No user-facing changes.
-
-### 1.2.8 (2026-04-26)
-- Crash defense: process-level error handlers.
-- Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
