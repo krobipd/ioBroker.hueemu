@@ -146,6 +146,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- (copilot) Adapter requires node.js >= 22 now
+
 ### 1.3.3 (2026-05-01)
 - Internal cleanup: `admin/i18n/` migrated to upstream pattern (per-language subdirectories), `jsonConfig.json5` → `jsonConfig.json`.
 
