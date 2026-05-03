@@ -164,6 +164,8 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## Credits
 
 **Original Author:** Christopher Holomek ([@holomekc](https://github.com/holomekc))
