@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "news": {
-      "NEXT": {
+      "1.4.1": {
         "en": "Tightened types and removed `as any` casts. Lifecycle migration helpers extracted to a separate module for unit-test coverage.",
         "de": "Typen gehärtet und `as any`-Casts entfernt. Lifecycle-Migrations-Helper in eigenes Modul ausgelagert und unit-getestet.",
         "ru": "Типы укреплены, `as any` касты удалены. Хелперы миграции жизненного цикла вынесены в отдельный модуль и покрыты тестами.",

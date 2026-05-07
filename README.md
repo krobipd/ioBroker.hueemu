@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.4.1 (2026-05-07)
 - Tightened types and removed `as any` casts (port parsing, Fastify HTTPS, ApiHandler adapter wiring).
 - Lifecycle migration helpers (instanceObject names, obsolete-state cleanup) extracted to `src/lib/migrations.ts` for unit-test coverage.
 
@@ -163,10 +163,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.3.1 (2026-05-01)
 - Documentation: corrected machine-translated news entry for v1.3.0 across all languages.
-
-### 1.3.0 (2026-05-01)
-- Adapter can now be stopped cleanly via admin's stop-instance message.
-- Requires `js-controller >=7.0.7`, `admin >=7.7.22`.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

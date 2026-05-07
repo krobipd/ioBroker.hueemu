@@ -1,4 +1,8 @@
 # Older Changes
+## 1.3.0 (2026-05-01)
+- Adapter can now be stopped cleanly via admin's stop-instance message.
+- Requires `js-controller >=7.0.7`, `admin >=7.7.22`.
+
 ## 1.2.9 (2026-04-28)
 - Internal cleanup. No user-facing changes.
 
