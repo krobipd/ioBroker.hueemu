@@ -39,6 +39,7 @@ var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
 var import_i18n_logs = require("./lib/i18n-logs");
 var import_i18n_states = require("./lib/i18n-states");
+var import_migrations = require("./lib/migrations");
 var import_config = require("./types/config");
 var import_utils = require("./types/utils");
 class HueEmu extends utils.Adapter {
@@ -242,71 +243,28 @@ class HueEmu extends utils.Adapter {
   }
   /**
    * Migrate v1.3.x instanceObject names/descriptions from plain English strings
-   * to translation objects. Idempotent: if `common.name` is already an object,
-   * skip. instanceObjects are NOT re-applied on adapter upgrade — only on first
-   * install — so this is the only path that backfills translations for users
-   * who installed before v1.4.0.
+   * to translation objects. instanceObjects are NOT re-applied on adapter
+   * upgrade, so this is the only path that backfills translations for users
+   * who installed before v1.4.0. Idempotent (logic in {@link runInstanceObjectMigration}).
    */
   async migrateInstanceObjectNames() {
-    const pairs = [
-      { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
-      { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
-      { id: "clients", nameKey: "clientsFolder" }
-    ];
-    for (const pair of pairs) {
-      const obj = await this.getObjectAsync(pair.id);
-      if (!obj) {
-        continue;
-      }
-      const common = obj.common;
-      const nameIsString = typeof (common == null ? void 0 : common.name) === "string";
-      const descIsString = pair.descKey !== void 0 && typeof (common == null ? void 0 : common.desc) === "string";
-      if (!nameIsString && !descIsString) {
-        continue;
-      }
-      const update = {};
-      if (nameIsString) {
-        update.name = (0, import_i18n_states.tName)(pair.nameKey);
-      }
-      if (descIsString && pair.descKey) {
-        update.desc = (0, import_i18n_states.tName)(pair.descKey);
-      }
-      await this.extendObjectAsync(pair.id, { common: update });
-      this.log.debug(`Translated instanceObject names: ${pair.id}`);
-    }
+    await (0, import_migrations.runInstanceObjectMigration)({
+      getObjectAsync: (id) => this.getObjectAsync(id),
+      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj),
+      log: { debug: (msg) => this.log.debug(msg) }
+    });
   }
   /**
    * Remove states/channels/objects that were removed in newer adapter versions
    */
   async cleanupObsoleteStates() {
-    const obsoleteStates = [
-      "info.configuredDevices",
-      // removed in 1.0.15
-      "info.connection",
-      // removed in 1.1.3 (adapter is a server, no outbound connection)
-      "info",
-      // empty folder after info.* states removed
-      "createLight"
-      // removed in 1.1.0 (legacy mode replaced by admin config + migration)
-    ];
-    for (const stateId of obsoleteStates) {
-      const obj = await this.getObjectAsync(stateId);
-      if (obj) {
-        await this.delObjectAsync(stateId);
-        this.log.debug(`Removed obsolete state: ${stateId}`);
-        const parentId = stateId.includes(".") ? stateId.substring(0, stateId.lastIndexOf(".")) : null;
-        if (parentId) {
-          const children = await this.getObjectListAsync({
-            startkey: `${this.namespace}.${parentId}.`,
-            endkey: `${this.namespace}.${parentId}.\u9999`
-          });
-          if ((children == null ? void 0 : children.rows.length) === 0) {
-            await this.delObjectAsync(parentId);
-            this.log.debug(`Removed empty parent: ${parentId}`);
-          }
-        }
-      }
-    }
+    await (0, import_migrations.runObsoleteStateCleanup)({
+      namespace: this.namespace,
+      getObjectAsync: (id) => this.getObjectAsync(id),
+      delObjectAsync: (id) => this.delObjectAsync(id),
+      getObjectListAsync: (query) => this.getObjectListAsync(query),
+      log: { debug: (msg) => this.log.debug(msg) }
+    });
     await this.migrateUserToClients();
   }
   /**
@@ -511,20 +469,30 @@ class HueEmu extends utils.Adapter {
     return true;
   }
   /**
-   * Parse port number
+   * Parse a required port number from admin config (string or number).
+   * Throws when the value is missing or unparseable — caller must handle.
    */
   toPort(port) {
-    if (port) {
-      return typeof port === "number" ? port : parseInt(port.toString().trim(), 10);
+    const parsed = this.parsePort(port);
+    if (parsed === void 0) {
+      throw new Error("Port not specified");
     }
-    throw new Error("Port not specified");
+    return parsed;
   }
   /**
-   * Parse optional port
+   * Parse an optional port number — returns `undefined` when absent.
    */
   toUndefinedPort(port) {
-    if (port) {
-      return typeof port === "number" ? port : parseInt(port.toString(), 10);
+    return this.parsePort(port);
+  }
+  /** Shared port parser — returns undefined for missing/unparseable input. */
+  parsePort(port) {
+    if (typeof port === "number") {
+      return Number.isFinite(port) ? port : void 0;
+    }
+    if (typeof port === "string" && port.trim().length > 0) {
+      const n = parseInt(port.trim(), 10);
+      return Number.isFinite(n) ? n : void 0;
     }
     return void 0;
   }

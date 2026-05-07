@@ -9,9 +9,10 @@ import * as forge from "node-forge";
 
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
-import { ApiHandler, type DeviceConfig } from "./hue-api";
+import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
 import { tLog } from "./lib/i18n-logs";
 import { tName } from "./lib/i18n-states";
+import { runInstanceObjectMigration, runObsoleteStateCleanup } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber } from "./types/config";
 import { errText, sanitizeId } from "./types/utils";
@@ -150,11 +151,13 @@ export class HueEmu extends utils.Adapter {
         systemLang: this.systemLang,
       });
 
-      // Adapter base class setStateAsync returns SetStatePromise but our
-      // internal handler interfaces specify Promise<{ id: string }>;
-      // semantically equivalent for our usage.
+      // Double cast `unknown → ApiHandlerAdapter` because the Adapter base
+      // class's `setStateAsync` returns `SetStatePromise` while our handler
+      // interfaces specify `Promise<{ id: string }>`. They are semantically
+      // equivalent for our usage; the explicit cast keeps the intent visible
+      // without `any`.
       this.apiHandler = new ApiHandler({
-        adapter: this as any,
+        adapter: this as unknown as ApiHandlerAdapter,
         configServiceConfig: {
           identity: emulatorConfig.identity,
           discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host,
@@ -307,77 +310,29 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Migrate v1.3.x instanceObject names/descriptions from plain English strings
-   * to translation objects. Idempotent: if `common.name` is already an object,
-   * skip. instanceObjects are NOT re-applied on adapter upgrade — only on first
-   * install — so this is the only path that backfills translations for users
-   * who installed before v1.4.0.
+   * to translation objects. instanceObjects are NOT re-applied on adapter
+   * upgrade, so this is the only path that backfills translations for users
+   * who installed before v1.4.0. Idempotent (logic in {@link runInstanceObjectMigration}).
    */
   private async migrateInstanceObjectNames(): Promise<void> {
-    type Pair = {
-      id: string;
-      nameKey: "startPairingName" | "disableAuthName" | "clientsFolder";
-      descKey?: "startPairingDesc" | "disableAuthDesc";
-    };
-    const pairs: Pair[] = [
-      { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
-      { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
-      { id: "clients", nameKey: "clientsFolder" },
-    ];
-
-    for (const pair of pairs) {
-      const obj = await this.getObjectAsync(pair.id);
-      if (!obj) {
-        continue;
-      }
-      const common = obj.common as Record<string, unknown> | undefined;
-      const nameIsString = typeof common?.name === "string";
-      const descIsString = pair.descKey !== undefined && typeof common?.desc === "string";
-      if (!nameIsString && !descIsString) {
-        continue;
-      }
-      const update: Record<string, unknown> = {};
-      if (nameIsString) {
-        update.name = tName(pair.nameKey);
-      }
-      if (descIsString && pair.descKey) {
-        update.desc = tName(pair.descKey);
-      }
-      await this.extendObjectAsync(pair.id, { common: update });
-      this.log.debug(`Translated instanceObject names: ${pair.id}`);
-    }
+    await runInstanceObjectMigration({
+      getObjectAsync: id => this.getObjectAsync(id),
+      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj as ioBroker.SettableObject),
+      log: { debug: msg => this.log.debug(msg) },
+    });
   }
 
   /**
    * Remove states/channels/objects that were removed in newer adapter versions
    */
   private async cleanupObsoleteStates(): Promise<void> {
-    const obsoleteStates = [
-      "info.configuredDevices", // removed in 1.0.15
-      "info.connection", // removed in 1.1.3 (adapter is a server, no outbound connection)
-      "info", // empty folder after info.* states removed
-      "createLight", // removed in 1.1.0 (legacy mode replaced by admin config + migration)
-    ];
-
-    for (const stateId of obsoleteStates) {
-      const obj = await this.getObjectAsync(stateId);
-      if (obj) {
-        await this.delObjectAsync(stateId);
-        this.log.debug(`Removed obsolete state: ${stateId}`);
-
-        // Clean up empty parent channel/folder
-        const parentId = stateId.includes(".") ? stateId.substring(0, stateId.lastIndexOf(".")) : null;
-        if (parentId) {
-          const children = await this.getObjectListAsync({
-            startkey: `${this.namespace}.${parentId}.`,
-            endkey: `${this.namespace}.${parentId}.\u9999`,
-          });
-          if (children?.rows.length === 0) {
-            await this.delObjectAsync(parentId);
-            this.log.debug(`Removed empty parent: ${parentId}`);
-          }
-        }
-      }
-    }
+    await runObsoleteStateCleanup({
+      namespace: this.namespace,
+      getObjectAsync: id => this.getObjectAsync(id),
+      delObjectAsync: id => this.delObjectAsync(id),
+      getObjectListAsync: query => this.getObjectListAsync(query),
+      log: { debug: msg => this.log.debug(msg) },
+    });
 
     // Migrate "user" folder → "clients" (renamed in v1.2.0)
     await this.migrateUserToClients();
@@ -640,21 +595,32 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Parse port number
+   * Parse a required port number from admin config (string or number).
+   * Throws when the value is missing or unparseable — caller must handle.
    */
-  private toPort(port: any): number {
-    if (port) {
-      return typeof port === "number" ? port : parseInt(port.toString().trim(), 10);
+  private toPort(port: unknown): number {
+    const parsed = this.parsePort(port);
+    if (parsed === undefined) {
+      throw new Error("Port not specified");
     }
-    throw new Error("Port not specified");
+    return parsed;
   }
 
   /**
-   * Parse optional port
+   * Parse an optional port number — returns `undefined` when absent.
    */
-  private toUndefinedPort(port: any): number | undefined {
-    if (port) {
-      return typeof port === "number" ? port : parseInt(port.toString(), 10);
+  private toUndefinedPort(port: unknown): number | undefined {
+    return this.parsePort(port);
+  }
+
+  /** Shared port parser — returns undefined for missing/unparseable input. */
+  private parsePort(port: unknown): number | undefined {
+    if (typeof port === "number") {
+      return Number.isFinite(port) ? port : undefined;
+    }
+    if (typeof port === "string" && port.trim().length > 0) {
+      const n = parseInt(port.trim(), 10);
+      return Number.isFinite(n) ? n : undefined;
     }
     return undefined;
   }

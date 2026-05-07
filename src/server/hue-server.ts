@@ -2,8 +2,9 @@
  * Hue Emulator HTTP/HTTPS Server using Fastify
  */
 
-import type { FastifyInstance, FastifyServerOptions } from "fastify";
+import type { FastifyHttpsOptions, FastifyInstance, FastifyServerOptions } from "fastify";
 import Fastify from "fastify";
+import type { Server as HttpsServer } from "node:https";
 import type { HueEmulatorConfig, Logger, HueApiHandler } from "../types";
 import { descriptionRoute } from "./routes/description-route";
 import { apiV1Routes } from "./routes/api-v1-routes";
@@ -82,26 +83,31 @@ export class HueServer {
   }
 
   /**
-   * Create a Fastify server instance
+   * Create a Fastify server instance — HTTP or HTTPS based on flag.
    */
   private async createServer(https: boolean): Promise<FastifyInstance> {
-    const options: FastifyServerOptions = {
-      logger: false, // We use our own logger
+    const baseOptions = {
+      logger: false as const, // We use our own logger
       trustProxy: true,
       bodyLimit: 1048576, // 1MB
       caseSensitive: false,
       ignoreTrailingSlash: true,
     };
 
-    // Add HTTPS options if needed
+    let server: FastifyInstance;
     if (https && this.config.https) {
-      (options as any).https = {
-        key: this.config.https.key,
-        cert: this.config.https.cert,
+      const httpsOptions: FastifyHttpsOptions<HttpsServer> = {
+        ...baseOptions,
+        https: {
+          key: this.config.https.key,
+          cert: this.config.https.cert,
+        },
       };
+      server = Fastify(httpsOptions);
+    } else {
+      const httpOptions: FastifyServerOptions = baseOptions;
+      server = Fastify(httpOptions);
     }
-
-    const server = Fastify(options);
 
     // Register error handler
     server.setErrorHandler(hueErrorHandler);

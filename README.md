@@ -146,6 +146,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- Tightened types and removed `as any` casts (port parsing, Fastify HTTPS, ApiHandler adapter wiring).
+- Lifecycle migration helpers (instanceObject names, obsolete-state cleanup) extracted to `src/lib/migrations.ts` for unit-test coverage.
+
 ### 1.4.0 (2026-05-07)
 - State names and log messages localized in 11 ioBroker languages, following the system setting.
 - Existing v1.3.x installs migrated automatically (instanceObject names backfilled to translation objects).

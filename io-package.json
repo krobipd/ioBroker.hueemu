@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.0",
     "news": {
+      "NEXT": {
+        "en": "Tightened types and removed `as any` casts. Lifecycle migration helpers extracted to a separate module for unit-test coverage.",
+        "de": "Typen gehärtet und `as any`-Casts entfernt. Lifecycle-Migrations-Helper in eigenes Modul ausgelagert und unit-getestet.",
+        "ru": "Типы укреплены, `as any` касты удалены. Хелперы миграции жизненного цикла вынесены в отдельный модуль и покрыты тестами.",
+        "pt": "Tipos reforçados e casts `as any` removidos. Helpers de migração do ciclo de vida extraídos para módulo separado com cobertura de testes.",
+        "nl": "Typen verstrakt en `as any`-casts verwijderd. Lifecycle-migratiehelpers in eigen module met unit-tests gehaald.",
+        "fr": "Types renforcés et casts `as any` supprimés. Les helpers de migration du cycle de vie sont extraits dans un module séparé et couverts par des tests.",
+        "it": "Tipi rafforzati e cast `as any` rimossi. Helper di migrazione del ciclo di vita estratti in un modulo separato con copertura di test.",
+        "es": "Tipos endurecidos y casts `as any` eliminados. Helpers de migración del ciclo de vida extraídos a un módulo separado con cobertura de pruebas.",
+        "pl": "Typy zaostrzone i rzutowania `as any` usunięte. Helpery migracji cyklu życia wyodrębnione do osobnego modułu pokrytego testami.",
+        "uk": "Типи укріплено та `as any` касти прибрано. Хелпери міграції життєвого циклу винесено в окремий модуль з покриттям тестами.",
+        "zh-cn": "收紧类型，移除 `as any` 强转。生命周期迁移辅助函数已抽取到独立模块并加单测。"
+      },
       "1.4.0": {
         "en": "State names and log messages localized in 11 ioBroker languages, following the system setting. Existing v1.3.x installs migrated automatically. Baseline: Node 22, Admin 7.8.23.",
         "de": "Datenpunkt-Namen und Log-Meldungen in 11 ioBroker-Sprachen, folgen der Systemsprache. Bestehende v1.3.x-Installs werden automatisch migriert. Basis: Node 22, Admin 7.8.23.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
         "zh-cn": "内部清理。对用户无可见变化。"
-      },
-      "1.2.8": {
-        "en": "Crash defense: process-level error handlers. Min js-controller restored to >=6.0.11 (was incorrectly >=7.0.0).",
-        "de": "Crash-Schutz: process-level Error-Handler. Min js-controller zurück auf >=6.0.11 (war fälschlich >=7.0.0).",
-        "ru": "Защита от сбоев: process-level обработчики ошибок. Мин. js-controller восстановлен на >=6.0.11 (было ошибочно >=7.0.0).",
-        "pt": "Proteção contra falhas: handlers de erro process-level. Mín. js-controller restaurado para >=6.0.11 (estava erroneamente em >=7.0.0).",
-        "nl": "Crashbescherming: process-level error-handlers. Min. js-controller hersteld op >=6.0.11 (was ten onrechte >=7.0.0).",
-        "fr": "Défense contre les crashs : handlers d'erreur process-level. Min js-controller rétabli à >=6.0.11 (était par erreur à >=7.0.0).",
-        "it": "Difesa anti-crash: handler di errore process-level. Min js-controller ripristinato a >=6.0.11 (era erroneamente >=7.0.0).",
-        "es": "Defensa contra fallos: handlers de error process-level. Mín. js-controller restaurado a >=6.0.11 (estaba incorrectamente en >=7.0.0).",
-        "pl": "Ochrona przed crashem: handlery błędów process-level. Min. js-controller przywrócony do >=6.0.11 (było błędnie >=7.0.0).",
-        "uk": "Захист від збоїв: process-level обробники помилок. Мін. js-controller повернено на >=6.0.11 (помилково було >=7.0.0).",
-        "zh-cn": "崩溃防护：process-level 错误处理器。最低 js-controller 恢复为 >=6.0.11（错误地设置为 >=7.0.0）。"
       }
     },
     "titleLang": {

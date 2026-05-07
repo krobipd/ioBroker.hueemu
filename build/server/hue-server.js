@@ -80,10 +80,10 @@ class HueServer {
     this.log("debug", "All servers stopped");
   }
   /**
-   * Create a Fastify server instance
+   * Create a Fastify server instance — HTTP or HTTPS based on flag.
    */
   async createServer(https) {
-    const options = {
+    const baseOptions = {
       logger: false,
       // We use our own logger
       trustProxy: true,
@@ -92,13 +92,20 @@ class HueServer {
       caseSensitive: false,
       ignoreTrailingSlash: true
     };
+    let server;
     if (https && this.config.https) {
-      options.https = {
-        key: this.config.https.key,
-        cert: this.config.https.cert
+      const httpsOptions = {
+        ...baseOptions,
+        https: {
+          key: this.config.https.key,
+          cert: this.config.https.cert
+        }
       };
+      server = (0, import_fastify.default)(httpsOptions);
+    } else {
+      const httpOptions = baseOptions;
+      server = (0, import_fastify.default)(httpOptions);
     }
-    const server = (0, import_fastify.default)(options);
     server.setErrorHandler(import_error_handler.hueErrorHandler);
     server.addHook("onRequest", async (request, _reply) => {
       this.log("debug", `${request.method} ${request.url} [${request.ip}]`);
