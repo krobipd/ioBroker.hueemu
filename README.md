@@ -1,7 +1,7 @@
 # ioBroker.hueemu
 
 [![npm version](https://img.shields.io/npm/v/iobroker.hueemu)](https://www.npmjs.com/package/iobroker.hueemu)
-![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
+![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![npm downloads](https://img.shields.io/npm/dt/iobroker.hueemu)](https://www.npmjs.com/package/iobroker.hueemu)
@@ -36,9 +36,9 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 
 ## Requirements
 
-- **Node.js >= 20**
+- **Node.js >= 22**
 - **ioBroker js-controller >= 7.0.7**
-- **ioBroker Admin >= 7.7.22**
+- **ioBroker Admin >= 7.8.23**
 
 ---
 
@@ -146,6 +146,11 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+### **WORK IN PROGRESS**
+- State names and log messages localized in 11 ioBroker languages, following the system setting.
+- Existing v1.3.x installs migrated automatically (instanceObject names backfilled to translation objects).
+- Baseline: Node 22, Admin 7.8.23 (ioBroker May-2026 stable).
+
 ### 1.3.3 (2026-05-01)
 - Internal cleanup: `admin/i18n/` migrated to upstream pattern (per-language subdirectories), `jsonConfig.json5` → `jsonConfig.json`.
 

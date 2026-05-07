@@ -32,13 +32,17 @@ __export(user_service_exports, {
 });
 module.exports = __toCommonJS(user_service_exports);
 var uuid = __toESM(require("uuid"));
+var import_i18n_logs = require("../lib/i18n-logs");
+var import_i18n_states = require("../lib/i18n-states");
 var import_utils = require("../types/utils");
 class UserService {
   adapter;
   logger;
+  systemLang;
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
+    this.systemLang = config.systemLang;
   }
   /**
    * Add a new client (Hue API "user")
@@ -60,7 +64,7 @@ class UserService {
         native: { username }
       });
     } catch (err) {
-      this.log("warn", `Failed to create client object ${safeUsername}: ${err}`);
+      this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "clientObjectFailed", { username: safeUsername, error: (0, import_utils.errText)(err) }));
     }
     try {
       await this.adapter.setStateAsync(`clients.${safeUsername}`, {
@@ -68,7 +72,7 @@ class UserService {
         val: username
       });
     } catch (err) {
-      this.log("warn", `Failed to set client state ${safeUsername}: ${err}`);
+      this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "clientStateFailed", { username: safeUsername, error: (0, import_utils.errText)(err) }));
     }
   }
   /**
@@ -104,20 +108,23 @@ class UserService {
     return found;
   }
   /**
-   * Ensure the clients folder exists
+   * Ensure the clients folder exists. io-package.json declares it as
+   * instanceObject with a translation-object name, so this typically skips.
+   * Defensive re-create only triggers when the folder was deleted manually —
+   * we hand the same translation object so the folder name stays localized.
    */
   async ensureClientsFolder() {
     try {
       await this.adapter.setObjectNotExistsAsync("clients", {
         type: "meta",
         common: {
-          name: "Paired Clients",
+          name: (0, import_i18n_states.tName)("clientsFolder"),
           type: "meta.folder"
         },
         native: {}
       });
     } catch (err) {
-      this.log("warn", `Failed to create clients folder: ${err}`);
+      this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "clientsFolderFailed", { error: (0, import_utils.errText)(err) }));
     }
   }
   log(level, message) {

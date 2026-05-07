@@ -88,6 +88,7 @@ function createHandler(
     },
     devices: [],
     logger: createMockLogger(),
+    systemLang: "en",
   });
   return { handler, adapter };
 }
@@ -258,14 +259,7 @@ describe("ApiHandler", () => {
     });
   });
 
-  describe("isPairingEnabled / isAuthDisabled", () => {
-    it("reflects adapter.pairingEnabled", () => {
-      const { handler, adapter } = createHandler([], { pairingEnabled: true });
-      expect(handler.isPairingEnabled()).to.equal(true);
-      adapter.pairingEnabled = false;
-      expect(handler.isPairingEnabled()).to.equal(false);
-    });
-
+  describe("isAuthDisabled", () => {
     it("reflects adapter.disableAuth", () => {
       const { handler } = createHandler([], { disableAuth: true });
       expect(handler.isAuthDisabled()).to.equal(true);

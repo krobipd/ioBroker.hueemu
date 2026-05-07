@@ -80,7 +80,6 @@ function createMockHandler(
       return {};
     },
     isUserAuthenticated: async () => opts.isAuthenticated ?? true,
-    isPairingEnabled: () => false,
     isAuthDisabled: () => opts.authDisabled ?? false,
   };
 

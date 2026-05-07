@@ -6,28 +6,30 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.3.1 (2026-05-01 — Translation-Hotfix für news[1.3.0])
+- **Version:** 1.4.0 (in progress — Multi-Language-Welle analog beszel v0.4.0 / hassemu v1.28.0 / govee v2.6.0: `lib/i18n-logs.ts` mit 25 LOG_STRINGS × 11 Sprachen + tLog Helper, `lib/i18n-states.ts` mit 5 STATE_NAMES × 11 Sprachen + tName Helper. Alle 23 user-facing Logs in main.ts/api-handler/user-service/device-binding/ssdp-server auf tLog umgestellt. errText aus types/utils.ts ersetzt 5 Inline `err instanceof Error`-Patterns + 5 raw `${error}`-Interpolationen. io-package.json instanceObjects (startPairing, disableAuth) common.name + common.desc auf Translation-Objects. NEU: `migrateInstanceObjectNames()` Helper für v1.3.x→v1.4.0 Upgrade-Pfad (idempotent via String-Check). Logger.silly() raus (dead code). HueApiHandler.isPairingEnabled() raus (dead code, no production caller). Baseline auf Node 22 + Admin >=7.8.23 + @types/node ^22.x + @tsconfig/node22, Deploy-Step PRE-EMPTIVE auf Node 24 (parcelapp v0.4.0 MODULE_NOT_FOUND-Workaround))
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
 - **Original Author:** Christopher Holomek (@holomekc) — Fork, modernisiert 2026
 - **Runtime-Deps:** `@iobroker/adapter-core`, `fastify`, `node-ssdp`, `node-forge`, `uuid`
 - **Test-Setup:** offizieller ioBroker.example/TypeScript-Standard — Tests neben Source unter `src/**/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` als Shared-Mock-Factory außerhalb src/
-- **`@types/node` an `engines.node`-Min gekoppelt:** `^20.x` weil `engines.node: ">=20"`
+- **`@types/node` an `engines.node`-Min gekoppelt:** `^22.x` weil `engines.node: ">=22"`
 
 ## Architektur
 
 ```
-src/main.ts                       → Adapter (Lifecycle, Pairing, TLS-Cert)
+src/main.ts                       → Adapter (Lifecycle, Pairing, TLS-Cert, systemLang, migrateInstanceObjectNames)
 src/discovery/ssdp-server.ts      → UPnP/SSDP (urn:schemas-upnp-org:device:Basic:1)
 src/discovery/description-xml.ts  → UPnP XML
 src/hue-api/api-handler.ts        → API Orchestrator
 src/hue-api/config-service.ts     → Bridge Config
 src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights
 src/hue-api/user-service.ts       → Auth/Pairing (stores paired clients under "clients/")
+src/lib/i18n-logs.ts              → 25 LOG_STRINGS × 11 Sprachen + tLog
+src/lib/i18n-states.ts            → 5 STATE_NAMES × 11 Sprachen + tName
 src/server/hue-server.ts          → Fastify HTTP/HTTPS
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints
-src/types/                        → config, errors, hue-api, light
+src/types/                        → config, errors, hue-api, light, utils (sanitizeId + errText)
 ```
 
 ## Design-Entscheidungen
@@ -56,17 +58,19 @@ src/types/                        → config, errors, hue-api, light
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (226 custom + 57 standard + 1 integration = 284)
+## Tests (246 custom + 57 standard + 1 integration = 304)
 
 ```
-src/types/utils.test.ts                    → 10: sanitizeId (shared utility)
+src/types/utils.test.ts                    → 18: sanitizeId (10) + errText (8)
 src/types/errors.test.ts                   → 16: HueApiError, createSuccessResponse
 src/types/config.test.ts                   → 25: generateBridgeId, generateSerialNumber, ConfigService
 src/discovery/index.test.ts                → 10: UPnP description XML, URL building
-src/hue-api/device-binding-service.test.ts → 109: DeviceBindingService, value conversion, edge cases (NaN/Infinity/objects)
+src/hue-api/device-binding-service.test.ts → 109: DeviceBindingService, value conversion, edge cases
 src/hue-api/user-service.test.ts           → 18: addUser sanitization, createUser, isUserAuthenticated
-src/hue-api/api-handler.test.ts            → 18: auth/pairing gates, malformed devicetype, fallback
+src/hue-api/api-handler.test.ts            → 16: auth/pairing gates, malformed devicetype, fallback (isPairingEnabled raus)
 src/server/routes/api-v1-routes.test.ts    → 20: Fastify route tests (inject), body validation, auth
+src/lib/i18n-logs.test.ts                  → 8: tLog Lang-Lookup + Token-Substitution + 11-Sprachen-Coverage
+src/lib/i18n-states.test.ts                → 6: tName Translation-Objects + 11-Sprachen-Coverage + Migration-Keys
 test/test-helpers.ts                       → Shared mock factories (no tests, ausserhalb src/)
 test/package.js                            → 57 standard: @iobroker/testing packageFiles
 test/integration.js                        → 1 standard: @iobroker/testing integration (CI only)
@@ -85,20 +89,13 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
-| 1.3.1 | Translation-Hotfix: handgeschriebene 11-Sprachen-Übersetzungen für news[1.3.0] (Auto-Translate hatte Eigennamen + Tech-Vokabeln verfälscht). Plus: neuer Standard `news.NEXT`-Pre-fill umgeht den Translate-Adapter dauerhaft (siehe `feedback_translate_adapter_fallback`). Kein Code-Change |
-| 1.3.0 | Cleanup-Welle analog parcelapp v0.3.0 + beszel v0.3.8: `format`/`format:check` npm-scripts, `supportedMessages.stopInstance: true`, Workflow `repochecker-version-gate` auf sources-dist-stable, `tsconfig.build.json` exclude entdoppelt, CLAUDE.md Tests-Sektion + Befehle aktualisiert. Auto via release-mode: js-controller `>=7.0.7`, admin `>=7.7.22` |
-| 1.2.9 | Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard: tsconfig.test.json gelöscht, Tests in `src/<sub>/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` ausserhalb src/, dependabot ignore-Block, Tests 146 → 226 |
-| 1.2.7 | tsconfig.test.json → outDir `./build-test` (verhindert `build/src`+`build/test`-Duplikate), `clients` als instanceObject (meta/folder, 11-sprachig), `.catch()`-Wrapper für onReady (defense-in-depth) |
-| 1.2.6 | API-Boundary-Härtung: Type-Guards für eingehende Hue-Bodies, numerische Koerzierung (NaN/Infinity/Schrottwerte) für bri/hue/sat/ct/xy, Tests 146 → 226 |
-| 1.2.5 | Docs-Release: Matter-aware repositioning, Metadaten in 11 Sprachen neu geschrieben, Harmony-Namedrop aus i18n raus |
-| 1.2.4 | Dead code cleanup, DRY (requireAuth, BRIDGE_MODEL_ID), UserService async, try/finally onUnload, logger required |
-| 1.2.3 | DRY refactoring (sanitizeId, Hue-Konstanten), Tests aufgeteilt (5 Module) |
-| 1.2.2 | CI cleanup (actions/checkout entfernt), readme URL master→main |
-| 1.2.1 | Standard-Tests (integration.js, package.js), FORBIDDEN_CHARS sanitization, CHANGELOG.md entfernt |
-| 1.2.0 | Rename user→clients, Auto-Migration |
-| 1.1.0 | Legacy createLight entfernt, Auto-Migration |
-| 1.0.22 | Code-Review mcm1957: FORBIDDEN_CHARS, this.setTimeout, CI cross-platform |
-| 1.0.0 | Major Rewrite: Fastify, moderne Admin UI |
+| 1.4.0 | Multi-Language-Welle analog beszel v0.4.0: 25 LOG_STRINGS × 11 Sprachen (`lib/i18n-logs.ts`), 5 STATE_NAMES × 11 Sprachen (`lib/i18n-states.ts`). 23 user-facing Logs auf tLog umgestellt. errText helper in types/utils.ts. io-package.json instanceObjects mit Translation-Objects. `migrateInstanceObjectNames()` Helper für v1.3.x→v1.4.0 Upgrade-Pfad (idempotent). Logger.silly() + HueApiHandler.isPairingEnabled() raus (dead code). Baseline auf Node 22 + Admin >=7.8.23, Deploy-Step PRE-EMPTIVE auf Node 24 |
+| 1.3.3 | admin/i18n auf upstream-Pattern (per-language subdirs), jsonConfig.json5 → jsonConfig.json |
+| 1.3.2 | Doku-Welle: Release-Notes für v1.2.5–v1.3.1 in user-friendly Stil über alle 11 Sprachen |
+| 1.3.1 | Translation-Hotfix: handgeschriebene 11-Sprachen-Übersetzungen für news[1.3.0]. `news.NEXT`-Pre-fill umgeht Translate-Adapter |
+| 1.3.0 | Cleanup-Welle analog parcelapp v0.3.0 + beszel v0.3.8: format-scripts, supportedMessages.stopInstance:true, sources-dist-stable Auto-Sync |
+| 1.2.9 | Audit-Cleanup gegen ioBroker.example/TypeScript-Vollstandard: Tests in `src/<sub>/*.test.ts`, dependabot ignore-Block, Tests 146 → 226 |
+| 1.2.7 | tsconfig.test.json → outDir `./build-test`, `clients` als instanceObject, `.catch()`-Wrapper für onReady |
 
 ## Befehle
 

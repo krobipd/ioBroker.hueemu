@@ -22,6 +22,8 @@ __export(api_handler_exports, {
 });
 module.exports = __toCommonJS(api_handler_exports);
 var import_errors = require("../types/errors");
+var import_i18n_logs = require("../lib/i18n-logs");
+var import_utils = require("../types/utils");
 var import_user_service = require("./user-service");
 var import_config_service = require("./config-service");
 var import_device_binding_service = require("./device-binding-service");
@@ -31,19 +33,23 @@ class ApiHandler {
   lightService;
   configService;
   logger;
+  systemLang;
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
+    this.systemLang = config.systemLang;
     this.userService = new import_user_service.UserService({
       adapter: config.adapter,
-      logger: config.logger
+      logger: config.logger,
+      systemLang: config.systemLang
     });
     this.configService = new import_config_service.ConfigService(config.configServiceConfig);
     const devices = config.devices || [];
     this.lightService = new import_device_binding_service.DeviceBindingService({
       adapter: config.adapter,
       devices,
-      logger: config.logger
+      logger: config.logger,
+      systemLang: config.systemLang
     });
     this.log("debug", `${devices.length} device(s) configured`);
   }
@@ -75,7 +81,7 @@ class ApiHandler {
       this.log("debug", `Using provided username: ${providedUsername}`);
     }
     const username = await this.userService.createUser(providedUsername, devicetype);
-    this.log("info", `Paired client "${devicetype}" as user ${username}`);
+    this.logger.info((0, import_i18n_logs.tLog)(this.systemLang, "clientPaired", { devicetype, username }));
     this.adapter.pairingEnabled = false;
     return username;
   }
@@ -126,7 +132,7 @@ class ApiHandler {
     await Promise.all(
       Object.keys(lights).map(
         (lightId) => this.lightService.setLightState(lightId, state).catch((err) => {
-          this.log("warn", `Group action: failed to set light ${lightId}: ${err}`);
+          this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "groupActionFailed", { lightId, error: (0, import_utils.errText)(err) }));
         })
       )
     );
@@ -138,7 +144,7 @@ class ApiHandler {
    * Fallback for unhandled routes
    */
   async fallback(req) {
-    this.log("warn", `Unhandled request: ${req.method} ${req.url}`);
+    this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "unhandledRequest", { method: req.method, url: req.url }));
     return {};
   }
   /**
@@ -152,12 +158,6 @@ class ApiHandler {
       return true;
     }
     return isAuth;
-  }
-  /**
-   * Check if pairing is enabled
-   */
-  isPairingEnabled() {
-    return this.adapter.pairingEnabled;
   }
   /**
    * Check if auth is disabled

@@ -154,11 +154,6 @@ export interface HueApiHandler {
   isUserAuthenticated(username: string): Promise<boolean>;
 
   /**
-   * Check if pairing is enabled
-   */
-  isPairingEnabled(): boolean;
-
-  /**
    * Check if auth is disabled
    */
   isAuthDisabled(): boolean;

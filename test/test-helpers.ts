@@ -7,7 +7,6 @@ import type { BridgeIdentity, Logger } from "../src/types/config";
 
 export function createMockLogger(): Logger {
   return {
-    silly: () => {},
     debug: () => {},
     info: () => {},
     warn: () => {},

@@ -4,7 +4,9 @@
 
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
-import { sanitizeId } from "../types/utils";
+import { tLog } from "../lib/i18n-logs";
+import { tName } from "../lib/i18n-states";
+import { errText, sanitizeId } from "../types/utils";
 
 /**
  * Adapter interface for user service
@@ -25,6 +27,8 @@ export interface UserServiceConfig {
   adapter: UserServiceAdapter;
   /** Logger */
   logger: Logger;
+  /** ioBroker system language for user-facing log strings */
+  systemLang: string;
 }
 
 /**
@@ -33,10 +37,12 @@ export interface UserServiceConfig {
 export class UserService {
   private readonly adapter: UserServiceAdapter;
   private readonly logger: Logger;
+  private readonly systemLang: string;
 
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
+    this.systemLang = config.systemLang;
   }
 
   /**
@@ -63,7 +69,7 @@ export class UserService {
         native: { username },
       });
     } catch (err) {
-      this.log("warn", `Failed to create client object ${safeUsername}: ${err}`);
+      this.logger.warn(tLog(this.systemLang, "clientObjectFailed", { username: safeUsername, error: errText(err) }));
     }
 
     try {
@@ -72,7 +78,7 @@ export class UserService {
         val: username,
       });
     } catch (err) {
-      this.log("warn", `Failed to set client state ${safeUsername}: ${err}`);
+      this.logger.warn(tLog(this.systemLang, "clientStateFailed", { username: safeUsername, error: errText(err) }));
     }
   }
 
@@ -117,20 +123,23 @@ export class UserService {
   }
 
   /**
-   * Ensure the clients folder exists
+   * Ensure the clients folder exists. io-package.json declares it as
+   * instanceObject with a translation-object name, so this typically skips.
+   * Defensive re-create only triggers when the folder was deleted manually —
+   * we hand the same translation object so the folder name stays localized.
    */
   private async ensureClientsFolder(): Promise<void> {
     try {
       await this.adapter.setObjectNotExistsAsync("clients", {
         type: "meta",
         common: {
-          name: "Paired Clients",
+          name: tName("clientsFolder"),
           type: "meta.folder",
         },
         native: {},
       });
     } catch (err) {
-      this.log("warn", `Failed to create clients folder: ${err}`);
+      this.logger.warn(tLog(this.systemLang, "clientsFolderFailed", { error: errText(err) }));
     }
   }
 

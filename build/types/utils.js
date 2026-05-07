@@ -18,14 +18,38 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var utils_exports = {};
 __export(utils_exports, {
+  errText: () => errText,
   sanitizeId: () => sanitizeId
 });
 module.exports = __toCommonJS(utils_exports);
 function sanitizeId(id) {
   return id.replace(/[^A-Za-z0-9\-_]/g, "_");
 }
+function errText(err) {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (err === null) {
+    return "null";
+  }
+  if (err === void 0) {
+    return "undefined";
+  }
+  if (typeof err === "string") {
+    return err;
+  }
+  if (typeof err === "number" || typeof err === "boolean" || typeof err === "bigint") {
+    return String(err);
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return Object.prototype.toString.call(err);
+  }
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  errText,
   sanitizeId
 });
 //# sourceMappingURL=utils.js.map

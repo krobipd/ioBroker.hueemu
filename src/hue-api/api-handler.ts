@@ -6,6 +6,8 @@ import type { Logger } from "../types/config";
 import type { HueApiHandler, HueRequest, CreateUserRequest, FullState, BridgeConfigPublic } from "../types/hue-api";
 import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
+import { tLog } from "../lib/i18n-logs";
+import { errText } from "../types/utils";
 import { UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
@@ -30,6 +32,8 @@ export interface ApiHandlerConfig {
   devices?: DeviceConfig[];
   /** Logger */
   logger: Logger;
+  /** ioBroker system language for user-facing log strings */
+  systemLang: string;
 }
 
 /**
@@ -42,15 +46,18 @@ export class ApiHandler implements HueApiHandler {
   private readonly lightService: DeviceBindingService;
   private readonly configService: ConfigService;
   private readonly logger: Logger;
+  private readonly systemLang: string;
 
   constructor(config: ApiHandlerConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
+    this.systemLang = config.systemLang;
 
     // Initialize user service
     this.userService = new UserService({
       adapter: config.adapter,
       logger: config.logger,
+      systemLang: config.systemLang,
     });
 
     // Initialize config service
@@ -62,6 +69,7 @@ export class ApiHandler implements HueApiHandler {
       adapter: config.adapter,
       devices,
       logger: config.logger,
+      systemLang: config.systemLang,
     });
     this.log("debug", `${devices.length} device(s) configured`);
   }
@@ -103,7 +111,7 @@ export class ApiHandler implements HueApiHandler {
     }
 
     const username = await this.userService.createUser(providedUsername, devicetype);
-    this.log("info", `Paired client "${devicetype}" as user ${username}`);
+    this.logger.info(tLog(this.systemLang, "clientPaired", { devicetype, username }));
 
     // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
     this.adapter.pairingEnabled = false;
@@ -177,7 +185,7 @@ export class ApiHandler implements HueApiHandler {
     await Promise.all(
       Object.keys(lights).map(lightId =>
         this.lightService.setLightState(lightId, state).catch((err: unknown) => {
-          this.log("warn", `Group action: failed to set light ${lightId}: ${err}`);
+          this.logger.warn(tLog(this.systemLang, "groupActionFailed", { lightId, error: errText(err) }));
         }),
       ),
     );
@@ -192,7 +200,7 @@ export class ApiHandler implements HueApiHandler {
    * Fallback for unhandled routes
    */
   public async fallback(req: HueRequest): Promise<unknown> {
-    this.log("warn", `Unhandled request: ${req.method} ${req.url}`);
+    this.logger.warn(tLog(this.systemLang, "unhandledRequest", { method: req.method, url: req.url }));
     return {};
   }
 
@@ -210,13 +218,6 @@ export class ApiHandler implements HueApiHandler {
     }
 
     return isAuth;
-  }
-
-  /**
-   * Check if pairing is enabled
-   */
-  public isPairingEnabled(): boolean {
-    return this.adapter.pairingEnabled;
   }
 
   /**

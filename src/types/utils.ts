@@ -10,3 +10,33 @@
 export function sanitizeId(id: string): string {
   return id.replace(/[^A-Za-z0-9\-_]/g, "_");
 }
+
+/**
+ * Extract a log-friendly message from an unknown error value. Caller-side
+ * guard against the `err instanceof Error ? err.message : String(err)`
+ * pattern repeating across the codebase.
+ *
+ * @param err Value caught in a promise rejection / try/catch (may not be Error)
+ */
+export function errText(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (err === null) {
+    return "null";
+  }
+  if (err === undefined) {
+    return "undefined";
+  }
+  if (typeof err === "string") {
+    return err;
+  }
+  if (typeof err === "number" || typeof err === "boolean" || typeof err === "bigint") {
+    return String(err);
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return Object.prototype.toString.call(err);
+  }
+}

@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.3.3",
     "news": {
+      "NEXT": {
+        "en": "State names and log messages localized in 11 ioBroker languages, following the system setting. Existing v1.3.x installs migrated automatically. Baseline: Node 22, Admin 7.8.23.",
+        "de": "Datenpunkt-Namen und Log-Meldungen in 11 ioBroker-Sprachen, folgen der Systemsprache. Bestehende v1.3.x-Installs werden automatisch migriert. Basis: Node 22, Admin 7.8.23.",
+        "ru": "Имена датчиков и сообщения журнала на 11 языках ioBroker, следуют системному языку. Существующие установки v1.3.x мигрируются автоматически. База: Node 22, Admin 7.8.23.",
+        "pt": "Nomes de datapoints e logs em 11 idiomas ioBroker, seguindo o idioma do sistema. Instalações v1.3.x existentes são migradas automaticamente. Base: Node 22, Admin 7.8.23.",
+        "nl": "Datapunt-namen en logberichten in 11 ioBroker-talen, volgen de systeemtaal. Bestaande v1.3.x-installaties worden automatisch gemigreerd. Basis: Node 22, Admin 7.8.23.",
+        "fr": "Noms de datapoints et logs traduits en 11 langues ioBroker, suivent la langue système. Les installations v1.3.x existantes sont migrées automatiquement. Base : Node 22, Admin 7.8.23.",
+        "it": "Nomi dei datapoint e log in 11 lingue ioBroker, seguono la lingua di sistema. Le installazioni v1.3.x esistenti vengono migrate automaticamente. Base: Node 22, Admin 7.8.23.",
+        "es": "Nombres de datapoints y logs en 11 idiomas ioBroker, siguen el idioma del sistema. Las instalaciones v1.3.x existentes se migran automáticamente. Base: Node 22, Admin 7.8.23.",
+        "pl": "Nazwy datapointów i logi w 11 językach ioBroker, podążają za językiem systemu. Istniejące instalacje v1.3.x są migrowane automatycznie. Baza: Node 22, Admin 7.8.23.",
+        "uk": "Назви датапойнтів та логи 11 мовами ioBroker, слідують за системною мовою. Наявні встановлення v1.3.x мігрують автоматично. База: Node 22, Admin 7.8.23.",
+        "zh-cn": "数据点名称和日志现支持 11 种 ioBroker 语言，跟随系统语言。现有 v1.3.x 安装将自动迁移。基线：Node 22，Admin 7.8.23。"
+      },
       "1.3.3": {
         "en": "Internal cleanup: admin/i18n migrated to upstream pattern (per-language subdirectories), jsonConfig.json5 → jsonConfig.json.",
         "de": "Interne Bereinigung: admin/i18n auf Upstream-Pattern migriert (Pro-Sprache-Unterordner), jsonConfig.json5 → jsonConfig.json.",
@@ -80,19 +93,6 @@
         "pl": "Ochrona przed crashem: handlery błędów process-level. Min. js-controller przywrócony do >=6.0.11 (było błędnie >=7.0.0).",
         "uk": "Захист від збоїв: process-level обробники помилок. Мін. js-controller повернено на >=6.0.11 (помилково було >=7.0.0).",
         "zh-cn": "崩溃防护：process-level 错误处理器。最低 js-controller 恢复为 >=6.0.11（错误地设置为 >=7.0.0）。"
-      },
-      "1.2.7": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine User-sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Без видимых изменений для пользователя.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o usuário.",
-        "nl": "Interne opschoning. Geen wijzigingen voor de gebruiker.",
-        "fr": "Nettoyage interne. Aucune modification visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile all'utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
-        "zh-cn": "内部清理。对用户无可见变化。"
       }
     },
     "titleLang": {
@@ -160,7 +160,7 @@
     ],
     "globalDependencies": [
       {
-        "admin": ">=7.7.22"
+        "admin": ">=7.8.23"
       }
     ]
   },
@@ -181,12 +181,36 @@
       "_id": "startPairing",
       "type": "state",
       "common": {
-        "name": "startPairing",
+        "name": {
+          "en": "Start Pairing",
+          "de": "Pairing starten",
+          "ru": "Начать сопряжение",
+          "pt": "Iniciar emparelhamento",
+          "nl": "Koppelen starten",
+          "fr": "Démarrer l'appairage",
+          "it": "Avvia accoppiamento",
+          "es": "Iniciar emparejamiento",
+          "pl": "Rozpocznij parowanie",
+          "uk": "Почати спарювання",
+          "zh-cn": "开始配对"
+        },
         "type": "boolean",
         "role": "button",
         "write": true,
         "read": true,
-        "desc": "Enable pairing mode for 50 seconds"
+        "desc": {
+          "en": "Enable pairing mode for 50 seconds",
+          "de": "Pairing-Modus für 50 Sekunden aktivieren",
+          "ru": "Включить режим сопряжения на 50 секунд",
+          "pt": "Ativar modo de emparelhamento por 50 segundos",
+          "nl": "Koppelmodus 50 seconden activeren",
+          "fr": "Activer le mode d'appairage pendant 50 secondes",
+          "it": "Attiva la modalità accoppiamento per 50 secondi",
+          "es": "Activar el modo de emparejamiento durante 50 segundos",
+          "pl": "Włącz tryb parowania na 50 sekund",
+          "uk": "Увімкнути режим спарювання на 50 секунд",
+          "zh-cn": "启用配对模式 50 秒"
+        }
       },
       "native": {}
     },
@@ -194,12 +218,36 @@
       "_id": "disableAuth",
       "type": "state",
       "common": {
-        "name": "disableAuthentication",
+        "name": {
+          "en": "Disable Authentication",
+          "de": "Authentifizierung deaktivieren",
+          "ru": "Отключить аутентификацию",
+          "pt": "Desativar autenticação",
+          "nl": "Aanmelding uitschakelen",
+          "fr": "Désactiver l'authentification",
+          "it": "Disattiva autenticazione",
+          "es": "Desactivar autenticación",
+          "pl": "Wyłącz uwierzytelnianie",
+          "uk": "Вимкнути автентифікацію",
+          "zh-cn": "禁用身份验证"
+        },
         "type": "boolean",
         "role": "switch",
         "write": true,
         "read": true,
-        "desc": "Disable authentication (allow all requests)"
+        "desc": {
+          "en": "Disable authentication (allow all requests)",
+          "de": "Authentifizierung deaktivieren (alle Anfragen erlauben)",
+          "ru": "Отключить аутентификацию (разрешить все запросы)",
+          "pt": "Desativar autenticação (permitir todos os pedidos)",
+          "nl": "Aanmelding uitschakelen (alle aanvragen toestaan)",
+          "fr": "Désactiver l'authentification (autoriser toutes les requêtes)",
+          "it": "Disattiva l'autenticazione (consenti tutte le richieste)",
+          "es": "Desactivar autenticación (permitir todas las solicitudes)",
+          "pl": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
+          "uk": "Вимкнути автентифікацію (дозволити всі запити)",
+          "zh-cn": "禁用身份验证（允许所有请求）"
+        }
       },
       "native": {}
     },

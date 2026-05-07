@@ -10,9 +10,11 @@ import * as forge from "node-forge";
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type DeviceConfig } from "./hue-api";
+import { tLog } from "./lib/i18n-logs";
+import { tName } from "./lib/i18n-states";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber } from "./types/config";
-import { sanitizeId } from "./types/utils";
+import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
 declare global {
@@ -47,6 +49,7 @@ export class HueEmu extends utils.Adapter {
   private apiHandler: ApiHandler | null = null;
   private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
   private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
+  private systemLang: string = "en";
 
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({
@@ -59,7 +62,7 @@ export class HueEmu extends utils.Adapter {
     // cannot turn a bug into an unhandled promise rejection (→ SIGKILL → loop).
     this.on("ready", () => {
       this.onReady().catch((err: unknown) =>
-        this.log.error(`onReady failed: ${err instanceof Error ? err.message : String(err)}`),
+        this.log.error(tLog(this.systemLang, "onReadyFailed", { error: errText(err) })),
       );
     });
     this.on("stateChange", this.onStateChange.bind(this));
@@ -69,10 +72,10 @@ export class HueEmu extends utils.Adapter {
     // fire-and-forget paths. The per-handler wrappers cover documented async
     // paths; this catches anything that slips past during refactors.
     this.unhandledRejectionHandler = (reason: unknown) => {
-      this.log.error(`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`);
+      this.log.error(tLog(this.systemLang, "unhandledRejection", { error: errText(reason) }));
     };
     this.uncaughtExceptionHandler = (err: Error) => {
-      this.log.error(`Uncaught exception: ${err.message}`);
+      this.log.error(tLog(this.systemLang, "uncaughtException", { error: errText(err) }));
     };
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
@@ -98,7 +101,7 @@ export class HueEmu extends utils.Adapter {
   set disableAuth(value: boolean) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
-    this.log.info(`Authentication ${value ? "disabled (all requests allowed)" : "enabled"}`);
+    this.log.info(tLog(this.systemLang, value ? "authDisabled" : "authEnabled"));
   }
 
   /**
@@ -106,12 +109,27 @@ export class HueEmu extends utils.Adapter {
    */
   private async onReady(): Promise<void> {
     try {
+      // Read ioBroker system language once; admin language change requires a
+      // restart, which is acceptable — users don't switch on the fly.
+      try {
+        const sys = await this.getForeignObjectAsync("system.config");
+        const lang = sys?.common?.language;
+        if (typeof lang === "string" && lang.length > 0) {
+          this.systemLang = lang;
+        }
+      } catch {
+        // keep default "en"
+      }
+
       // Migrate legacy devices (created via createLight) to admin config format
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
         // Config was updated — adapter will restart automatically
         return;
       }
+
+      // Migrate v1.3.x instanceObject names to translation objects
+      await this.migrateInstanceObjectNames();
 
       // Parse and validate configuration
       const emulatorConfig = await this.buildConfig();
@@ -129,9 +147,12 @@ export class HueEmu extends utils.Adapter {
         port: emulatorConfig.discoveryPort || emulatorConfig.port,
         ssdpPort: emulatorConfig.upnpPort,
         logger,
+        systemLang: this.systemLang,
       });
 
-      // Create API handler with device configurations
+      // Adapter base class setStateAsync returns SetStatePromise but our
+      // internal handler interfaces specify Promise<{ id: string }>;
+      // semantically equivalent for our usage.
       this.apiHandler = new ApiHandler({
         adapter: this as any,
         configServiceConfig: {
@@ -140,6 +161,7 @@ export class HueEmu extends utils.Adapter {
         },
         devices,
         logger,
+        systemLang: this.systemLang,
       });
 
       // Initialize API handler (sets up state subscriptions for device bindings)
@@ -166,12 +188,15 @@ export class HueEmu extends utils.Adapter {
       this.subscribeStates("*");
 
       this.log.info(
-        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}` +
-          `${emulatorConfig.https ? `, HTTPS :${emulatorConfig.https.port}` : ""}` +
-          `, ${devices.length} device(s)`,
+        tLog(this.systemLang, "hueEmulatorStarted", {
+          host: emulatorConfig.host,
+          port: emulatorConfig.port,
+          httpsPart: emulatorConfig.https ? `, HTTPS :${emulatorConfig.https.port}` : "",
+          count: devices.length,
+        }),
       );
     } catch (error) {
-      this.log.error(`Failed to start Hue Emulator: ${error}`);
+      this.log.error(tLog(this.systemLang, "startupFailed", { error: errText(error) }));
     }
   }
 
@@ -268,41 +293,58 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Initialize adapter states
+   * Initialize adapter state values. Object creation is handled by
+   * io-package.json:instanceObjects (declared once with translation-objects),
+   * so we only need to seed the initial values here.
    */
   private async initializeAdapterStates(): Promise<void> {
-    // Create startPairing state
-    await this.setObjectNotExistsAsync("startPairing", {
-      type: "state",
-      common: {
-        name: "startPairing",
-        type: "boolean",
-        role: "button",
-        write: true,
-        read: true,
-        desc: `Enable pairing mode for ${HueEmu.PAIRING_TIMEOUT_MS / 1000} seconds`,
-      },
-      native: {},
-    });
     this.pairingEnabled = false;
-
-    // Create disableAuth state
-    await this.setObjectNotExistsAsync("disableAuth", {
-      type: "state",
-      common: {
-        name: "disableAuthentication",
-        type: "boolean",
-        role: "switch",
-        write: true,
-        read: true,
-        desc: "Disable authentication (allow all requests)",
-      },
-      native: {},
-    });
 
     // Load disableAuth state
     const disableAuthState = await this.getStateAsync("disableAuth");
     this._disableAuth = (disableAuthState?.val as boolean) || false;
+  }
+
+  /**
+   * Migrate v1.3.x instanceObject names/descriptions from plain English strings
+   * to translation objects. Idempotent: if `common.name` is already an object,
+   * skip. instanceObjects are NOT re-applied on adapter upgrade — only on first
+   * install — so this is the only path that backfills translations for users
+   * who installed before v1.4.0.
+   */
+  private async migrateInstanceObjectNames(): Promise<void> {
+    type Pair = {
+      id: string;
+      nameKey: "startPairingName" | "disableAuthName" | "clientsFolder";
+      descKey?: "startPairingDesc" | "disableAuthDesc";
+    };
+    const pairs: Pair[] = [
+      { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
+      { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
+      { id: "clients", nameKey: "clientsFolder" },
+    ];
+
+    for (const pair of pairs) {
+      const obj = await this.getObjectAsync(pair.id);
+      if (!obj) {
+        continue;
+      }
+      const common = obj.common as Record<string, unknown> | undefined;
+      const nameIsString = typeof common?.name === "string";
+      const descIsString = pair.descKey !== undefined && typeof common?.desc === "string";
+      if (!nameIsString && !descIsString) {
+        continue;
+      }
+      const update: Record<string, unknown> = {};
+      if (nameIsString) {
+        update.name = tName(pair.nameKey);
+      }
+      if (descIsString && pair.descKey) {
+        update.desc = tName(pair.descKey);
+      }
+      await this.extendObjectAsync(pair.id, { common: update });
+      this.log.debug(`Translated instanceObject names: ${pair.id}`);
+    }
   }
 
   /**
@@ -358,10 +400,11 @@ export class HueEmu extends utils.Adapter {
     });
 
     if (children?.rows && children.rows.length > 0) {
-      // Create clients folder first
+      // Create clients folder first (instanceObjects already declares it with
+      // a translation-object name; this is defensive in case it was deleted)
       await this.setObjectNotExistsAsync("clients", {
         type: "meta",
-        common: { name: "Paired Clients", type: "meta.folder" },
+        common: { name: tName("clientsFolder"), type: "meta.folder" },
         native: {},
       });
 
@@ -392,7 +435,7 @@ export class HueEmu extends utils.Adapter {
 
     // Remove old "user" folder
     await this.delObjectAsync("user");
-    this.log.info(`Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`);
+    this.log.info(tLog(this.systemLang, "clientsFolderMigrated", { count: children?.rows?.length ?? 0 }));
   }
 
   /**
@@ -400,7 +443,6 @@ export class HueEmu extends utils.Adapter {
    */
   private createLogger(): Logger {
     return {
-      silly: (msg: string) => this.log.silly(msg),
       debug: (msg: string) => this.log.debug(msg),
       info: (msg: string) => this.log.info(msg),
       warn: (msg: string) => this.log.warn(msg),
@@ -426,7 +468,9 @@ export class HueEmu extends utils.Adapter {
 
       // Stop HTTP server (fire-and-forget — onUnload must be sync)
       if (this.hueServer) {
-        this.hueServer.stop().catch((err: Error) => this.log.error(`Server stop error: ${err.message}`));
+        this.hueServer
+          .stop()
+          .catch((err: Error) => this.log.error(tLog(this.systemLang, "serverStopError", { error: errText(err) })));
       }
 
       // Detach process-level last-line-of-defence handlers
@@ -439,7 +483,7 @@ export class HueEmu extends utils.Adapter {
         this.uncaughtExceptionHandler = null;
       }
     } catch (error) {
-      this.log.error(`Error during shutdown: ${error}`);
+      this.log.error(tLog(this.systemLang, "shutdownError", { error: errText(error) }));
     } finally {
       callback();
     }
@@ -489,14 +533,14 @@ export class HueEmu extends utils.Adapter {
 
     if (state.val) {
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
-      this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
+      this.log.info(tLog(this.systemLang, "pairingEnabled", { seconds }));
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
-        this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
+        this.log.info(tLog(this.systemLang, "pairingTimeout", { seconds }));
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
-      this.log.info("Pairing mode disabled");
+      this.log.info(tLog(this.systemLang, "pairingDisabled"));
     }
   }
 
@@ -518,7 +562,7 @@ export class HueEmu extends utils.Adapter {
       return false;
     }
 
-    this.log.info(`Found ${devices.length} legacy device(s) — migrating to new configuration`);
+    this.log.info(tLog(this.systemLang, "legacyMigrationStart", { count: devices.length }));
 
     const migratedDevices: DeviceConfig[] = [];
 
@@ -569,7 +613,7 @@ export class HueEmu extends utils.Adapter {
         }
 
         migratedDevices.push(config);
-        this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
+        this.log.info(tLog(this.systemLang, "legacyMigrationItem", { name, lightType }));
 
         // Clean up legacy-only wrapper objects (keep state.* objects for DeviceBindingService)
         await this.delObjectAsync(`${deviceId}.name`).catch(() => {});
@@ -577,7 +621,7 @@ export class HueEmu extends utils.Adapter {
         await this.delObjectAsync(`${deviceId}.state`).catch(() => {}); // channel only
         await this.delObjectAsync(deviceId).catch(() => {}); // device wrapper
       } catch (error) {
-        this.log.warn(`Could not migrate legacy device ${deviceId}: ${error}`);
+        this.log.warn(tLog(this.systemLang, "legacyMigrationItemFailed", { deviceId, error: errText(error) }));
       }
     }
 
@@ -590,7 +634,7 @@ export class HueEmu extends utils.Adapter {
       native: { devices: migratedDevices },
     });
 
-    this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
+    this.log.info(tLog(this.systemLang, "legacyMigrationDone", { count: migratedDevices.length }));
 
     return true;
   }
