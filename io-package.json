@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.3.3",
+    "version": "1.4.0",
     "news": {
-      "NEXT": {
+      "1.4.0": {
         "en": "State names and log messages localized in 11 ioBroker languages, following the system setting. Existing v1.3.x installs migrated automatically. Baseline: Node 22, Admin 7.8.23.",
         "de": "Datenpunkt-Namen und Log-Meldungen in 11 ioBroker-Sprachen, folgen der Systemsprache. Bestehende v1.3.x-Installs werden automatisch migriert. Basis: Node 22, Admin 7.8.23.",
         "ru": "Имена датчиков и сообщения журнала на 11 языках ioBroker, следуют системному языку. Существующие установки v1.3.x мигрируются автоматически. База: Node 22, Admin 7.8.23.",

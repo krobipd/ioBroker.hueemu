@@ -146,7 +146,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
-### **WORK IN PROGRESS**
+### 1.4.0 (2026-05-07)
 - State names and log messages localized in 11 ioBroker languages, following the system setting.
 - Existing v1.3.x installs migrated automatically (instanceObject names backfilled to translation objects).
 - Baseline: Node 22, Admin 7.8.23 (ioBroker May-2026 stable).
@@ -163,9 +163,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.3.0 (2026-05-01)
 - Adapter can now be stopped cleanly via admin's stop-instance message.
 - Requires `js-controller >=7.0.7`, `admin >=7.7.22`.
-
-### 1.2.9 (2026-04-28)
-- Internal cleanup. No user-facing changes.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

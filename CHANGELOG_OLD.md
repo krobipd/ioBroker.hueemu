@@ -1,4 +1,7 @@
 # Older Changes
+## 1.2.9 (2026-04-28)
+- Internal cleanup. No user-facing changes.
+
 ## 1.2.8 (2026-04-26)
 - Crash defense: process-level error handlers.
 - Min `js-controller` restored to `>=6.0.11` (was incorrectly `>=7.0.0`).
