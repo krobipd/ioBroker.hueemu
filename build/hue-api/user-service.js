@@ -32,17 +32,14 @@ __export(user_service_exports, {
 });
 module.exports = __toCommonJS(user_service_exports);
 var uuid = __toESM(require("uuid"));
-var import_i18n_logs = require("../lib/i18n-logs");
 var import_i18n_states = require("../lib/i18n-states");
 var import_utils = require("../types/utils");
 class UserService {
   adapter;
   logger;
-  systemLang;
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
-    this.systemLang = config.systemLang;
   }
   /**
    * Add a new client (Hue API "user")
@@ -64,7 +61,7 @@ class UserService {
         native: { username }
       });
     } catch (err) {
-      this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "clientObjectFailed", { username: safeUsername, error: (0, import_utils.errText)(err) }));
+      this.logger.warn(`Failed to create client object ${safeUsername}: ${(0, import_utils.errText)(err)}`);
     }
     try {
       await this.adapter.setStateAsync(`clients.${safeUsername}`, {
@@ -72,7 +69,7 @@ class UserService {
         val: username
       });
     } catch (err) {
-      this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "clientStateFailed", { username: safeUsername, error: (0, import_utils.errText)(err) }));
+      this.logger.warn(`Failed to set client state ${safeUsername}: ${(0, import_utils.errText)(err)}`);
     }
   }
   /**
@@ -124,7 +121,7 @@ class UserService {
         native: {}
       });
     } catch (err) {
-      this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "clientsFolderFailed", { error: (0, import_utils.errText)(err) }));
+      this.logger.warn(`Failed to create clients folder: ${(0, import_utils.errText)(err)}`);
     }
   }
   log(level, message) {

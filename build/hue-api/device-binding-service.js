@@ -22,7 +22,6 @@ __export(device_binding_service_exports, {
 });
 module.exports = __toCommonJS(device_binding_service_exports);
 var import_errors = require("../types/errors");
-var import_i18n_logs = require("../lib/i18n-logs");
 var import_utils = require("../types/utils");
 const HUE_BRI_MIN = 1;
 const HUE_BRI_MAX = 254;
@@ -83,14 +82,11 @@ class DeviceBindingService {
   adapter;
   devices;
   logger;
-  systemLang;
   stateCache = /* @__PURE__ */ new Map();
   constructor(config) {
-    var _a;
     this.adapter = config.adapter;
     this.devices = config.devices || [];
     this.logger = config.logger;
-    this.systemLang = (_a = config.systemLang) != null ? _a : "en";
   }
   /**
    * Get state ID from device config for a given state name
@@ -163,7 +159,7 @@ class DeviceBindingService {
         const light = await this.getLightById(lightId);
         lights[lightId] = light;
       } catch (error) {
-        this.logger.warn((0, import_i18n_logs.tLog)(this.systemLang, "deviceLoadFailed", { name: device.name, error: (0, import_utils.errText)(error) }));
+        this.logger.warn(`Could not load device "${device.name}": ${(0, import_utils.errText)(error)}`);
       }
     }
     return lights;
@@ -247,7 +243,7 @@ class DeviceBindingService {
         results.push({ success: { [address]: value } });
         this.log("debug", `Set ${stateId} to ${convertedValue}`);
       } catch (error) {
-        this.logger.error((0, import_i18n_logs.tLog)(this.systemLang, "stateSetFailed", { stateId, error: (0, import_utils.errText)(error) }));
+        this.logger.error(`Failed to set ${stateId}: ${(0, import_utils.errText)(error)}`);
         results.push(import_errors.HueApiError.resourceNotAvailable(lightId, address).toResponse());
       }
     }

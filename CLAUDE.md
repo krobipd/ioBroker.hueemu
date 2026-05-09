@@ -25,7 +25,6 @@ src/hue-api/api-handler.ts        → API Orchestrator
 src/hue-api/config-service.ts     → Bridge Config
 src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights
 src/hue-api/user-service.ts       → Auth/Pairing (stores paired clients under "clients/")
-src/lib/i18n-logs.ts              → 25 LOG_STRINGS × 11 Sprachen + tLog
 src/lib/i18n-states.ts            → 5 STATE_NAMES × 11 Sprachen + tName
 src/server/hue-server.ts          → Fastify HTTP/HTTPS
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints
@@ -69,7 +68,6 @@ src/hue-api/device-binding-service.test.ts → 109: DeviceBindingService, value 
 src/hue-api/user-service.test.ts           → 18: addUser sanitization, createUser, isUserAuthenticated
 src/hue-api/api-handler.test.ts            → 16: auth/pairing gates, malformed devicetype, fallback (isPairingEnabled raus)
 src/server/routes/api-v1-routes.test.ts    → 20: Fastify route tests (inject), body validation, auth
-src/lib/i18n-logs.test.ts                  → 8: tLog Lang-Lookup + Token-Substitution + 11-Sprachen-Coverage
 src/lib/i18n-states.test.ts                → 6: tName Translation-Objects + 11-Sprachen-Coverage + Migration-Keys
 test/test-helpers.ts                       → Shared mock factories (no tests, ausserhalb src/)
 test/package.js                            → 57 standard: @iobroker/testing packageFiles

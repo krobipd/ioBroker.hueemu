@@ -5,7 +5,6 @@
 
 import { Server as SsdpServer } from "node-ssdp";
 import type { BridgeIdentity, Logger } from "../types/config";
-import { tLog } from "../lib/i18n-logs";
 import { errText } from "../types/utils";
 import { getDescriptionUrl } from "./description-xml";
 
@@ -36,7 +35,6 @@ export interface SsdpServerConfig {
   /** Logger */
   logger: Logger;
   /** ioBroker system language for user-facing log strings */
-  systemLang?: string;
 }
 
 /**
@@ -51,7 +49,6 @@ export class HueSsdpServer {
     this.config = {
       ...config,
       ssdpPort: config.ssdpPort ?? 1900,
-      systemLang: config.systemLang ?? "en",
     };
   }
 
@@ -91,7 +88,7 @@ export class HueSsdpServer {
 
       // Handle errors - use type assertion as node-ssdp types may not include all events
       (this.server as any).on("error", (err: Error) => {
-        this.config.logger.error(tLog(this.config.systemLang, "ssdpError", { error: errText(err) }));
+        this.config.logger.error(`SSDP error: ${errText(err)}`);
       });
 
       // Start the server
@@ -113,7 +110,7 @@ export class HueSsdpServer {
       this.isRunning = true;
       this.log("debug", `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
     } catch (error) {
-      this.config.logger.error(tLog(this.config.systemLang, "ssdpStartFailed", { error: errText(error) }));
+      this.config.logger.error(`Failed to start SSDP server: ${errText(error)}`);
       throw error;
     }
   }

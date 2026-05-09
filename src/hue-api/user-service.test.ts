@@ -74,7 +74,7 @@ function createMockAdapter(
 
 function createService(existingClients: string[] = []) {
   const adapter = createMockAdapter(existingClients);
-  const service = new UserService({ adapter, logger: createMockLogger(), systemLang: "en" });
+  const service = new UserService({ adapter, logger: createMockLogger()});
   return { service, adapter };
 }
 

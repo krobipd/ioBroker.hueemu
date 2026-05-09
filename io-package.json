@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.1",
     "news": {
+      "NEXT": {
+        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) remain unchanged.",
+        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen (11 Sprachen) bleiben erhalten.",
+        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний (11 языков) сохраняются.",
+        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Os nomes de estados localizados (11 idiomas) permanecem inalterados.",
+        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen (11 talen) blijven ongewijzigd.",
+        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états localisés (11 langues) restent inchangés.",
+        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati localizzati (11 lingue) rimangono invariati.",
+        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados localizados (11 idiomas) permanecen sin cambios.",
+        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów (11 języków) pozostają bez zmian.",
+        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів (11 мов) залишаються без змін.",
+        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称（11 种语言）保持不变。"
+      },
       "1.4.1": {
         "en": "Tightened types and removed `as any` casts. Lifecycle migration helpers extracted to a separate module for unit-test coverage.",
         "de": "Typen gehärtet und `as any`-Casts entfernt. Lifecycle-Migrations-Helper in eigenes Modul ausgelagert und unit-getestet.",
@@ -80,19 +93,6 @@
         "pl": "Adapter można teraz czysto zatrzymać przez wiadomość stop-instance z admin. Wymaga js-controller >=7.0.7, admin >=7.7.22.",
         "uk": "Адаптер тепер коректно зупиняється через повідомлення stop-instance з admin. Потрібен js-controller >=7.0.7, admin >=7.7.22.",
         "zh-cn": "适配器现在可以通过 admin 的 stop-instance 消息正常停止。需要 js-controller >=7.0.7、admin >=7.7.22。"
-      },
-      "1.2.9": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Bereinigung. Keine User-sichtbaren Änderungen.",
-        "ru": "Внутренняя очистка. Без видимых изменений для пользователя.",
-        "pt": "Limpeza interna. Sem alterações visíveis para o usuário.",
-        "nl": "Interne opschoning. Geen wijzigingen voor de gebruiker.",
-        "fr": "Nettoyage interne. Aucune modification visible pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica visibile all'utente.",
-        "es": "Limpieza interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzne porządki. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без помітних для користувача змін.",
-        "zh-cn": "内部清理。对用户无可见变化。"
       }
     },
     "titleLang": {

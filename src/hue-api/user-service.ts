@@ -4,7 +4,6 @@
 
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
-import { tLog } from "../lib/i18n-logs";
 import { tName } from "../lib/i18n-states";
 import { errText, sanitizeId } from "../types/utils";
 
@@ -28,7 +27,6 @@ export interface UserServiceConfig {
   /** Logger */
   logger: Logger;
   /** ioBroker system language for user-facing log strings */
-  systemLang: string;
 }
 
 /**
@@ -37,12 +35,9 @@ export interface UserServiceConfig {
 export class UserService {
   private readonly adapter: UserServiceAdapter;
   private readonly logger: Logger;
-  private readonly systemLang: string;
-
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
-    this.systemLang = config.systemLang;
   }
 
   /**
@@ -69,7 +64,7 @@ export class UserService {
         native: { username },
       });
     } catch (err) {
-      this.logger.warn(tLog(this.systemLang, "clientObjectFailed", { username: safeUsername, error: errText(err) }));
+      this.logger.warn(`Failed to create client object ${safeUsername}: ${errText(err)}`);
     }
 
     try {
@@ -78,7 +73,7 @@ export class UserService {
         val: username,
       });
     } catch (err) {
-      this.logger.warn(tLog(this.systemLang, "clientStateFailed", { username: safeUsername, error: errText(err) }));
+      this.logger.warn(`Failed to set client state ${safeUsername}: ${errText(err)}`);
     }
   }
 
@@ -139,7 +134,7 @@ export class UserService {
         native: {},
       });
     } catch (err) {
-      this.logger.warn(tLog(this.systemLang, "clientsFolderFailed", { error: errText(err) }));
+      this.logger.warn(`Failed to create clients folder: ${errText(err)}`);
     }
   }
 

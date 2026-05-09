@@ -6,7 +6,6 @@
 import type { Logger } from "../types/config";
 import type { Light, LightsCollection, LightState, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
-import { tLog } from "../lib/i18n-logs";
 import { errText } from "../types/utils";
 
 /** Hue API value ranges (per Philips Hue API specification) */
@@ -124,7 +123,6 @@ export interface DeviceBindingServiceConfig {
   devices: DeviceConfig[];
   logger: Logger;
   /** ioBroker system language for user-facing log strings */
-  systemLang?: string;
 }
 
 /**
@@ -134,14 +132,12 @@ export class DeviceBindingService {
   private readonly adapter: DeviceBindingAdapter;
   private readonly devices: DeviceConfig[];
   private readonly logger: Logger;
-  private readonly systemLang: string;
   private stateCache: Map<string, unknown> = new Map();
 
   constructor(config: DeviceBindingServiceConfig) {
     this.adapter = config.adapter;
     this.devices = config.devices || [];
     this.logger = config.logger;
-    this.systemLang = config.systemLang ?? "en";
   }
 
   /**
@@ -226,7 +222,7 @@ export class DeviceBindingService {
         const light = await this.getLightById(lightId);
         lights[lightId] = light;
       } catch (error) {
-        this.logger.warn(tLog(this.systemLang, "deviceLoadFailed", { name: device.name, error: errText(error) }));
+        this.logger.warn(`Could not load device "${device.name}": ${errText(error)}`);
       }
     }
 
@@ -334,7 +330,7 @@ export class DeviceBindingService {
         results.push({ success: { [address]: value } });
         this.log("debug", `Set ${stateId} to ${convertedValue}`);
       } catch (error) {
-        this.logger.error(tLog(this.systemLang, "stateSetFailed", { stateId, error: errText(error) }));
+        this.logger.error(`Failed to set ${stateId}: ${errText(error)}`);
         results.push(HueApiError.resourceNotAvailable(lightId, address).toResponse());
       }
     }

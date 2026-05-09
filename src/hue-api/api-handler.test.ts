@@ -87,8 +87,7 @@ function createHandler(
       discoveryHost: "192.168.1.100",
     },
     devices: [],
-    logger: createMockLogger(),
-    systemLang: "en",
+    logger: createMockLogger()
   });
   return { handler, adapter };
 }

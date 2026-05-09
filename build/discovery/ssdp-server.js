@@ -22,7 +22,6 @@ __export(ssdp_server_exports, {
 });
 module.exports = __toCommonJS(ssdp_server_exports);
 var import_node_ssdp = require("node-ssdp");
-var import_i18n_logs = require("../lib/i18n-logs");
 var import_utils = require("../types/utils");
 var import_description_xml = require("./description-xml");
 class HueSsdpServer {
@@ -30,11 +29,10 @@ class HueSsdpServer {
   config;
   isRunning = false;
   constructor(config) {
-    var _a, _b;
+    var _a;
     this.config = {
       ...config,
-      ssdpPort: (_a = config.ssdpPort) != null ? _a : 1900,
-      systemLang: (_b = config.systemLang) != null ? _b : "en"
+      ssdpPort: (_a = config.ssdpPort) != null ? _a : 1900
     };
   }
   /**
@@ -66,7 +64,7 @@ class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
       this.server.on("error", (err) => {
-        this.config.logger.error((0, import_i18n_logs.tLog)(this.config.systemLang, "ssdpError", { error: (0, import_utils.errText)(err) }));
+        this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
       });
       await new Promise((resolve, reject) => {
         if (!this.server) {
@@ -84,7 +82,7 @@ class HueSsdpServer {
       this.isRunning = true;
       this.log("debug", `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
     } catch (error) {
-      this.config.logger.error((0, import_i18n_logs.tLog)(this.config.systemLang, "ssdpStartFailed", { error: (0, import_utils.errText)(error) }));
+      this.config.logger.error(`Failed to start SSDP server: ${(0, import_utils.errText)(error)}`);
       throw error;
     }
   }

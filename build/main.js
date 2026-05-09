@@ -37,7 +37,6 @@ var forge = __toESM(require("node-forge"));
 var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
-var import_i18n_logs = require("./lib/i18n-logs");
 var import_i18n_states = require("./lib/i18n-states");
 var import_migrations = require("./lib/migrations");
 var import_config = require("./types/config");
@@ -53,24 +52,21 @@ class HueEmu extends utils.Adapter {
   apiHandler = null;
   unhandledRejectionHandler = null;
   uncaughtExceptionHandler = null;
-  systemLang = "en";
   constructor(options = {}) {
     super({
       ...options,
       name: "hueemu"
     });
     this.on("ready", () => {
-      this.onReady().catch(
-        (err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "onReadyFailed", { error: (0, import_utils.errText)(err) }))
-      );
+      this.onReady().catch((err) => this.log.error(`onReady failed: ${(0, import_utils.errText)(err)}`));
     });
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
     this.unhandledRejectionHandler = (reason) => {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "unhandledRejection", { error: (0, import_utils.errText)(reason) }));
+      this.log.error(`Unhandled rejection: ${(0, import_utils.errText)(reason)}`);
     };
     this.uncaughtExceptionHandler = (err) => {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "uncaughtException", { error: (0, import_utils.errText)(err) }));
+      this.log.error(`Uncaught exception: ${(0, import_utils.errText)(err)}`);
     };
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
@@ -92,22 +88,13 @@ class HueEmu extends utils.Adapter {
   set disableAuth(value) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
-    this.log.info((0, import_i18n_logs.tLog)(this.systemLang, value ? "authDisabled" : "authEnabled"));
+    this.log.info(value ? "Authentication disabled (all requests allowed)" : "Authentication enabled");
   }
   /**
    * Called when databases are connected and adapter received configuration
    */
   async onReady() {
-    var _a;
     try {
-      try {
-        const sys = await this.getForeignObjectAsync("system.config");
-        const lang = (_a = sys == null ? void 0 : sys.common) == null ? void 0 : _a.language;
-        if (typeof lang === "string" && lang.length > 0) {
-          this.systemLang = lang;
-        }
-      } catch {
-      }
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
         return;
@@ -121,8 +108,7 @@ class HueEmu extends utils.Adapter {
         host: emulatorConfig.discoveryHost || emulatorConfig.host,
         port: emulatorConfig.discoveryPort || emulatorConfig.port,
         ssdpPort: emulatorConfig.upnpPort,
-        logger,
-        systemLang: this.systemLang
+        logger
       });
       this.apiHandler = new import_hue_api.ApiHandler({
         adapter: this,
@@ -131,8 +117,7 @@ class HueEmu extends utils.Adapter {
           discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host
         },
         devices,
-        logger,
-        systemLang: this.systemLang
+        logger
       });
       await this.apiHandler.initialize();
       this.hueServer = new import_server.HueServer({
@@ -146,15 +131,10 @@ class HueEmu extends utils.Adapter {
       await this.cleanupObsoleteStates();
       this.subscribeStates("*");
       this.log.info(
-        (0, import_i18n_logs.tLog)(this.systemLang, "hueEmulatorStarted", {
-          host: emulatorConfig.host,
-          port: emulatorConfig.port,
-          httpsPart: emulatorConfig.https ? `, HTTPS :${emulatorConfig.https.port}` : "",
-          count: devices.length
-        })
+        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`
       );
     } catch (error) {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "startupFailed", { error: (0, import_utils.errText)(error) }));
+      this.log.error(`Failed to start Hue Emulator: ${(0, import_utils.errText)(error)}`);
     }
   }
   /**
@@ -306,7 +286,7 @@ class HueEmu extends utils.Adapter {
       }
     }
     await this.delObjectAsync("user");
-    this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "clientsFolderMigrated", { count: (_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0 }));
+    this.log.info(`Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`);
   }
   /**
    * Create a logger adapter for the modules
@@ -332,7 +312,7 @@ class HueEmu extends utils.Adapter {
         this.ssdpServer.stop();
       }
       if (this.hueServer) {
-        this.hueServer.stop().catch((err) => this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "serverStopError", { error: (0, import_utils.errText)(err) })));
+        this.hueServer.stop().catch((err) => this.log.error(`Server stop error: ${(0, import_utils.errText)(err)}`));
       }
       if (this.unhandledRejectionHandler) {
         process.off("unhandledRejection", this.unhandledRejectionHandler);
@@ -343,7 +323,7 @@ class HueEmu extends utils.Adapter {
         this.uncaughtExceptionHandler = null;
       }
     } catch (error) {
-      this.log.error((0, import_i18n_logs.tLog)(this.systemLang, "shutdownError", { error: (0, import_utils.errText)(error) }));
+      this.log.error(`Error during shutdown: ${(0, import_utils.errText)(error)}`);
     } finally {
       callback();
     }
@@ -382,14 +362,14 @@ class HueEmu extends utils.Adapter {
     this.pairingEnabled = state.val;
     if (state.val) {
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1e3;
-      this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "pairingEnabled", { seconds }));
+      this.log.info(`Pairing mode enabled \u2014 waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
         void this.setState("startPairing", { ack: true, val: false });
-        this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "pairingTimeout", { seconds }));
+        this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
-      this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "pairingDisabled"));
+      this.log.info(`Pairing mode disabled`);
     }
   }
   /**
@@ -407,7 +387,7 @@ class HueEmu extends utils.Adapter {
     if (devices.length === 0) {
       return false;
     }
-    this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "legacyMigrationStart", { count: devices.length }));
+    this.log.info(`Found ${devices.length} legacy device(s) \u2014 migrating to new configuration`);
     const migratedDevices = [];
     for (const device of devices) {
       const deviceId = device._id.substring(this.namespace.length + 1);
@@ -446,7 +426,7 @@ class HueEmu extends utils.Adapter {
           config.xyState = `${this.namespace}.${deviceId}.state.xy`;
         }
         migratedDevices.push(config);
-        this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "legacyMigrationItem", { name, lightType }));
+        this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
         await this.delObjectAsync(`${deviceId}.name`).catch(() => {
         });
         await this.delObjectAsync(`${deviceId}.data`).catch(() => {
@@ -456,7 +436,7 @@ class HueEmu extends utils.Adapter {
         await this.delObjectAsync(deviceId).catch(() => {
         });
       } catch (error) {
-        this.log.warn((0, import_i18n_logs.tLog)(this.systemLang, "legacyMigrationItemFailed", { deviceId, error: (0, import_utils.errText)(error) }));
+        this.log.warn(`Could not migrate legacy device ${deviceId}: ${(0, import_utils.errText)(error)}`);
       }
     }
     if (migratedDevices.length === 0) {
@@ -465,7 +445,7 @@ class HueEmu extends utils.Adapter {
     await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
       native: { devices: migratedDevices }
     });
-    this.log.info((0, import_i18n_logs.tLog)(this.systemLang, "legacyMigrationDone", { count: migratedDevices.length }));
+    this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
     return true;
   }
   /**
