@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "news": {
-      "NEXT": {
+      "1.4.2": {
         "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) remain unchanged.",
         "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen (11 Sprachen) bleiben erhalten.",
         "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний (11 языков) сохраняются.",
