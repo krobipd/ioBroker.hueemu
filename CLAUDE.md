@@ -6,7 +6,7 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.4.3 (released 2026-05-10, npm latest) — 17-Finding Hardening-Welle nach 4-Pass-Audit: TLS-Cert/Key in `native` persistiert (M1+M3+M5, only-generate-once, RFC-5280 random serial), strict-bool `coerceBool` für disableAuth/pairingEnabled (M2+M4), `parseLightIndex` strict-integer Validation (E1, NaN-Trap-Fix), refreshStateCache + getAllLights + Migrations parallel (D1+D2+M6+M7), trustProxy opt-in (SV1, mirror hassemu C11), HTTP startet vor SSDP (S2, port-1900-Kollision keine Adapter-Crash), bodyLimit 1MiB→64KiB + forceCloseConnections (SV3+SV5), pairing-window auto-add cap 64 clients (U1+R2 Defense-in-Depth), in-memory client-id cache (U2), whitelist-Provider in ConfigService für spec-konforme Hue-Tools (C6), IPv4-only gateway (C1), real-IANA timezone+localtime (C2+C3), shared `lib/coerce.ts` (X1). v1.4.2 (2026-05-09) Logs revert to English. v1.4.1 (2026-05-07) Refactor-Patch: `as any`-Casts entfernt + lifecycle-helpers extracted. v1.4.0 (2026-05-07) Multi-Language-Welle.
+- **Version:** 1.4.4 (released 2026-05-10, npm latest) — D3 Nachschlag: explicit per-device `briScale`/`satScale` (auto/percent/normalized/raw). User-Eskalation: niemals findings selbstständig filtern, alles = absolut alles. v1.4.3 (released 2026-05-10) 17-Finding Hardening-Welle nach 4-Pass-Audit: TLS-Cert/Key in `native` persistiert (M1+M3+M5, only-generate-once, RFC-5280 random serial), strict-bool `coerceBool` für disableAuth/pairingEnabled (M2+M4), `parseLightIndex` strict-integer Validation (E1, NaN-Trap-Fix), refreshStateCache + getAllLights + Migrations parallel (D1+D2+M6+M7), trustProxy opt-in (SV1, mirror hassemu C11), HTTP startet vor SSDP (S2, port-1900-Kollision keine Adapter-Crash), bodyLimit 1MiB→64KiB + forceCloseConnections (SV3+SV5), pairing-window auto-add cap 64 clients (U1+R2 Defense-in-Depth), in-memory client-id cache (U2), whitelist-Provider in ConfigService für spec-konforme Hue-Tools (C6), IPv4-only gateway (C1), real-IANA timezone+localtime (C2+C3), shared `lib/coerce.ts` (X1). v1.4.2 (2026-05-09) Logs revert to English. v1.4.1 (2026-05-07) Refactor-Patch: `as any`-Casts entfernt + lifecycle-helpers extracted. v1.4.0 (2026-05-07) Multi-Language-Welle.
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
@@ -58,7 +58,7 @@ src/types/                        → config (HueEmulatorConfig.trustProxy), err
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (274 custom + 57 standard + 1 integration = 332)
+## Tests (282 custom + 57 standard + 1 integration = 340)
 
 ```
 src/types/utils.test.ts                    → 18: sanitizeId (10) + errText (8)
@@ -88,6 +88,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.4.4 | **D3 Nachschlag**: explicit per-device `briScale` + `satScale` (auto/percent/normalized/raw) in DeviceConfig. Read- + Write-Pfad symmetrisch über `scaleValueFromState`/`scaleValueForState`. Default `auto` = legacy heuristic, lockt existing tests. jsonConfig-select-Dropdown + 11-Lang i18n. **Anlass**: User-Eskalation „niemals findings selbstständig filtern" → härteste Memory-Regel ergänzt |
 | 1.4.3 | 17-Finding Hardening nach 4-Pass-Audit: M1+M3+M5 TLS persist (only-generate-once, RFC-5280 random serial); M2+M4 strict-bool coerceBool für disableAuth/pairingEnabled; D1+D2+M6+M7 parallel refresh/getAllLights/migrations; E1 parseLightIndex (NaN-Trap-Fix); E2 host-validation; SV1 trustProxy opt-in; SV3+SV4+SV5 bodyLimit-64KiB+port-collision-check+forceCloseConnections; S1 typed cast on ssdp.on(); S2 HTTP-first then SSDP; U1+R2 auto-add-cap 64 per pairing window; U2 client-id-cache; C1 IPv4-only gateway; C2+C3 IANA-timezone+localtime; C6 whitelist-provider; M9 process-handlers terminate(11); D5 24-bit hex uniqueid; X1 shared `lib/coerce.ts` |
 | 1.4.2 | Logs revert to English (mcm1957-Linie #5667): alle `tLog`-Calls → English-string-literal, lib/i18n-logs.ts entfernt. Lokalisierte State-Namen (11 Sprachen) bleiben unverändert. |
 | 1.4.1 | Refactor-Patch: `as any`-Casts entfernt (toPort `unknown`, Fastify HTTPS via `FastifyHttpsOptions<HttpsServer>`, ApiHandler-Adapter via `as unknown as ApiHandlerAdapter`). Lifecycle-Migrationen in `lib/migrations.ts` als pure Helper extrahiert + 14 Tests. |
