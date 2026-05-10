@@ -37,5 +37,12 @@
     "aboutInfo": "Questo adapter è gratuito e open source. Se lo trovi utile, considera di supportare lo sviluppo con una piccola donazione.",
     "donateKofi": "Supporta su Ko-fi",
     "donatePaypal": "Dona tramite PayPal",
-    "supportHeader": "Supporto"
+    "supportHeader": "Supporto",
+    "scaleBri": "Scala luminosità",
+    "scaleSat": "Scala saturazione",
+    "scaleTooltip": "Come viene interpretato il valore dello stato sorgente. 'auto' mantiene l'euristica legacy (<=1 come 0..1, <=100 come percentuale). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (Hue native).",
+    "scaleAuto": "Auto (legacy)",
+    "scalePercent": "Percentuale (0..100)",
+    "scaleNormalized": "Normalizzato (0..1)",
+    "scaleRaw": "Grezzo (1..254 Hue)"
 }

@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.3",
     "news": {
+      "NEXT": {
+        "en": "Brightness and saturation now have an explicit scale option per device (Auto / Percent / Normalized / Hue-Raw). Pick Percent on devices storing 0..100 — fixes 1 % misread as full bright.",
+        "de": "Helligkeit und Sättigung haben jetzt pro Gerät eine explizite Skala-Option (Auto / Prozent / Normalisiert / Hue-Roh). Bei Geräten mit 0..100 Prozent wählen — fixt 1 % als Vollhelligkeit.",
+        "ru": "Яркость и насыщенность теперь имеют явный выбор шкалы на устройство (Auto / Percent / Normalized / Hue-Raw). Для устройств 0..100 выберите Percent — устраняет ошибку 1 % как макс яркость.",
+        "pt": "Brilho e saturação agora têm escala explícita por dispositivo (Auto / Percent / Normalized / Hue-Raw). Escolha Percent em dispositivos 0..100 — corrige 1 % lido como brilho máximo.",
+        "nl": "Helderheid en verzadiging hebben nu een expliciete schaal per apparaat (Auto / Percent / Normalized / Hue-Raw). Kies Percent voor 0..100-apparaten — lost 1 % gelezen als max helderheid op.",
+        "fr": "La luminosité et la saturation ont désormais une échelle explicite par appareil (Auto / Pourcentage / Normalisé / Hue-Brut). Choisissez Pourcentage pour 0..100 — corrige 1 % lu comme max.",
+        "it": "Luminosità e saturazione ora hanno una scala esplicita per dispositivo (Auto / Percentuale / Normalizzato / Hue-Grezzo). Scegli Percentuale per 0..100 — risolve 1 % letto come massimo.",
+        "es": "El brillo y la saturación ahora tienen escala explícita por dispositivo (Auto / Porcentaje / Normalizado / Hue-Crudo). Elija Porcentaje para 0..100 — corrige 1 % leído como brillo máximo.",
+        "pl": "Jasność i nasycenie mają teraz jawną skalę per urządzenie (Auto / Procent / Znormalizowane / Hue-Surowe). Wybierz Procent dla 0..100 — naprawia 1 % odczytany jako pełna jasność.",
+        "uk": "Яскравість і насиченість тепер мають явну шкалу на пристрій (Auto / Відсотки / Нормалізовано / Hue-Сире). Для пристроїв 0..100 — Відсотки; виправляє 1 % як максимум.",
+        "zh-cn": "亮度和饱和度现在为每个设备提供明确的刻度选项（自动 / 百分比 / 归一化 / Hue 原生）。对于使用 0..100 的设备请选择百分比，修复 1 % 被读成最大亮度的问题，旧设备默认保留自动模式。"
+      },
       "1.4.3": {
         "en": "TLS certificate is now reused across restarts (clients trust it once), the HTTP API stays up even when SSDP port 1900 is busy, and pairing has a 64-client per-window safety cap.",
         "de": "Das TLS-Zertifikat bleibt über Neustarts erhalten (Clients vertrauen einmal), die HTTP-API läuft auch wenn SSDP-Port 1900 belegt ist, und Pairing hat ein 64-Clients-Limit pro Fenster.",
@@ -80,19 +93,6 @@
         "pl": "Dokumentacja: notatki wydania przepisane w przyjaznym dla użytkownika stylu we wszystkich językach.",
         "uk": "Документація: нотатки до релізу переписано у дружньому до користувача стилі усіма мовами.",
         "zh-cn": "文档：所有语言的发布说明已重写为用户友好的风格。"
-      },
-      "1.3.1": {
-        "en": "Documentation: corrected machine-translated news entry for v1.3.0 across all languages.",
-        "de": "Dokumentation: maschinell übersetzten News-Eintrag für v1.3.0 in allen Sprachen korrigiert.",
-        "ru": "Документация: исправлен автоперевод news для v1.3.0 на всех языках.",
-        "pt": "Documentação: corrigido o news traduzido por máquina para v1.3.0 em todos os idiomas.",
-        "nl": "Documentatie: machine-vertaalde news-vermelding voor v1.3.0 in alle talen gecorrigeerd.",
-        "fr": "Documentation : entrée news pour v1.3.0 corrigée dans toutes les langues (traduction machine).",
-        "it": "Documentazione: corretta la voce news tradotta a macchina per v1.3.0 in tutte le lingue.",
-        "es": "Documentación: corregida la entrada news de v1.3.0 traducida automáticamente en todos los idiomas.",
-        "pl": "Dokumentacja: poprawiono maszynowo tłumaczony wpis news dla v1.3.0 we wszystkich językach.",
-        "uk": "Документація: виправлено машинно перекладений запис news для v1.3.0 усіма мовами.",
-        "zh-cn": "文档：修正了 v1.3.0 在所有语言中的机器翻译 news 条目。"
       }
     },
     "titleLang": {

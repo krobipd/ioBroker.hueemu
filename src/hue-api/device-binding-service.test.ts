@@ -463,6 +463,45 @@ describe("DeviceBindingService", () => {
         expect(light.state.bri).to.equal(254);
       });
 
+      // D3 v1.4.4 — explicit scale per device.
+      it("briScale=percent: 1 means 1 % (was 254 under auto-heuristic)", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "percent" }],
+          { "test.bri": 1 },
+        );
+        const light = await service.getLightById("1");
+        // 1 % of 254 = 2.54 → clampRound to min=1
+        expect(light.state.bri).to.be.at.most(3);
+        expect(light.state.bri).to.be.at.least(1);
+      });
+
+      it("briScale=percent: 50 → ~127 (Hue mid-range)", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "percent" }],
+          { "test.bri": 50 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.bri).to.equal(127);
+      });
+
+      it("briScale=normalized: 0.5 → 127", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "normalized" }],
+          { "test.bri": 0.5 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.bri).to.equal(127);
+      });
+
+      it("briScale=raw: 200 → 200 (Hue native, no rescale)", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "raw" }],
+          { "test.bri": 200 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.bri).to.equal(200);
+      });
+
       it("should clamp values above 254 to 254", async () => {
         const { service } = createService(
           [{ name: "Test", lightType: "dimmable", briState: "test.bri" }],
@@ -832,6 +871,40 @@ describe("DeviceBindingService", () => {
       ]);
       await service.setLightState("1", { bri: 300 });
       expect(adapter.writtenStates.get("test.bri")).to.equal(254);
+    });
+
+    // D3 v1.4.4 — write back in source scale so other consumers stay coherent.
+    it("briScale=percent: writes back as 0..100 percent (D3 v1.4.4)", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "percent" },
+      ]);
+      await service.setLightState("1", { bri: 254 });
+      expect(adapter.writtenStates.get("test.bri")).to.equal(100);
+    });
+
+    it("briScale=normalized: writes back as 0..1 (D3 v1.4.4)", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "normalized" },
+      ]);
+      await service.setLightState("1", { bri: 127 });
+      const v = adapter.writtenStates.get("test.bri") as number;
+      expect(v).to.be.closeTo(0.5, 0.01);
+    });
+
+    it("briScale=raw: writes back unchanged Hue value (D3 v1.4.4)", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "raw" },
+      ]);
+      await service.setLightState("1", { bri: 200 });
+      expect(adapter.writtenStates.get("test.bri")).to.equal(200);
+    });
+
+    it("satScale=percent: writes back as 0..100 (D3 v1.4.4)", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "color", satState: "test.sat", satScale: "percent" },
+      ]);
+      await service.setLightState("1", { sat: 254 });
+      expect(adapter.writtenStates.get("test.sat")).to.equal(100);
     });
 
     it("should clamp bri minimum to 1", async () => {

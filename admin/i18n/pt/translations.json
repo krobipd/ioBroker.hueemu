@@ -37,5 +37,12 @@
     "aboutInfo": "Este adaptador é gratuito e de código aberto. Se o achar útil, considere apoiar o desenvolvimento com uma pequena doação.",
     "donateKofi": "Apoiar no Ko-fi",
     "donatePaypal": "Doar via PayPal",
-    "supportHeader": "Apoio"
+    "supportHeader": "Apoio",
+    "scaleBri": "Escala de brilho",
+    "scaleSat": "Escala de saturação",
+    "scaleTooltip": "Como o valor do estado de origem é interpretado. 'auto' mantém a heurística antiga (<=1 como 0..1, <=100 como porcentagem). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (Hue native).",
+    "scaleAuto": "Auto (legado)",
+    "scalePercent": "Porcentagem (0..100)",
+    "scaleNormalized": "Normalizado (0..1)",
+    "scaleRaw": "Bruto (1..254 Hue)"
 }

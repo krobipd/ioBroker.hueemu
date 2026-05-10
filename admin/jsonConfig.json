@@ -220,9 +220,28 @@
                             "types": "state",
                             "xs": 12,
                             "sm": 12,
-                            "md": 6,
-                            "lg": 6,
-                            "xl": 6,
+                            "md": 4,
+                            "lg": 4,
+                            "xl": 4,
+                            "hidden": "data.lightType === 'onoff'"
+                        },
+                        {
+                            "attr": "briScale",
+                            "type": "select",
+                            "label": "scaleBri",
+                            "tooltip": "scaleTooltip",
+                            "default": "auto",
+                            "options": [
+                                {"label": "scaleAuto", "value": "auto"},
+                                {"label": "scalePercent", "value": "percent"},
+                                {"label": "scaleNormalized", "value": "normalized"},
+                                {"label": "scaleRaw", "value": "raw"}
+                            ],
+                            "xs": 12,
+                            "sm": 12,
+                            "md": 2,
+                            "lg": 2,
+                            "xl": 2,
                             "hidden": "data.lightType === 'onoff'"
                         },
                         {
@@ -259,9 +278,28 @@
                             "types": "state",
                             "xs": 12,
                             "sm": 12,
-                            "md": 6,
-                            "lg": 6,
-                            "xl": 6,
+                            "md": 4,
+                            "lg": 4,
+                            "xl": 4,
+                            "hidden": "data.lightType !== 'color'"
+                        },
+                        {
+                            "attr": "satScale",
+                            "type": "select",
+                            "label": "scaleSat",
+                            "tooltip": "scaleTooltip",
+                            "default": "auto",
+                            "options": [
+                                {"label": "scaleAuto", "value": "auto"},
+                                {"label": "scalePercent", "value": "percent"},
+                                {"label": "scaleNormalized", "value": "normalized"},
+                                {"label": "scaleRaw", "value": "raw"}
+                            ],
+                            "xs": 12,
+                            "sm": 12,
+                            "md": 2,
+                            "lg": 2,
+                            "xl": 2,
                             "hidden": "data.lightType !== 'color'"
                         },
                         {

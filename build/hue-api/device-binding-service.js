@@ -199,7 +199,7 @@ class DeviceBindingService {
     for (const stateName of lightTypeConfig.states) {
       const stateId = this.getStateId(device, stateName);
       if (stateId) {
-        const value = await this.getStateValue(stateId, stateName);
+        const value = await this.getStateValue(stateId, stateName, device);
         if (value !== void 0) {
           state[stateName] = value;
         }
@@ -255,7 +255,7 @@ class DeviceBindingService {
         continue;
       }
       try {
-        const convertedValue = this.convertValueForState(key, value);
+        const convertedValue = this.convertValueForState(key, value, device);
         await this.adapter.setForeignStateAsync(stateId, {
           val: convertedValue,
           ack: false
@@ -279,25 +279,34 @@ class DeviceBindingService {
   /**
    * Get state value from cache or adapter
    */
-  async getStateValue(stateId, stateName) {
+  async getStateValue(stateId, stateName, device) {
     if (this.stateCache.has(stateId)) {
-      return this.convertValueFromState(stateName, this.stateCache.get(stateId));
+      return this.convertValueFromState(stateName, this.stateCache.get(stateId), device);
     }
     try {
       const state = await this.adapter.getForeignStateAsync(stateId);
       if (state !== null && state !== void 0) {
         this.stateCache.set(stateId, state.val);
-        return this.convertValueFromState(stateName, state.val);
+        return this.convertValueFromState(stateName, state.val, device);
       }
     } catch (error) {
-      this.log("debug", `Could not get state ${stateId}: ${error}`);
+      this.log("debug", `Could not get state ${stateId}: ${(0, import_utils.errText)(error)}`);
     }
     return this.getDefaultValue(stateName);
   }
   /**
-   * Convert value from ioBroker state to Hue API format
+   * Convert value from ioBroker state to Hue API format.
+   *
+   * v1.4.4 (D3): bri/sat scale is configurable per device. Earlier code
+   * used a value-based heuristic (`if n<=1 ×254 else if n<=100 ÷100×254`)
+   * which collapsed 1-percent (`n=1` from a 0..100 scale) to bri 254.
+   * The "auto" scale keeps that legacy behaviour for backwards compat.
+   *
+   * @param stateName Hue API state key (`on`, `bri`, `hue`, `sat`, `ct`, `xy`)
+   * @param value Raw value from the foreign state
+   * @param device Device config (for the per-state scale settings)
    */
-  convertValueFromState(stateName, value) {
+  convertValueFromState(stateName, value, device) {
     if (value === null || value === void 0) {
       return this.getDefaultValue(stateName);
     }
@@ -307,36 +316,14 @@ class DeviceBindingService {
           return value !== "false" && value !== "0" && value !== "";
         }
         return Boolean(value);
-      case "bri": {
-        const n = (0, import_coerce.coerceFiniteNumber)(value);
-        if (n === null) {
-          return HUE_BRI_MAX;
-        }
-        if (n <= 1) {
-          return Math.round(n * HUE_BRI_MAX);
-        }
-        if (n <= 100) {
-          return Math.max(HUE_BRI_MIN, Math.round(n / 100 * HUE_BRI_MAX));
-        }
-        return clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
-      }
+      case "bri":
+        return this.scaleValueFromState(value, device == null ? void 0 : device.briScale, HUE_BRI_MIN, HUE_BRI_MAX);
       case "hue": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
       }
-      case "sat": {
-        const n = (0, import_coerce.coerceFiniteNumber)(value);
-        if (n === null) {
-          return HUE_SAT_MAX;
-        }
-        if (n <= 1) {
-          return Math.round(n * HUE_SAT_MAX);
-        }
-        if (n <= 100) {
-          return Math.round(n / 100 * HUE_SAT_MAX);
-        }
-        return clampRound(n, 0, HUE_SAT_MAX);
-      }
+      case "sat":
+        return this.scaleValueFromState(value, device == null ? void 0 : device.satScale, 0, HUE_SAT_MAX);
       case "ct": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
@@ -380,15 +367,23 @@ class DeviceBindingService {
     }
   }
   /**
-   * Convert value from Hue API format to ioBroker state
+   * Convert value from Hue API format to ioBroker state.
+   *
+   * v1.4.4 (D3): bri/sat write back in the foreign state's configured
+   * scale (`auto`/`raw` keep the current Hue-native behaviour, `percent`
+   * writes 0..100, `normalized` writes 0..1). Earlier the write side
+   * always wrote raw 1..254 regardless of source scale, so a
+   * `level.dimmer` (0..100) bound to bri ended up with values like 254
+   * — confusing other consumers of that state.
    */
-  convertValueForState(stateName, value) {
+  convertValueForState(stateName, value, device) {
     switch (stateName) {
       case "on":
         return Boolean(value);
       case "bri": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
-        return n === null ? HUE_BRI_MAX : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+        const hue = n === null ? HUE_BRI_MAX : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
+        return this.scaleValueForState(hue, device == null ? void 0 : device.briScale, HUE_BRI_MAX);
       }
       case "hue": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
@@ -396,7 +391,8 @@ class DeviceBindingService {
       }
       case "sat": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
-        return n === null ? HUE_SAT_MAX : clampRound(n, 0, HUE_SAT_MAX);
+        const hue = n === null ? HUE_SAT_MAX : clampRound(n, 0, HUE_SAT_MAX);
+        return this.scaleValueForState(hue, device == null ? void 0 : device.satScale, HUE_SAT_MAX);
       }
       case "ct": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
@@ -437,6 +433,64 @@ class DeviceBindingService {
         return "none";
       default:
         return null;
+    }
+  }
+  /**
+   * v1.4.4 (D3): coerce a foreign-state value into the Hue API integer
+   * range (`min..max`) according to the configured scale.
+   *
+   * - `auto` (default) — legacy heuristic: `<=1` ×max, `<=100` /100×max,
+   *   otherwise pass through clamped. Kept for backwards compatibility.
+   * - `percent` — input is 0..100, mapped to `min..max`. A stored 1 means
+   *   1 % and maps to 1 % of max (was the bug-trigger under `auto`).
+   * - `normalized` — input is 0..1, mapped to 0..max.
+   * - `raw` — input is already in `min..max` (Hue native), passed through
+   *   with clamp + round.
+   *
+   * `null` / non-finite input always returns `max` (current default).
+   */
+  scaleValueFromState(value, scale, min, max) {
+    const n = (0, import_coerce.coerceFiniteNumber)(value);
+    if (n === null) {
+      return max;
+    }
+    const mode = scale != null ? scale : "auto";
+    switch (mode) {
+      case "percent":
+        return clampRound(n / 100 * max, min, max);
+      case "normalized":
+        return clampRound(n * max, Math.max(0, min), max);
+      case "raw":
+        return clampRound(n, min, max);
+      case "auto":
+      default:
+        if (n <= 1) {
+          return Math.round(n * max);
+        }
+        if (n <= 100) {
+          return Math.max(min, Math.round(n / 100 * max));
+        }
+        return clampRound(n, min, max);
+    }
+  }
+  /**
+   * v1.4.4 (D3): inverse of {@link scaleValueFromState} — convert a Hue
+   * value (1..254) back into the configured foreign-state scale on write.
+   * Earlier the write side always wrote raw Hue values regardless of the
+   * source scale: a `level.dimmer` (0..100) bound to bri got values like
+   * 254 written into it, breaking other adapters that read it.
+   */
+  scaleValueForState(hueValue, scale, max) {
+    const mode = scale != null ? scale : "auto";
+    switch (mode) {
+      case "percent":
+        return Math.round(hueValue / max * 100 * 10) / 10;
+      case "normalized":
+        return Math.round(hueValue / max * 1e3) / 1e3;
+      case "raw":
+      case "auto":
+      default:
+        return hueValue;
     }
   }
   /**

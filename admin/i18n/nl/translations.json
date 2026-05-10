@@ -37,5 +37,12 @@
     "aboutInfo": "Deze adapter is gratis en open source. Als je hem nuttig vindt, overweeg dan de ontwikkeling te steunen met een kleine donatie.",
     "donateKofi": "Steunen op Ko-fi",
     "donatePaypal": "Doneer via PayPal",
-    "supportHeader": "Ondersteuning"
+    "supportHeader": "Ondersteuning",
+    "scaleBri": "Helderheidsschaal",
+    "scaleSat": "Verzadigingsschaal",
+    "scaleTooltip": "Hoe de bronstatus geïnterpreteerd wordt. 'auto' = bestaande heuristiek (<=1 als 0..1, <=100 als procent). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (Hue-eigen).",
+    "scaleAuto": "Auto (legacy)",
+    "scalePercent": "Procent (0..100)",
+    "scaleNormalized": "Genormaliseerd (0..1)",
+    "scaleRaw": "Ruw (1..254 Hue)"
 }

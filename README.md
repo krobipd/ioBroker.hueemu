@@ -150,6 +150,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- Brightness/Saturation: each device now has an explicit scale option (Auto / Percent / Normalized / Hue-Raw). Fixes the case where a `level.dimmer` value of 1 (= 1 %) was misread as full brightness — pick "Percent" on devices that store 0..100. Existing setups keep working unchanged on the "Auto" default.
+
 ### 1.4.3 (2026-05-10)
 - TLS certificate is now stored and reused across restarts — Echo/Harmony/Wall Display only need to trust it once, and the adapter starts noticeably faster.
 - Paired clients (Echo, Harmony, Google Home, …) appear in Hue tools that read the bridge whitelist.

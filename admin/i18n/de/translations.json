@@ -37,5 +37,12 @@
     "aboutInfo": "Dieser Adapter ist kostenlos und Open Source. Wenn er dir nützlich ist, unterstütze die Entwicklung gerne mit einer kleinen Spende.",
     "donateKofi": "Unterstützen auf Ko-fi",
     "donatePaypal": "Über PayPal spenden",
-    "supportHeader": "Unterstützung"
+    "supportHeader": "Unterstützung",
+    "scaleBri": "Helligkeits-Skala",
+    "scaleSat": "Sättigungs-Skala",
+    "scaleTooltip": "Wie der Quellzustand interpretiert wird. 'auto' = bisheriges Verhalten (Werte <=1 als 0..1, <=100 als Prozent). 'percent' = 0..100 (z.B. level.dimmer). 'normalized' = 0..1. 'raw' = 1..254 (Hue-nativ).",
+    "scaleAuto": "Automatisch (bisher)",
+    "scalePercent": "Prozent (0..100)",
+    "scaleNormalized": "Normalisiert (0..1)",
+    "scaleRaw": "Hue-Roh (1..254)"
 }

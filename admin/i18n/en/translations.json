@@ -37,5 +37,12 @@
     "aboutInfo": "This adapter is free and open source. If you find it useful, please consider supporting its development with a small donation.",
     "donateKofi": "Support on Ko-fi",
     "donatePaypal": "Donate via PayPal",
-    "supportHeader": "Support"
+    "supportHeader": "Support",
+    "scaleBri": "Brightness scale",
+    "scaleSat": "Saturation scale",
+    "scaleTooltip": "How the source state value is interpreted. 'auto' keeps the legacy heuristic (treats values <=1 as 0..1 and <=100 as percent). 'percent' = 0..100 (e.g. level.dimmer). 'normalized' = 0..1. 'raw' = 1..254 (Hue native).",
+    "scaleAuto": "Auto-detect (legacy)",
+    "scalePercent": "Percent (0..100)",
+    "scaleNormalized": "Normalized (0..1)",
+    "scaleRaw": "Raw (1..254 Hue)"
 }
