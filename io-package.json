@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.2",
+    "version": "1.4.3",
     "news": {
-      "NEXT": {
+      "1.4.3": {
         "en": "TLS certificate is now reused across restarts (clients trust it once), the HTTP API stays up even when SSDP port 1900 is busy, and pairing has a 64-client per-window safety cap.",
         "de": "Das TLS-Zertifikat bleibt über Neustarts erhalten (Clients vertrauen einmal), die HTTP-API läuft auch wenn SSDP-Port 1900 belegt ist, und Pairing hat ein 64-Clients-Limit pro Fenster.",
         "ru": "TLS-сертификат сохраняется между перезапусками (клиенты доверяют ему один раз), HTTP API работает даже при занятом SSDP-порту 1900, у сопряжения лимит 64 клиента на окно.",

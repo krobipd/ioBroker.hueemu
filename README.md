@@ -150,7 +150,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 1.4.3 (2026-05-10)
 - TLS certificate is now stored and reused across restarts — Echo/Harmony/Wall Display only need to trust it once, and the adapter starts noticeably faster.
 - Paired clients (Echo, Harmony, Google Home, …) appear in Hue tools that read the bridge whitelist.
 - HTTP API stays reachable even when SSDP port 1900 is already used by another adapter — the log explains how to add the bridge by IP.
@@ -171,9 +171,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.3.3 (2026-05-01)
 - Internal cleanup: `admin/i18n/` migrated to upstream pattern (per-language subdirectories), `jsonConfig.json5` → `jsonConfig.json`.
-
-### 1.3.2 (2026-05-01)
-- Documentation: rewrote release notes for v1.2.5–v1.3.1 in user-friendly style across all languages.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
