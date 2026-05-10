@@ -164,8 +164,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) are unchanged.
 
 ### 1.4.1 (2026-05-07)
-- Tightened types and removed `as any` casts (port parsing, Fastify HTTPS, ApiHandler adapter wiring).
-- Lifecycle migration helpers (instanceObject names, obsolete-state cleanup) extracted to `src/lib/migrations.ts` for unit-test coverage.
+- Internal hardening (type safety + test coverage). No user-facing changes.
 
 ### 1.4.0 (2026-05-07)
 - State names localized in 11 ioBroker languages, following the system setting.
