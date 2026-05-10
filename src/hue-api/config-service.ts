@@ -6,6 +6,9 @@ import { BRIDGE_MODEL_ID, type BridgeIdentity } from "../types/config";
 import type { BridgeConfigPublic, BridgeConfigFull, FullState } from "../types/hue-api";
 import type { LightsCollection } from "../types/light";
 
+/** Match a dotted-quad IPv4 address. */
+const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+
 /**
  * Config service configuration
  */
@@ -14,6 +17,14 @@ export interface ConfigServiceConfig {
   identity: BridgeIdentity;
   /** Discovery host (IP address) */
   discoveryHost: string;
+  /**
+   * v1.4.3 (C6): paired client ids — used to populate the `whitelist` field
+   * so spec-conformant Hue clients see who's currently paired. Synchronous
+   * on purpose: keeps the rendering path non-async so callers (and the
+   * mocha+ts-node loader, which trips on cross-cutting async chains) stay
+   * simple. Caller can return whatever's cached at the moment.
+   */
+  whitelistProvider?: () => readonly string[];
 }
 
 /**
@@ -22,6 +33,7 @@ export interface ConfigServiceConfig {
 export class ConfigService {
   private readonly identity: BridgeIdentity;
   private readonly discoveryHost: string;
+  private readonly whitelistProvider?: () => readonly string[];
 
   // Bridge configuration constants
   private static readonly SW_VERSION = "1941132080";
@@ -33,6 +45,35 @@ export class ConfigService {
   constructor(config: ConfigServiceConfig) {
     this.identity = config.identity;
     this.discoveryHost = config.discoveryHost;
+    this.whitelistProvider = config.whitelistProvider;
+  }
+
+  /** v1.4.3 (C2): IANA timezone of the host (or UTC if unresolvable). */
+  private static getHostTimezone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  }
+
+  /** v1.4.3 (C3): Hue spec timestamp shape `YYYY-MM-DD HH:MM:SS` in `timezone`. */
+  private static formatHueTimestamp(date: Date, timezone: string): string {
+    try {
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      return fmt.format(date).replace(", ", " ").replace(",", " ");
+    } catch {
+      return date.toISOString().replace("T", " ").substring(0, 19);
+    }
   }
 
   /**
@@ -54,14 +95,35 @@ export class ConfigService {
   }
 
   /**
-   * Get full bridge configuration (requires auth)
+   * Get full bridge configuration (requires auth).
+   *
+   * v1.4.3 (C1): IPv4-only gateway munge — old `replace(/\.\d+$/, ".1")`
+   * produced garbage on IPv6 hosts.
+   * v1.4.3 (C2+C3): real timezone + locally-shifted localtime.
+   * v1.4.3 (C6): expose paired clients in `whitelist` for spec compliance.
    */
   public getFullConfig(): BridgeConfigFull {
+    const tz = ConfigService.getHostTimezone();
+    const now = new Date();
+    const isIPv4 = IPV4_RE.test(this.discoveryHost);
+    const gateway = isIPv4 ? this.discoveryHost.replace(/\.\d+$/, ".1") : this.discoveryHost;
+    const whitelist: Record<string, { name: string; "create date": string; "last use date": string }> = {};
+    if (this.whitelistProvider) {
+      try {
+        const ids = this.whitelistProvider();
+        const ts = ConfigService.formatHueTimestamp(now, "UTC");
+        for (const id of ids) {
+          whitelist[id] = { name: id, "create date": ts, "last use date": ts };
+        }
+      } catch {
+        /* whitelist remains empty — non-fatal */
+      }
+    }
     return {
       ...this.getConfig(),
       ipaddress: this.discoveryHost,
       netmask: "255.255.255.0",
-      gateway: this.discoveryHost.replace(/\.\d+$/, ".1"),
+      gateway,
       dhcp: true,
       portalservices: true,
       portalconnection: "connected",
@@ -74,10 +136,10 @@ export class ConfigService {
       linkbutton: false,
       touchlink: false,
       zigbeechannel: 20,
-      UTC: new Date().toISOString().replace("T", " ").substring(0, 19),
-      localtime: new Date().toISOString().replace("T", " ").substring(0, 19),
-      timezone: "Europe/Berlin",
-      whitelist: {},
+      UTC: ConfigService.formatHueTimestamp(now, "UTC"),
+      localtime: ConfigService.formatHueTimestamp(now, tz),
+      timezone: tz,
+      whitelist,
     };
   }
 

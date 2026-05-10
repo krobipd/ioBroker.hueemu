@@ -206,4 +206,83 @@ describe("UserService", () => {
       expect(await service.isUserAuthenticated("")).to.equal(false);
     });
   });
+
+  describe("auto-add cap (U1+R2 v1.4.3)", () => {
+    it("rejects auto-add once 64 clients are added in the same window", async () => {
+      const { service } = createService([]);
+      service.resetAutoAddBudget();
+      // 64 successful auto-adds
+      for (let i = 0; i < 64; i++) {
+        await service.addUser(`auto-${i}`, "echo", true);
+      }
+      expect(service.isAutoAddCapReached()).to.equal(true);
+      // 65th throws
+      try {
+        await service.addUser("auto-65", "echo", true);
+        expect.fail("Should have thrown after cap");
+      } catch (err) {
+        expect((err as Error).message).to.match(/cap reached/i);
+      }
+    });
+
+    it("manual createUser is NOT counted against the auto-add cap", async () => {
+      const { service } = createService([]);
+      service.resetAutoAddBudget();
+      // Fill the auto-add cap
+      for (let i = 0; i < 64; i++) {
+        await service.addUser(`auto-${i}`, "echo", true);
+      }
+      // Manual createUser still works (gated by the link button, not the cap)
+      const manual = await service.createUser("explicit-user", "browser");
+      expect(manual).to.equal("explicit-user");
+    });
+
+    it("resetAutoAddBudget clears the counter (per pairing window)", async () => {
+      const { service } = createService([]);
+      service.resetAutoAddBudget();
+      for (let i = 0; i < 64; i++) {
+        await service.addUser(`auto-${i}`, "echo", true);
+      }
+      expect(service.isAutoAddCapReached()).to.equal(true);
+      service.resetAutoAddBudget();
+      expect(service.isAutoAddCapReached()).to.equal(false);
+      // Fresh window can auto-add again
+      await service.addUser("fresh-1", "echo", true);
+    });
+  });
+
+  describe("client-id cache (U2 v1.4.3)", () => {
+    it("hits the broker only once across many auth checks", async () => {
+      const { service, adapter } = createService(["alexa-1"]);
+      let calls = 0;
+      const original = adapter.getStatesOfAsync;
+      adapter.getStatesOfAsync = async (...args) => {
+        calls += 1;
+        return original.apply(adapter, args);
+      };
+      await service.isUserAuthenticated("alexa-1");
+      await service.isUserAuthenticated("alexa-1");
+      await service.isUserAuthenticated("unknown");
+      expect(calls).to.equal(1);
+    });
+
+    it("addUser updates the cache so the next auth call sees the new client", async () => {
+      const { service } = createService([]);
+      // Prime cache
+      expect(await service.isUserAuthenticated("just-added")).to.equal(false);
+      // Add WITHOUT viaAutoAdd flag (manual path)
+      await service.addUser("just-added", "browser");
+      // Without cache update, this would still return false from the cache.
+      expect(await service.isUserAuthenticated("just-added")).to.equal(true);
+    });
+
+    it("listCachedClientIds returns sanitized ids currently in the cache", async () => {
+      const { service } = createService(["alexa-1", "harmony-2"]);
+      // Empty before first auth call (cache is lazy)
+      expect(service.listCachedClientIds()).to.deep.equal([]);
+      await service.isUserAuthenticated("alexa-1");
+      const ids = service.listCachedClientIds();
+      expect(ids).to.have.members(["alexa-1", "harmony-2"]);
+    });
+  });
 });

@@ -53,8 +53,13 @@ export class ApiHandler implements HueApiHandler {
       logger: config.logger,
     });
 
-    // Initialize config service
-    this.configService = new ConfigService(config.configServiceConfig);
+    // Initialize config service. Wire a sync whitelistProvider to the
+    // user-service cache so /api/{user} responses expose paired clients
+    // per Hue spec (C6) without forcing the render path async.
+    this.configService = new ConfigService({
+      ...config.configServiceConfig,
+      whitelistProvider: () => this.userService.listCachedClientIds(),
+    });
 
     // Initialize device binding service
     const devices = config.devices || [];
@@ -204,12 +209,25 @@ export class ApiHandler implements HueApiHandler {
     const isAuth = await this.userService.isUserAuthenticated(username);
 
     if (!isAuth && this.adapter.pairingEnabled) {
-      this.log("debug", `Pairing enabled, auto-adding user: ${username}`);
-      await this.userService.addUser(username);
-      return true;
+      // v1.4.3 (U1+R2): defense-in-depth cap inside addUser(viaAutoAdd=true)
+      // — a hostile or chatty client can't fill the clients folder during
+      // the 50 s window.
+      try {
+        await this.userService.addUser(username, "auto-paired", true);
+        this.log("debug", `Pairing enabled, auto-added user: ${username}`);
+        return true;
+      } catch (err) {
+        this.logger.warn(`Auto-add rejected for ${username}: ${errText(err)}`);
+        return false;
+      }
     }
 
     return isAuth;
+  }
+
+  /** Reset the per-pairing-window auto-add budget (called on pairing-on). */
+  public resetAutoAddBudget(): void {
+    this.userService.resetAutoAddBudget();
   }
 
   /**

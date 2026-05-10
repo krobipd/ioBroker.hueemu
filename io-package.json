@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.2",
     "news": {
+      "NEXT": {
+        "en": "TLS certificate is now reused across restarts (clients trust it once), the HTTP API stays up even when SSDP port 1900 is busy, and pairing has a 64-client per-window safety cap.",
+        "de": "Das TLS-Zertifikat bleibt über Neustarts erhalten (Clients vertrauen einmal), die HTTP-API läuft auch wenn SSDP-Port 1900 belegt ist, und Pairing hat ein 64-Clients-Limit pro Fenster.",
+        "ru": "TLS-сертификат сохраняется между перезапусками (клиенты доверяют ему один раз), HTTP API работает даже при занятом SSDP-порту 1900, у сопряжения лимит 64 клиента на окно.",
+        "pt": "O certificado TLS é reutilizado entre reinícios (os clientes confiam uma vez), a API HTTP funciona mesmo com a porta SSDP 1900 ocupada, e o pairing tem limite de 64 clientes por janela.",
+        "nl": "TLS-certificaat blijft tussen herstarts (clients vertrouwen één keer), HTTP-API blijft beschikbaar bij bezette SSDP-poort 1900, pairing heeft limiet 64 clients per venster.",
+        "fr": "Le certificat TLS est réutilisé après redémarrage (clients acceptent une fois), l'API HTTP reste accessible si le port SSDP 1900 est pris, appairage limité à 64 clients par fenêtre.",
+        "it": "Il certificato TLS viene riutilizzato dopo un riavvio (i client lo accettano una sola volta), l'API HTTP resta attiva anche con la porta SSDP 1900 occupata, pairing limitato a 64 client per finestra.",
+        "es": "El certificado TLS se conserva entre reinicios (los clientes lo aceptan una vez), la API HTTP funciona aunque el puerto SSDP 1900 esté ocupado, pairing limitado a 64 clientes por ventana.",
+        "pl": "Certyfikat TLS jest zachowywany między restartami (klienci ufają mu raz), API HTTP działa nawet gdy port SSDP 1900 jest zajęty, parowanie ma limit 64 klientów na okno.",
+        "uk": "TLS-сертифікат зберігається між перезапусками (клієнти довіряють йому один раз), HTTP API працює навіть із зайнятим SSDP-портом 1900, спарювання має ліміт 64 клієнтів на вікно.",
+        "zh-cn": "TLS 证书在重启之间保留（客户端只需信任一次），即使 SSDP 端口 1900 被占用 HTTP API 仍可访问，配对窗口最多接受 64 个客户端，避免局域网噪声填满网桥。"
+      },
       "1.4.2": {
         "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) remain unchanged.",
         "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen (11 Sprachen) bleiben erhalten.",
@@ -80,19 +93,6 @@
         "pl": "Dokumentacja: poprawiono maszynowo tłumaczony wpis news dla v1.3.0 we wszystkich językach.",
         "uk": "Документація: виправлено машинно перекладений запис news для v1.3.0 усіма мовами.",
         "zh-cn": "文档：修正了 v1.3.0 在所有语言中的机器翻译 news 条目。"
-      },
-      "1.3.0": {
-        "en": "Adapter can now be stopped cleanly via admin's stop-instance message. Requires js-controller >=7.0.7, admin >=7.7.22.",
-        "de": "Adapter kann jetzt sauber über die Stop-Instance-Nachricht aus Admin gestoppt werden. Voraussetzung: js-controller >=7.0.7, admin >=7.7.22.",
-        "ru": "Адаптер теперь корректно останавливается через сообщение stop-instance из admin. Требуется js-controller >=7.0.7, admin >=7.7.22.",
-        "pt": "O adaptador agora pode ser parado de forma limpa via mensagem stop-instance do admin. Requer js-controller >=7.0.7, admin >=7.7.22.",
-        "nl": "Adapter kan nu netjes worden gestopt via het stop-instance-bericht van admin. Vereist js-controller >=7.0.7, admin >=7.7.22.",
-        "fr": "L'adaptateur peut désormais être arrêté proprement via le message stop-instance d'admin. Requiert js-controller >=7.0.7, admin >=7.7.22.",
-        "it": "L'adattatore ora può essere fermato in modo pulito tramite il messaggio stop-instance di admin. Richiede js-controller >=7.0.7, admin >=7.7.22.",
-        "es": "El adaptador ahora se puede detener limpiamente mediante el mensaje stop-instance de admin. Requiere js-controller >=7.0.7, admin >=7.7.22.",
-        "pl": "Adapter można teraz czysto zatrzymać przez wiadomość stop-instance z admin. Wymaga js-controller >=7.0.7, admin >=7.7.22.",
-        "uk": "Адаптер тепер коректно зупиняється через повідомлення stop-instance з admin. Потрібен js-controller >=7.0.7, admin >=7.7.22.",
-        "zh-cn": "适配器现在可以通过 admin 的 stop-instance 消息正常停止。需要 js-controller >=7.0.7、admin >=7.7.22。"
       }
     },
     "titleLang": {
@@ -170,10 +170,13 @@
     "discoveryHost": "192.168.178.10",
     "discoveryPort": "8080",
     "httpsPort": "",
+    "tlsCert": "",
+    "tlsKey": "",
     "udn": "",
     "mac": "",
     "upnpPort": "1900",
-    "devices": []
+    "devices": [],
+    "trustProxy": false
   },
   "objects": [],
   "instanceObjects": [

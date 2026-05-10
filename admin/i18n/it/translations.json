@@ -11,6 +11,8 @@
     "httpsPortTooltip": "Porta HTTPS (vuoto = nessun HTTPS)",
     "mac": "Indirizzo MAC",
     "macTooltip": "MAC opzionale per Bridge-ID (generato automaticamente se vuoto)",
+    "trustProxy": "Fidati delle intestazioni X-Forwarded-*",
+    "trustProxyTooltip": "Attiva solo se l'adapter è dietro un reverse proxy AFFIDABILE (Traefik, nginx) che rimuove le intestazioni inviate dal client. Per impostazione predefinita viene usato l'IP reale del socket.",
     "deviceConfiguration": "Dispositivi",
     "configuredDevices": "Dispositivi configurati",
     "deviceConfigHelp": "Aggiungi dispositivi e mappa gli stati ioBroker alle proprietà Hue.",

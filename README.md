@@ -150,6 +150,13 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- TLS certificate is now stored and reused across restarts — Echo/Harmony/Wall Display only need to trust it once, and the adapter starts noticeably faster.
+- Paired clients (Echo, Harmony, Google Home, …) appear in Hue tools that read the bridge whitelist.
+- HTTP API stays reachable even when SSDP port 1900 is already used by another adapter — the log explains how to add the bridge by IP.
+- "Disable Auth" now reliably keeps its value across adapter restarts.
+- Pairing window has a safety cap of 64 new clients per opening so a noisy LAN can't fill the bridge.
+
 ### 1.4.2 (2026-05-09)
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) are unchanged.
 

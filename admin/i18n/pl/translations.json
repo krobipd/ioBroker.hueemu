@@ -11,6 +11,8 @@
     "httpsPortTooltip": "Port HTTPS (puste = brak HTTPS)",
     "mac": "Adres MAC",
     "macTooltip": "Opcjonalny MAC dla Bridge-ID (generowany automatycznie jeśli pusty)",
+    "trustProxy": "Ufaj nagłówkom X-Forwarded-*",
+    "trustProxyTooltip": "Włącz tylko, jeśli adapter działa za ZAUFANYM reverse proxy (Traefik, nginx), który usuwa nagłówki przesyłane przez klienta. Domyślnie używany jest prawdziwy IP socketu.",
     "deviceConfiguration": "Urządzenia",
     "configuredDevices": "Skonfigurowane urządzenia",
     "deviceConfigHelp": "Dodaj urządzenia i przypisz stany ioBroker do właściwości Hue.",

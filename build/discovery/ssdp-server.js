@@ -63,9 +63,12 @@ class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
-      this.server.on("error", (err) => {
-        this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
-      });
+      this.server.on(
+        "error",
+        (err) => {
+          this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
+        }
+      );
       await new Promise((resolve, reject) => {
         if (!this.server) {
           reject(new Error("Server not initialized"));

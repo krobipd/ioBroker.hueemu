@@ -85,12 +85,11 @@ class HueServer {
   async createServer(https) {
     const baseOptions = {
       logger: false,
-      // We use our own logger
-      trustProxy: true,
-      bodyLimit: 1048576,
-      // 1MB
+      trustProxy: this.config.trustProxy === true,
+      bodyLimit: 65536,
       caseSensitive: false,
-      ignoreTrailingSlash: true
+      ignoreTrailingSlash: true,
+      forceCloseConnections: true
     };
     let server;
     if (https && this.config.https) {

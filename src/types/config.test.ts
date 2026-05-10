@@ -152,6 +152,31 @@ describe("ConfigService", () => {
       // Format: YYYY-MM-DD HH:MM:SS
       expect(full.UTC).to.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     });
+
+    // C2 v1.4.3 — timezone is the host's IANA zone (Intl-resolved), not the
+    // hardcoded "Europe/Berlin" of earlier versions.
+    it("should report a real IANA timezone instead of the hardcoded one (C2 v1.4.3)", () => {
+      const full = service.getFullConfig();
+      const expected = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      expect(full.timezone).to.equal(expected);
+    });
+
+    // C3 v1.4.3 — localtime should be in the spec format too.
+    it("should produce a spec-shaped localtime string (C3 v1.4.3)", () => {
+      const full = service.getFullConfig();
+      expect(full.localtime).to.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    });
+
+    // C1 v1.4.3 — IPv4-only gateway munge. Previously a non-IPv4 host gave
+    // garbage from `replace(/\.\d+$/, ".1")`.
+    it("should leave gateway as the host string when host is not IPv4 (C1 v1.4.3)", () => {
+      const svc = new ConfigService({
+        identity,
+        discoveryHost: "fe80::1",
+      });
+      const full = svc.getFullConfig();
+      expect(full.gateway).to.equal("fe80::1");
+    });
   });
 
   describe("buildFullState", () => {

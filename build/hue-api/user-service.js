@@ -34,17 +34,64 @@ module.exports = __toCommonJS(user_service_exports);
 var uuid = __toESM(require("uuid"));
 var import_i18n_states = require("../lib/i18n-states");
 var import_utils = require("../types/utils");
+const AUTO_ADD_CAP_PER_WINDOW = 64;
 class UserService {
   adapter;
   logger;
+  /**
+   * v1.4.3 (U2): in-memory mirror of paired client ids. Populated lazily on
+   * first lookup, kept in sync by every `addUser`. Earlier every Hue API
+   * request triggered `getStatesOfAsync("clients")`, hitting the broker on
+   * every call — Echo polls the bridge frequently.
+   */
+  clientIdsCache = null;
+  /**
+   * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
+   * current pairing window. Reset by {@link resetAutoAddBudget} which the
+   * adapter calls when pairing flips on.
+   */
+  autoAddedThisWindow = 0;
+  autoAddCapWarned = false;
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
   }
   /**
-   * Add a new client (Hue API "user")
+   * Reset the auto-add counter — call when a new pairing window opens so
+   * every press of the link button gets a fresh budget.
    */
-  async addUser(username, devicetype = "unknown") {
+  resetAutoAddBudget() {
+    this.autoAddedThisWindow = 0;
+    this.autoAddCapWarned = false;
+  }
+  /**
+   * Whether the auto-add cap for the current pairing window is exhausted.
+   */
+  isAutoAddCapReached() {
+    return this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW;
+  }
+  /**
+   * Add a new client (Hue API "user").
+   *
+   * @param username Raw username (will be sanitized for the state id).
+   * @param devicetype Client-supplied device type (purely informational).
+   * @param viaAutoAdd `true` when called from the pairing-window auto-add
+   *   path — counts against the per-window cap. `false` for explicit
+   *   `POST /api` createUser calls (unbounded, gated by the link button).
+   */
+  async addUser(username, devicetype = "unknown", viaAutoAdd = false) {
+    if (viaAutoAdd) {
+      if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
+        if (!this.autoAddCapWarned) {
+          this.logger.warn(
+            `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) \u2014 further unknown clients will be rejected until pairing is re-enabled`
+          );
+          this.autoAddCapWarned = true;
+        }
+        throw new Error("Auto-add cap reached for this pairing window");
+      }
+      this.autoAddedThisWindow += 1;
+    }
     const safeUsername = (0, import_utils.sanitizeId)(username);
     this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
     await this.ensureClientsFolder();
@@ -71,6 +118,25 @@ class UserService {
     } catch (err) {
       this.logger.warn(`Failed to set client state ${safeUsername}: ${(0, import_utils.errText)(err)}`);
     }
+    if (this.clientIdsCache) {
+      this.clientIdsCache.add(safeUsername);
+    }
+  }
+  /**
+   * Returns the set of paired client ids (sanitized form) for spec-compliant
+   * `whitelist` exposure. Reuses the same lazy cache as the auth path.
+   */
+  async listClientIds() {
+    const cache = await this.ensureCache();
+    return [...cache];
+  }
+  /**
+   * Synchronous variant — returns whatever is currently cached (empty until
+   * the first auth check populates it). Used in spots where async fanout
+   * would force the caller to become async too (whitelist render-path).
+   */
+  listCachedClientIds() {
+    return this.clientIdsCache ? [...this.clientIdsCache] : [];
   }
   /**
    * Create a new user with optional provided username
@@ -81,28 +147,42 @@ class UserService {
     return username;
   }
   /**
-   * Check if a client is authenticated (has paired with the bridge)
+   * Check if a client is authenticated (has paired with the bridge).
+   *
+   * v1.4.3 (U2): in-memory client-id set populated lazily; hits the broker
+   * once on the first call after start, then served from RAM. Hue clients
+   * (Echo, Harmony) poll `/api/{user}` frequently — earlier each call did
+   * a `getStatesOfAsync` round-trip.
    */
   async isUserAuthenticated(username) {
     const safeUsername = (0, import_utils.sanitizeId)(username);
-    let stateObjects;
-    try {
-      stateObjects = await this.adapter.getStatesOfAsync("clients", void 0);
-    } catch (err) {
-      this.log("debug", `No client states found: ${err}`);
-      return false;
-    }
-    if (!stateObjects || stateObjects.length === 0) {
-      return false;
-    }
-    const found = stateObjects.some((state) => {
-      const id = state._id.substring(this.adapter.namespace.length + 9);
-      return id === safeUsername;
-    });
+    const cache = await this.ensureCache();
+    const found = cache.has(safeUsername);
     if (found) {
       this.log("debug", `Client authenticated: ${username}`);
     }
     return found;
+  }
+  /** Build (or return) the cache of sanitized client ids. */
+  async ensureCache() {
+    if (this.clientIdsCache) {
+      return this.clientIdsCache;
+    }
+    const cache = /* @__PURE__ */ new Set();
+    try {
+      const stateObjects = await this.adapter.getStatesOfAsync("clients", void 0) || [];
+      const offset = this.adapter.namespace.length + 1 + "clients.".length;
+      for (const state of stateObjects) {
+        const id = state._id.substring(offset);
+        if (id) {
+          cache.add(id);
+        }
+      }
+    } catch (err) {
+      this.log("debug", `Could not load clients into cache: ${(0, import_utils.errText)(err)}`);
+    }
+    this.clientIdsCache = cache;
+    return cache;
   }
   /**
    * Ensure the clients folder exists. io-package.json declares it as

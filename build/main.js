@@ -34,6 +34,7 @@ module.exports = __toCommonJS(main_exports);
 var utils = __toESM(require("@iobroker/adapter-core"));
 var uuid = __toESM(require("uuid"));
 var forge = __toESM(require("node-forge"));
+var import_node_crypto = require("node:crypto");
 var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
@@ -63,10 +64,14 @@ class HueEmu extends utils.Adapter {
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
     this.unhandledRejectionHandler = (reason) => {
+      var _a;
       this.log.error(`Unhandled rejection: ${(0, import_utils.errText)(reason)}`);
+      (_a = this.terminate) == null ? void 0 : _a.call(this, 11);
     };
     this.uncaughtExceptionHandler = (err) => {
+      var _a;
       this.log.error(`Uncaught exception: ${(0, import_utils.errText)(err)}`);
+      (_a = this.terminate) == null ? void 0 : _a.call(this, 11);
     };
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
@@ -125,8 +130,14 @@ class HueEmu extends utils.Adapter {
         handler: this.apiHandler,
         logger
       });
-      await this.ssdpServer.start();
       await this.hueServer.start();
+      try {
+        await this.ssdpServer.start();
+      } catch (err) {
+        this.log.warn(
+          `SSDP discovery disabled \u2014 port 1900 unavailable (${(0, import_utils.errText)(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`
+        );
+      }
       await this.initializeAdapterStates();
       await this.cleanupObsoleteStates();
       this.subscribeStates("*");
@@ -143,10 +154,16 @@ class HueEmu extends utils.Adapter {
   async buildConfig() {
     var _a, _b, _c, _d, _e, _f;
     const host = ((_a = this.config.host) == null ? void 0 : _a.trim()) || "";
+    if (!host) {
+      throw new Error("Bridge host is empty \u2014 set 'host' in admin config to the IP that clients should reach");
+    }
     const port = this.toPort(this.config.port);
     const discoveryHost = ((_b = this.config.discoveryHost) == null ? void 0 : _b.trim()) || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
     const httpsPort = this.toUndefinedPort(this.config.httpsPort);
+    if (httpsPort !== void 0 && httpsPort === port) {
+      throw new Error(`HTTPS port ${httpsPort} equals HTTP port \u2014 pick a different port`);
+    }
     const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
     const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || this.macFromUdn(udn);
     if (!((_e = this.config.udn) == null ? void 0 : _e.trim()) || !((_f = this.config.mac) == null ? void 0 : _f.trim())) {
@@ -164,12 +181,8 @@ class HueEmu extends utils.Adapter {
     };
     let https;
     if (httpsPort) {
-      const cert = this.generateCertificate();
-      https = {
-        port: httpsPort,
-        cert: cert.certificate,
-        key: cert.privateKey
-      };
+      const { cert, key } = await this.getOrCreateTlsMaterial();
+      https = { port: httpsPort, cert, key };
     }
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`
@@ -183,8 +196,32 @@ class HueEmu extends utils.Adapter {
       discoveryPort,
       https,
       upnpPort,
-      identity
+      identity,
+      trustProxy: this.config.trustProxy === true
     };
+  }
+  /**
+   * v1.4.3 (M1+M3+M5): persist the self-signed TLS cert/key in `native`
+   * so they survive restarts. Real Hue clients (Echo, Harmony, Wall Display)
+   * don't pin the cert — but regenerating each restart wasted ~1-2 s of
+   * sync RSA-keygen on the event loop and gave clients fresh cert warnings
+   * every time. Now: read from native; only generate (and persist) if
+   * missing/malformed. Serial number is randomized so reissues aren't
+   * identical (RFC 5280).
+   */
+  async getOrCreateTlsMaterial() {
+    const persistedCert = typeof this.config.tlsCert === "string" ? this.config.tlsCert.trim() : "";
+    const persistedKey = typeof this.config.tlsKey === "string" ? this.config.tlsKey.trim() : "";
+    if (persistedCert.startsWith("-----BEGIN CERTIFICATE-----") && (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") || persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))) {
+      this.log.debug("Reusing persisted TLS certificate");
+      return { cert: persistedCert, key: persistedKey };
+    }
+    const generated = this.generateCertificate();
+    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+      native: { tlsCert: generated.certificate, tlsKey: generated.privateKey }
+    });
+    this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+    return { cert: generated.certificate, key: generated.privateKey };
   }
   /**
    * Generate a self-signed certificate for HTTPS
@@ -194,7 +231,9 @@ class HueEmu extends utils.Adapter {
     const keys = forge.pki.rsa.generateKeyPair(2048);
     const cert = forge.pki.createCertificate();
     cert.publicKey = keys.publicKey;
-    cert.serialNumber = "01";
+    const serialBytes = (0, import_node_crypto.randomBytes)(16);
+    serialBytes[0] &= 127;
+    cert.serialNumber = serialBytes.toString("hex");
     cert.validity.notBefore = /* @__PURE__ */ new Date();
     cert.validity.notAfter = /* @__PURE__ */ new Date();
     cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
@@ -219,7 +258,21 @@ class HueEmu extends utils.Adapter {
   async initializeAdapterStates() {
     this.pairingEnabled = false;
     const disableAuthState = await this.getStateAsync("disableAuth");
-    this._disableAuth = (disableAuthState == null ? void 0 : disableAuthState.val) || false;
+    this._disableAuth = HueEmu.coerceBool(disableAuthState == null ? void 0 : disableAuthState.val);
+  }
+  /** Coerce arbitrary state values to a strict boolean. */
+  static coerceBool(v) {
+    if (typeof v === "boolean") {
+      return v;
+    }
+    if (typeof v === "number") {
+      return v !== 0;
+    }
+    if (typeof v === "string") {
+      const t = v.trim().toLowerCase();
+      return t === "true" || t === "1" || t === "yes" || t === "on";
+    }
+    return false;
   }
   /**
    * Migrate v1.3.x instanceObject names/descriptions from plain English strings
@@ -267,23 +320,25 @@ class HueEmu extends utils.Adapter {
         common: { name: (0, import_i18n_states.tName)("clientsFolder"), type: "meta.folder" },
         native: {}
       });
-      for (const row of children.rows) {
-        const oldId = row.id.replace(`${this.namespace}.`, "");
-        const username = oldId.replace("user.", "");
-        const newId = `clients.${(0, import_utils.sanitizeId)(username)}`;
-        const state = await this.getStateAsync(oldId);
-        const obj = row.value;
-        await this.setObjectNotExistsAsync(newId, {
-          type: "state",
-          common: obj.common,
-          native: obj.native || {}
-        });
-        if ((state == null ? void 0 : state.val) !== void 0 && (state == null ? void 0 : state.val) !== null) {
-          await this.setStateAsync(newId, { val: state.val, ack: true });
-        }
-        await this.delObjectAsync(oldId);
-        this.log.debug(`Migrated client ${username}: user \u2192 clients`);
-      }
+      await Promise.all(
+        children.rows.map(async (row) => {
+          const oldId = row.id.replace(`${this.namespace}.`, "");
+          const username = oldId.replace("user.", "");
+          const newId = `clients.${(0, import_utils.sanitizeId)(username)}`;
+          const state = await this.getStateAsync(oldId);
+          const obj = row.value;
+          await this.setObjectNotExistsAsync(newId, {
+            type: "state",
+            common: obj.common,
+            native: obj.native || {}
+          });
+          if ((state == null ? void 0 : state.val) !== void 0 && (state == null ? void 0 : state.val) !== null) {
+            await this.setStateAsync(newId, { val: state.val, ack: true });
+          }
+          await this.delObjectAsync(oldId);
+          this.log.debug(`Migrated client ${username}: user \u2192 clients`);
+        })
+      );
     }
     await this.delObjectAsync("user");
     this.log.info(`Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`);
@@ -346,7 +401,7 @@ class HueEmu extends utils.Adapter {
     if (id === `${this.namespace}.startPairing`) {
       this.handleStartPairing(state);
     } else if (id === `${this.namespace}.disableAuth`) {
-      this.disableAuth = state.val;
+      this.disableAuth = HueEmu.coerceBool(state.val);
     } else if (id.startsWith(this.namespace)) {
       void this.setState(id, { ack: true, val: state.val });
     }
@@ -355,12 +410,15 @@ class HueEmu extends utils.Adapter {
    * Handle startPairing state change
    */
   handleStartPairing(state) {
+    var _a;
     if (this.pairingTimeoutId) {
       this.clearTimeout(this.pairingTimeoutId);
       this.pairingTimeoutId = void 0;
     }
-    this.pairingEnabled = state.val;
-    if (state.val) {
+    const enabled = HueEmu.coerceBool(state.val);
+    this.pairingEnabled = enabled;
+    if (enabled) {
+      (_a = this.apiHandler) == null ? void 0 : _a.resetAutoAddBudget();
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1e3;
       this.log.info(`Pairing mode enabled \u2014 waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
@@ -427,14 +485,16 @@ class HueEmu extends utils.Adapter {
         }
         migratedDevices.push(config);
         this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
-        await this.delObjectAsync(`${deviceId}.name`).catch(() => {
-        });
-        await this.delObjectAsync(`${deviceId}.data`).catch(() => {
-        });
-        await this.delObjectAsync(`${deviceId}.state`).catch(() => {
-        });
-        await this.delObjectAsync(deviceId).catch(() => {
-        });
+        await Promise.all([
+          this.delObjectAsync(`${deviceId}.name`).catch(() => {
+          }),
+          this.delObjectAsync(`${deviceId}.data`).catch(() => {
+          }),
+          this.delObjectAsync(`${deviceId}.state`).catch(() => {
+          }),
+          this.delObjectAsync(deviceId).catch(() => {
+          })
+        ]);
       } catch (error) {
         this.log.warn(`Could not migrate legacy device ${deviceId}: ${(0, import_utils.errText)(error)}`);
       }

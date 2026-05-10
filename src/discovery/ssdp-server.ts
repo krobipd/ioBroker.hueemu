@@ -86,10 +86,16 @@ export class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
 
-      // Handle errors - use type assertion as node-ssdp types may not include all events
-      (this.server as any).on("error", (err: Error) => {
-        this.config.logger.error(`SSDP error: ${errText(err)}`);
-      });
+      // v1.4.3 (S1): typed cast instead of `as any`. node-ssdp's Server
+      // extends EventEmitter but the upstream typings omit the `error`
+      // event; cast to a narrow EventEmitter-shape so the rest of the
+      // file stays strictly typed.
+      (this.server as unknown as { on(event: "error", listener: (err: Error) => void): void }).on(
+        "error",
+        (err: Error) => {
+          this.config.logger.error(`SSDP error: ${errText(err)}`);
+        },
+      );
 
       // Start the server
       await new Promise<void>((resolve, reject) => {

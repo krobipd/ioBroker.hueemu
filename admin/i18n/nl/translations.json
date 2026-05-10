@@ -11,6 +11,8 @@
     "httpsPortTooltip": "HTTPS-poort (leeg = geen HTTPS)",
     "mac": "MAC-adres",
     "macTooltip": "Optioneel MAC voor Bridge-ID (automatisch gegenereerd als leeg)",
+    "trustProxy": "X-Forwarded-* headers vertrouwen",
+    "trustProxyTooltip": "Schakel alleen in als de adapter achter een VERTROUWDE reverse-proxy (Traefik, nginx) staat die client-headers verwijdert. Standaard wordt het echte socket-IP gebruikt.",
     "deviceConfiguration": "Apparaten",
     "configuredDevices": "Geconfigureerde apparaten",
     "deviceConfigHelp": "Voeg apparaten toe en koppel ioBroker-statussen aan Hue-eigenschappen.",

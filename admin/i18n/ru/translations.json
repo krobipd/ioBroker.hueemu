@@ -11,6 +11,8 @@
     "httpsPortTooltip": "HTTPS-порт (пусто = без HTTPS)",
     "mac": "MAC-адрес",
     "macTooltip": "Необязательный MAC для Bridge-ID (генерируется автоматически при пустом поле)",
+    "trustProxy": "Доверять заголовкам X-Forwarded-*",
+    "trustProxyTooltip": "Включайте только если адаптер работает за доверенным обратным прокси (Traefik, nginx), который очищает клиентские заголовки. По умолчанию используется реальный IP сокета.",
     "deviceConfiguration": "Устройства",
     "configuredDevices": "Настроенные устройства",
     "deviceConfigHelp": "Добавьте устройства и сопоставьте состояния ioBroker со свойствами Hue.",

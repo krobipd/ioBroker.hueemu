@@ -22,9 +22,11 @@ __export(config_service_exports, {
 });
 module.exports = __toCommonJS(config_service_exports);
 var import_config = require("../types/config");
+const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 class ConfigService {
   identity;
   discoveryHost;
+  whitelistProvider;
   // Bridge configuration constants
   static SW_VERSION = "1941132080";
   static API_VERSION = "1.41.0";
@@ -34,6 +36,33 @@ class ConfigService {
   constructor(config) {
     this.identity = config.identity;
     this.discoveryHost = config.discoveryHost;
+    this.whitelistProvider = config.whitelistProvider;
+  }
+  /** v1.4.3 (C2): IANA timezone of the host (or UTC if unresolvable). */
+  static getHostTimezone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  }
+  /** v1.4.3 (C3): Hue spec timestamp shape `YYYY-MM-DD HH:MM:SS` in `timezone`. */
+  static formatHueTimestamp(date, timezone) {
+    try {
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+      return fmt.format(date).replace(", ", " ").replace(",", " ");
+    } catch {
+      return date.toISOString().replace("T", " ").substring(0, 19);
+    }
   }
   /**
    * Get public bridge configuration (no auth required)
@@ -53,14 +82,34 @@ class ConfigService {
     };
   }
   /**
-   * Get full bridge configuration (requires auth)
+   * Get full bridge configuration (requires auth).
+   *
+   * v1.4.3 (C1): IPv4-only gateway munge — old `replace(/\.\d+$/, ".1")`
+   * produced garbage on IPv6 hosts.
+   * v1.4.3 (C2+C3): real timezone + locally-shifted localtime.
+   * v1.4.3 (C6): expose paired clients in `whitelist` for spec compliance.
    */
   getFullConfig() {
+    const tz = ConfigService.getHostTimezone();
+    const now = /* @__PURE__ */ new Date();
+    const isIPv4 = IPV4_RE.test(this.discoveryHost);
+    const gateway = isIPv4 ? this.discoveryHost.replace(/\.\d+$/, ".1") : this.discoveryHost;
+    const whitelist = {};
+    if (this.whitelistProvider) {
+      try {
+        const ids = this.whitelistProvider();
+        const ts = ConfigService.formatHueTimestamp(now, "UTC");
+        for (const id of ids) {
+          whitelist[id] = { name: id, "create date": ts, "last use date": ts };
+        }
+      } catch {
+      }
+    }
     return {
       ...this.getConfig(),
       ipaddress: this.discoveryHost,
       netmask: "255.255.255.0",
-      gateway: this.discoveryHost.replace(/\.\d+$/, ".1"),
+      gateway,
       dhcp: true,
       portalservices: true,
       portalconnection: "connected",
@@ -73,10 +122,10 @@ class ConfigService {
       linkbutton: false,
       touchlink: false,
       zigbeechannel: 20,
-      UTC: (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").substring(0, 19),
-      localtime: (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").substring(0, 19),
-      timezone: "Europe/Berlin",
-      whitelist: {}
+      UTC: ConfigService.formatHueTimestamp(now, "UTC"),
+      localtime: ConfigService.formatHueTimestamp(now, tz),
+      timezone: tz,
+      whitelist
     };
   }
   /**

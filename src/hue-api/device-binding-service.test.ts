@@ -94,6 +94,32 @@ describe("DeviceBindingService", () => {
       }
     });
 
+    // E1 v1.4.3 — earlier `parseInt("abc")` gave NaN, NaN-comparisons fall
+    // through both bound checks, code accessed `devices[NaN]` and crashed
+    // with TypeError several lines later. Now bad ids surface as Hue 404
+    // at the boundary.
+    it("should throw resourceNotAvailable for non-numeric light ID (E1 v1.4.3)", async () => {
+      const { service } = createService([{ name: "Test", lightType: "onoff" }]);
+      try {
+        await service.getLightById("abc");
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).to.be.instanceOf(HueApiError);
+        expect((error as HueApiError).type).to.equal(HueErrorType.RESOURCE_NOT_AVAILABLE);
+      }
+    });
+
+    it("should throw resourceNotAvailable for fractional light ID (E1 v1.4.3)", async () => {
+      const { service } = createService([{ name: "Test", lightType: "onoff" }]);
+      try {
+        await service.getLightById("1.5");
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).to.be.instanceOf(HueApiError);
+        expect((error as HueApiError).type).to.equal(HueErrorType.RESOURCE_NOT_AVAILABLE);
+      }
+    });
+
     describe("light type mapping", () => {
       it("should map onoff to LWB007 / Dimmable light", async () => {
         const { service } = createService([
@@ -139,29 +165,24 @@ describe("DeviceBindingService", () => {
         expect(light.manufacturername).to.equal("Signify Netherlands B.V.");
       });
 
-      it("should generate unique ID based on light index", async () => {
+      it("should generate unique ID based on light index (D5 v1.4.3 — 24-bit hex suffix)", async () => {
         const { service } = createService([
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.uniqueid).to.equal("00:17:88:01:00:01:01:01-0b");
+        expect(light.uniqueid).to.equal("00:17:88:01:00:00:00:01-0b");
       });
 
-      it("should generate padded unique ID for single-digit IDs", async () => {
-        const { service } = createService([
-          { name: "L1", lightType: "onoff" },
-          { name: "L2", lightType: "onoff" },
-          { name: "L3", lightType: "onoff" },
-          { name: "L4", lightType: "onoff" },
-          { name: "L5", lightType: "onoff" },
-          { name: "L6", lightType: "onoff" },
-          { name: "L7", lightType: "onoff" },
-          { name: "L8", lightType: "onoff" },
-          { name: "L9", lightType: "onoff" },
-          { name: "L10", lightType: "onoff" },
-        ]);
-        const light = await service.getLightById("10");
-        expect(light.uniqueid).to.equal("00:17:88:01:00:10:10:10-0b");
+      it("should generate hex-encoded unique ID even at large counts (D5 v1.4.3)", async () => {
+        const devices = Array.from({ length: 256 }, (_, i) => ({
+          name: `L${i + 1}`,
+          lightType: "onoff" as const,
+        }));
+        const { service } = createService(devices);
+        const light10 = await service.getLightById("10");
+        expect(light10.uniqueid).to.equal("00:17:88:01:00:00:00:0a-0b");
+        const light256 = await service.getLightById("256");
+        expect(light256.uniqueid).to.equal("00:17:88:01:00:00:01:00-0b");
       });
 
       it("should include software version", async () => {
@@ -851,6 +872,31 @@ describe("DeviceBindingService", () => {
       ]);
       await service.setLightState("1", { xy: [0.3, 0.4] });
       expect(adapter.writtenStates.get("test.xy")).to.equal("[0.3,0.4]");
+    });
+
+    // D4 v1.4.3 — write side serialises xy as JSON string `"[0.3,0.4]"`.
+    // Earlier the read side only handled CSV strings — a stored `"[0.3,0.4]"`
+    // got split by comma to `["[0.3","0.4]"]`, parseFloat returned NaN, and
+    // the value collapsed to the [0.5, 0.5] default. Round-trip now intact.
+    it("xy round-trips through JSON-stringified storage (D4 v1.4.3)", async () => {
+      const { service, adapter } = createService(
+        [{ name: "Test", lightType: "color", xyState: "test.xy" }],
+        { "test.xy": "[0.3,0.4]" },
+      );
+      const light = await service.getLightById("1");
+      expect(light.state.xy).to.deep.equal([0.3, 0.4]);
+
+      // And after a write, the same JSON string round-trips back
+      await service.setLightState("1", { xy: [0.7, 0.2] });
+      const stored = adapter.writtenStates.get("test.xy");
+      expect(stored).to.equal("[0.7,0.2]");
+      // Simulate the next foreign-state read returning the stored JSON string.
+      const fresh = createService(
+        [{ name: "Test", lightType: "color", xyState: "test.xy" }],
+        { "test.xy": stored },
+      );
+      const refreshed = await fresh.service.getLightById("1");
+      expect(refreshed.state.xy).to.deep.equal([0.7, 0.2]);
     });
 
     // API-drift guards: malformed incoming Hue-client values must not leak

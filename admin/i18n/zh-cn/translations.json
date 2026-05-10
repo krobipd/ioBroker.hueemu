@@ -11,6 +11,8 @@
     "httpsPortTooltip": "HTTPS端口（空 = 无HTTPS）",
     "mac": "MAC地址",
     "macTooltip": "Bridge-ID的可选MAC（为空时自动生成）",
+    "trustProxy": "信任 X-Forwarded-* 头",
+    "trustProxyTooltip": "仅当适配器位于受信任的反向代理（如 Traefik、nginx）之后并由代理清除客户端提供的转发头时启用。默认使用真实的套接字 IP。",
     "deviceConfiguration": "设备",
     "configuredDevices": "已配置设备",
     "deviceConfigHelp": "添加设备并将ioBroker状态映射到Hue属性。",

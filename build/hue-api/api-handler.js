@@ -39,7 +39,10 @@ class ApiHandler {
       adapter: config.adapter,
       logger: config.logger
     });
-    this.configService = new import_config_service.ConfigService(config.configServiceConfig);
+    this.configService = new import_config_service.ConfigService({
+      ...config.configServiceConfig,
+      whitelistProvider: () => this.userService.listCachedClientIds()
+    });
     const devices = config.devices || [];
     this.lightService = new import_device_binding_service.DeviceBindingService({
       adapter: config.adapter,
@@ -148,11 +151,20 @@ class ApiHandler {
   async isUserAuthenticated(username) {
     const isAuth = await this.userService.isUserAuthenticated(username);
     if (!isAuth && this.adapter.pairingEnabled) {
-      this.log("debug", `Pairing enabled, auto-adding user: ${username}`);
-      await this.userService.addUser(username);
-      return true;
+      try {
+        await this.userService.addUser(username, "auto-paired", true);
+        this.log("debug", `Pairing enabled, auto-added user: ${username}`);
+        return true;
+      } catch (err) {
+        this.logger.warn(`Auto-add rejected for ${username}: ${(0, import_utils.errText)(err)}`);
+        return false;
+      }
     }
     return isAuth;
+  }
+  /** Reset the per-pairing-window auto-add budget (called on pairing-on). */
+  resetAutoAddBudget() {
+    this.userService.resetAutoAddBudget();
   }
   /**
    * Check if auth is disabled

@@ -23,6 +23,7 @@ __export(device_binding_service_exports, {
 module.exports = __toCommonJS(device_binding_service_exports);
 var import_errors = require("../types/errors");
 var import_utils = require("../types/utils");
+var import_coerce = require("../lib/coerce");
 const HUE_BRI_MIN = 1;
 const HUE_BRI_MAX = 254;
 const HUE_HUE_MAX = 65535;
@@ -31,16 +32,6 @@ const HUE_CT_MIN = 153;
 const HUE_CT_MAX = 500;
 const HUE_CT_DEFAULT = 250;
 const HUE_XY_DEFAULT = [0.5, 0.5];
-function coerceFiniteNumber(v) {
-  if (typeof v === "number" && Number.isFinite(v)) {
-    return v;
-  }
-  if (typeof v === "string" && v.length > 0) {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
 function clampRound(v, min, max) {
   return Math.min(max, Math.max(min, Math.round(v)));
 }
@@ -126,20 +117,30 @@ class DeviceBindingService {
   }
   /**
    * Refresh the state cache
+   *
+   * v1.4.3 (D1): all foreign-state reads in parallel. With many devices
+   * (50 lights × 6 states = 300) the previous sequential pattern blocked
+   * adapter init for several broker round-trips per state.
    */
   async refreshStateCache() {
+    const allIds = /* @__PURE__ */ new Set();
     for (const device of this.devices) {
-      for (const stateId of this.getAllStateIds(device)) {
+      for (const id of this.getAllStateIds(device)) {
+        allIds.add(id);
+      }
+    }
+    await Promise.all(
+      [...allIds].map(async (stateId) => {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== void 0) {
             this.stateCache.set(stateId, state.val);
           }
         } catch (error) {
-          this.log("debug", `Could not load state ${stateId}: ${error}`);
+          this.log("debug", `Could not load state ${stateId}: ${(0, import_utils.errText)(error)}`);
         }
-      }
-    }
+      })
+    );
   }
   /**
    * Update state cache when a state changes
@@ -149,27 +150,44 @@ class DeviceBindingService {
   }
   /**
    * Get all configured lights
+   *
+   * v1.4.3 (D2): per-light builds in parallel. Cache hits are common after
+   * `refreshStateCache`, so this rarely round-trips, but on cache misses
+   * we'd previously wait for one device before starting the next.
    */
   async getAllLights() {
     const lights = {};
-    for (let i = 0; i < this.devices.length; i++) {
-      const device = this.devices[i];
-      const lightId = String(i + 1);
-      try {
-        const light = await this.getLightById(lightId);
-        lights[lightId] = light;
-      } catch (error) {
-        this.logger.warn(`Could not load device "${device.name}": ${(0, import_utils.errText)(error)}`);
+    const built = await Promise.all(
+      this.devices.map(async (device, i) => {
+        const lightId = String(i + 1);
+        try {
+          const light = await this.getLightById(lightId);
+          return [lightId, light];
+        } catch (error) {
+          this.logger.warn(`Could not load device "${device.name}": ${(0, import_utils.errText)(error)}`);
+          return null;
+        }
+      })
+    );
+    for (const entry of built) {
+      if (entry) {
+        lights[entry[0]] = entry[1];
       }
     }
     return lights;
   }
   /**
    * Get a single light by ID
+   *
+   * v1.4.3 (E1): strict integer validation via `parseLightIndex`. Earlier
+   * `parseInt("abc")` returned `NaN`; both `NaN < 0` and `NaN >= length`
+   * evaluate false, so we accessed `devices[NaN]` (undefined) and crashed
+   * later with a confusing TypeError. Now bad ids surface as Hue
+   * `resourceNotAvailable` (404) at the boundary.
    */
   async getLightById(lightId) {
-    const index = parseInt(lightId, 10) - 1;
-    if (index < 0 || index >= this.devices.length) {
+    const index = (0, import_coerce.parseLightIndex)(lightId, this.devices.length);
+    if (index === null) {
       throw import_errors.HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}`);
     }
     const device = this.devices[index];
@@ -206,7 +224,10 @@ class DeviceBindingService {
       modelid: lightTypeConfig.modelid,
       manufacturername: "Signify Netherlands B.V.",
       productname: lightTypeConfig.name,
-      uniqueid: `00:17:88:01:00:${lightId.padStart(2, "0")}:${lightId.padStart(2, "0")}:${lightId.padStart(2, "0")}-0b`,
+      // v1.4.3 (D5): build a valid 8-octet hex MAC suffix from the numeric
+      // light index instead of repeating the decimal string. Earlier:
+      // light id 100 → "100:100:100" which is not a valid MAC pair.
+      uniqueid: `00:17:88:01:00:${this.lightUniqueidSuffix(index + 1)}-0b`,
       swversion: "1.0.0"
     };
     return light;
@@ -215,8 +236,8 @@ class DeviceBindingService {
    * Set light state
    */
   async setLightState(lightId, stateUpdate) {
-    const index = parseInt(lightId, 10) - 1;
-    if (index < 0 || index >= this.devices.length) {
+    const index = (0, import_coerce.parseLightIndex)(lightId, this.devices.length);
+    if (index === null) {
       throw import_errors.HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}/state`);
     }
     const device = this.devices[index];
@@ -287,7 +308,7 @@ class DeviceBindingService {
         }
         return Boolean(value);
       case "bri": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         if (n === null) {
           return HUE_BRI_MAX;
         }
@@ -300,11 +321,11 @@ class DeviceBindingService {
         return clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
       }
       case "hue": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
       }
       case "sat": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         if (n === null) {
           return HUE_SAT_MAX;
         }
@@ -317,22 +338,36 @@ class DeviceBindingService {
         return clampRound(n, 0, HUE_SAT_MAX);
       }
       case "ct": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
       }
       case "xy": {
         if (Array.isArray(value) && value.length >= 2) {
-          const x = coerceFiniteNumber(value[0]);
-          const y = coerceFiniteNumber(value[1]);
+          const x = (0, import_coerce.coerceFiniteNumber)(value[0]);
+          const y = (0, import_coerce.coerceFiniteNumber)(value[1]);
           if (x !== null && y !== null) {
             return [x, y];
           }
         }
         if (typeof value === "string") {
-          const parts = value.split(",");
+          const trimmed = value.trim();
+          if (trimmed.startsWith("[")) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (Array.isArray(parsed) && parsed.length >= 2) {
+                const x = (0, import_coerce.coerceFiniteNumber)(parsed[0]);
+                const y = (0, import_coerce.coerceFiniteNumber)(parsed[1]);
+                if (x !== null && y !== null) {
+                  return [x, y];
+                }
+              }
+            } catch {
+            }
+          }
+          const parts = trimmed.split(",");
           if (parts.length >= 2) {
-            const x = coerceFiniteNumber(parts[0]);
-            const y = coerceFiniteNumber(parts[1]);
+            const x = (0, import_coerce.coerceFiniteNumber)(parts[0]);
+            const y = (0, import_coerce.coerceFiniteNumber)(parts[1]);
             if (x !== null && y !== null) {
               return [x, y];
             }
@@ -352,19 +387,19 @@ class DeviceBindingService {
       case "on":
         return Boolean(value);
       case "bri": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? HUE_BRI_MAX : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
       }
       case "hue": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
       }
       case "sat": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? HUE_SAT_MAX : clampRound(n, 0, HUE_SAT_MAX);
       }
       case "ct": {
-        const n = coerceFiniteNumber(value);
+        const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
       }
       case "xy":
@@ -403,6 +438,23 @@ class DeviceBindingService {
       default:
         return null;
     }
+  }
+  /**
+   * Build the trailing 3-octet MAC suffix for a Hue `uniqueid`. The full
+   * uniqueid is `00:17:88:01:00:<3-octet-suffix>-0b` (8 pairs + endpoint),
+   * matching real Hue bridges. Encodes the 1-based light index as 24 bits,
+   * giving stable, valid hex even at large counts (light 1 → `00:00:01`,
+   * light 256 → `00:01:00`, light 16777215 → `ff:ff:ff`). Above 24 bits
+   * the value wraps — far beyond Hue's practical 50-light limit.
+   *
+   * @param oneBasedIndex 1-based light index.
+   */
+  lightUniqueidSuffix(oneBasedIndex) {
+    const n = oneBasedIndex >>> 0;
+    const b0 = n >>> 16 & 255;
+    const b1 = n >>> 8 & 255;
+    const b2 = n & 255;
+    return [b0, b1, b2].map((b) => b.toString(16).padStart(2, "0")).join(":");
   }
   log(level, message) {
     this.logger[level](message);

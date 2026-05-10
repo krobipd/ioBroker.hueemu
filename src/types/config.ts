@@ -45,6 +45,12 @@ export interface HueEmulatorConfig {
   upnpPort: number;
   /** Bridge identity */
   identity: BridgeIdentity;
+  /**
+   * v1.4.3 (SV1): trust X-Forwarded-* headers from a reverse proxy.
+   * Default false — only enable when the adapter sits behind a trusted
+   * TLS-terminating proxy that strips client-supplied forwarding headers.
+   */
+  trustProxy: boolean;
 }
 
 /**

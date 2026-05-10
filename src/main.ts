@@ -6,6 +6,7 @@
 import * as utils from "@iobroker/adapter-core";
 import * as uuid from "uuid";
 import * as forge from "node-forge";
+import { randomBytes } from "node:crypto";
 
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
@@ -25,6 +26,9 @@ declare global {
       discoveryHost: string;
       discoveryPort: number;
       httpsPort: number | undefined;
+      tlsCert?: string;
+      tlsKey?: string;
+      trustProxy?: boolean;
       udn: string;
       mac: string;
       devices: DeviceConfig[];
@@ -68,11 +72,17 @@ export class HueEmu extends utils.Adapter {
     // Last-line-of-defence against unhandled rejections / sync throws from
     // fire-and-forget paths. The per-handler wrappers cover documented async
     // paths; this catches anything that slips past during refactors.
+    // v1.4.3 (M9): log + terminate via the adapter's `terminate` (exit code
+    // 11 = "unrecoverable error"). Logging without exit leaves the process
+    // in an undefined state — the per-handler wrappers handle expected paths,
+    // anything reaching here is by definition unexpected.
     this.unhandledRejectionHandler = (reason: unknown) => {
       this.log.error(`Unhandled rejection: ${errText(reason)}`);
+      this.terminate?.(11);
     };
     this.uncaughtExceptionHandler = (err: Error) => {
       this.log.error(`Uncaught exception: ${errText(err)}`);
+      this.terminate?.(11);
     };
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
@@ -159,9 +169,18 @@ export class HueEmu extends utils.Adapter {
         logger,
       });
 
-      // Start servers
-      await this.ssdpServer.start();
+      // v1.4.3 (S2): start HTTP first. SSDP port 1900 is shared by many
+      // discovery adapters (shelly, tradfri, ...) — if it's already bound,
+      // SSDP throws and we still want the Hue API reachable for clients
+      // configured by manual IP. Log SSDP-failure but don't break the adapter.
       await this.hueServer.start();
+      try {
+        await this.ssdpServer.start();
+      } catch (err) {
+        this.log.warn(
+          `SSDP discovery disabled — port 1900 unavailable (${errText(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`,
+        );
+      }
 
       // Initialize adapter states
       await this.initializeAdapterStates();
@@ -186,10 +205,22 @@ export class HueEmu extends utils.Adapter {
   private async buildConfig(): Promise<HueEmulatorConfig> {
     // Parse configuration values
     const host = this.config.host?.trim() || "";
+    // v1.4.3 (E2): empty host means SSDP advertises an empty location AND
+    // Fastify binds to 0.0.0.0 — Hue clients can't connect to the bridge.
+    // Surface this immediately instead of starting a half-broken adapter.
+    if (!host) {
+      throw new Error("Bridge host is empty — set 'host' in admin config to the IP that clients should reach");
+    }
     const port = this.toPort(this.config.port);
     const discoveryHost = this.config.discoveryHost?.trim() || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
     const httpsPort = this.toUndefinedPort(this.config.httpsPort);
+    // v1.4.3 (SV4): port collision check — a same-port HTTP+HTTPS pair would
+    // make the second listen() throw EADDRINUSE much later, easier to debug
+    // when surfaced here.
+    if (httpsPort !== undefined && httpsPort === port) {
+      throw new Error(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
+    }
     const udn = this.config.udn?.trim() || uuid.v4();
     const mac = this.config.mac?.trim() || this.macFromUdn(udn);
 
@@ -213,12 +244,8 @@ export class HueEmu extends utils.Adapter {
     // Build TLS config if HTTPS is enabled
     let https: TlsConfig | undefined;
     if (httpsPort) {
-      const cert = this.generateCertificate();
-      https = {
-        port: httpsPort,
-        cert: cert.certificate,
-        key: cert.privateKey,
-      };
+      const { cert, key } = await this.getOrCreateTlsMaterial();
+      https = { port: httpsPort, cert, key };
     }
 
     this.log.debug(
@@ -235,7 +262,37 @@ export class HueEmu extends utils.Adapter {
       https,
       upnpPort,
       identity,
+      trustProxy: this.config.trustProxy === true,
     };
+  }
+
+  /**
+   * v1.4.3 (M1+M3+M5): persist the self-signed TLS cert/key in `native`
+   * so they survive restarts. Real Hue clients (Echo, Harmony, Wall Display)
+   * don't pin the cert — but regenerating each restart wasted ~1-2 s of
+   * sync RSA-keygen on the event loop and gave clients fresh cert warnings
+   * every time. Now: read from native; only generate (and persist) if
+   * missing/malformed. Serial number is randomized so reissues aren't
+   * identical (RFC 5280).
+   */
+  private async getOrCreateTlsMaterial(): Promise<{ cert: string; key: string }> {
+    const persistedCert = typeof this.config.tlsCert === "string" ? this.config.tlsCert.trim() : "";
+    const persistedKey = typeof this.config.tlsKey === "string" ? this.config.tlsKey.trim() : "";
+    if (
+      persistedCert.startsWith("-----BEGIN CERTIFICATE-----") &&
+      (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") ||
+        persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))
+    ) {
+      this.log.debug("Reusing persisted TLS certificate");
+      return { cert: persistedCert, key: persistedKey };
+    }
+
+    const generated = this.generateCertificate();
+    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+      native: { tlsCert: generated.certificate, tlsKey: generated.privateKey },
+    });
+    this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+    return { cert: generated.certificate, key: generated.privateKey };
   }
 
   /**
@@ -251,7 +308,11 @@ export class HueEmu extends utils.Adapter {
     const cert = forge.pki.createCertificate();
 
     cert.publicKey = keys.publicKey;
-    cert.serialNumber = "01";
+    // v1.4.3 (M5): RFC 5280 wants unique serial numbers across reissues —
+    // 16 random bytes (positive, MSB cleared) is the standard approach.
+    const serialBytes = randomBytes(16);
+    serialBytes[0] &= 0x7f;
+    cert.serialNumber = serialBytes.toString("hex");
     cert.validity.notBefore = new Date();
     cert.validity.notAfter = new Date();
     cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
@@ -280,9 +341,26 @@ export class HueEmu extends utils.Adapter {
   private async initializeAdapterStates(): Promise<void> {
     this.pairingEnabled = false;
 
-    // Load disableAuth state
+    // v1.4.3 (M2+M4): strict boolean comparison. Earlier `(val as boolean) || false`
+    // was a TS-only cast — at runtime a string `"false"` or `"0"` came back as
+    // truthy, leaving auth disabled across restarts.
     const disableAuthState = await this.getStateAsync("disableAuth");
-    this._disableAuth = (disableAuthState?.val as boolean) || false;
+    this._disableAuth = HueEmu.coerceBool(disableAuthState?.val);
+  }
+
+  /** Coerce arbitrary state values to a strict boolean. */
+  private static coerceBool(v: unknown): boolean {
+    if (typeof v === "boolean") {
+      return v;
+    }
+    if (typeof v === "number") {
+      return v !== 0;
+    }
+    if (typeof v === "string") {
+      const t = v.trim().toLowerCase();
+      return t === "true" || t === "1" || t === "yes" || t === "on";
+    }
+    return false;
   }
 
   /**
@@ -340,29 +418,31 @@ export class HueEmu extends utils.Adapter {
         native: {},
       });
 
-      for (const row of children.rows) {
-        const oldId = row.id.replace(`${this.namespace}.`, "");
-        const username = oldId.replace("user.", "");
-        const newId = `clients.${sanitizeId(username)}`;
+      // v1.4.3 (M7): per-client migration in parallel — sequential for-loop
+      // on a fresh-from-legacy install with many paired Alexa accounts
+      // caused noticeable startup delay.
+      await Promise.all(
+        children.rows.map(async row => {
+          const oldId = row.id.replace(`${this.namespace}.`, "");
+          const username = oldId.replace("user.", "");
+          const newId = `clients.${sanitizeId(username)}`;
 
-        // Read current value
-        const state = await this.getStateAsync(oldId);
+          const state = await this.getStateAsync(oldId);
 
-        // Copy object with same common/native
-        const obj = row.value;
-        await this.setObjectNotExistsAsync(newId, {
-          type: "state",
-          common: obj.common as ioBroker.StateCommon,
-          native: obj.native || {},
-        });
-        if (state?.val !== undefined && state?.val !== null) {
-          await this.setStateAsync(newId, { val: state.val, ack: true });
-        }
+          const obj = row.value;
+          await this.setObjectNotExistsAsync(newId, {
+            type: "state",
+            common: obj.common as ioBroker.StateCommon,
+            native: obj.native || {},
+          });
+          if (state?.val !== undefined && state?.val !== null) {
+            await this.setStateAsync(newId, { val: state.val, ack: true });
+          }
 
-        // Remove old state
-        await this.delObjectAsync(oldId);
-        this.log.debug(`Migrated client ${username}: user → clients`);
-      }
+          await this.delObjectAsync(oldId);
+          this.log.debug(`Migrated client ${username}: user → clients`);
+        }),
+      );
     }
 
     // Remove old "user" folder
@@ -443,7 +523,7 @@ export class HueEmu extends utils.Adapter {
     if (id === `${this.namespace}.startPairing`) {
       this.handleStartPairing(state);
     } else if (id === `${this.namespace}.disableAuth`) {
-      this.disableAuth = state.val as boolean;
+      this.disableAuth = HueEmu.coerceBool(state.val);
     } else if (id.startsWith(this.namespace)) {
       // Acknowledge other own state changes
       void this.setState(id, { ack: true, val: state.val });
@@ -459,9 +539,13 @@ export class HueEmu extends utils.Adapter {
       this.pairingTimeoutId = undefined;
     }
 
-    this.pairingEnabled = state.val as boolean;
+    const enabled = HueEmu.coerceBool(state.val);
+    this.pairingEnabled = enabled;
 
-    if (state.val) {
+    if (enabled) {
+      // v1.4.3 (U1+R2): fresh auto-add budget per pairing window — a
+      // virtual "press of the link button" resets the per-window cap.
+      this.apiHandler?.resetAutoAddBudget();
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
       this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
@@ -545,11 +629,14 @@ export class HueEmu extends utils.Adapter {
         migratedDevices.push(config);
         this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
 
-        // Clean up legacy-only wrapper objects (keep state.* objects for DeviceBindingService)
-        await this.delObjectAsync(`${deviceId}.name`).catch(() => {});
-        await this.delObjectAsync(`${deviceId}.data`).catch(() => {});
-        await this.delObjectAsync(`${deviceId}.state`).catch(() => {}); // channel only
-        await this.delObjectAsync(deviceId).catch(() => {}); // device wrapper
+        // v1.4.3 (M6): parallel cleanup of the four legacy wrapper objects.
+        // (state.* leaf objects are kept — DeviceBindingService binds to them.)
+        await Promise.all([
+          this.delObjectAsync(`${deviceId}.name`).catch(() => {}),
+          this.delObjectAsync(`${deviceId}.data`).catch(() => {}),
+          this.delObjectAsync(`${deviceId}.state`).catch(() => {}),
+          this.delObjectAsync(deviceId).catch(() => {}),
+        ]);
       } catch (error) {
         this.log.warn(`Could not migrate legacy device ${deviceId}: ${errText(error)}`);
       }

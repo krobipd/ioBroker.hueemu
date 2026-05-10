@@ -30,20 +30,84 @@ export interface UserServiceConfig {
 }
 
 /**
+ * v1.4.3 (U1+R2): cap on auto-added clients within a single pairing window.
+ * The auto-add path in `ApiHandler.isUserAuthenticated` accepts any unknown
+ * username during the 50 s pairing window — necessary for Echo/Harmony
+ * compatibility, but a misbehaving (or hostile) client could create
+ * thousands of permanent client records over those seconds. Real Hue
+ * bridges press only one pair per button-press; we keep the auto-add for
+ * compat but cap the total per window. Manual `createUser` (POST /api with
+ * the link button held) is unaffected.
+ */
+const AUTO_ADD_CAP_PER_WINDOW = 64;
+
+/**
  * Service for managing Hue API users
  */
 export class UserService {
   private readonly adapter: UserServiceAdapter;
   private readonly logger: Logger;
+
+  /**
+   * v1.4.3 (U2): in-memory mirror of paired client ids. Populated lazily on
+   * first lookup, kept in sync by every `addUser`. Earlier every Hue API
+   * request triggered `getStatesOfAsync("clients")`, hitting the broker on
+   * every call — Echo polls the bridge frequently.
+   */
+  private clientIdsCache: Set<string> | null = null;
+
+  /**
+   * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
+   * current pairing window. Reset by {@link resetAutoAddBudget} which the
+   * adapter calls when pairing flips on.
+   */
+  private autoAddedThisWindow = 0;
+  private autoAddCapWarned = false;
+
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
   }
 
   /**
-   * Add a new client (Hue API "user")
+   * Reset the auto-add counter — call when a new pairing window opens so
+   * every press of the link button gets a fresh budget.
    */
-  public async addUser(username: string, devicetype = "unknown"): Promise<void> {
+  public resetAutoAddBudget(): void {
+    this.autoAddedThisWindow = 0;
+    this.autoAddCapWarned = false;
+  }
+
+  /**
+   * Whether the auto-add cap for the current pairing window is exhausted.
+   */
+  public isAutoAddCapReached(): boolean {
+    return this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW;
+  }
+
+  /**
+   * Add a new client (Hue API "user").
+   *
+   * @param username Raw username (will be sanitized for the state id).
+   * @param devicetype Client-supplied device type (purely informational).
+   * @param viaAutoAdd `true` when called from the pairing-window auto-add
+   *   path — counts against the per-window cap. `false` for explicit
+   *   `POST /api` createUser calls (unbounded, gated by the link button).
+   */
+  public async addUser(username: string, devicetype = "unknown", viaAutoAdd = false): Promise<void> {
+    if (viaAutoAdd) {
+      if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
+        if (!this.autoAddCapWarned) {
+          this.logger.warn(
+            `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) — further unknown clients will be rejected until pairing is re-enabled`,
+          );
+          this.autoAddCapWarned = true;
+        }
+        throw new Error("Auto-add cap reached for this pairing window");
+      }
+      this.autoAddedThisWindow += 1;
+    }
+
     const safeUsername = sanitizeId(username);
     this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
 
@@ -75,6 +139,29 @@ export class UserService {
     } catch (err) {
       this.logger.warn(`Failed to set client state ${safeUsername}: ${errText(err)}`);
     }
+
+    // v1.4.3 (U2): keep the auth-cache fresh after every add
+    if (this.clientIdsCache) {
+      this.clientIdsCache.add(safeUsername);
+    }
+  }
+
+  /**
+   * Returns the set of paired client ids (sanitized form) for spec-compliant
+   * `whitelist` exposure. Reuses the same lazy cache as the auth path.
+   */
+  public async listClientIds(): Promise<readonly string[]> {
+    const cache = await this.ensureCache();
+    return [...cache];
+  }
+
+  /**
+   * Synchronous variant — returns whatever is currently cached (empty until
+   * the first auth check populates it). Used in spots where async fanout
+   * would force the caller to become async too (whitelist render-path).
+   */
+  public listCachedClientIds(): readonly string[] {
+    return this.clientIdsCache ? [...this.clientIdsCache] : [];
   }
 
   /**
@@ -88,33 +175,43 @@ export class UserService {
   }
 
   /**
-   * Check if a client is authenticated (has paired with the bridge)
+   * Check if a client is authenticated (has paired with the bridge).
+   *
+   * v1.4.3 (U2): in-memory client-id set populated lazily; hits the broker
+   * once on the first call after start, then served from RAM. Hue clients
+   * (Echo, Harmony) poll `/api/{user}` frequently — earlier each call did
+   * a `getStatesOfAsync` round-trip.
    */
   public async isUserAuthenticated(username: string): Promise<boolean> {
     const safeUsername = sanitizeId(username);
-
-    let stateObjects: ioBroker.StateObject[];
-    try {
-      stateObjects = await this.adapter.getStatesOfAsync("clients", undefined);
-    } catch (err) {
-      this.log("debug", `No client states found: ${err}`);
-      return false;
-    }
-
-    if (!stateObjects || stateObjects.length === 0) {
-      return false;
-    }
-
-    const found = stateObjects.some(state => {
-      const id = state._id.substring(this.adapter.namespace.length + 9); // +1 for '.' and +8 for 'clients.'
-      return id === safeUsername;
-    });
-
+    const cache = await this.ensureCache();
+    const found = cache.has(safeUsername);
     if (found) {
       this.log("debug", `Client authenticated: ${username}`);
     }
-
     return found;
+  }
+
+  /** Build (or return) the cache of sanitized client ids. */
+  private async ensureCache(): Promise<Set<string>> {
+    if (this.clientIdsCache) {
+      return this.clientIdsCache;
+    }
+    const cache = new Set<string>();
+    try {
+      const stateObjects = (await this.adapter.getStatesOfAsync("clients", undefined)) || [];
+      const offset = this.adapter.namespace.length + 1 + "clients.".length;
+      for (const state of stateObjects) {
+        const id = state._id.substring(offset);
+        if (id) {
+          cache.add(id);
+        }
+      }
+    } catch (err) {
+      this.log("debug", `Could not load clients into cache: ${errText(err)}`);
+    }
+    this.clientIdsCache = cache;
+    return cache;
   }
 
   /**

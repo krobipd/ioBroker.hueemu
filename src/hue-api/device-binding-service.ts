@@ -7,6 +7,7 @@ import type { Logger } from "../types/config";
 import type { Light, LightsCollection, LightState, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
 import { errText } from "../types/utils";
+import { coerceFiniteNumber, parseLightIndex } from "../lib/coerce";
 
 /** Hue API value ranges (per Philips Hue API specification) */
 const HUE_BRI_MIN = 1;
@@ -17,24 +18,6 @@ const HUE_CT_MIN = 153;
 const HUE_CT_MAX = 500;
 const HUE_CT_DEFAULT = 250;
 const HUE_XY_DEFAULT: [number, number] = [0.5, 0.5];
-
-/**
- * Coerce a value to a finite number. Accepts numbers and numeric strings.
- * Returns null for anything else — guards against malformed state values
- * from foreign adapters and malformed Hue client payloads.
- *
- * @param v Value to coerce
- */
-function coerceFiniteNumber(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) {
-    return v;
-  }
-  if (typeof v === "string" && v.length > 0) {
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
 
 /**
  * Clamp a finite number into an integer range.
@@ -185,20 +168,30 @@ export class DeviceBindingService {
 
   /**
    * Refresh the state cache
+   *
+   * v1.4.3 (D1): all foreign-state reads in parallel. With many devices
+   * (50 lights × 6 states = 300) the previous sequential pattern blocked
+   * adapter init for several broker round-trips per state.
    */
   private async refreshStateCache(): Promise<void> {
+    const allIds = new Set<string>();
     for (const device of this.devices) {
-      for (const stateId of this.getAllStateIds(device)) {
+      for (const id of this.getAllStateIds(device)) {
+        allIds.add(id);
+      }
+    }
+    await Promise.all(
+      [...allIds].map(async stateId => {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== undefined) {
             this.stateCache.set(stateId, state.val);
           }
         } catch (error) {
-          this.log("debug", `Could not load state ${stateId}: ${error}`);
+          this.log("debug", `Could not load state ${stateId}: ${errText(error)}`);
         }
-      }
-    }
+      }),
+    );
   }
 
   /**
@@ -210,19 +203,29 @@ export class DeviceBindingService {
 
   /**
    * Get all configured lights
+   *
+   * v1.4.3 (D2): per-light builds in parallel. Cache hits are common after
+   * `refreshStateCache`, so this rarely round-trips, but on cache misses
+   * we'd previously wait for one device before starting the next.
    */
   public async getAllLights(): Promise<LightsCollection> {
     const lights: LightsCollection = {};
 
-    for (let i = 0; i < this.devices.length; i++) {
-      const device = this.devices[i];
-      const lightId = String(i + 1); // Use 1-based index as light ID
-
-      try {
-        const light = await this.getLightById(lightId);
-        lights[lightId] = light;
-      } catch (error) {
-        this.logger.warn(`Could not load device "${device.name}": ${errText(error)}`);
+    const built = await Promise.all(
+      this.devices.map(async (device, i) => {
+        const lightId = String(i + 1);
+        try {
+          const light = await this.getLightById(lightId);
+          return [lightId, light] as const;
+        } catch (error) {
+          this.logger.warn(`Could not load device "${device.name}": ${errText(error)}`);
+          return null;
+        }
+      }),
+    );
+    for (const entry of built) {
+      if (entry) {
+        lights[entry[0]] = entry[1];
       }
     }
 
@@ -231,11 +234,16 @@ export class DeviceBindingService {
 
   /**
    * Get a single light by ID
+   *
+   * v1.4.3 (E1): strict integer validation via `parseLightIndex`. Earlier
+   * `parseInt("abc")` returned `NaN`; both `NaN < 0` and `NaN >= length`
+   * evaluate false, so we accessed `devices[NaN]` (undefined) and crashed
+   * later with a confusing TypeError. Now bad ids surface as Hue
+   * `resourceNotAvailable` (404) at the boundary.
    */
   public async getLightById(lightId: string): Promise<Light> {
-    const index = parseInt(lightId, 10) - 1;
-
-    if (index < 0 || index >= this.devices.length) {
+    const index = parseLightIndex(lightId, this.devices.length);
+    if (index === null) {
       throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}`);
     }
 
@@ -282,7 +290,10 @@ export class DeviceBindingService {
       modelid: lightTypeConfig.modelid,
       manufacturername: "Signify Netherlands B.V.",
       productname: lightTypeConfig.name,
-      uniqueid: `00:17:88:01:00:${lightId.padStart(2, "0")}:${lightId.padStart(2, "0")}:${lightId.padStart(2, "0")}-0b`,
+      // v1.4.3 (D5): build a valid 8-octet hex MAC suffix from the numeric
+      // light index instead of repeating the decimal string. Earlier:
+      // light id 100 → "100:100:100" which is not a valid MAC pair.
+      uniqueid: `00:17:88:01:00:${this.lightUniqueidSuffix(index + 1)}-0b`,
       swversion: "1.0.0",
     };
 
@@ -293,9 +304,8 @@ export class DeviceBindingService {
    * Set light state
    */
   public async setLightState(lightId: string, stateUpdate: LightStateUpdate): Promise<LightStateResult[]> {
-    const index = parseInt(lightId, 10) - 1;
-
-    if (index < 0 || index >= this.devices.length) {
+    const index = parseLightIndex(lightId, this.devices.length);
+    if (index === null) {
       throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}/state`);
     }
 
@@ -430,7 +440,27 @@ export class DeviceBindingService {
           }
         }
         if (typeof value === "string") {
-          const parts = value.split(",");
+          // v1.4.3 (D4): we serialize xy as a JSON string on writes
+          // (`"[0.3,0.4]"`), so reads must accept the round-trip too.
+          // Without this, the comma-split below produced `["[0.3","0.4]"]`,
+          // parseFloat("[0.3") gave NaN, and every read fell through to the
+          // [0.5, 0.5] default — losing whatever the client just set.
+          const trimmed = value.trim();
+          if (trimmed.startsWith("[")) {
+            try {
+              const parsed: unknown = JSON.parse(trimmed);
+              if (Array.isArray(parsed) && parsed.length >= 2) {
+                const x = coerceFiniteNumber(parsed[0]);
+                const y = coerceFiniteNumber(parsed[1]);
+                if (x !== null && y !== null) {
+                  return [x, y] as [number, number];
+                }
+              }
+            } catch {
+              /* fall through to CSV */
+            }
+          }
+          const parts = trimmed.split(",");
           if (parts.length >= 2) {
             const x = coerceFiniteNumber(parts[0]);
             const y = coerceFiniteNumber(parts[1]);
@@ -506,6 +536,24 @@ export class DeviceBindingService {
       default:
         return null;
     }
+  }
+
+  /**
+   * Build the trailing 3-octet MAC suffix for a Hue `uniqueid`. The full
+   * uniqueid is `00:17:88:01:00:<3-octet-suffix>-0b` (8 pairs + endpoint),
+   * matching real Hue bridges. Encodes the 1-based light index as 24 bits,
+   * giving stable, valid hex even at large counts (light 1 → `00:00:01`,
+   * light 256 → `00:01:00`, light 16777215 → `ff:ff:ff`). Above 24 bits
+   * the value wraps — far beyond Hue's practical 50-light limit.
+   *
+   * @param oneBasedIndex 1-based light index.
+   */
+  private lightUniqueidSuffix(oneBasedIndex: number): string {
+    const n = oneBasedIndex >>> 0;
+    const b0 = (n >>> 16) & 0xff;
+    const b1 = (n >>> 8) & 0xff;
+    const b2 = n & 0xff;
+    return [b0, b1, b2].map(b => b.toString(16).padStart(2, "0")).join(":");
   }
 
   private log(level: "debug" | "info" | "warn" | "error", message: string): void {
