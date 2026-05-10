@@ -150,7 +150,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 1.4.4 (2026-05-10)
 - Brightness/Saturation: each device now has an explicit scale option (Auto / Percent / Normalized / Hue-Raw). Fixes the case where a `level.dimmer` value of 1 (= 1 %) was misread as full brightness — pick "Percent" on devices that store 0..100. Existing setups keep working unchanged on the "Auto" default.
 
 ### 1.4.3 (2026-05-10)
@@ -171,9 +171,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - State names localized in 11 ioBroker languages, following the system setting.
 - Existing v1.3.x installs migrated automatically (instanceObject names backfilled to translation objects).
 - Baseline: Node 22, Admin 7.8.23 (ioBroker May-2026 stable).
-
-### 1.3.3 (2026-05-01)
-- Internal cleanup: `admin/i18n/` migrated to upstream pattern (per-language subdirectories), `jsonConfig.json5` → `jsonConfig.json`.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

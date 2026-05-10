@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.3",
+    "version": "1.4.4",
     "news": {
-      "NEXT": {
+      "1.4.4": {
         "en": "Brightness and saturation now have an explicit scale option per device (Auto / Percent / Normalized / Hue-Raw). Pick Percent on devices storing 0..100 — fixes 1 % misread as full bright.",
         "de": "Helligkeit und Sättigung haben jetzt pro Gerät eine explizite Skala-Option (Auto / Prozent / Normalisiert / Hue-Roh). Bei Geräten mit 0..100 Prozent wählen — fixt 1 % als Vollhelligkeit.",
         "ru": "Яркость и насыщенность теперь имеют явный выбор шкалы на устройство (Auto / Percent / Normalized / Hue-Raw). Для устройств 0..100 выберите Percent — устраняет ошибку 1 % как макс яркость.",
