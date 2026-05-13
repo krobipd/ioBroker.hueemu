@@ -31,6 +31,10 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 - **UPnP/SSDP Discovery** — Automatic detection by any Hue-compatible client
 - **Direct state mapping** — Point to any ioBroker state, no bridge scripts
 - **Light types** — On/Off, Dimmable, Color Temperature, RGB
+- **Per-device value scale** — pick how brightness and saturation are stored in your source state
+- **Persistent TLS certificate** — clients only trust the bridge once, restarts keep the same identity
+- **Localized state names** — admin labels follow the ioBroker system language
+- **Automatic migration** — legacy `createLight` setups are converted to the admin configuration on first start
 
 ---
 
@@ -60,7 +64,7 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 |--------|-------------|---------|
 | **Host** | IP address of the bridge (must be a real network IP) | — |
 | **HTTP Port** | Port for the Hue API | 8080 |
-| **HTTPS Port** | Optional HTTPS port | — |
+| **HTTPS Port** | Only needed if a client insists on TLS; leave empty otherwise | — |
 | **MAC Address** | Bridge MAC (auto-generated if empty) | — |
 
 ### Adding Devices
@@ -141,7 +145,8 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### State changes not working
 
 - Verify state IDs in device configuration
-- Check value ranges: `bri` 0–100 or 0–1, `ct` 153–500 (Mireds)
+- Pick the matching brightness/saturation scale per device in the admin — Auto, Percent (0..100), Normalized (0..1) or Hue-Raw (1..254). A `level.dimmer` storing 0..100 needs Percent.
+- `ct` range is 153–500 (Mireds)
 
 ---
 
@@ -154,25 +159,24 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
 
 ### 1.4.4 (2026-05-10)
-- Brightness/Saturation: each device now has an explicit scale option (Auto / Percent / Normalized / Hue-Raw). Fixes the case where a `level.dimmer` value of 1 (= 1 %) was misread as full brightness — pick "Percent" on devices that store 0..100. Existing setups keep working unchanged on the "Auto" default.
+- Brightness and saturation now have an explicit scale option per device, so values stored as 0..100 are no longer misread as full brightness. Existing setups keep working on the default.
 
 ### 1.4.3 (2026-05-10)
-- TLS certificate is now stored and reused across restarts — Echo/Harmony/Wall Display only need to trust it once, and the adapter starts noticeably faster.
-- Paired clients (Echo, Harmony, Google Home, …) appear in Hue tools that read the bridge whitelist.
+- TLS certificate is now stored and reused across restarts — clients only need to trust it once, and the adapter starts noticeably faster.
+- Paired clients appear in Hue tools that read the bridge whitelist.
 - HTTP API stays reachable even when SSDP port 1900 is already used by another adapter — the log explains how to add the bridge by IP.
 - "Disable Auth" now reliably keeps its value across adapter restarts.
-- Pairing window has a safety cap of 64 new clients per opening so a noisy LAN can't fill the bridge.
+- Pairing window has a safety cap so a noisy network can't flood the bridge with new clients.
 
 ### 1.4.2 (2026-05-09)
-- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) are unchanged.
+- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names are unchanged.
 
 ### 1.4.1 (2026-05-07)
-- Internal hardening (type safety + test coverage). No user-facing changes.
+- Internal hardening. No user-facing changes.
 
 ### 1.4.0 (2026-05-07)
-- State names localized in 11 ioBroker languages, following the system setting.
-- Existing v1.3.x installs migrated automatically (instanceObject names backfilled to translation objects).
-- Baseline: Node 22, Admin 7.8.23 (ioBroker May-2026 stable).
+- State names are localized in 11 languages following the ioBroker system language.
+- Existing installs are migrated automatically — names are backfilled on first start, nothing to do.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
