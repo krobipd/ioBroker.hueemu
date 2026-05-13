@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.4",
+    "version": "1.4.5",
     "news": {
-      "NEXT": {
+      "1.4.5": {
         "en": "Debug log traces previously silent paths: TLS cert validity on reuse, Hue API errors, SSDP discovery responses and device-binding scale decisions. Default log unchanged.",
         "de": "Debug-Log dokumentiert stille Pfade: TLS-Zertifikat-Prüfung beim Wiederverwenden, Hue-API-Fehler, SSDP-Antworten und Skalen-Entscheidungen im Device-Binding. Default-Log unverändert.",
         "ru": "Журнал отладки прослеживает тихие пути: проверка TLS-сертификата при повторном использовании, ошибки Hue API, ответы SSDP и решения масштабирования. Стандартный лог не изменился.",
