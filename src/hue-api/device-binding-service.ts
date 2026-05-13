@@ -419,16 +419,24 @@ export class DeviceBindingService {
         }
         return Boolean(value);
       case "bri":
-        return this.scaleValueFromState(value, device?.briScale, HUE_BRI_MIN, HUE_BRI_MAX);
+        return this.scaleValueFromState(value, device?.briScale, HUE_BRI_MIN, HUE_BRI_MAX, device, "bri");
       case "hue": {
         const n = coerceFiniteNumber(value);
-        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+        if (n === null) {
+          this.log("debug", `Default fallback for hue (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          return 0;
+        }
+        return clampRound(n, 0, HUE_HUE_MAX);
       }
       case "sat":
-        return this.scaleValueFromState(value, device?.satScale, 0, HUE_SAT_MAX);
+        return this.scaleValueFromState(value, device?.satScale, 0, HUE_SAT_MAX, device, "sat");
       case "ct": {
         const n = coerceFiniteNumber(value);
-        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        if (n === null) {
+          this.log("debug", `Default fallback for ct (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          return HUE_CT_DEFAULT;
+        }
+        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
       }
       case "xy": {
         // XY as array [x, y] — both entries must be finite numbers
@@ -469,6 +477,10 @@ export class DeviceBindingService {
             }
           }
         }
+        this.log(
+          "debug",
+          `Default fallback for xy (device="${device?.name}"): raw=${JSON.stringify(value)} not parsable`,
+        );
         return HUE_XY_DEFAULT;
       }
       default:
@@ -561,9 +573,20 @@ export class DeviceBindingService {
    *
    * `null` / non-finite input always returns `max` (current default).
    */
-  private scaleValueFromState(value: unknown, scale: LightStateScale | undefined, min: number, max: number): number {
+  private scaleValueFromState(
+    value: unknown,
+    scale: LightStateScale | undefined,
+    min: number,
+    max: number,
+    device?: DeviceConfig,
+    stateName?: string,
+  ): number {
     const n = coerceFiniteNumber(value);
     if (n === null) {
+      this.log(
+        "debug",
+        `Default fallback for ${stateName ?? "?"} (device="${device?.name}"): raw=${JSON.stringify(value)}`,
+      );
       return max;
     }
     const mode: LightStateScale = scale ?? "auto";
@@ -575,14 +598,22 @@ export class DeviceBindingService {
       case "raw":
         return clampRound(n, min, max);
       case "auto":
-      default:
+      default: {
+        let branch: string;
+        let result: number;
         if (n <= 1) {
-          return Math.round(n * max);
+          branch = "le1";
+          result = Math.round(n * max);
+        } else if (n <= 100) {
+          branch = "le100";
+          result = Math.max(min, Math.round((n / 100) * max));
+        } else {
+          branch = "raw";
+          result = clampRound(n, min, max);
         }
-        if (n <= 100) {
-          return Math.max(min, Math.round((n / 100) * max));
-        }
-        return clampRound(n, min, max);
+        this.log("debug", `scale-auto[${device?.name ?? "?"}/${stateName ?? "?"}/${branch}]: n=${n} → ${result}`);
+        return result;
+      }
     }
   }
 

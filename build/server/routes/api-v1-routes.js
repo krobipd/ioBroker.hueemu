@@ -33,7 +33,7 @@ function toHueRequest(request) {
     ip: request.ip
   };
 }
-async function handleErrors(request, reply, handler) {
+async function handleErrors(request, reply, handler, logger) {
   try {
     const result = await handler();
     if (!reply.sent) {
@@ -41,11 +41,14 @@ async function handleErrors(request, reply, handler) {
     }
   } catch (error) {
     if (error instanceof import_errors.HueApiError) {
+      logger == null ? void 0 : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 ${String(error.type)} (${error.message})`);
       reply.status(200).send([error.toResponse()]);
     } else if (error instanceof Error) {
+      logger == null ? void 0 : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 internal_error (${error.message})`);
       const hueError = import_errors.HueApiError.internalError(error.message, request.url);
       reply.status(200).send([hueError.toResponse()]);
     } else {
+      logger == null ? void 0 : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 unknown (${String(error)})`);
       const hueError = import_errors.HueApiError.internalError("Unknown error", request.url);
       reply.status(200).send([hueError.toResponse()]);
     }
@@ -58,9 +61,12 @@ async function requireAuth(handler, username, address) {
   }
 }
 async function apiV1Routes(fastify, options) {
-  const { handler } = options;
+  const { handler, logger } = options;
+  async function runWithLog(req, rep, fn) {
+    return handleErrors(req, rep, fn, logger);
+  }
   fastify.post("/api", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const raw = request.body;
       if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof raw.devicetype !== "string" || raw.devicetype.length === 0) {
@@ -72,7 +78,7 @@ async function apiV1Routes(fastify, options) {
     });
   });
   fastify.get("/api/:username", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
       await requireAuth(handler, username, `/api/${username}`);
@@ -80,14 +86,14 @@ async function apiV1Routes(fastify, options) {
     });
   });
   fastify.get("/api/:username/config", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
       return handler.getConfig(hueReq, username);
     });
   });
   fastify.get("/api/:username/lights", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
       await requireAuth(handler, username, `/api/${username}/lights`);
@@ -95,7 +101,7 @@ async function apiV1Routes(fastify, options) {
     });
   });
   fastify.get("/api/:username/lights/:id", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username, id } = request.params;
       await requireAuth(handler, username, `/api/${username}/lights/${id}`);
@@ -103,7 +109,7 @@ async function apiV1Routes(fastify, options) {
     });
   });
   fastify.put("/api/:username/lights/:id/state", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username, id } = request.params;
       const stateUpdate = request.body;
@@ -115,7 +121,7 @@ async function apiV1Routes(fastify, options) {
     });
   });
   fastify.put("/api/:username/groups/:id/action", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username, id } = request.params;
       const stateUpdate = request.body;
@@ -128,7 +134,7 @@ async function apiV1Routes(fastify, options) {
   });
   for (const collection of ["groups", "schedules", "scenes", "sensors", "rules", "resourcelinks"]) {
     fastify.get(`/api/:username/${collection}`, async (request, reply) => {
-      await handleErrors(request, reply, async () => {
+      await runWithLog(request, reply, async () => {
         const { username } = request.params;
         await requireAuth(handler, username, `/api/${username}/${collection}`);
         return {};
@@ -136,7 +142,7 @@ async function apiV1Routes(fastify, options) {
     });
   }
   fastify.all("/api/*", async (request, reply) => {
-    await handleErrors(request, reply, async () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       return handler.fallback(hueReq);
     });

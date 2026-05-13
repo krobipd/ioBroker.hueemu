@@ -105,7 +105,7 @@ class HueServer {
       const httpOptions = baseOptions;
       server = (0, import_fastify.default)(httpOptions);
     }
-    server.setErrorHandler(import_error_handler.hueErrorHandler);
+    server.setErrorHandler((0, import_error_handler.createHueErrorHandler)(this.logger));
     server.addHook("onRequest", async (request, _reply) => {
       this.log("debug", `${request.method} ${request.url} [${request.ip}]`);
     });
@@ -126,7 +126,8 @@ class HueServer {
       }
     });
     await server.register(import_api_v1_routes.apiV1Routes, {
-      handler: this.handler
+      handler: this.handler,
+      logger: this.logger
     });
     server.get("/health", async () => ({ status: "ok" }));
     return server;

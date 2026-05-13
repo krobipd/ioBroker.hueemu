@@ -85,17 +85,31 @@ export class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
+      this.log("debug", "SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
 
       // v1.4.3 (S1): typed cast instead of `as any`. node-ssdp's Server
       // extends EventEmitter but the upstream typings omit the `error`
       // event; cast to a narrow EventEmitter-shape so the rest of the
       // file stays strictly typed.
-      (this.server as unknown as { on(event: "error", listener: (err: Error) => void): void }).on(
-        "error",
-        (err: Error) => {
-          this.config.logger.error(`SSDP error: ${errText(err)}`);
-        },
-      );
+      //
+      // v1.4.5 (A): widen the cast to cover `response` + `advertise-bye`
+      // events so we can trace M-SEARCH responses (the diagnostically
+      // useful "device asked, we answered" pulse) and the explicit
+      // unadvertise on stop. `advertise-alive` deliberately NOT hooked —
+      // 10s × 24h = 8640 identical lines/day with zero variation.
+      const serverWithEvents = this.server as unknown as {
+        on(event: "error" | "advertise-bye" | "response", listener: (...args: unknown[]) => void): void;
+      };
+      serverWithEvents.on("error", (err: unknown) => {
+        this.config.logger.error(`SSDP error: ${errText(err)}`);
+      });
+      serverWithEvents.on("response", (_headers, _statusCode, rinfo) => {
+        const peer = (rinfo as { address?: string } | undefined)?.address ?? "?";
+        this.config.logger.debug(`SSDP M-SEARCH response → ${peer}`);
+      });
+      serverWithEvents.on("advertise-bye", () => {
+        this.config.logger.debug("SSDP advertise-bye sent (server stopping)");
+      });
 
       // Start the server
       await new Promise<void>((resolve, reject) => {

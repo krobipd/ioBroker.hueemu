@@ -8,7 +8,7 @@ import type { Server as HttpsServer } from "node:https";
 import type { HueEmulatorConfig, Logger, HueApiHandler } from "../types";
 import { descriptionRoute } from "./routes/description-route";
 import { apiV1Routes } from "./routes/api-v1-routes";
-import { hueErrorHandler } from "./middleware/error-handler";
+import { createHueErrorHandler } from "./middleware/error-handler";
 
 /**
  * Options for creating the Hue server
@@ -122,8 +122,9 @@ export class HueServer {
       server = Fastify(httpOptions);
     }
 
-    // Register error handler
-    server.setErrorHandler(hueErrorHandler);
+    // Register error handler (v1.4.5 (I): factory wires debug-trace for every
+    // converged Fastify error — validation/parse-fail/internal/Hue-typed)
+    server.setErrorHandler(createHueErrorHandler(this.logger));
 
     // Add request logging
     server.addHook("onRequest", async (request, _reply) => {
@@ -152,9 +153,11 @@ export class HueServer {
       },
     });
 
-    // Register API routes
+    // Register API routes (v1.4.5 (I): logger pass-through enables
+    // handleErrors debug-trace for route-level exceptions)
     await server.register(apiV1Routes, {
       handler: this.handler,
+      logger: this.logger,
     });
 
     // Health check endpoint

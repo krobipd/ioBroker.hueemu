@@ -18,6 +18,7 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var error_handler_exports = {};
 __export(error_handler_exports, {
+  createHueErrorHandler: () => createHueErrorHandler,
   createSuccessResponse: () => createSuccessResponse,
   hueErrorHandler: () => hueErrorHandler
 });
@@ -35,11 +36,23 @@ function hueErrorHandler(error, request, reply) {
     reply.status(200).send([hueError.toResponse()]);
   }
 }
+function createHueErrorHandler(logger) {
+  if (!logger) {
+    return hueErrorHandler;
+  }
+  return function loggedHueErrorHandler(error, request, reply) {
+    const errorType = error instanceof import_errors.HueApiError ? String(error.type) : "validation" in error && error.validation ? "invalid_json" : "internal_error";
+    const message = error.message || "Unknown error";
+    logger.debug(`Hue error-handler: ${request.method} ${request.url} \u2192 ${errorType} (${message})`);
+    hueErrorHandler(error, request, reply);
+  };
+}
 function createSuccessResponse(data) {
   return [{ success: data }];
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  createHueErrorHandler,
   createSuccessResponse,
   hueErrorHandler
 });

@@ -99,7 +99,9 @@ class HueEmu extends utils.Adapter {
    * Called when databases are connected and adapter received configuration
    */
   async onReady() {
+    var _a, _b;
     try {
+      this.log.debug(`onReady: starting (devices in config: ${(_b = (_a = this.config.devices) == null ? void 0 : _a.length) != null ? _b : 0})`);
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
         return;
@@ -141,6 +143,7 @@ class HueEmu extends utils.Adapter {
       await this.initializeAdapterStates();
       await this.cleanupObsoleteStates();
       this.subscribeStates("*");
+      this.log.debug("Subscribed to own states (pattern: *)");
       this.log.info(
         `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`
       );
@@ -213,14 +216,28 @@ class HueEmu extends utils.Adapter {
     const persistedCert = typeof this.config.tlsCert === "string" ? this.config.tlsCert.trim() : "";
     const persistedKey = typeof this.config.tlsKey === "string" ? this.config.tlsKey.trim() : "";
     if (persistedCert.startsWith("-----BEGIN CERTIFICATE-----") && (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") || persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))) {
-      this.log.debug("Reusing persisted TLS certificate");
-      return { cert: persistedCert, key: persistedKey };
+      try {
+        const parsed = forge.pki.certificateFromPem(persistedCert);
+        if (parsed.validity.notAfter > /* @__PURE__ */ new Date()) {
+          this.log.debug(`Reusing persisted TLS certificate (notAfter=${parsed.validity.notAfter.toISOString()})`);
+          return { cert: persistedCert, key: persistedKey };
+        }
+        this.log.warn(
+          `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) \u2014 regenerating`
+        );
+      } catch (err) {
+        this.log.warn(`Persisted TLS certificate invalid (${(0, import_utils.errText)(err)}) \u2014 regenerating`);
+      }
     }
     const generated = this.generateCertificate();
-    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { tlsCert: generated.certificate, tlsKey: generated.privateKey }
-    });
-    this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+    try {
+      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+        native: { tlsCert: generated.certificate, tlsKey: generated.privateKey }
+      });
+      this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+    } catch (err) {
+      this.log.warn(`TLS cert generated but failed to persist: ${(0, import_utils.errText)(err)} \u2014 will regenerate next restart`);
+    }
     return { cert: generated.certificate, key: generated.privateKey };
   }
   /**

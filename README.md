@@ -150,6 +150,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
+
 ### 1.4.4 (2026-05-10)
 - Brightness/Saturation: each device now has an explicit scale option (Auto / Percent / Normalized / Hue-Raw). Fixes the case where a `level.dimmer` value of 1 (= 1 %) was misread as full brightness — pick "Percent" on devices that store 0..100. Existing setups keep working unchanged on the "Auto" default.
 

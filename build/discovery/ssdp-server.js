@@ -63,12 +63,19 @@ class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
-      this.server.on(
-        "error",
-        (err) => {
-          this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
-        }
-      );
+      this.log("debug", "SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
+      const serverWithEvents = this.server;
+      serverWithEvents.on("error", (err) => {
+        this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
+      });
+      serverWithEvents.on("response", (_headers, _statusCode, rinfo) => {
+        var _a;
+        const peer = (_a = rinfo == null ? void 0 : rinfo.address) != null ? _a : "?";
+        this.config.logger.debug(`SSDP M-SEARCH response \u2192 ${peer}`);
+      });
+      serverWithEvents.on("advertise-bye", () => {
+        this.config.logger.debug("SSDP advertise-bye sent (server stopping)");
+      });
       await new Promise((resolve, reject) => {
         if (!this.server) {
           reject(new Error("Server not initialized"));

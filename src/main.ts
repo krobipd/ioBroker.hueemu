@@ -116,6 +116,8 @@ export class HueEmu extends utils.Adapter {
    */
   private async onReady(): Promise<void> {
     try {
+      this.log.debug(`onReady: starting (devices in config: ${this.config.devices?.length ?? 0})`);
+
       // Migrate legacy devices (created via createLight) to admin config format
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
@@ -190,6 +192,7 @@ export class HueEmu extends utils.Adapter {
 
       // Subscribe to state changes (own states)
       this.subscribeStates("*");
+      this.log.debug("Subscribed to own states (pattern: *)");
 
       this.log.info(
         `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
@@ -283,15 +286,34 @@ export class HueEmu extends utils.Adapter {
       (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") ||
         persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))
     ) {
-      this.log.debug("Reusing persisted TLS certificate");
-      return { cert: persistedCert, key: persistedKey };
+      // v1.4.5 (B): parse the persisted cert and check its validity window
+      // before reuse. Earlier we only matched the BEGIN-header, so an
+      // expired or corrupted cert would silently be handed to Fastify and
+      // cause a HTTPS-listen-fail far from the root cause.
+      try {
+        const parsed = forge.pki.certificateFromPem(persistedCert);
+        if (parsed.validity.notAfter > new Date()) {
+          this.log.debug(`Reusing persisted TLS certificate (notAfter=${parsed.validity.notAfter.toISOString()})`);
+          return { cert: persistedCert, key: persistedKey };
+        }
+        this.log.warn(
+          `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) — regenerating`,
+        );
+      } catch (err) {
+        this.log.warn(`Persisted TLS certificate invalid (${errText(err)}) — regenerating`);
+      }
+      // fall through to regenerate
     }
 
     const generated = this.generateCertificate();
-    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { tlsCert: generated.certificate, tlsKey: generated.privateKey },
-    });
-    this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+    try {
+      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
+        native: { tlsCert: generated.certificate, tlsKey: generated.privateKey },
+      });
+      this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+    } catch (err) {
+      this.log.warn(`TLS cert generated but failed to persist: ${errText(err)} — will regenerate next restart`);
+    }
     return { cert: generated.certificate, key: generated.privateKey };
   }
 
