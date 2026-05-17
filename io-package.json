@@ -4,17 +4,17 @@
         "version": "1.4.5",
         "news": {
             "NEXT": {
-                "en": "Internal modernisation: TypeScript 6, vitest test runner, updated linting and release toolchain. No user-facing changes.",
-                "de": "Interne Modernisierung: TypeScript 6, vitest Test-Runner, aktualisiertes Linting und Release-Toolchain. Keine nutzersichtbaren Änderungen.",
-                "ru": "Внутренняя модернизация: TypeScript 6, тестовый движок vitest, обновлённый линтинг и инструменты релиза. Видимых изменений нет.",
-                "pt": "Modernização interna: TypeScript 6, executor de testes vitest, linting e toolchain de release atualizados. Sem alterações visíveis ao utilizador.",
-                "nl": "Interne modernisering: TypeScript 6, vitest testrunner, bijgewerkte linting en release-toolchain. Geen zichtbare wijzigingen voor de gebruiker.",
-                "fr": "Modernisation interne : TypeScript 6, exécuteur de tests vitest, outillage de linting et de release mis à jour. Aucun changement visible pour l'utilisateur.",
-                "it": "Modernizzazione interna: TypeScript 6, test runner vitest, linting e toolchain di rilascio aggiornati. Nessuna modifica visibile all'utente.",
-                "es": "Modernización interna: TypeScript 6, ejecutor de pruebas vitest, linting y toolchain de release actualizados. Sin cambios visibles para el usuario.",
-                "pl": "Wewnętrzna modernizacja: TypeScript 6, runner testów vitest, zaktualizowane narzędzia lintingu i wydań. Brak zmian widocznych dla użytkownika.",
-                "uk": "Внутрішня модернізація: TypeScript 6, тестовий движок vitest, оновлені засоби лінтингу та релізу. Жодних змін для користувача.",
-                "zh-cn": "内部现代化：TypeScript 6、vitest 测试运行器、更新了代码检查和发布工具链。无用户可见更改。"
+                "en": "Internal modernisation: updated TypeScript, test runner, linting and release toolchain. No user-facing changes.",
+                "de": "Interne Modernisierung: aktualisiertes TypeScript, Test-Runner, Linting und Release-Toolchain. Keine nutzersichtbaren Änderungen.",
+                "ru": "Внутренняя модернизация: обновлены TypeScript, тестовый движок, линтинг и инструменты релиза. Видимых изменений нет.",
+                "pt": "Modernização interna: TypeScript, executor de testes, linting e toolchain de release atualizados. Sem alterações visíveis ao utilizador.",
+                "nl": "Interne modernisering: bijgewerkt TypeScript, testrunner, linting en release-toolchain. Geen zichtbare wijzigingen voor de gebruiker.",
+                "fr": "Modernisation interne : TypeScript, exécuteur de tests, outillage de linting et de release mis à jour. Aucun changement visible pour l'utilisateur.",
+                "it": "Modernizzazione interna: TypeScript, test runner, linting e toolchain di rilascio aggiornati. Nessuna modifica visibile all'utente.",
+                "es": "Modernización interna: TypeScript, ejecutor de pruebas, linting y toolchain de release actualizados. Sin cambios visibles para el usuario.",
+                "pl": "Wewnętrzna modernizacja: zaktualizowano TypeScript, runner testów, narzędzia lintingu i wydań. Brak zmian widocznych dla użytkownika.",
+                "uk": "Внутрішня модернізація: оновлено TypeScript, тестовий движок, засоби лінтингу та релізу. Жодних змін для користувача.",
+                "zh-cn": "内部现代化：更新了 TypeScript、测试运行器、代码检查和发布工具链。无用户可见更改。"
             },
             "1.4.5": {
                 "en": "Debug log traces previously silent paths: TLS cert validity on reuse, Hue API errors, SSDP discovery responses and device-binding scale decisions. Default log unchanged.",
