@@ -2,7 +2,6 @@
  * Tests for UserService — pairing, authentication, client storage
  */
 
-import { expect } from "chai";
 import { UserService, type UserServiceAdapter } from "./user-service";
 import { createMockLogger } from "../../test/test-helpers";
 
@@ -83,15 +82,15 @@ describe("UserService", () => {
     it("creates client state object with sanitized id", async () => {
       const { service, adapter } = createService();
       await service.addUser("alexa-echo-1", "Amazon Echo");
-      expect(adapter.writtenObjects.has("clients.alexa-echo-1")).to.equal(true);
+      expect(adapter.writtenObjects.has("clients.alexa-echo-1")).toBe(true);
       const obj = adapter.writtenObjects.get("clients.alexa-echo-1");
-      expect(obj?.common?.name).to.equal("Amazon Echo");
+      expect(obj?.common?.name).toBe("Amazon Echo");
     });
 
     it("sanitizes FORBIDDEN_CHARS in username", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
-      expect(adapter.writtenObjects.has("clients.user_with_dots")).to.equal(
+      expect(adapter.writtenObjects.has("clients.user_with_dots")).toBe(
         true,
       );
     });
@@ -99,21 +98,21 @@ describe("UserService", () => {
     it("sanitizes whitespace and special chars", async () => {
       const { service, adapter } = createService();
       await service.addUser("hello world!", "test");
-      expect(adapter.writtenObjects.has("clients.hello_world_")).to.equal(true);
+      expect(adapter.writtenObjects.has("clients.hello_world_")).toBe(true);
     });
 
     it("defaults devicetype to 'unknown'", async () => {
       const { service, adapter } = createService();
       await service.addUser("abc123");
       const obj = adapter.writtenObjects.get("clients.abc123");
-      expect(obj?.common?.name).to.equal("unknown");
+      expect(obj?.common?.name).toBe("unknown");
     });
 
     it("stores original username as state value (not sanitized)", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
       const state = adapter.writtenStates.get("clients.user_with_dots");
-      expect((state as { val: unknown } | undefined)?.val).to.equal(
+      expect((state as { val: unknown } | undefined)?.val).toBe(
         "user.with.dots",
       );
     });
@@ -122,8 +121,8 @@ describe("UserService", () => {
       const { service, adapter } = createService();
       await service.addUser("foo", "bar");
       const folder = adapter.writtenObjects.get("clients");
-      expect(folder).to.exist;
-      expect(folder?.type).to.equal("meta");
+      expect(folder).toBeDefined();
+      expect(folder?.type).toBe("meta");
     });
 
     it("does not throw if setObjectNotExistsAsync fails", async () => {
@@ -144,13 +143,13 @@ describe("UserService", () => {
     it("returns the provided username if non-empty", async () => {
       const { service } = createService();
       const result = await service.createUser("my-username", "test");
-      expect(result).to.equal("my-username");
+      expect(result).toBe("my-username");
     });
 
     it("generates a UUID when no username is provided", async () => {
       const { service } = createService();
       const result = await service.createUser(undefined, "test");
-      expect(result).to.match(
+      expect(result).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
     });
@@ -158,8 +157,8 @@ describe("UserService", () => {
     it("generates a UUID when username is empty string", async () => {
       const { service } = createService();
       const result = await service.createUser("", "test");
-      expect(result.length).to.be.greaterThan(0);
-      expect(result).to.not.equal("");
+      expect(result.length).toBeGreaterThan(0);
+      expect(result).not.toBe("");
     });
 
     it("defaults devicetype to 'unknown'", async () => {
@@ -167,30 +166,30 @@ describe("UserService", () => {
       await service.createUser("user1");
       const sanitized = "user1";
       const obj = adapter.writtenObjects.get(`clients.${sanitized}`);
-      expect(obj?.common?.name).to.equal("unknown");
+      expect(obj?.common?.name).toBe("unknown");
     });
   });
 
   describe("isUserAuthenticated", () => {
     it("returns false when no clients exist", async () => {
       const { service } = createService([]);
-      expect(await service.isUserAuthenticated("anyone")).to.equal(false);
+      expect(await service.isUserAuthenticated("anyone")).toBe(false);
     });
 
     it("returns true for a paired client", async () => {
       const { service } = createService(["alexa-123"]);
-      expect(await service.isUserAuthenticated("alexa-123")).to.equal(true);
+      expect(await service.isUserAuthenticated("alexa-123")).toBe(true);
     });
 
     it("returns false for unknown username", async () => {
       const { service } = createService(["alexa-123"]);
-      expect(await service.isUserAuthenticated("unknown-user")).to.equal(false);
+      expect(await service.isUserAuthenticated("unknown-user")).toBe(false);
     });
 
     it("matches using sanitized username", async () => {
       // Stored as sanitized "user_with_dots", lookup with raw dotted form
       const { service } = createService(["user_with_dots"]);
-      expect(await service.isUserAuthenticated("user.with.dots")).to.equal(
+      expect(await service.isUserAuthenticated("user.with.dots")).toBe(
         true,
       );
     });
@@ -198,12 +197,12 @@ describe("UserService", () => {
     it("returns false when getStatesOfAsync throws", async () => {
       const { service, adapter } = createService(["foo"]);
       adapter.getStatesShouldFail = true;
-      expect(await service.isUserAuthenticated("foo")).to.equal(false);
+      expect(await service.isUserAuthenticated("foo")).toBe(false);
     });
 
     it("returns false for empty username string", async () => {
       const { service } = createService(["foo"]);
-      expect(await service.isUserAuthenticated("")).to.equal(false);
+      expect(await service.isUserAuthenticated("")).toBe(false);
     });
   });
 
@@ -215,13 +214,13 @@ describe("UserService", () => {
       for (let i = 0; i < 64; i++) {
         await service.addUser(`auto-${i}`, "echo", true);
       }
-      expect(service.isAutoAddCapReached()).to.equal(true);
+      expect(service.isAutoAddCapReached()).toBe(true);
       // 65th throws
       try {
         await service.addUser("auto-65", "echo", true);
-        expect.fail("Should have thrown after cap");
+        throw new Error("Should have thrown after cap");
       } catch (err) {
-        expect((err as Error).message).to.match(/cap reached/i);
+        expect((err as Error).message).toMatch(/cap reached/i);
       }
     });
 
@@ -234,7 +233,7 @@ describe("UserService", () => {
       }
       // Manual createUser still works (gated by the link button, not the cap)
       const manual = await service.createUser("explicit-user", "browser");
-      expect(manual).to.equal("explicit-user");
+      expect(manual).toBe("explicit-user");
     });
 
     it("resetAutoAddBudget clears the counter (per pairing window)", async () => {
@@ -243,9 +242,9 @@ describe("UserService", () => {
       for (let i = 0; i < 64; i++) {
         await service.addUser(`auto-${i}`, "echo", true);
       }
-      expect(service.isAutoAddCapReached()).to.equal(true);
+      expect(service.isAutoAddCapReached()).toBe(true);
       service.resetAutoAddBudget();
-      expect(service.isAutoAddCapReached()).to.equal(false);
+      expect(service.isAutoAddCapReached()).toBe(false);
       // Fresh window can auto-add again
       await service.addUser("fresh-1", "echo", true);
     });
@@ -263,26 +262,26 @@ describe("UserService", () => {
       await service.isUserAuthenticated("alexa-1");
       await service.isUserAuthenticated("alexa-1");
       await service.isUserAuthenticated("unknown");
-      expect(calls).to.equal(1);
+      expect(calls).toBe(1);
     });
 
     it("addUser updates the cache so the next auth call sees the new client", async () => {
       const { service } = createService([]);
       // Prime cache
-      expect(await service.isUserAuthenticated("just-added")).to.equal(false);
+      expect(await service.isUserAuthenticated("just-added")).toBe(false);
       // Add WITHOUT viaAutoAdd flag (manual path)
       await service.addUser("just-added", "browser");
       // Without cache update, this would still return false from the cache.
-      expect(await service.isUserAuthenticated("just-added")).to.equal(true);
+      expect(await service.isUserAuthenticated("just-added")).toBe(true);
     });
 
     it("listCachedClientIds returns sanitized ids currently in the cache", async () => {
       const { service } = createService(["alexa-1", "harmony-2"]);
       // Empty before first auth call (cache is lazy)
-      expect(service.listCachedClientIds()).to.deep.equal([]);
+      expect(service.listCachedClientIds()).toEqual([]);
       await service.isUserAuthenticated("alexa-1");
       const ids = service.listCachedClientIds();
-      expect(ids).to.have.members(["alexa-1", "harmony-2"]);
+      expect(ids).toEqual(expect.arrayContaining(["alexa-1", "harmony-2"]));
     });
   });
 });

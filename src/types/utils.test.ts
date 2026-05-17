@@ -2,59 +2,57 @@
  * Tests for shared utility functions
  */
 
-import { expect } from "chai";
 import { errText, sanitizeId } from "./utils";
 
 describe("sanitizeId", () => {
   it("should pass through alphanumeric strings unchanged", () => {
-    expect(sanitizeId("abc123")).to.equal("abc123");
+    expect(sanitizeId("abc123")).toBe("abc123");
   });
 
   it("should pass through hyphens and underscores", () => {
-    expect(sanitizeId("my-device_01")).to.equal("my-device_01");
+    expect(sanitizeId("my-device_01")).toBe("my-device_01");
   });
 
   it("should replace dots with underscore", () => {
-    expect(sanitizeId("alexa.device.1")).to.equal("alexa_device_1");
+    expect(sanitizeId("alexa.device.1")).toBe("alexa_device_1");
   });
 
   it("should replace spaces with underscore", () => {
-    expect(sanitizeId("my device")).to.equal("my_device");
+    expect(sanitizeId("my device")).toBe("my_device");
   });
 
   it("should replace special characters with underscore", () => {
-    expect(sanitizeId("user@host:1234")).to.equal("user_host_1234");
+    expect(sanitizeId("user@host:1234")).toBe("user_host_1234");
   });
 
   it("should handle Alexa-style UUIDs", () => {
-    // Alexa sends usernames like "2WLEDHardworworworworworwo#Srehto"
-    expect(sanitizeId("2WLEDHardworworworworworwo#Srehto")).to.equal(
+    expect(sanitizeId("2WLEDHardworworworworworwo#Srehto")).toBe(
       "2WLEDHardworworworworworwo_Srehto",
     );
   });
 
   it("should handle empty string", () => {
-    expect(sanitizeId("")).to.equal("");
+    expect(sanitizeId("")).toBe("");
   });
 
   it("should replace multiple consecutive special chars", () => {
-    expect(sanitizeId("a..b//c")).to.equal("a__b__c");
+    expect(sanitizeId("a..b//c")).toBe("a__b__c");
   });
 
   it("should handle Harmony Hub style identifiers", () => {
-    expect(sanitizeId("harmony-hub-192.168.1.50")).to.equal(
+    expect(sanitizeId("harmony-hub-192.168.1.50")).toBe(
       "harmony-hub-192_168_1_50",
     );
   });
 
   it("should preserve uppercase and lowercase", () => {
-    expect(sanitizeId("MyDevice")).to.equal("MyDevice");
+    expect(sanitizeId("MyDevice")).toBe("MyDevice");
   });
 });
 
 describe("errText", () => {
   it("returns the message of an Error instance", () => {
-    expect(errText(new Error("boom"))).to.equal("boom");
+    expect(errText(new Error("boom"))).toBe("boom");
   });
 
   it("returns the message of an Error subclass", () => {
@@ -63,34 +61,34 @@ describe("errText", () => {
         super("typed");
       }
     }
-    expect(errText(new MyErr())).to.equal("typed");
+    expect(errText(new MyErr())).toBe("typed");
   });
 
   it("returns 'null' for null", () => {
-    expect(errText(null)).to.equal("null");
+    expect(errText(null)).toBe("null");
   });
 
   it("returns 'undefined' for undefined", () => {
-    expect(errText(undefined)).to.equal("undefined");
+    expect(errText(undefined)).toBe("undefined");
   });
 
   it("returns string values as-is", () => {
-    expect(errText("plain")).to.equal("plain");
+    expect(errText("plain")).toBe("plain");
   });
 
   it("stringifies number/boolean/bigint", () => {
-    expect(errText(42)).to.equal("42");
-    expect(errText(true)).to.equal("true");
-    expect(errText(BigInt(99))).to.equal("99");
+    expect(errText(42)).toBe("42");
+    expect(errText(true)).toBe("true");
+    expect(errText(BigInt(99))).toBe("99");
   });
 
   it("JSON.stringifies plain objects", () => {
-    expect(errText({ code: 500, msg: "nope" })).to.equal('{"code":500,"msg":"nope"}');
+    expect(errText({ code: 500, msg: "nope" })).toBe('{"code":500,"msg":"nope"}');
   });
 
   it("falls back to Object.prototype.toString for circular objects", () => {
     const a: Record<string, unknown> = { x: 1 };
     a.self = a;
-    expect(errText(a)).to.equal("[object Object]");
+    expect(errText(a)).toBe("[object Object]");
   });
 });

@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
+import { coerceBool } from "./lib/coerce";
 import { tName } from "./lib/i18n-states";
 import { runInstanceObjectMigration, runObsoleteStateCleanup } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
@@ -217,7 +218,7 @@ export class HueEmu extends utils.Adapter {
     const port = this.toPort(this.config.port);
     const discoveryHost = this.config.discoveryHost?.trim() || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
-    const httpsPort = this.toUndefinedPort(this.config.httpsPort);
+    const httpsPort = this.parsePort(this.config.httpsPort);
     // v1.4.3 (SV4): port collision check — a same-port HTTP+HTTPS pair would
     // make the second listen() throw EADDRINUSE much later, easier to debug
     // when surfaced here.
@@ -367,22 +368,7 @@ export class HueEmu extends utils.Adapter {
     // was a TS-only cast — at runtime a string `"false"` or `"0"` came back as
     // truthy, leaving auth disabled across restarts.
     const disableAuthState = await this.getStateAsync("disableAuth");
-    this._disableAuth = HueEmu.coerceBool(disableAuthState?.val);
-  }
-
-  /** Coerce arbitrary state values to a strict boolean. */
-  private static coerceBool(v: unknown): boolean {
-    if (typeof v === "boolean") {
-      return v;
-    }
-    if (typeof v === "number") {
-      return v !== 0;
-    }
-    if (typeof v === "string") {
-      const t = v.trim().toLowerCase();
-      return t === "true" || t === "1" || t === "yes" || t === "on";
-    }
-    return false;
+    this._disableAuth = coerceBool(disableAuthState?.val);
   }
 
   /**
@@ -545,7 +531,7 @@ export class HueEmu extends utils.Adapter {
     if (id === `${this.namespace}.startPairing`) {
       this.handleStartPairing(state);
     } else if (id === `${this.namespace}.disableAuth`) {
-      this.disableAuth = HueEmu.coerceBool(state.val);
+      this.disableAuth = coerceBool(state.val);
     } else if (id.startsWith(this.namespace)) {
       // Acknowledge other own state changes
       void this.setState(id, { ack: true, val: state.val });
@@ -561,7 +547,7 @@ export class HueEmu extends utils.Adapter {
       this.pairingTimeoutId = undefined;
     }
 
-    const enabled = HueEmu.coerceBool(state.val);
+    const enabled = coerceBool(state.val);
     this.pairingEnabled = enabled;
 
     if (enabled) {
@@ -688,13 +674,6 @@ export class HueEmu extends utils.Adapter {
       throw new Error("Port not specified");
     }
     return parsed;
-  }
-
-  /**
-   * Parse an optional port number — returns `undefined` when absent.
-   */
-  private toUndefinedPort(port: unknown): number | undefined {
-    return this.parsePort(port);
   }
 
   /** Shared port parser — returns undefined for missing/unparseable input. */

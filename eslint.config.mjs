@@ -6,7 +6,7 @@ export default [
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["*.mjs"],
+          allowDefaultProject: ["*.mjs", "vitest.config.ts"],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -15,7 +15,6 @@ export default [
   {
     // Disable rules that are too strict for this project
     rules: {
-      "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
@@ -41,7 +40,6 @@ export default [
       "build",
       "admin",
       "node_modules",
-      "**/adapter-config.d.ts",
     ],
   },
 ];

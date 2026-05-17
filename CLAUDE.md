@@ -6,26 +6,26 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.4.5 (released 2026-05-13, npm latest) — Debug-Coverage-Welle nach 9-Klassen-Audit über 6588 LOC. Reine `log.debug`-Inserts plus 2 TLS-warn-Stellen. Score 6.8→8.9 (8 von 9 Klassen auf 9/10): `createHueErrorHandler`-Factory mit Logger; `handleErrors` 3 catch-Branches debug; `convertValueFromState` default-fallback hue/ct/xy; `scaleValueFromState` auto-Branch-Trace mit Device-Name + Branch (D3-Heuristik-Diagnose); SSDP USN-Trace + M-SEARCH-response + advertise-bye Event-Hooks (advertise-alive bewusst NICHT — Cadence); TLS-Cert validity parse + notAfter + persist-fail-warn; onReady/subscribeStates-Anchors. Plus README v1.4.x-Bullets gekürzt + Features-Block 4→8 + HTTPS-Tabellen-Erklärung + Troubleshooting-bri-Hinweis + CHANGELOG_OLD.md 21 von 30 zu „Internal cleanup" konsolidiert. v1.4.4 (released 2026-05-10) D3 Nachschlag: explicit per-device `briScale`/`satScale` (auto/percent/normalized/raw). v1.4.3 (released 2026-05-10) 17-Finding Hardening-Welle nach 4-Pass-Audit: TLS-Cert/Key in `native` persistiert (M1+M3+M5, only-generate-once, RFC-5280 random serial), strict-bool `coerceBool` für disableAuth/pairingEnabled (M2+M4), `parseLightIndex` strict-integer Validation (E1, NaN-Trap-Fix), refreshStateCache + getAllLights + Migrations parallel (D1+D2+M6+M7), trustProxy opt-in (SV1, mirror hassemu C11), HTTP startet vor SSDP (S2, port-1900-Kollision keine Adapter-Crash), bodyLimit 1MiB→64KiB + forceCloseConnections (SV3+SV5), pairing-window auto-add cap 64 clients (U1+R2 Defense-in-Depth), in-memory client-id cache (U2), whitelist-Provider in ConfigService für spec-konforme Hue-Tools (C6), IPv4-only gateway (C1), real-IANA timezone+localtime (C2+C3), shared `lib/coerce.ts` (X1). v1.4.2 (2026-05-09) Logs revert to English. v1.4.1 (2026-05-07) Refactor-Patch: `as any`-Casts entfernt + lifecycle-helpers extracted. v1.4.0 (2026-05-07) Multi-Language-Welle.
+- **Version:** 1.4.6 (WIP) — Toolchain-Parity: TS ~5.9→~6.0.3, mocha+chai→vitest, eslint-config 2.2→2.3.4, release-script 5.1→5.2.0. Code-Cleanup: `coerceBool` aus main.ts nach `lib/coerce.ts` (shared), `toUndefinedPort` inlined, `private log()` Boilerplate aus 5 Klassen entfernt (33 Callsites → direct `this.logger.*`). `scripts/sync-iopackage-from-i18n.py` (hassemu/beszel-Linie). `io-package.json` extIcon raw→jsdelivr (CSP-Fix). `pre-release.py --audit-current` Hook. nyc/source-map-support/ts-node aus devDeps raus. Vorgänger: v1.4.5 (released 2026-05-13) Debug-Coverage-Welle. v1.4.4 (2026-05-10) D3 per-device briScale/satScale. v1.4.3 (2026-05-10) 17-Finding Hardening. v1.4.2 (2026-05-09) Logs revert to English. v1.4.1 (2026-05-07) Refactor-Patch. v1.4.0 (2026-05-07) Multi-Language-Welle.
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
 - **Original Author:** Christopher Holomek (@holomekc) — Fork, modernisiert 2026
 - **Runtime-Deps:** `@iobroker/adapter-core`, `fastify`, `node-ssdp`, `node-forge`, `uuid`
-- **Test-Setup:** offizieller ioBroker.example/TypeScript-Standard — Tests neben Source unter `src/**/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` als Shared-Mock-Factory außerhalb src/
+- **Test-Setup:** vitest (globals mode, pool: forks) — Tests neben Source unter `src/**/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` als Shared-Mock-Factory außerhalb src/
 - **`@types/node` an `engines.node`-Min gekoppelt:** `^22.x` weil `engines.node: ">=22"`
 
 ## Architektur
 
 ```
-src/main.ts                       → Adapter (Lifecycle, Pairing, TLS getOrCreateTlsMaterial, systemLang, migrations, parallel-start HTTP-first-then-SSDP, coerceBool helper, terminate(11)-handlers)
+src/main.ts                       → Adapter (Lifecycle, Pairing, TLS getOrCreateTlsMaterial, systemLang, migrations, parallel-start HTTP-first-then-SSDP, terminate(11)-handlers)
 src/discovery/ssdp-server.ts      → UPnP/SSDP (urn:schemas-upnp-org:device:Basic:1)
 src/discovery/description-xml.ts  → UPnP XML
 src/hue-api/api-handler.ts        → API Orchestrator + resetAutoAddBudget + whitelistProvider wireup
 src/hue-api/config-service.ts     → Bridge Config (IPv4-gateway, IANA-tz, whitelist from provider)
 src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights (parallel refresh/getAllLights, parseLightIndex, hex uniqueid, xy round-trip)
 src/hue-api/user-service.ts       → Auth/Pairing (auto-add-cap 64/window, in-memory client-id cache, listCachedClientIds for whitelist)
-src/lib/coerce.ts                 → coerceFiniteNumber + parseLightIndex (shared boundary helpers)
+src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex (shared boundary helpers)
 src/lib/i18n-states.ts            → 5 STATE_NAMES × 11 Sprachen + tName
 src/server/hue-server.ts          → Fastify HTTP/HTTPS (trustProxy opt-in, bodyLimit 64KiB, forceCloseConnections)
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints
@@ -58,18 +58,22 @@ src/types/                        → config (HueEmulatorConfig.trustProxy), err
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (282 custom + 57 standard + 1 integration = 340)
+## Tests (282 unit + 57 standard + 1 integration = 340)
+
+Runner: **vitest** (globals, pool: forks, singleFork: true). Config: `vitest.config.ts`.
 
 ```
 src/types/utils.test.ts                    → 18: sanitizeId (10) + errText (8)
 src/types/errors.test.ts                   → 16: HueApiError, createSuccessResponse
-src/types/config.test.ts                   → 25: generateBridgeId, generateSerialNumber, ConfigService
+src/types/config.test.ts                   → 28: generateBridgeId, generateSerialNumber, ConfigService
 src/discovery/index.test.ts                → 10: UPnP description XML, URL building
-src/hue-api/device-binding-service.test.ts → 109: DeviceBindingService, value conversion, edge cases
-src/hue-api/user-service.test.ts           → 18: addUser sanitization, createUser, isUserAuthenticated
-src/hue-api/api-handler.test.ts            → 16: auth/pairing gates, malformed devicetype, fallback (isPairingEnabled raus)
+src/hue-api/device-binding-service.test.ts → 120: DeviceBindingService, value conversion, edge cases
+src/hue-api/user-service.test.ts           → 24: addUser sanitization, createUser, isUserAuthenticated
+src/hue-api/api-handler.test.ts            → 17: auth/pairing gates, malformed devicetype, fallback
 src/server/routes/api-v1-routes.test.ts    → 20: Fastify route tests (inject), body validation, auth
-src/lib/i18n-states.test.ts                → 6: tName Translation-Objects + 11-Sprachen-Coverage + Migration-Keys
+src/lib/i18n-states.test.ts                → 5: tName Translation-Objects + 11-Sprachen-Coverage
+src/lib/coerce.test.ts                     → 9: coerceBool + coerceFiniteNumber + parseLightIndex
+src/lib/migrations.test.ts                 → 15: buildInstanceObjectMigrationPatch + runInstanceObjectMigration
 test/test-helpers.ts                       → Shared mock factories (no tests, ausserhalb src/)
 test/package.js                            → 57 standard: @iobroker/testing packageFiles
 test/integration.js                        → 1 standard: @iobroker/testing integration (CI only)
@@ -88,6 +92,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.4.6 | **Toolchain-Parity** (letzter der 6 krobi-Adapter): TS ~5.9→~6.0.3, mocha+chai→vitest (globals, pool:forks), eslint-config 2.2→2.3.4, release-script 5.1→5.2.0. Code-Cleanup: `coerceBool` nach `lib/coerce.ts` (shared), `toUndefinedPort` inlined, `private log()` aus 5 Klassen (33→direct). `scripts/sync-iopackage-from-i18n.py` (hassemu/beszel-Linie). extIcon jsdelivr CSP-Fix. `pre-release.py --audit-current` Hook. nyc/source-map-support/ts-node raus |
 | 1.4.5 | **Debug-Coverage-Welle**: 9-Klassen-Audit (6588 LOC + 70 Log-Sites), Score 6.8→8.9 — 8/9 Klassen auf 9/10. Reine `log.debug`-Inserts: `createHueErrorHandler(logger)`-Factory + handleErrors 3 catch-Branches; convertValueFromState default-fallback hue/ct/xy; scaleValueFromState auto-Branch-Trace inkl. D3-Heuristik-Diagnose; SSDP USN-Trace + M-SEARCH-response + advertise-bye Hooks (advertise-alive NICHT — Cadence 8640/day); TLS-Cert validity parse + notAfter-Check (expired auto-rotate) + persist-fail-warn; onReady-Anchor + subscribeStates-Anchor. Plus README v1.4.x-Bullets gekürzt + Features-Block 4→8 + HTTPS-Tabellen-Erklärung + Troubleshooting-bri-Hinweis um alle 4 Skalen; CHANGELOG_OLD.md 21 von 30 Einträgen zu „Internal cleanup" konsolidiert, Brand-Listen + Repochecker-Codes + 1.1.3/1.1.4-Duplikat bereinigt. Drei Krobi-Reconciles: Cooldown-Helper gestrichen (info-Pattern aus hassemu falsch übertragen), keine Frequenz-Filter, isUserAuthenticated + Pairing-Reject redundant zu handleErrors. Neues Memory `feedback_patch_wert_sanity_check.md` |
 | 1.4.4 | **D3 Nachschlag**: explicit per-device `briScale` + `satScale` (auto/percent/normalized/raw) in DeviceConfig. Read- + Write-Pfad symmetrisch über `scaleValueFromState`/`scaleValueForState`. Default `auto` = legacy heuristic, lockt existing tests. jsonConfig-select-Dropdown + 11-Lang i18n. **Anlass**: User-Eskalation „niemals findings selbstständig filtern" → härteste Memory-Regel ergänzt |
 | 1.4.3 | 17-Finding Hardening nach 4-Pass-Audit: M1+M3+M5 TLS persist (only-generate-once, RFC-5280 random serial); M2+M4 strict-bool coerceBool für disableAuth/pairingEnabled; D1+D2+M6+M7 parallel refresh/getAllLights/migrations; E1 parseLightIndex (NaN-Trap-Fix); E2 host-validation; SV1 trustProxy opt-in; SV3+SV4+SV5 bodyLimit-64KiB+port-collision-check+forceCloseConnections; S1 typed cast on ssdp.on(); S2 HTTP-first then SSDP; U1+R2 auto-add-cap 64 per pairing window; U2 client-id-cache; C1 IPv4-only gateway; C2+C3 IANA-timezone+localtime; C6 whitelist-provider; M9 process-handlers terminate(11); D5 24-bit hex uniqueid; X1 shared `lib/coerce.ts` |
@@ -106,7 +111,8 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via ts-node (226)
+npm run test:ts          # Unit-Tests via vitest (282)
+npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
 npm run test:integration # Standard Integration-Tests (1, CI only)
 npm test                 # test:ts + test:package (lokal)

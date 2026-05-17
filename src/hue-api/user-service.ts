@@ -109,7 +109,7 @@ export class UserService {
     }
 
     const safeUsername = sanitizeId(username);
-    this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
+    this.logger.debug(`Creating client: ${safeUsername} (${devicetype})`);
 
     // Ensure clients folder exists
     await this.ensureClientsFolder();
@@ -187,7 +187,7 @@ export class UserService {
     const cache = await this.ensureCache();
     const found = cache.has(safeUsername);
     if (found) {
-      this.log("debug", `Client authenticated: ${username}`);
+      this.logger.debug(`Client authenticated: ${username}`);
     }
     return found;
   }
@@ -208,7 +208,7 @@ export class UserService {
         }
       }
     } catch (err) {
-      this.log("debug", `Could not load clients into cache: ${errText(err)}`);
+      this.logger.debug(`Could not load clients into cache: ${errText(err)}`);
     }
     this.clientIdsCache = cache;
     return cache;
@@ -233,9 +233,5 @@ export class UserService {
     } catch (err) {
       this.logger.warn(`Failed to create clients folder: ${errText(err)}`);
     }
-  }
-
-  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
-    this.logger[level](message);
   }
 }

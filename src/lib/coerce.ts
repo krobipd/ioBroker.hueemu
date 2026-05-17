@@ -36,6 +36,23 @@ export function coerceFiniteNumber(v: unknown): number | null {
  * @param id Light id from the URL path (typically `req.params.id`).
  * @param max Total number of items in the bound collection.
  */
+/**
+ * Coerce arbitrary values to a strict boolean.
+ */
+export function coerceBool(v: unknown): boolean {
+  if (typeof v === "boolean") {
+    return v;
+  }
+  if (typeof v === "number") {
+    return v !== 0;
+  }
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    return t === "true" || t === "1" || t === "yes" || t === "on";
+  }
+  return false;
+}
+
 export function parseLightIndex(id: unknown, max: number): number | null {
   if (typeof id !== "string" || id.length === 0) {
     return null;

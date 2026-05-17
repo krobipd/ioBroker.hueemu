@@ -2,7 +2,6 @@
  * Tests for UPnP description XML generation
  */
 
-import { expect } from "chai";
 import {
   generateDescriptionXml,
   getDescriptionUrl,
@@ -20,9 +19,9 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include('<?xml version="1.0" encoding="UTF-8" ?>');
-      expect(xml).to.include("urn:schemas-upnp-org:device-1-0");
-      expect(xml).to.include("urn:schemas-upnp-org:device:Basic:1");
+      expect(xml).toContain('<?xml version="1.0" encoding="UTF-8" ?>');
+      expect(xml).toContain("urn:schemas-upnp-org:device-1-0");
+      expect(xml).toContain("urn:schemas-upnp-org:device:Basic:1");
     });
 
     it("should include host in friendlyName", () => {
@@ -32,7 +31,7 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include("Philips hue (192.168.1.100)");
+      expect(xml).toContain("Philips hue (192.168.1.100)");
     });
 
     it("should include correct URLBase", () => {
@@ -42,7 +41,7 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include("<URLBase>http://192.168.1.100:8080/</URLBase>");
+      expect(xml).toContain("<URLBase>http://192.168.1.100:8080/</URLBase>");
     });
 
     it("should use custom urlBase when provided", () => {
@@ -53,7 +52,7 @@ describe("Description XML", () => {
         urlBase: "https://custom.host:9999/",
       });
 
-      expect(xml).to.include("<URLBase>https://custom.host:9999/</URLBase>");
+      expect(xml).toContain("<URLBase>https://custom.host:9999/</URLBase>");
     });
 
     it("should include serial number from identity", () => {
@@ -63,7 +62,7 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include(
+      expect(xml).toContain(
         `<serialNumber>${identity.serialNumber}</serialNumber>`,
       );
     });
@@ -75,7 +74,7 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include(`<UDN>uuid:${identity.udn}</UDN>`);
+      expect(xml).toContain(`<UDN>uuid:${identity.udn}</UDN>`);
     });
 
     it("should include Philips hue bridge 2015 model", () => {
@@ -85,8 +84,8 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include("<modelName>Philips hue bridge 2015</modelName>");
-      expect(xml).to.include("<modelNumber>BSB002</modelNumber>");
+      expect(xml).toContain("<modelName>Philips hue bridge 2015</modelName>");
+      expect(xml).toContain("<modelNumber>BSB002</modelNumber>");
     });
 
     it("should include Signify as manufacturer", () => {
@@ -96,19 +95,19 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).to.include("<manufacturer>Signify</manufacturer>");
+      expect(xml).toContain("<manufacturer>Signify</manufacturer>");
     });
   });
 
   describe("getDescriptionUrl", () => {
     it("should build correct description URL", () => {
       const url = getDescriptionUrl("192.168.1.100", 8080);
-      expect(url).to.equal("http://192.168.1.100:8080/description.xml");
+      expect(url).toBe("http://192.168.1.100:8080/description.xml");
     });
 
     it("should work with different ports", () => {
       const url = getDescriptionUrl("10.0.0.1", 80);
-      expect(url).to.equal("http://10.0.0.1:80/description.xml");
+      expect(url).toBe("http://10.0.0.1:80/description.xml");
     });
   });
 });

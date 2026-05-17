@@ -55,14 +55,14 @@ class HueServer {
       port: this.config.port,
       host: this.config.host || "0.0.0.0"
     });
-    this.log("debug", `HTTP server listening on ${this.config.host}:${this.config.port}`);
+    this.logger.debug(`HTTP server listening on ${this.config.host}:${this.config.port}`);
     if (this.config.https) {
       this.httpsServer = await this.createServer(true);
       await this.httpsServer.listen({
         port: this.config.https.port,
         host: this.config.host || "0.0.0.0"
       });
-      this.log("debug", `HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
+      this.logger.debug(`HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
     }
   }
   /**
@@ -77,7 +77,7 @@ class HueServer {
       promises.push(this.httpsServer.close());
     }
     await Promise.all(promises);
-    this.log("debug", "All servers stopped");
+    this.logger.debug("All servers stopped");
   }
   /**
    * Create a Fastify server instance — HTTP or HTTPS based on flag.
@@ -107,7 +107,7 @@ class HueServer {
     }
     server.setErrorHandler((0, import_error_handler.createHueErrorHandler)(this.logger));
     server.addHook("onRequest", async (request, _reply) => {
-      this.log("debug", `${request.method} ${request.url} [${request.ip}]`);
+      this.logger.debug(`${request.method} ${request.url} [${request.ip}]`);
     });
     server.addHook("onSend", async (_request, reply, payload) => {
       reply.header("Access-Control-Allow-Origin", "*");
@@ -131,9 +131,6 @@ class HueServer {
     });
     server.get("/health", async () => ({ status: "ok" }));
     return server;
-  }
-  log(level, message) {
-    this.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

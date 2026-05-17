@@ -57,7 +57,7 @@ export class HueSsdpServer {
    */
   public async start(): Promise<void> {
     if (this.isRunning) {
-      this.log("debug", "SSDP server already running");
+      this.config.logger.debug("SSDP server already running");
       return;
     }
 
@@ -85,7 +85,7 @@ export class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
-      this.log("debug", "SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
+      this.config.logger.debug("SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
 
       // v1.4.3 (S1): typed cast instead of `as any`. node-ssdp's Server
       // extends EventEmitter but the upstream typings omit the `error`
@@ -128,7 +128,7 @@ export class HueSsdpServer {
       });
 
       this.isRunning = true;
-      this.log("debug", `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
+      this.config.logger.debug(`SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
     } catch (error) {
       this.config.logger.error(`Failed to start SSDP server: ${errText(error)}`);
       throw error;
@@ -142,7 +142,7 @@ export class HueSsdpServer {
     if (this.server && this.isRunning) {
       this.server.stop();
       this.isRunning = false;
-      this.log("debug", "SSDP server stopped");
+      this.config.logger.debug("SSDP server stopped");
     }
   }
 
@@ -151,9 +151,5 @@ export class HueSsdpServer {
    */
   public get running(): boolean {
     return this.isRunning;
-  }
-
-  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
-    this.config.logger[level](message);
   }
 }

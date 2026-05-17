@@ -168,13 +168,13 @@ export class DeviceBindingService {
    * Initialize the service - subscribe to all mapped states
    */
   public async initialize(): Promise<void> {
-    this.log("debug", `Initializing device binding service with ${this.devices.length} devices`);
+    this.logger.debug(`Initializing device binding service with ${this.devices.length} devices`);
 
     // Subscribe to all mapped states
     for (const device of this.devices) {
       for (const stateId of this.getAllStateIds(device)) {
         this.adapter.subscribeForeignStates(stateId);
-        this.log("debug", `Subscribed to state: ${stateId}`);
+        this.logger.debug(`Subscribed to state: ${stateId}`);
       }
     }
 
@@ -204,7 +204,7 @@ export class DeviceBindingService {
             this.stateCache.set(stateId, state.val);
           }
         } catch (error) {
-          this.log("debug", `Could not load state ${stateId}: ${errText(error)}`);
+          this.logger.debug(`Could not load state ${stateId}: ${errText(error)}`);
         }
       }),
     );
@@ -328,8 +328,7 @@ export class DeviceBindingService {
     const device = this.devices[index];
     const results: LightStateResult[] = [];
 
-    this.log(
-      "debug",
+    this.logger.debug(
       `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate)
         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
         .join(", ")}`,
@@ -340,7 +339,7 @@ export class DeviceBindingService {
       const stateId = this.getStateId(device, key);
 
       if (!stateId) {
-        this.log("debug", `No mapping for ${key} on device ${device.name}`);
+        this.logger.debug(`No mapping for ${key} on device ${device.name}`);
         // Still report success for unmapped states (some clients expect this)
         results.push({ success: { [address]: value } });
         continue;
@@ -354,7 +353,7 @@ export class DeviceBindingService {
         });
         this.stateCache.set(stateId, convertedValue);
         results.push({ success: { [address]: value } });
-        this.log("debug", `Set ${stateId} to ${convertedValue}`);
+        this.logger.debug(`Set ${stateId} to ${convertedValue}`);
       } catch (error) {
         this.logger.error(`Failed to set ${stateId}: ${errText(error)}`);
         results.push(HueApiError.resourceNotAvailable(lightId, address).toResponse());
@@ -388,7 +387,7 @@ export class DeviceBindingService {
         return this.convertValueFromState(stateName, state.val, device);
       }
     } catch (error) {
-      this.log("debug", `Could not get state ${stateId}: ${errText(error)}`);
+      this.logger.debug(`Could not get state ${stateId}: ${errText(error)}`);
     }
 
     return this.getDefaultValue(stateName);
@@ -423,7 +422,7 @@ export class DeviceBindingService {
       case "hue": {
         const n = coerceFiniteNumber(value);
         if (n === null) {
-          this.log("debug", `Default fallback for hue (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          this.logger.debug(`Default fallback for hue (device="${device?.name}"): raw=${JSON.stringify(value)}`);
           return 0;
         }
         return clampRound(n, 0, HUE_HUE_MAX);
@@ -433,7 +432,7 @@ export class DeviceBindingService {
       case "ct": {
         const n = coerceFiniteNumber(value);
         if (n === null) {
-          this.log("debug", `Default fallback for ct (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          this.logger.debug(`Default fallback for ct (device="${device?.name}"): raw=${JSON.stringify(value)}`);
           return HUE_CT_DEFAULT;
         }
         return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
@@ -477,8 +476,7 @@ export class DeviceBindingService {
             }
           }
         }
-        this.log(
-          "debug",
+        this.logger.debug(
           `Default fallback for xy (device="${device?.name}"): raw=${JSON.stringify(value)} not parsable`,
         );
         return HUE_XY_DEFAULT;
@@ -583,8 +581,7 @@ export class DeviceBindingService {
   ): number {
     const n = coerceFiniteNumber(value);
     if (n === null) {
-      this.log(
-        "debug",
+      this.logger.debug(
         `Default fallback for ${stateName ?? "?"} (device="${device?.name}"): raw=${JSON.stringify(value)}`,
       );
       return max;
@@ -611,7 +608,7 @@ export class DeviceBindingService {
           branch = "raw";
           result = clampRound(n, min, max);
         }
-        this.log("debug", `scale-auto[${device?.name ?? "?"}/${stateName ?? "?"}/${branch}]: n=${n} → ${result}`);
+        this.logger.debug(`scale-auto[${device?.name ?? "?"}/${stateName ?? "?"}/${branch}]: n=${n} → ${result}`);
         return result;
       }
     }
@@ -655,9 +652,5 @@ export class DeviceBindingService {
     const b1 = (n >>> 8) & 0xff;
     const b2 = n & 0xff;
     return [b0, b1, b2].map(b => b.toString(16).padStart(2, "0")).join(":");
-  }
-
-  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
-    this.logger[level](message);
   }
 }

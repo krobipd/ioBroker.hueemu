@@ -38,6 +38,7 @@ var import_node_crypto = require("node:crypto");
 var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
+var import_coerce = require("./lib/coerce");
 var import_i18n_states = require("./lib/i18n-states");
 var import_migrations = require("./lib/migrations");
 var import_config = require("./types/config");
@@ -163,7 +164,7 @@ class HueEmu extends utils.Adapter {
     const port = this.toPort(this.config.port);
     const discoveryHost = ((_b = this.config.discoveryHost) == null ? void 0 : _b.trim()) || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
-    const httpsPort = this.toUndefinedPort(this.config.httpsPort);
+    const httpsPort = this.parsePort(this.config.httpsPort);
     if (httpsPort !== void 0 && httpsPort === port) {
       throw new Error(`HTTPS port ${httpsPort} equals HTTP port \u2014 pick a different port`);
     }
@@ -275,21 +276,7 @@ class HueEmu extends utils.Adapter {
   async initializeAdapterStates() {
     this.pairingEnabled = false;
     const disableAuthState = await this.getStateAsync("disableAuth");
-    this._disableAuth = HueEmu.coerceBool(disableAuthState == null ? void 0 : disableAuthState.val);
-  }
-  /** Coerce arbitrary state values to a strict boolean. */
-  static coerceBool(v) {
-    if (typeof v === "boolean") {
-      return v;
-    }
-    if (typeof v === "number") {
-      return v !== 0;
-    }
-    if (typeof v === "string") {
-      const t = v.trim().toLowerCase();
-      return t === "true" || t === "1" || t === "yes" || t === "on";
-    }
-    return false;
+    this._disableAuth = (0, import_coerce.coerceBool)(disableAuthState == null ? void 0 : disableAuthState.val);
   }
   /**
    * Migrate v1.3.x instanceObject names/descriptions from plain English strings
@@ -418,7 +405,7 @@ class HueEmu extends utils.Adapter {
     if (id === `${this.namespace}.startPairing`) {
       this.handleStartPairing(state);
     } else if (id === `${this.namespace}.disableAuth`) {
-      this.disableAuth = HueEmu.coerceBool(state.val);
+      this.disableAuth = (0, import_coerce.coerceBool)(state.val);
     } else if (id.startsWith(this.namespace)) {
       void this.setState(id, { ack: true, val: state.val });
     }
@@ -432,7 +419,7 @@ class HueEmu extends utils.Adapter {
       this.clearTimeout(this.pairingTimeoutId);
       this.pairingTimeoutId = void 0;
     }
-    const enabled = HueEmu.coerceBool(state.val);
+    const enabled = (0, import_coerce.coerceBool)(state.val);
     this.pairingEnabled = enabled;
     if (enabled) {
       (_a = this.apiHandler) == null ? void 0 : _a.resetAutoAddBudget();
@@ -535,12 +522,6 @@ class HueEmu extends utils.Adapter {
       throw new Error("Port not specified");
     }
     return parsed;
-  }
-  /**
-   * Parse an optional port number — returns `undefined` when absent.
-   */
-  toUndefinedPort(port) {
-    return this.parsePort(port);
   }
   /** Shared port parser — returns undefined for missing/unparseable input. */
   parsePort(port) {

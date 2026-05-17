@@ -155,6 +155,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (krobi) Internal modernisation: TypeScript 6, vitest test runner, updated linting and release toolchain. No user-facing changes.
+
 ### 1.4.5 (2026-05-13)
 - Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
 

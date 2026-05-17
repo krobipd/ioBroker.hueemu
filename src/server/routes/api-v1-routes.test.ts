@@ -2,7 +2,6 @@
  * Tests for api-v1-routes Fastify plugin — malformed requests, auth flows
  */
 
-import { expect } from "chai";
 import Fastify, { type FastifyInstance } from "fastify";
 import { apiV1Routes } from "./api-v1-routes";
 import { hueErrorHandler } from "../middleware/error-handler";
@@ -103,9 +102,9 @@ describe("apiV1Routes — POST /api", () => {
       payload: { devicetype: "Amazon Echo" },
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0]).to.have.property("success");
-    expect(parsed[0].success.username).to.equal("generated-user-123");
-    expect(handler.calls.createUser).to.have.length(1);
+    expect(parsed[0]).toHaveProperty("success");
+    expect(parsed[0].success.username).toBe("generated-user-123");
+    expect(handler.calls.createUser).toHaveLength(1);
   });
 
   it("rejects body with missing devicetype", async () => {
@@ -117,8 +116,8 @@ describe("apiV1Routes — POST /api", () => {
       payload: {},
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(5); // MISSING_PARAMETERS
-    expect(handler.calls.createUser).to.have.length(0);
+    expect(parsed[0].error.type).toBe(5); // MISSING_PARAMETERS
+    expect(handler.calls.createUser).toHaveLength(0);
   });
 
   it("rejects body.devicetype as object", async () => {
@@ -130,8 +129,8 @@ describe("apiV1Routes — POST /api", () => {
       payload: { devicetype: { evil: "nested" } },
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(5);
-    expect(handler.calls.createUser).to.have.length(0);
+    expect(parsed[0].error.type).toBe(5);
+    expect(handler.calls.createUser).toHaveLength(0);
   });
 
   it("rejects body.devicetype as number", async () => {
@@ -143,7 +142,7 @@ describe("apiV1Routes — POST /api", () => {
       payload: { devicetype: 42 },
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(5);
+    expect(parsed[0].error.type).toBe(5);
   });
 
   it("rejects body.devicetype as empty string", async () => {
@@ -155,7 +154,7 @@ describe("apiV1Routes — POST /api", () => {
       payload: { devicetype: "" },
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(5);
+    expect(parsed[0].error.type).toBe(5);
   });
 
   it("rejects top-level array body", async () => {
@@ -167,7 +166,7 @@ describe("apiV1Routes — POST /api", () => {
       payload: ["devicetype"],
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(5);
+    expect(parsed[0].error.type).toBe(5);
   });
 
   it("rejects missing body entirely (fastify ignores empty POST)", async () => {
@@ -180,8 +179,8 @@ describe("apiV1Routes — POST /api", () => {
       payload: "",
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0]).to.have.property("error");
-    expect(handler.calls.createUser).to.have.length(0);
+    expect(parsed[0]).toHaveProperty("error");
+    expect(handler.calls.createUser).toHaveLength(0);
   });
 });
 
@@ -194,7 +193,7 @@ describe("apiV1Routes — GET auth-required routes", () => {
       url: "/api/unknown-user/lights",
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(1); // UNAUTHORIZED_USER
+    expect(parsed[0].error.type).toBe(1); // UNAUTHORIZED_USER
   });
 
   it("allows getAllLights with valid auth", async () => {
@@ -204,9 +203,9 @@ describe("apiV1Routes — GET auth-required routes", () => {
       method: "GET",
       url: "/api/valid-user/lights",
     });
-    expect(handler.calls.getAllLights).to.equal(1);
+    expect(handler.calls.getAllLights).toBe(1);
     // empty collection serializes to {}
-    expect(JSON.parse(res.body)).to.deep.equal({});
+    expect(JSON.parse(res.body)).toEqual({});
   });
 
   it("config endpoint does not require auth", async () => {
@@ -216,8 +215,8 @@ describe("apiV1Routes — GET auth-required routes", () => {
       method: "GET",
       url: "/api/any-name/config",
     });
-    expect(res.statusCode).to.equal(200);
-    expect(JSON.parse(res.body)).to.have.property("bridgeid");
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toHaveProperty("bridgeid");
   });
 });
 
@@ -230,9 +229,9 @@ describe("apiV1Routes — PUT /lights/:id/state", () => {
       url: "/api/user1/lights/1/state",
       payload: { on: true, bri: 200 },
     });
-    expect(res.statusCode).to.equal(200);
-    expect(handler.calls.setLightState).to.have.length(1);
-    expect(handler.calls.setLightState[0].lightId).to.equal("1");
+    expect(res.statusCode).toBe(200);
+    expect(handler.calls.setLightState).toHaveLength(1);
+    expect(handler.calls.setLightState[0].lightId).toBe("1");
   });
 
   it("rejects array payload for state update", async () => {
@@ -244,8 +243,8 @@ describe("apiV1Routes — PUT /lights/:id/state", () => {
       payload: [{ on: true }],
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(2); // INVALID_JSON
-    expect(handler.calls.setLightState).to.have.length(0);
+    expect(parsed[0].error.type).toBe(2); // INVALID_JSON
+    expect(handler.calls.setLightState).toHaveLength(0);
   });
 
   it("rejects missing body for state update", async () => {
@@ -258,8 +257,8 @@ describe("apiV1Routes — PUT /lights/:id/state", () => {
       payload: "",
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0]).to.have.property("error");
-    expect(handler.calls.setLightState).to.have.length(0);
+    expect(parsed[0]).toHaveProperty("error");
+    expect(handler.calls.setLightState).toHaveLength(0);
   });
 
   it("rejects null body for state update", async () => {
@@ -271,7 +270,7 @@ describe("apiV1Routes — PUT /lights/:id/state", () => {
       payload: null as unknown as object,
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(2);
+    expect(parsed[0].error.type).toBe(2);
   });
 });
 
@@ -284,8 +283,8 @@ describe("apiV1Routes — PUT /groups/:id/action (Harmony)", () => {
       url: "/api/user1/groups/0/action",
       payload: { on: true },
     });
-    expect(res.statusCode).to.equal(200);
-    expect(handler.calls.setGroupAction).to.have.length(1);
+    expect(res.statusCode).toBe(200);
+    expect(handler.calls.setGroupAction).toHaveLength(1);
   });
 
   it("rejects array payload for group action", async () => {
@@ -297,8 +296,8 @@ describe("apiV1Routes — PUT /groups/:id/action (Harmony)", () => {
       payload: [{ on: true }],
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(2);
-    expect(handler.calls.setGroupAction).to.have.length(0);
+    expect(parsed[0].error.type).toBe(2);
+    expect(handler.calls.setGroupAction).toHaveLength(0);
   });
 });
 
@@ -310,8 +309,8 @@ describe("apiV1Routes — fallback & empty collections", () => {
       method: "GET",
       url: "/api/user1/something-unknown",
     });
-    expect(handler.calls.fallback).to.have.length(1);
-    expect(res.statusCode).to.equal(200);
+    expect(handler.calls.fallback).toHaveLength(1);
+    expect(res.statusCode).toBe(200);
   });
 
   it("returns empty object for unimplemented collections (groups)", async () => {
@@ -321,7 +320,7 @@ describe("apiV1Routes — fallback & empty collections", () => {
       method: "GET",
       url: "/api/user1/groups",
     });
-    expect(JSON.parse(res.body)).to.deep.equal({});
+    expect(JSON.parse(res.body)).toEqual({});
   });
 
   it("returns empty object for sensors", async () => {
@@ -331,7 +330,7 @@ describe("apiV1Routes — fallback & empty collections", () => {
       method: "GET",
       url: "/api/user1/sensors",
     });
-    expect(JSON.parse(res.body)).to.deep.equal({});
+    expect(JSON.parse(res.body)).toEqual({});
   });
 
   it("unauthorized user still blocked on empty collections", async () => {
@@ -342,6 +341,6 @@ describe("apiV1Routes — fallback & empty collections", () => {
       url: "/api/stranger/groups",
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0].error.type).to.equal(1); // UNAUTHORIZED_USER
+    expect(parsed[0].error.type).toBe(1); // UNAUTHORIZED_USER
   });
 });

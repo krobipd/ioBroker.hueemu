@@ -93,7 +93,7 @@ class UserService {
       this.autoAddedThisWindow += 1;
     }
     const safeUsername = (0, import_utils.sanitizeId)(username);
-    this.log("debug", `Creating client: ${safeUsername} (${devicetype})`);
+    this.logger.debug(`Creating client: ${safeUsername} (${devicetype})`);
     await this.ensureClientsFolder();
     try {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
@@ -159,7 +159,7 @@ class UserService {
     const cache = await this.ensureCache();
     const found = cache.has(safeUsername);
     if (found) {
-      this.log("debug", `Client authenticated: ${username}`);
+      this.logger.debug(`Client authenticated: ${username}`);
     }
     return found;
   }
@@ -179,7 +179,7 @@ class UserService {
         }
       }
     } catch (err) {
-      this.log("debug", `Could not load clients into cache: ${(0, import_utils.errText)(err)}`);
+      this.logger.debug(`Could not load clients into cache: ${(0, import_utils.errText)(err)}`);
     }
     this.clientIdsCache = cache;
     return cache;
@@ -203,9 +203,6 @@ class UserService {
     } catch (err) {
       this.logger.warn(`Failed to create clients folder: ${(0, import_utils.errText)(err)}`);
     }
-  }
-  log(level, message) {
-    this.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

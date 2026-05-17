@@ -10,19 +10,13 @@
 		"allowJs": true,
 		"checkJs": true,
 
-		"noEmitOnError": true,
-		"outDir": "./build/",
-		"removeComments": false,
-
 		// This is necessary for the automatic typing of the adapter config
 		"resolveJsonModule": true,
 
-		"sourceMap": true,
-		"inlineSourceMap": false
+		"types": ["vitest/globals", "node"]
 	},
 	"include": [
-		"src/**/*.ts",
-		"test/**/*.ts"
+		"src/**/*.ts"
 	],
 	"exclude": [
 		"build/**",

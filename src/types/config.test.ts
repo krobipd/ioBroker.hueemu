@@ -2,7 +2,6 @@
  * Tests for config utilities and ConfigService
  */
 
-import { expect } from "chai";
 import { generateBridgeId, generateSerialNumber } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { createTestIdentity } from "../../test/test-helpers";
@@ -11,34 +10,34 @@ describe("Config utilities", () => {
   describe("generateBridgeId", () => {
     it("should insert FFFE in the middle of the MAC", () => {
       const result = generateBridgeId("AA:BB:CC:DD:EE:FF");
-      expect(result).to.equal("AABBCCFFFEDDEEFF");
+      expect(result).toBe("AABBCCFFFEDDEEFF");
     });
 
     it("should strip colons and uppercase", () => {
       const result = generateBridgeId("aa:bb:cc:dd:ee:ff");
-      expect(result).to.equal("AABBCCFFFEDDEEFF");
+      expect(result).toBe("AABBCCFFFEDDEEFF");
     });
 
     it("should handle MAC without colons", () => {
       const result = generateBridgeId("AABBCCDDEEFF");
-      expect(result).to.equal("AABBCCFFFEDDEEFF");
+      expect(result).toBe("AABBCCFFFEDDEEFF");
     });
   });
 
   describe("generateSerialNumber", () => {
     it("should strip colons and lowercase", () => {
       const result = generateSerialNumber("AA:BB:CC:DD:EE:FF");
-      expect(result).to.equal("aabbccddeeff");
+      expect(result).toBe("aabbccddeeff");
     });
 
     it("should handle already lowercase MAC", () => {
       const result = generateSerialNumber("aa:bb:cc:dd:ee:ff");
-      expect(result).to.equal("aabbccddeeff");
+      expect(result).toBe("aabbccddeeff");
     });
 
     it("should handle MAC without colons", () => {
       const result = generateSerialNumber("AABBCCDDEEFF");
-      expect(result).to.equal("aabbccddeeff");
+      expect(result).toBe("aabbccddeeff");
     });
   });
 });
@@ -57,57 +56,57 @@ describe("ConfigService", () => {
   describe("getConfig (public)", () => {
     it("should return bridge name", () => {
       const config = service.getConfig();
-      expect(config.name).to.equal("Philips hue");
+      expect(config.name).toBe("Philips hue");
     });
 
     it("should return correct model ID", () => {
       const config = service.getConfig();
-      expect(config.modelid).to.equal("BSB002");
+      expect(config.modelid).toBe("BSB002");
     });
 
     it("should include MAC address from identity", () => {
       const config = service.getConfig();
-      expect(config.mac).to.equal(identity.mac);
+      expect(config.mac).toBe(identity.mac);
     });
 
     it("should include bridge ID from identity", () => {
       const config = service.getConfig();
-      expect(config.bridgeid).to.equal(identity.bridgeId);
+      expect(config.bridgeid).toBe(identity.bridgeId);
     });
 
     it("should report factorynew as false", () => {
       const config = service.getConfig();
-      expect(config.factorynew).to.equal(false);
+      expect(config.factorynew).toBe(false);
     });
 
     it("should have null replacesbridgeid", () => {
       const config = service.getConfig();
-      expect(config.replacesbridgeid).to.be.null;
+      expect(config.replacesbridgeid).toBeNull();
     });
 
     it("should include API version", () => {
       const config = service.getConfig();
-      expect(config.apiversion).to.equal("1.41.0");
+      expect(config.apiversion).toBe("1.41.0");
     });
 
     it("should include SW version", () => {
       const config = service.getConfig();
-      expect(config.swversion).to.equal("1941132080");
+      expect(config.swversion).toBe("1941132080");
     });
   });
 
   describe("getFullConfig", () => {
     it("should extend public config with additional fields", () => {
       const full = service.getFullConfig();
-      expect(full.name).to.equal("Philips hue"); // inherited from public
-      expect(full.ipaddress).to.equal("192.168.1.100");
+      expect(full.name).toBe("Philips hue"); // inherited from public
+      expect(full.ipaddress).toBe("192.168.1.100");
     });
 
     it("should include network configuration", () => {
       const full = service.getFullConfig();
-      expect(full.netmask).to.equal("255.255.255.0");
-      expect(full.gateway).to.equal("192.168.1.1");
-      expect(full.dhcp).to.equal(true);
+      expect(full.netmask).toBe("255.255.255.0");
+      expect(full.gateway).toBe("192.168.1.1");
+      expect(full.dhcp).toBe(true);
     });
 
     it("should derive gateway from discovery host", () => {
@@ -116,41 +115,43 @@ describe("ConfigService", () => {
         discoveryHost: "10.20.30.40",
       });
       const full = svc.getFullConfig();
-      expect(full.gateway).to.equal("10.20.30.1");
+      expect(full.gateway).toBe("10.20.30.1");
     });
 
     it("should include portal state", () => {
       const full = service.getFullConfig();
-      expect(full.portalservices).to.equal(true);
-      expect(full.portalconnection).to.equal("connected");
-      expect(full.portalstate).to.deep.include({
-        signedon: true,
-        incoming: false,
-        outgoing: true,
-      });
+      expect(full.portalservices).toBe(true);
+      expect(full.portalconnection).toBe("connected");
+      expect(full.portalstate).toEqual(
+        expect.objectContaining({
+          signedon: true,
+          incoming: false,
+          outgoing: true,
+        }),
+      );
     });
 
     it("should have zigbee channel 20", () => {
       const full = service.getFullConfig();
-      expect(full.zigbeechannel).to.equal(20);
+      expect(full.zigbeechannel).toBe(20);
     });
 
     it("should have linkbutton false by default", () => {
       const full = service.getFullConfig();
-      expect(full.linkbutton).to.equal(false);
+      expect(full.linkbutton).toBe(false);
     });
 
     it("should have empty whitelist by default", () => {
       const full = service.getFullConfig();
-      expect(full.whitelist).to.deep.equal({});
+      expect(full.whitelist).toEqual({});
     });
 
     it("should include UTC and localtime strings", () => {
       const full = service.getFullConfig();
-      expect(full.UTC).to.be.a("string");
-      expect(full.localtime).to.be.a("string");
+      expect(full.UTC).toBeTypeOf("string");
+      expect(full.localtime).toBeTypeOf("string");
       // Format: YYYY-MM-DD HH:MM:SS
-      expect(full.UTC).to.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      expect(full.UTC).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     });
 
     // C2 v1.4.3 — timezone is the host's IANA zone (Intl-resolved), not the
@@ -158,13 +159,13 @@ describe("ConfigService", () => {
     it("should report a real IANA timezone instead of the hardcoded one (C2 v1.4.3)", () => {
       const full = service.getFullConfig();
       const expected = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-      expect(full.timezone).to.equal(expected);
+      expect(full.timezone).toBe(expected);
     });
 
     // C3 v1.4.3 — localtime should be in the spec format too.
     it("should produce a spec-shaped localtime string (C3 v1.4.3)", () => {
       const full = service.getFullConfig();
-      expect(full.localtime).to.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      expect(full.localtime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     });
 
     // C1 v1.4.3 — IPv4-only gateway munge. Previously a non-IPv4 host gave
@@ -175,7 +176,7 @@ describe("ConfigService", () => {
         discoveryHost: "fe80::1",
       });
       const full = svc.getFullConfig();
-      expect(full.gateway).to.equal("fe80::1");
+      expect(full.gateway).toBe("fe80::1");
     });
   });
 
@@ -192,23 +193,23 @@ describe("ConfigService", () => {
       };
 
       const state = service.buildFullState(lights);
-      expect(state.lights).to.deep.equal(lights);
+      expect(state.lights).toEqual(lights);
     });
 
     it("should include empty collections for unsupported features", () => {
       const state = service.buildFullState({});
-      expect(state.groups).to.deep.equal({});
-      expect(state.schedules).to.deep.equal({});
-      expect(state.scenes).to.deep.equal({});
-      expect(state.rules).to.deep.equal({});
-      expect(state.sensors).to.deep.equal({});
-      expect(state.resourcelinks).to.deep.equal({});
+      expect(state.groups).toEqual({});
+      expect(state.schedules).toEqual({});
+      expect(state.scenes).toEqual({});
+      expect(state.rules).toEqual({});
+      expect(state.sensors).toEqual({});
+      expect(state.resourcelinks).toEqual({});
     });
 
     it("should include full config", () => {
       const state = service.buildFullState({});
-      expect(state.config.name).to.equal("Philips hue");
-      expect(state.config.ipaddress).to.equal("192.168.1.100");
+      expect(state.config.name).toBe("Philips hue");
+      expect(state.config.ipaddress).toBe("192.168.1.100");
     });
   });
 });

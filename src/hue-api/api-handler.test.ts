@@ -2,7 +2,6 @@
  * Tests for ApiHandler — orchestration, auth, pairing, malformed inputs
  */
 
-import { expect } from "chai";
 import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
 import type { HueRequest, CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";
@@ -113,10 +112,10 @@ describe("ApiHandler", () => {
       const req = makeRequest({ devicetype: "test" });
       try {
         await handler.createUser(req, { devicetype: "test" });
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
-        expect((error as HueApiError).type).to.equal(
+        expect(error).toBeInstanceOf(HueApiError);
+        expect((error as HueApiError).type).toBe(
           HueErrorType.LINK_BUTTON_NOT_PRESSED,
         );
       }
@@ -128,8 +127,8 @@ describe("ApiHandler", () => {
         makeRequest({ devicetype: "Amazon Echo" }),
         { devicetype: "Amazon Echo" },
       );
-      expect(username).to.be.a("string");
-      expect(username.length).to.be.greaterThan(0);
+      expect(typeof username).toBe("string");
+      expect(username.length).toBeGreaterThan(0);
     });
 
     it("disables pairing after successful creation", async () => {
@@ -137,7 +136,7 @@ describe("ApiHandler", () => {
       await handler.createUser(makeRequest({ devicetype: "x" }), {
         devicetype: "x",
       });
-      expect(adapter.pairingEnabled).to.equal(false);
+      expect(adapter.pairingEnabled).toBe(false);
     });
 
     it("allows pairing when disableAuth=true even without link button", async () => {
@@ -146,7 +145,7 @@ describe("ApiHandler", () => {
         makeRequest({ devicetype: "free-pass" }),
         { devicetype: "free-pass" },
       );
-      expect(username.length).to.be.greaterThan(0);
+      expect(username.length).toBeGreaterThan(0);
     });
   });
 
@@ -155,14 +154,14 @@ describe("ApiHandler", () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
       const body = { devicetype: 42 } as unknown as CreateUserRequest;
       const username = await handler.createUser(makeRequest(body), body);
-      expect(username.length).to.be.greaterThan(0);
+      expect(username.length).toBeGreaterThan(0);
       // Find the client that was written - its common.name should be "unknown"
       const writtenClientObjects = [...adapter.writtenObjects.entries()].filter(
         ([id]) => id.startsWith("clients.") && id !== "clients",
       );
-      expect(writtenClientObjects).to.have.length(1);
+      expect(writtenClientObjects).toHaveLength(1);
       const [, obj] = writtenClientObjects[0];
-      expect(obj.common?.name).to.equal("unknown");
+      expect(obj.common?.name).toBe("unknown");
     });
 
     it("defaults devicetype when body.devicetype is empty string", async () => {
@@ -173,7 +172,7 @@ describe("ApiHandler", () => {
       const [, obj] = [...adapter.writtenObjects.entries()].find(
         ([id]) => id.startsWith("clients.") && id !== "clients",
       )!;
-      expect(obj.common?.name).to.equal("unknown");
+      expect(obj.common?.name).toBe("unknown");
     });
 
     it("ignores non-string body.username and generates UUID", async () => {
@@ -187,7 +186,7 @@ describe("ApiHandler", () => {
         body,
       );
       // Must not be "[object Object]" — should be a generated UUID
-      expect(username).to.match(
+      expect(username).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
     });
@@ -202,8 +201,8 @@ describe("ApiHandler", () => {
         makeRequest({ devicetype: "test", username: "" }),
         body,
       );
-      expect(username).to.not.equal("");
-      expect(username.length).to.be.greaterThan(10);
+      expect(username).not.toBe("");
+      expect(username.length).toBeGreaterThan(10);
     });
 
     it("accepts valid string body.username", async () => {
@@ -216,7 +215,7 @@ describe("ApiHandler", () => {
         makeRequest({ devicetype: "test", username: "my-custom-name" }),
         body,
       );
-      expect(username).to.equal("my-custom-name");
+      expect(username).toBe("my-custom-name");
     });
 
     it("handles missing req.body gracefully", async () => {
@@ -230,38 +229,38 @@ describe("ApiHandler", () => {
         ip: "1.2.3.4",
       };
       const username = await handler.createUser(req, { devicetype: "x" });
-      expect(username.length).to.be.greaterThan(0);
+      expect(username.length).toBeGreaterThan(0);
     });
   });
 
   describe("isUserAuthenticated", () => {
     it("returns true for existing client", async () => {
       const { handler } = createHandler(["alexa"]);
-      expect(await handler.isUserAuthenticated("alexa")).to.equal(true);
+      expect(await handler.isUserAuthenticated("alexa")).toBe(true);
     });
 
     it("returns false for unknown client when pairing off", async () => {
       const { handler } = createHandler(["alexa"], { pairingEnabled: false });
-      expect(await handler.isUserAuthenticated("stranger")).to.equal(false);
+      expect(await handler.isUserAuthenticated("stranger")).toBe(false);
     });
 
     it("auto-adds unknown clients during pairing window", async () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
       const result = await handler.isUserAuthenticated("new-echo-id");
-      expect(result).to.equal(true);
-      expect(adapter.existingClients.has("new-echo-id")).to.equal(true);
+      expect(result).toBe(true);
+      expect(adapter.existingClients.has("new-echo-id")).toBe(true);
     });
 
     it("returns false for empty username", async () => {
       const { handler } = createHandler(["foo"]);
-      expect(await handler.isUserAuthenticated("")).to.equal(false);
+      expect(await handler.isUserAuthenticated("")).toBe(false);
     });
   });
 
   describe("isAuthDisabled", () => {
     it("reflects adapter.disableAuth", () => {
       const { handler } = createHandler([], { disableAuth: true });
-      expect(handler.isAuthDisabled()).to.equal(true);
+      expect(handler.isAuthDisabled()).toBe(true);
     });
   });
 
@@ -276,7 +275,7 @@ describe("ApiHandler", () => {
         headers: {},
         ip: "1.2.3.4",
       });
-      expect(result).to.deep.equal({});
+      expect(result).toEqual({});
     });
   });
 
@@ -285,9 +284,9 @@ describe("ApiHandler", () => {
       const { handler } = createHandler();
       const req = makeRequest(undefined);
       const config = await handler.getConfig(req, "anyone");
-      expect(config).to.have.property("bridgeid");
-      expect(config).to.have.property("mac");
-      expect(config).to.have.property("modelid");
+      expect(config).toHaveProperty("bridgeid");
+      expect(config).toHaveProperty("mac");
+      expect(config).toHaveProperty("modelid");
     });
   });
 });

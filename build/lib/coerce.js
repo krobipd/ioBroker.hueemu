@@ -18,6 +18,7 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var coerce_exports = {};
 __export(coerce_exports, {
+  coerceBool: () => coerceBool,
   coerceFiniteNumber: () => coerceFiniteNumber,
   parseLightIndex: () => parseLightIndex
 });
@@ -31,6 +32,19 @@ function coerceFiniteNumber(v) {
     return Number.isFinite(n) ? n : null;
   }
   return null;
+}
+function coerceBool(v) {
+  if (typeof v === "boolean") {
+    return v;
+  }
+  if (typeof v === "number") {
+    return v !== 0;
+  }
+  if (typeof v === "string") {
+    const t = v.trim().toLowerCase();
+    return t === "true" || t === "1" || t === "yes" || t === "on";
+  }
+  return false;
 }
 function parseLightIndex(id, max) {
   if (typeof id !== "string" || id.length === 0) {
@@ -47,6 +61,7 @@ function parseLightIndex(id, max) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  coerceBool,
   coerceFiniteNumber,
   parseLightIndex
 });

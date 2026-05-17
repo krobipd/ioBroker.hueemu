@@ -49,7 +49,7 @@ class ApiHandler {
       devices,
       logger: config.logger
     });
-    this.log("debug", `${devices.length} device(s) configured`);
+    this.logger.debug(`${devices.length} device(s) configured`);
   }
   /**
    * Initialize the API handler (must be called after construction)
@@ -69,14 +69,14 @@ class ApiHandler {
   async createUser(req, body) {
     var _a;
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
-    this.log("debug", `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
+    this.logger.debug(`Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw import_errors.HueApiError.linkButtonNotPressed("/api");
     }
     const rawUsername = (_a = req.body) == null ? void 0 : _a.username;
     const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : void 0;
     if (providedUsername) {
-      this.log("debug", `Using provided username: ${providedUsername}`);
+      this.logger.debug(`Using provided username: ${providedUsername}`);
     }
     const username = await this.userService.createUser(providedUsername, devicetype);
     this.logger.info(`Paired client "${devicetype}" as user ${username}`);
@@ -87,7 +87,7 @@ class ApiHandler {
    * Get full bridge state
    */
   async getFullState(_req, username) {
-    this.log("debug", `Get full state for user: ${username}`);
+    this.logger.debug(`Get full state for user: ${username}`);
     const lights = await this.lightService.getAllLights();
     const state = this.configService.buildFullState(lights);
     state.config.linkbutton = this.adapter.pairingEnabled;
@@ -97,35 +97,35 @@ class ApiHandler {
    * Get bridge configuration
    */
   async getConfig(_req, _username) {
-    this.log("debug", "Get config");
+    this.logger.debug("Get config");
     return this.configService.getConfig();
   }
   /**
    * Get all lights
    */
   async getAllLights(_req, _username) {
-    this.log("debug", "Get all lights");
+    this.logger.debug("Get all lights");
     return this.lightService.getAllLights();
   }
   /**
    * Get a single light by ID
    */
   async getLightById(_req, _username, lightId) {
-    this.log("debug", `Get light: ${lightId}`);
+    this.logger.debug(`Get light: ${lightId}`);
     return this.lightService.getLightById(lightId);
   }
   /**
    * Set light state
    */
   async setLightState(_req, _username, lightId, state) {
-    this.log("debug", `Set light ${lightId} state: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set light ${lightId} state: ${JSON.stringify(state)}`);
     return this.lightService.setLightState(lightId, state);
   }
   /**
    * Set group action — applies state to all configured lights
    */
   async setGroupAction(_req, _username, groupId, state) {
-    this.log("debug", `Set group ${groupId} action: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
     const lights = await this.lightService.getAllLights();
     await Promise.all(
       Object.keys(lights).map(
@@ -153,7 +153,7 @@ class ApiHandler {
     if (!isAuth && this.adapter.pairingEnabled) {
       try {
         await this.userService.addUser(username, "auto-paired", true);
-        this.log("debug", `Pairing enabled, auto-added user: ${username}`);
+        this.logger.debug(`Pairing enabled, auto-added user: ${username}`);
         return true;
       } catch (err) {
         this.logger.warn(`Auto-add rejected for ${username}: ${(0, import_utils.errText)(err)}`);
@@ -171,9 +171,6 @@ class ApiHandler {
    */
   isAuthDisabled() {
     return this.adapter.disableAuth;
-  }
-  log(level, message) {
-    this.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

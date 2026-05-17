@@ -40,7 +40,7 @@ class HueSsdpServer {
    */
   async start() {
     if (this.isRunning) {
-      this.log("debug", "SSDP server already running");
+      this.config.logger.debug("SSDP server already running");
       return;
     }
     try {
@@ -63,7 +63,7 @@ class HueSsdpServer {
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
       this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
       this.server.addUSN("upnp:rootdevice");
-      this.log("debug", "SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
+      this.config.logger.debug("SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
       const serverWithEvents = this.server;
       serverWithEvents.on("error", (err) => {
         this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
@@ -90,7 +90,7 @@ class HueSsdpServer {
         });
       });
       this.isRunning = true;
-      this.log("debug", `SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
+      this.config.logger.debug(`SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
     } catch (error) {
       this.config.logger.error(`Failed to start SSDP server: ${(0, import_utils.errText)(error)}`);
       throw error;
@@ -103,7 +103,7 @@ class HueSsdpServer {
     if (this.server && this.isRunning) {
       this.server.stop();
       this.isRunning = false;
-      this.log("debug", "SSDP server stopped");
+      this.config.logger.debug("SSDP server stopped");
     }
   }
   /**
@@ -111,9 +111,6 @@ class HueSsdpServer {
    */
   get running() {
     return this.isRunning;
-  }
-  log(level, message) {
-    this.config.logger[level](message);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

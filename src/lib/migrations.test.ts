@@ -1,4 +1,3 @@
-import { expect } from "chai";
 import {
   buildInstanceObjectMigrationPatch,
   INSTANCE_OBJECT_MIGRATION_PAIRS,
@@ -14,8 +13,8 @@ describe("migrations", () => {
         { name: "Start Pairing" },
         INSTANCE_OBJECT_MIGRATION_PAIRS[0],
       );
-      expect(patch).to.not.be.null;
-      expect(patch!.name).to.be.an("object");
+      expect(patch).not.toBeNull();
+      expect(patch!.name).toBeTypeOf("object");
     });
 
     it("returns desc patch when common.desc is a string", () => {
@@ -23,9 +22,9 @@ describe("migrations", () => {
         { name: { en: "x" }, desc: "some plain desc" },
         INSTANCE_OBJECT_MIGRATION_PAIRS[0],
       );
-      expect(patch).to.not.be.null;
-      expect(patch!.desc).to.be.an("object");
-      expect(patch!.name).to.be.undefined;
+      expect(patch).not.toBeNull();
+      expect(patch!.desc).toBeTypeOf("object");
+      expect(patch!.name).toBeUndefined();
     });
 
     it("returns null when name is already an object and no desc", () => {
@@ -33,7 +32,7 @@ describe("migrations", () => {
         { name: { en: "x", de: "y" } },
         INSTANCE_OBJECT_MIGRATION_PAIRS[2], // clients (no descKey)
       );
-      expect(patch).to.be.null;
+      expect(patch).toBeNull();
     });
 
     it("returns null for already-migrated objects (idempotent)", () => {
@@ -41,12 +40,12 @@ describe("migrations", () => {
         { name: { en: "Start Pairing" }, desc: { en: "Enable pairing" } },
         INSTANCE_OBJECT_MIGRATION_PAIRS[0],
       );
-      expect(patch).to.be.null;
+      expect(patch).toBeNull();
     });
 
     it("returns null when common is undefined", () => {
       const patch = buildInstanceObjectMigrationPatch(undefined, INSTANCE_OBJECT_MIGRATION_PAIRS[0]);
-      expect(patch).to.be.null;
+      expect(patch).toBeNull();
     });
   });
 
@@ -67,9 +66,9 @@ describe("migrations", () => {
         log: { debug: () => {} },
       });
 
-      expect(calls).to.have.lengthOf(2);
-      expect(calls[0].id).to.equal("startPairing");
-      expect(calls[1].id).to.equal("clients");
+      expect(calls).toHaveLength(2);
+      expect(calls[0].id).toBe("startPairing");
+      expect(calls[1].id).toBe("clients");
     });
 
     it("skips non-existing objects", async () => {
@@ -82,7 +81,7 @@ describe("migrations", () => {
         },
         log: { debug: () => {} },
       });
-      expect(calls).to.equal(0);
+      expect(calls).toBe(0);
     });
 
     it("is idempotent (re-run on already-migrated state does nothing)", async () => {
@@ -100,7 +99,7 @@ describe("migrations", () => {
         },
         log: { debug: () => {} },
       });
-      expect(calls).to.equal(0);
+      expect(calls).toBe(0);
     });
   });
 
@@ -118,8 +117,8 @@ describe("migrations", () => {
         getObjectListAsync: async () => ({ rows: [{ id: "hueemu.0.info.other" }] }),
         log: { debug: () => {} },
       });
-      expect(deleted).to.include("info.configuredDevices");
-      expect(deleted).to.include("createLight");
+      expect(deleted).toContain("info.configuredDevices");
+      expect(deleted).toContain("createLight");
     });
 
     it("removes empty parent channel after last child deleted", async () => {
@@ -135,8 +134,8 @@ describe("migrations", () => {
         getObjectListAsync: async () => ({ rows: [] }), // empty parent after delete
         log: { debug: () => {} },
       });
-      expect(deleted).to.include("info.connection");
-      expect(deleted).to.include("info");
+      expect(deleted).toContain("info.connection");
+      expect(deleted).toContain("info");
     });
 
     it("does NOT remove parent if siblings remain", async () => {
@@ -152,8 +151,8 @@ describe("migrations", () => {
         getObjectListAsync: async () => ({ rows: [{ id: "hueemu.0.info.connection" }] }),
         log: { debug: () => {} },
       });
-      expect(deleted).to.include("info.configuredDevices");
-      expect(deleted).to.not.include("info");
+      expect(deleted).toContain("info.configuredDevices");
+      expect(deleted).not.toContain("info");
     });
 
     it("skips IDs that don't exist", async () => {
@@ -168,29 +167,29 @@ describe("migrations", () => {
         getObjectListAsync: async () => null,
         log: { debug: () => {} },
       });
-      expect(calls).to.equal(0);
+      expect(calls).toBe(0);
     });
   });
 
   describe("OBSOLETE_STATE_IDS", () => {
     it("includes the documented ids from main.ts history", () => {
       const ids = OBSOLETE_STATE_IDS.map(o => o.id);
-      expect(ids).to.include("info.configuredDevices");
-      expect(ids).to.include("info.connection");
-      expect(ids).to.include("info");
-      expect(ids).to.include("createLight");
+      expect(ids).toContain("info.configuredDevices");
+      expect(ids).toContain("info.connection");
+      expect(ids).toContain("info");
+      expect(ids).toContain("createLight");
     });
   });
 
   describe("INSTANCE_OBJECT_MIGRATION_PAIRS", () => {
     it("covers startPairing, disableAuth, clients", () => {
       const ids = INSTANCE_OBJECT_MIGRATION_PAIRS.map(p => p.id);
-      expect(ids).to.deep.equal(["startPairing", "disableAuth", "clients"]);
+      expect(ids).toEqual(["startPairing", "disableAuth", "clients"]);
     });
 
     it("clients pair has no descKey (folder has no desc)", () => {
       const clients = INSTANCE_OBJECT_MIGRATION_PAIRS.find(p => p.id === "clients");
-      expect(clients!.descKey).to.be.undefined;
+      expect(clients!.descKey).toBeUndefined();
     });
   });
 });

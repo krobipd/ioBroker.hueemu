@@ -68,7 +68,7 @@ export class ApiHandler implements HueApiHandler {
       devices,
       logger: config.logger,
     });
-    this.log("debug", `${devices.length} device(s) configured`);
+    this.logger.debug(`${devices.length} device(s) configured`);
   }
 
   /**
@@ -93,7 +93,7 @@ export class ApiHandler implements HueApiHandler {
     // but belt-and-braces in case createUser is called from another path.
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
 
-    this.log("debug", `Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
+    this.logger.debug(`Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
 
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw HueApiError.linkButtonNotPressed("/api");
@@ -104,7 +104,7 @@ export class ApiHandler implements HueApiHandler {
     const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : undefined;
 
     if (providedUsername) {
-      this.log("debug", `Using provided username: ${providedUsername}`);
+      this.logger.debug(`Using provided username: ${providedUsername}`);
     }
 
     const username = await this.userService.createUser(providedUsername, devicetype);
@@ -120,7 +120,7 @@ export class ApiHandler implements HueApiHandler {
    * Get full bridge state
    */
   public async getFullState(_req: HueRequest, username: string): Promise<FullState> {
-    this.log("debug", `Get full state for user: ${username}`);
+    this.logger.debug(`Get full state for user: ${username}`);
 
     const lights = await this.lightService.getAllLights();
     const state = this.configService.buildFullState(lights);
@@ -132,7 +132,7 @@ export class ApiHandler implements HueApiHandler {
    * Get bridge configuration
    */
   public async getConfig(_req: HueRequest, _username: string): Promise<BridgeConfigPublic> {
-    this.log("debug", "Get config");
+    this.logger.debug("Get config");
     return this.configService.getConfig();
   }
 
@@ -140,7 +140,7 @@ export class ApiHandler implements HueApiHandler {
    * Get all lights
    */
   public async getAllLights(_req: HueRequest, _username: string): Promise<LightsCollection> {
-    this.log("debug", "Get all lights");
+    this.logger.debug("Get all lights");
     return this.lightService.getAllLights();
   }
 
@@ -148,7 +148,7 @@ export class ApiHandler implements HueApiHandler {
    * Get a single light by ID
    */
   public async getLightById(_req: HueRequest, _username: string, lightId: string): Promise<Light> {
-    this.log("debug", `Get light: ${lightId}`);
+    this.logger.debug(`Get light: ${lightId}`);
     return this.lightService.getLightById(lightId);
   }
 
@@ -161,7 +161,7 @@ export class ApiHandler implements HueApiHandler {
     lightId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
-    this.log("debug", `Set light ${lightId} state: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set light ${lightId} state: ${JSON.stringify(state)}`);
     return this.lightService.setLightState(lightId, state);
   }
 
@@ -174,7 +174,7 @@ export class ApiHandler implements HueApiHandler {
     groupId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
-    this.log("debug", `Set group ${groupId} action: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
 
     const lights = await this.lightService.getAllLights();
 
@@ -214,7 +214,7 @@ export class ApiHandler implements HueApiHandler {
       // the 50 s window.
       try {
         await this.userService.addUser(username, "auto-paired", true);
-        this.log("debug", `Pairing enabled, auto-added user: ${username}`);
+        this.logger.debug(`Pairing enabled, auto-added user: ${username}`);
         return true;
       } catch (err) {
         this.logger.warn(`Auto-add rejected for ${username}: ${errText(err)}`);
@@ -235,9 +235,5 @@ export class ApiHandler implements HueApiHandler {
    */
   public isAuthDisabled(): boolean {
     return this.adapter.disableAuth;
-  }
-
-  private log(level: "debug" | "info" | "warn" | "error", message: string): void {
-    this.logger[level](message);
   }
 }

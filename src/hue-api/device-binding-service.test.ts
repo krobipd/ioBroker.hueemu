@@ -2,7 +2,6 @@
  * Tests for DeviceBindingService — value conversions, light management, state setting
  */
 
-import { expect } from "chai";
 import { HueApiError, HueErrorType } from "../types/errors";
 import {
   DeviceBindingService,
@@ -29,7 +28,7 @@ describe("DeviceBindingService", () => {
   describe("deviceCount", () => {
     it("should return 0 for empty devices", () => {
       const { service } = createService([]);
-      expect(service.deviceCount).to.equal(0);
+      expect(service.deviceCount).toBe(0);
     });
 
     it("should return correct count", () => {
@@ -37,7 +36,7 @@ describe("DeviceBindingService", () => {
         { name: "Light 1", lightType: "onoff" },
         { name: "Light 2", lightType: "dimmable" },
       ]);
-      expect(service.deviceCount).to.equal(2);
+      expect(service.deviceCount).toBe(2);
     });
   });
 
@@ -45,7 +44,7 @@ describe("DeviceBindingService", () => {
     it("should return empty collection for no devices", async () => {
       const { service } = createService([]);
       const lights = await service.getAllLights();
-      expect(lights).to.deep.equal({});
+      expect(lights).toEqual({});
     });
 
     it("should return lights with 1-based IDs", async () => {
@@ -54,9 +53,9 @@ describe("DeviceBindingService", () => {
         { name: "Second", lightType: "dimmable" },
       ]);
       const lights = await service.getAllLights();
-      expect(Object.keys(lights)).to.deep.equal(["1", "2"]);
-      expect(lights["1"].name).to.equal("First");
-      expect(lights["2"].name).to.equal("Second");
+      expect(Object.keys(lights)).toEqual(["1", "2"]);
+      expect(lights["1"].name).toBe("First");
+      expect(lights["2"].name).toBe("Second");
     });
   });
 
@@ -65,10 +64,10 @@ describe("DeviceBindingService", () => {
       const { service } = createService([{ name: "Test", lightType: "onoff" }]);
       try {
         await service.getLightById("0");
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
-        expect((error as HueApiError).type).to.equal(
+        expect(error).toBeInstanceOf(HueApiError);
+        expect((error as HueApiError).type).toBe(
           HueErrorType.RESOURCE_NOT_AVAILABLE,
         );
       }
@@ -78,9 +77,9 @@ describe("DeviceBindingService", () => {
       const { service } = createService([{ name: "Test", lightType: "onoff" }]);
       try {
         await service.getLightById("5");
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
+        expect(error).toBeInstanceOf(HueApiError);
       }
     });
 
@@ -88,9 +87,9 @@ describe("DeviceBindingService", () => {
       const { service } = createService([{ name: "Test", lightType: "onoff" }]);
       try {
         await service.getLightById("-1");
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
+        expect(error).toBeInstanceOf(HueApiError);
       }
     });
 
@@ -102,10 +101,10 @@ describe("DeviceBindingService", () => {
       const { service } = createService([{ name: "Test", lightType: "onoff" }]);
       try {
         await service.getLightById("abc");
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
-        expect((error as HueApiError).type).to.equal(HueErrorType.RESOURCE_NOT_AVAILABLE);
+        expect(error).toBeInstanceOf(HueApiError);
+        expect((error as HueApiError).type).toBe(HueErrorType.RESOURCE_NOT_AVAILABLE);
       }
     });
 
@@ -113,10 +112,10 @@ describe("DeviceBindingService", () => {
       const { service } = createService([{ name: "Test", lightType: "onoff" }]);
       try {
         await service.getLightById("1.5");
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
-        expect((error as HueApiError).type).to.equal(HueErrorType.RESOURCE_NOT_AVAILABLE);
+        expect(error).toBeInstanceOf(HueApiError);
+        expect((error as HueApiError).type).toBe(HueErrorType.RESOURCE_NOT_AVAILABLE);
       }
     });
 
@@ -126,8 +125,8 @@ describe("DeviceBindingService", () => {
           { name: "Switch", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.modelid).to.equal("LWB007");
-        expect(light.type).to.equal("Dimmable light");
+        expect(light.modelid).toBe("LWB007");
+        expect(light.type).toBe("Dimmable light");
       });
 
       it("should map dimmable to LWB010 / Dimmable light", async () => {
@@ -135,15 +134,15 @@ describe("DeviceBindingService", () => {
           { name: "Dimmer", lightType: "dimmable" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.modelid).to.equal("LWB010");
-        expect(light.type).to.equal("Dimmable light");
+        expect(light.modelid).toBe("LWB010");
+        expect(light.type).toBe("Dimmable light");
       });
 
       it("should map ct to LTW001 / Color temperature light", async () => {
         const { service } = createService([{ name: "CT", lightType: "ct" }]);
         const light = await service.getLightById("1");
-        expect(light.modelid).to.equal("LTW001");
-        expect(light.type).to.equal("Color temperature light");
+        expect(light.modelid).toBe("LTW001");
+        expect(light.type).toBe("Color temperature light");
       });
 
       it("should map color to LCT003 / Extended color light", async () => {
@@ -151,8 +150,8 @@ describe("DeviceBindingService", () => {
           { name: "Color", lightType: "color" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.modelid).to.equal("LCT003");
-        expect(light.type).to.equal("Extended color light");
+        expect(light.modelid).toBe("LCT003");
+        expect(light.type).toBe("Extended color light");
       });
     });
 
@@ -162,7 +161,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.manufacturername).to.equal("Signify Netherlands B.V.");
+        expect(light.manufacturername).toBe("Signify Netherlands B.V.");
       });
 
       it("should generate unique ID based on light index (D5 v1.4.3 — 24-bit hex suffix)", async () => {
@@ -170,7 +169,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.uniqueid).to.equal("00:17:88:01:00:00:00:01-0b");
+        expect(light.uniqueid).toBe("00:17:88:01:00:00:00:01-0b");
       });
 
       it("should generate hex-encoded unique ID even at large counts (D5 v1.4.3)", async () => {
@@ -180,9 +179,9 @@ describe("DeviceBindingService", () => {
         }));
         const { service } = createService(devices);
         const light10 = await service.getLightById("10");
-        expect(light10.uniqueid).to.equal("00:17:88:01:00:00:00:0a-0b");
+        expect(light10.uniqueid).toBe("00:17:88:01:00:00:00:0a-0b");
         const light256 = await service.getLightById("256");
-        expect(light256.uniqueid).to.equal("00:17:88:01:00:00:01:00-0b");
+        expect(light256.uniqueid).toBe("00:17:88:01:00:00:01:00-0b");
       });
 
       it("should include software version", async () => {
@@ -190,7 +189,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.swversion).to.equal("1.0.0");
+        expect(light.swversion).toBe("1.0.0");
       });
 
       it("should set product name from light type config", async () => {
@@ -198,7 +197,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "color" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.productname).to.equal("Extended Color Light");
+        expect(light.productname).toBe("Extended Color Light");
       });
     });
 
@@ -208,7 +207,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
 
       it("should default bri to 254 when not mapped", async () => {
@@ -216,13 +215,13 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "dimmable" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       it("should default ct to 250 when not mapped", async () => {
         const { service } = createService([{ name: "Test", lightType: "ct" }]);
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(250);
+        expect(light.state.ct).toBe(250);
       });
 
       it("should default hue to 0 when not mapped", async () => {
@@ -230,7 +229,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "color" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(0);
+        expect(light.state.hue).toBe(0);
       });
 
       it("should default sat to 254 when not mapped", async () => {
@@ -238,7 +237,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "color" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.sat).to.equal(254);
+        expect(light.state.sat).toBe(254);
       });
 
       it("should default xy to [0.5, 0.5] when not mapped", async () => {
@@ -246,7 +245,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "color" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+        expect(light.state.xy).toEqual([0.5, 0.5]);
       });
     });
 
@@ -257,7 +256,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": [0.3, 0.4] },
         );
         const light = await service.getLightById("1");
-        expect(light.state.colormode).to.equal("xy");
+        expect(light.state.colormode).toBe("xy");
       });
 
       it("should set colormode to ct when ct is available but not xy", async () => {
@@ -266,7 +265,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": 300 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.colormode).to.equal("ct");
+        expect(light.state.colormode).toBe("ct");
       });
 
       it("should set colormode to xy for color lights (xy has priority over hs)", async () => {
@@ -284,7 +283,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": 10000, "test.sat": 200 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.colormode).to.equal("xy");
+        expect(light.state.colormode).toBe("xy");
       });
 
       it("should set colormode to hs for ct light with hue+sat only", async () => {
@@ -303,7 +302,7 @@ describe("DeviceBindingService", () => {
         );
         const light = await service.getLightById("1");
         // ct type doesn't have hue/sat in states list, so neither hs nor xy is set
-        expect(light.state.colormode).to.equal("ct");
+        expect(light.state.colormode).toBe("ct");
       });
     });
 
@@ -313,7 +312,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.reachable).to.equal(true);
+        expect(light.state.reachable).toBe(true);
       });
 
       it("should set mode to homeautomation", async () => {
@@ -321,7 +320,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "onoff" },
         ]);
         const light = await service.getLightById("1");
-        expect(light.state.mode).to.equal("homeautomation");
+        expect(light.state.mode).toBe("homeautomation");
       });
     });
   });
@@ -338,7 +337,7 @@ describe("DeviceBindingService", () => {
           { "test.on": true },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(true);
+        expect(light.state.on).toBe(true);
       });
 
       it("should convert false to false", async () => {
@@ -347,7 +346,7 @@ describe("DeviceBindingService", () => {
           { "test.on": false },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
 
       it("should convert 1 to true", async () => {
@@ -356,7 +355,7 @@ describe("DeviceBindingService", () => {
           { "test.on": 1 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(true);
+        expect(light.state.on).toBe(true);
       });
 
       it("should convert 0 to false", async () => {
@@ -365,7 +364,7 @@ describe("DeviceBindingService", () => {
           { "test.on": 0 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
 
       it("should handle string 'false' as false (Boolean('false') bug fix)", async () => {
@@ -374,7 +373,7 @@ describe("DeviceBindingService", () => {
           { "test.on": "false" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
 
       it("should handle string '0' as false", async () => {
@@ -383,7 +382,7 @@ describe("DeviceBindingService", () => {
           { "test.on": "0" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
 
       it("should handle empty string as false", async () => {
@@ -392,7 +391,7 @@ describe("DeviceBindingService", () => {
           { "test.on": "" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
 
       it("should handle string 'true' as true", async () => {
@@ -401,7 +400,7 @@ describe("DeviceBindingService", () => {
           { "test.on": "true" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(true);
+        expect(light.state.on).toBe(true);
       });
 
       it("should handle null as default (false)", async () => {
@@ -410,7 +409,7 @@ describe("DeviceBindingService", () => {
           { "test.on": null },
         );
         const light = await service.getLightById("1");
-        expect(light.state.on).to.equal(false);
+        expect(light.state.on).toBe(false);
       });
     });
 
@@ -421,7 +420,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 50 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(127);
+        expect(light.state.bri).toBe(127);
       });
 
       it("should convert percentage 100 to 254", async () => {
@@ -430,7 +429,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 100 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       it("should convert percentage 0 to minimum 1 (via max(1,...))", async () => {
@@ -442,7 +441,7 @@ describe("DeviceBindingService", () => {
         );
         const light = await service.getLightById("1");
         // 0 <= 1, so 0-1 range: Math.round(0 * 254) = 0
-        expect(light.state.bri).to.equal(0);
+        expect(light.state.bri).toBe(0);
       });
 
       it("should convert 0-1 range (0.5) to ~127", async () => {
@@ -451,7 +450,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 0.5 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(127);
+        expect(light.state.bri).toBe(127);
       });
 
       it("should convert 1.0 to 254", async () => {
@@ -460,7 +459,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 1.0 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       // D3 v1.4.4 — explicit scale per device.
@@ -471,8 +470,8 @@ describe("DeviceBindingService", () => {
         );
         const light = await service.getLightById("1");
         // 1 % of 254 = 2.54 → clampRound to min=1
-        expect(light.state.bri).to.be.at.most(3);
-        expect(light.state.bri).to.be.at.least(1);
+        expect(light.state.bri).toBeLessThanOrEqual(3);
+        expect(light.state.bri).toBeGreaterThanOrEqual(1);
       });
 
       it("briScale=percent: 50 → ~127 (Hue mid-range)", async () => {
@@ -481,7 +480,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 50 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(127);
+        expect(light.state.bri).toBe(127);
       });
 
       it("briScale=normalized: 0.5 → 127", async () => {
@@ -490,7 +489,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 0.5 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(127);
+        expect(light.state.bri).toBe(127);
       });
 
       it("briScale=raw: 200 → 200 (Hue native, no rescale)", async () => {
@@ -499,7 +498,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 200 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(200);
+        expect(light.state.bri).toBe(200);
       });
 
       it("should clamp values above 254 to 254", async () => {
@@ -508,7 +507,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": 300 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       it("should return 254 for non-numeric values", async () => {
@@ -517,7 +516,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": "not a number" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
     });
 
@@ -528,7 +527,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": 30000 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(30000);
+        expect(light.state.hue).toBe(30000);
       });
 
       it("should clamp to 0 for negative values", async () => {
@@ -537,7 +536,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": -100 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(0);
+        expect(light.state.hue).toBe(0);
       });
 
       it("should clamp to 65535 for values above range", async () => {
@@ -546,7 +545,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": 70000 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(65535);
+        expect(light.state.hue).toBe(65535);
       });
 
       it("should round fractional values", async () => {
@@ -555,7 +554,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": 30000.7 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(30001);
+        expect(light.state.hue).toBe(30001);
       });
 
       it("should return 0 for non-numeric values", async () => {
@@ -564,7 +563,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": "invalid" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(0);
+        expect(light.state.hue).toBe(0);
       });
     });
 
@@ -575,7 +574,7 @@ describe("DeviceBindingService", () => {
           { "test.sat": 100 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.sat).to.equal(254);
+        expect(light.state.sat).toBe(254);
       });
 
       it("should convert percentage 50 to ~127", async () => {
@@ -584,7 +583,7 @@ describe("DeviceBindingService", () => {
           { "test.sat": 50 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.sat).to.equal(127);
+        expect(light.state.sat).toBe(127);
       });
 
       it("should convert 0-1 range (0.5) to ~127", async () => {
@@ -593,7 +592,7 @@ describe("DeviceBindingService", () => {
           { "test.sat": 0.5 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.sat).to.equal(127);
+        expect(light.state.sat).toBe(127);
       });
 
       it("should handle negative values (treated as 0-1 range)", async () => {
@@ -605,7 +604,7 @@ describe("DeviceBindingService", () => {
         );
         const light = await service.getLightById("1");
         // -10 * 254 = -2540 (not clamped — edge case, negative input is nonsensical)
-        expect(light.state.sat).to.equal(-2540);
+        expect(light.state.sat).toBe(-2540);
       });
 
       it("should clamp to 254 maximum", async () => {
@@ -614,7 +613,7 @@ describe("DeviceBindingService", () => {
           { "test.sat": 300 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.sat).to.equal(254);
+        expect(light.state.sat).toBe(254);
       });
     });
 
@@ -625,7 +624,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": 300 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(300);
+        expect(light.state.ct).toBe(300);
       });
 
       it("should clamp to 153 minimum", async () => {
@@ -634,7 +633,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": 100 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(153);
+        expect(light.state.ct).toBe(153);
       });
 
       it("should clamp to 500 maximum", async () => {
@@ -643,7 +642,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": 600 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(500);
+        expect(light.state.ct).toBe(500);
       });
 
       it("should round fractional values", async () => {
@@ -652,7 +651,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": 299.7 },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(300);
+        expect(light.state.ct).toBe(300);
       });
 
       it("should return 250 for non-numeric values", async () => {
@@ -661,7 +660,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": "warm" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(250);
+        expect(light.state.ct).toBe(250);
       });
     });
 
@@ -672,7 +671,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": [0.3127, 0.329] },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.3127, 0.329]);
+        expect(light.state.xy).toEqual([0.3127, 0.329]);
       });
 
       it("should parse comma-separated string", async () => {
@@ -681,7 +680,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": "0.3127,0.3290" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.3127, 0.329]);
+        expect(light.state.xy).toEqual([0.3127, 0.329]);
       });
 
       it("should truncate arrays longer than 2", async () => {
@@ -690,7 +689,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": [0.1, 0.2, 0.3] },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.1, 0.2]);
+        expect(light.state.xy).toEqual([0.1, 0.2]);
       });
 
       it("should return default [0.5, 0.5] for invalid string", async () => {
@@ -699,7 +698,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": "invalid" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+        expect(light.state.xy).toEqual([0.5, 0.5]);
       });
 
       it("should return default [0.5, 0.5] for null", async () => {
@@ -708,7 +707,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": null },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+        expect(light.state.xy).toEqual([0.5, 0.5]);
       });
     });
 
@@ -721,7 +720,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": Number.NaN },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       it("bri Infinity falls back to default 254", async () => {
@@ -730,7 +729,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": Number.POSITIVE_INFINITY },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       it("bri object falls back to default 254", async () => {
@@ -739,7 +738,7 @@ describe("DeviceBindingService", () => {
           { "test.bri": { nested: 42 } },
         );
         const light = await service.getLightById("1");
-        expect(light.state.bri).to.equal(254);
+        expect(light.state.bri).toBe(254);
       });
 
       it('bri numeric string "50" converts as percentage', async () => {
@@ -749,7 +748,7 @@ describe("DeviceBindingService", () => {
         );
         const light = await service.getLightById("1");
         // 50/100 * 254 = 127
-        expect(light.state.bri).to.equal(127);
+        expect(light.state.bri).toBe(127);
       });
 
       it("hue NaN falls back to 0", async () => {
@@ -758,7 +757,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": Number.NaN },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(0);
+        expect(light.state.hue).toBe(0);
       });
 
       it('hue numeric string "12345" is coerced', async () => {
@@ -767,7 +766,7 @@ describe("DeviceBindingService", () => {
           { "test.hue": "12345" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.hue).to.equal(12345);
+        expect(light.state.hue).toBe(12345);
       });
 
       it("sat NaN falls back to default 254", async () => {
@@ -776,7 +775,7 @@ describe("DeviceBindingService", () => {
           { "test.sat": Number.NaN },
         );
         const light = await service.getLightById("1");
-        expect(light.state.sat).to.equal(254);
+        expect(light.state.sat).toBe(254);
       });
 
       it("ct NaN falls back to default 250", async () => {
@@ -785,7 +784,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": Number.NaN },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(250);
+        expect(light.state.ct).toBe(250);
       });
 
       it("ct -Infinity falls back to default 250", async () => {
@@ -794,7 +793,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": Number.NEGATIVE_INFINITY },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(250);
+        expect(light.state.ct).toBe(250);
       });
 
       it('ct numeric string "200" is coerced', async () => {
@@ -803,7 +802,7 @@ describe("DeviceBindingService", () => {
           { "test.ct": "200" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.ct).to.equal(200);
+        expect(light.state.ct).toBe(200);
       });
 
       it("xy array with NaN entry falls back to default", async () => {
@@ -812,7 +811,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": [Number.NaN, 0.4] },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+        expect(light.state.xy).toEqual([0.5, 0.5]);
       });
 
       it("xy array with non-numeric entries falls back to default", async () => {
@@ -821,7 +820,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": ["foo", "bar"] },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+        expect(light.state.xy).toEqual([0.5, 0.5]);
       });
 
       it('xy string "nan,0.4" falls back to default', async () => {
@@ -830,7 +829,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": "nan,0.4" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.5, 0.5]);
+        expect(light.state.xy).toEqual([0.5, 0.5]);
       });
 
       it('xy string of numeric values "0.33,0.29" parses', async () => {
@@ -839,7 +838,7 @@ describe("DeviceBindingService", () => {
           { "test.xy": "0.33,0.29" },
         );
         const light = await service.getLightById("1");
-        expect(light.state.xy).to.deep.equal([0.33, 0.29]);
+        expect(light.state.xy).toEqual([0.33, 0.29]);
       });
     });
   });
@@ -854,7 +853,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "onoff", onState: "test.on" },
       ]);
       await service.setLightState("1", { on: true });
-      expect(adapter.writtenStates.get("test.on")).to.equal(true);
+      expect(adapter.writtenStates.get("test.on")).toBe(true);
     });
 
     it("should convert on=false to boolean false", async () => {
@@ -862,7 +861,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "onoff", onState: "test.on" },
       ]);
       await service.setLightState("1", { on: false });
-      expect(adapter.writtenStates.get("test.on")).to.equal(false);
+      expect(adapter.writtenStates.get("test.on")).toBe(false);
     });
 
     it("should clamp bri to 1-254 range", async () => {
@@ -870,7 +869,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "dimmable", briState: "test.bri" },
       ]);
       await service.setLightState("1", { bri: 300 });
-      expect(adapter.writtenStates.get("test.bri")).to.equal(254);
+      expect(adapter.writtenStates.get("test.bri")).toBe(254);
     });
 
     // D3 v1.4.4 — write back in source scale so other consumers stay coherent.
@@ -879,7 +878,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "percent" },
       ]);
       await service.setLightState("1", { bri: 254 });
-      expect(adapter.writtenStates.get("test.bri")).to.equal(100);
+      expect(adapter.writtenStates.get("test.bri")).toBe(100);
     });
 
     it("briScale=normalized: writes back as 0..1 (D3 v1.4.4)", async () => {
@@ -888,7 +887,7 @@ describe("DeviceBindingService", () => {
       ]);
       await service.setLightState("1", { bri: 127 });
       const v = adapter.writtenStates.get("test.bri") as number;
-      expect(v).to.be.closeTo(0.5, 0.01);
+      expect(v).toBeCloseTo(0.5, 2);
     });
 
     it("briScale=raw: writes back unchanged Hue value (D3 v1.4.4)", async () => {
@@ -896,7 +895,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "dimmable", briState: "test.bri", briScale: "raw" },
       ]);
       await service.setLightState("1", { bri: 200 });
-      expect(adapter.writtenStates.get("test.bri")).to.equal(200);
+      expect(adapter.writtenStates.get("test.bri")).toBe(200);
     });
 
     it("satScale=percent: writes back as 0..100 (D3 v1.4.4)", async () => {
@@ -904,7 +903,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "color", satState: "test.sat", satScale: "percent" },
       ]);
       await service.setLightState("1", { sat: 254 });
-      expect(adapter.writtenStates.get("test.sat")).to.equal(100);
+      expect(adapter.writtenStates.get("test.sat")).toBe(100);
     });
 
     it("should clamp bri minimum to 1", async () => {
@@ -912,7 +911,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "dimmable", briState: "test.bri" },
       ]);
       await service.setLightState("1", { bri: 0 });
-      expect(adapter.writtenStates.get("test.bri")).to.equal(1);
+      expect(adapter.writtenStates.get("test.bri")).toBe(1);
     });
 
     it("should clamp hue to 0-65535", async () => {
@@ -920,7 +919,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "color", hueState: "test.hue" },
       ]);
       await service.setLightState("1", { hue: 70000 });
-      expect(adapter.writtenStates.get("test.hue")).to.equal(65535);
+      expect(adapter.writtenStates.get("test.hue")).toBe(65535);
     });
 
     it("should clamp sat to 0-254", async () => {
@@ -928,7 +927,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "color", satState: "test.sat" },
       ]);
       await service.setLightState("1", { sat: 300 });
-      expect(adapter.writtenStates.get("test.sat")).to.equal(254);
+      expect(adapter.writtenStates.get("test.sat")).toBe(254);
     });
 
     it("should clamp ct to 153-500", async () => {
@@ -936,7 +935,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "ct", ctState: "test.ct" },
       ]);
       await service.setLightState("1", { ct: 100 });
-      expect(adapter.writtenStates.get("test.ct")).to.equal(153);
+      expect(adapter.writtenStates.get("test.ct")).toBe(153);
     });
 
     it("should serialize xy array as JSON string", async () => {
@@ -944,7 +943,7 @@ describe("DeviceBindingService", () => {
         { name: "Test", lightType: "color", xyState: "test.xy" },
       ]);
       await service.setLightState("1", { xy: [0.3, 0.4] });
-      expect(adapter.writtenStates.get("test.xy")).to.equal("[0.3,0.4]");
+      expect(adapter.writtenStates.get("test.xy")).toBe("[0.3,0.4]");
     });
 
     // D4 v1.4.3 — write side serialises xy as JSON string `"[0.3,0.4]"`.
@@ -957,19 +956,19 @@ describe("DeviceBindingService", () => {
         { "test.xy": "[0.3,0.4]" },
       );
       const light = await service.getLightById("1");
-      expect(light.state.xy).to.deep.equal([0.3, 0.4]);
+      expect(light.state.xy).toEqual([0.3, 0.4]);
 
       // And after a write, the same JSON string round-trips back
       await service.setLightState("1", { xy: [0.7, 0.2] });
       const stored = adapter.writtenStates.get("test.xy");
-      expect(stored).to.equal("[0.7,0.2]");
+      expect(stored).toBe("[0.7,0.2]");
       // Simulate the next foreign-state read returning the stored JSON string.
       const fresh = createService(
         [{ name: "Test", lightType: "color", xyState: "test.xy" }],
         { "test.xy": stored },
       );
       const refreshed = await fresh.service.getLightById("1");
-      expect(refreshed.state.xy).to.deep.equal([0.7, 0.2]);
+      expect(refreshed.state.xy).toEqual([0.7, 0.2]);
     });
 
     // API-drift guards: malformed incoming Hue-client values must not leak
@@ -982,7 +981,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           bri: Number.NaN,
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.bri")).to.equal(254);
+        expect(adapter.writtenStates.get("test.bri")).toBe(254);
       });
 
       it("bri Infinity clamps to 254", async () => {
@@ -992,7 +991,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           bri: Number.POSITIVE_INFINITY,
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.bri")).to.equal(254);
+        expect(adapter.writtenStates.get("test.bri")).toBe(254);
       });
 
       it("bri fractional value is rounded", async () => {
@@ -1000,7 +999,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "dimmable", briState: "test.bri" },
         ]);
         await service.setLightState("1", { bri: 200.7 });
-        expect(adapter.writtenStates.get("test.bri")).to.equal(201);
+        expect(adapter.writtenStates.get("test.bri")).toBe(201);
       });
 
       it('bri numeric string "150" is coerced', async () => {
@@ -1010,7 +1009,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           bri: "150",
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.bri")).to.equal(150);
+        expect(adapter.writtenStates.get("test.bri")).toBe(150);
       });
 
       it("hue NaN falls back to 0", async () => {
@@ -1020,7 +1019,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           hue: Number.NaN,
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.hue")).to.equal(0);
+        expect(adapter.writtenStates.get("test.hue")).toBe(0);
       });
 
       it("hue object falls back to 0", async () => {
@@ -1030,7 +1029,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           hue: { foo: 1 },
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.hue")).to.equal(0);
+        expect(adapter.writtenStates.get("test.hue")).toBe(0);
       });
 
       it("sat Infinity clamps to 254", async () => {
@@ -1040,7 +1039,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           sat: Number.POSITIVE_INFINITY,
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.sat")).to.equal(254);
+        expect(adapter.writtenStates.get("test.sat")).toBe(254);
       });
 
       it("ct NaN falls back to default 250", async () => {
@@ -1050,7 +1049,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           ct: Number.NaN,
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.ct")).to.equal(250);
+        expect(adapter.writtenStates.get("test.ct")).toBe(250);
       });
 
       it('ct numeric string "200" is coerced', async () => {
@@ -1060,7 +1059,7 @@ describe("DeviceBindingService", () => {
         await service.setLightState("1", {
           ct: "200",
         } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.ct")).to.equal(200);
+        expect(adapter.writtenStates.get("test.ct")).toBe(200);
       });
 
       it("ct fractional is rounded", async () => {
@@ -1068,7 +1067,7 @@ describe("DeviceBindingService", () => {
           { name: "Test", lightType: "ct", ctState: "test.ct" },
         ]);
         await service.setLightState("1", { ct: 200.4 });
-        expect(adapter.writtenStates.get("test.ct")).to.equal(200);
+        expect(adapter.writtenStates.get("test.ct")).toBe(200);
       });
     });
   });
@@ -1084,9 +1083,9 @@ describe("DeviceBindingService", () => {
         },
       ]);
       const results = await service.setLightState("1", { on: true, bri: 200 });
-      expect(results).to.have.length(2);
-      expect(results[0]).to.have.property("success");
-      expect(results[1]).to.have.property("success");
+      expect(results).toHaveLength(2);
+      expect(results[0]).toHaveProperty("success");
+      expect(results[1]).toHaveProperty("success");
     });
 
     it("should include correct address paths in success", async () => {
@@ -1095,7 +1094,7 @@ describe("DeviceBindingService", () => {
       ]);
       const results = await service.setLightState("1", { on: true });
       const firstResult = results[0] as { success: Record<string, unknown> };
-      expect(firstResult.success).to.have.property("/lights/1/state/on");
+      expect(firstResult.success).toHaveProperty("/lights/1/state/on");
     });
 
     it("should still report success for unmapped states", async () => {
@@ -1103,17 +1102,17 @@ describe("DeviceBindingService", () => {
         [{ name: "Test", lightType: "onoff" }], // no onState mapped
       );
       const results = await service.setLightState("1", { on: true });
-      expect(results).to.have.length(1);
-      expect(results[0]).to.have.property("success");
+      expect(results).toHaveLength(1);
+      expect(results[0]).toHaveProperty("success");
     });
 
     it("should throw for invalid light ID", async () => {
       const { service } = createService([{ name: "Test", lightType: "onoff" }]);
       try {
         await service.setLightState("99", { on: true });
-        expect.fail("Should have thrown");
+        throw new Error("Should have thrown");
       } catch (error) {
-        expect(error).to.be.instanceOf(HueApiError);
+        expect(error).toBeInstanceOf(HueApiError);
       }
     });
   });
@@ -1132,7 +1131,7 @@ describe("DeviceBindingService", () => {
 
       // Should read from cache
       const light = await service.getLightById("1");
-      expect(light.state.on).to.equal(true);
+      expect(light.state.on).toBe(true);
     });
 
     it("should update cache when setting state", async () => {
@@ -1143,7 +1142,7 @@ describe("DeviceBindingService", () => {
 
       // Cache should be updated with the converted value
       const light = await service.getLightById("1");
-      expect(light.state.on).to.equal(true);
+      expect(light.state.on).toBe(true);
     });
   });
 
@@ -1163,12 +1162,12 @@ describe("DeviceBindingService", () => {
       ]);
       await service.initialize();
 
-      expect(adapter.subscribedPatterns).to.include("lights.kitchen.on");
-      expect(adapter.subscribedPatterns).to.include("lights.kitchen.bri");
-      expect(adapter.subscribedPatterns).to.include("lights.kitchen.hue");
-      expect(adapter.subscribedPatterns).to.include("lights.kitchen.sat");
-      expect(adapter.subscribedPatterns).to.include("lights.kitchen.ct");
-      expect(adapter.subscribedPatterns).to.include("lights.kitchen.xy");
+      expect(adapter.subscribedPatterns).toContain("lights.kitchen.on");
+      expect(adapter.subscribedPatterns).toContain("lights.kitchen.bri");
+      expect(adapter.subscribedPatterns).toContain("lights.kitchen.hue");
+      expect(adapter.subscribedPatterns).toContain("lights.kitchen.sat");
+      expect(adapter.subscribedPatterns).toContain("lights.kitchen.ct");
+      expect(adapter.subscribedPatterns).toContain("lights.kitchen.xy");
     });
 
     it("should not subscribe if no states are mapped", async () => {
@@ -1176,7 +1175,7 @@ describe("DeviceBindingService", () => {
         [{ name: "Test", lightType: "onoff" }], // no state IDs mapped
       );
       await service.initialize();
-      expect(adapter.subscribedPatterns).to.have.length(0);
+      expect(adapter.subscribedPatterns).toHaveLength(0);
     });
   });
 });
@@ -1211,13 +1210,13 @@ describe("Light type integration", () => {
     );
 
     const light = await service.getLightById("1");
-    expect(light.name).to.equal("Kitchen Switch");
-    expect(light.type).to.equal("Dimmable light");
-    expect(light.modelid).to.equal("LWB007");
-    expect(light.state.on).to.equal(true);
-    expect(light.state.reachable).to.equal(true);
+    expect(light.name).toBe("Kitchen Switch");
+    expect(light.type).toBe("Dimmable light");
+    expect(light.modelid).toBe("LWB007");
+    expect(light.state.on).toBe(true);
+    expect(light.state.reachable).toBe(true);
     // onoff type includes bri in its states array (from LIGHT_TYPES)
-    expect(light.state.bri).to.equal(254); // default since not mapped
+    expect(light.state.bri).toBe(254); // default since not mapped
   });
 
   it("should build complete dimmable light from states", async () => {
@@ -1232,12 +1231,12 @@ describe("Light type integration", () => {
     );
 
     const light = await service.getLightById("1");
-    expect(light.name).to.equal("Living Room");
-    expect(light.type).to.equal("Dimmable light");
-    expect(light.modelid).to.equal("LWB010");
-    expect(light.state.on).to.equal(true);
+    expect(light.name).toBe("Living Room");
+    expect(light.type).toBe("Dimmable light");
+    expect(light.modelid).toBe("LWB010");
+    expect(light.state.on).toBe(true);
     // 75 is in 0-100 range, so (75/100)*254 = 190.5 → 191
-    expect(light.state.bri).to.equal(191);
+    expect(light.state.bri).toBe(191);
   });
 
   it("should build complete ct light from states", async () => {
@@ -1257,13 +1256,13 @@ describe("Light type integration", () => {
     );
 
     const light = await service.getLightById("1");
-    expect(light.name).to.equal("Bedroom");
-    expect(light.type).to.equal("Color temperature light");
-    expect(light.modelid).to.equal("LTW001");
-    expect(light.state.on).to.equal(false);
-    expect(light.state.bri).to.equal(254); // 100 maps to 254
-    expect(light.state.ct).to.equal(350);
-    expect(light.state.colormode).to.equal("ct");
+    expect(light.name).toBe("Bedroom");
+    expect(light.type).toBe("Color temperature light");
+    expect(light.modelid).toBe("LTW001");
+    expect(light.state.on).toBe(false);
+    expect(light.state.bri).toBe(254); // 100 maps to 254
+    expect(light.state.ct).toBe(350);
+    expect(light.state.colormode).toBe("ct");
   });
 
   it("should build complete color light from states", async () => {
@@ -1289,18 +1288,18 @@ describe("Light type integration", () => {
     );
 
     const light = await service.getLightById("1");
-    expect(light.name).to.equal("Party Light");
-    expect(light.type).to.equal("Extended color light");
-    expect(light.modelid).to.equal("LCT003");
-    expect(light.state.on).to.equal(true);
+    expect(light.name).toBe("Party Light");
+    expect(light.type).toBe("Extended color light");
+    expect(light.modelid).toBe("LCT003");
+    expect(light.state.on).toBe(true);
     // 80 in percentage range: round(80/100 * 254) = 203
-    expect(light.state.bri).to.equal(203);
-    expect(light.state.hue).to.equal(25000);
-    expect(light.state.sat).to.equal(200);
-    expect(light.state.ct).to.equal(200);
-    expect(light.state.xy).to.deep.equal([0.4, 0.3]);
+    expect(light.state.bri).toBe(203);
+    expect(light.state.hue).toBe(25000);
+    expect(light.state.sat).toBe(200);
+    expect(light.state.ct).toBe(200);
+    expect(light.state.xy).toEqual([0.4, 0.3]);
     // xy takes precedence for colormode
-    expect(light.state.colormode).to.equal("xy");
+    expect(light.state.colormode).toBe("xy");
   });
 
   it("should handle missing ioBroker state gracefully", async () => {
@@ -1316,7 +1315,7 @@ describe("Light type integration", () => {
 
     // Should not throw, should use defaults
     const light = await service.getLightById("1");
-    expect(light.state.on).to.equal(false); // default
-    expect(light.state.bri).to.equal(254); // default
+    expect(light.state.on).toBe(false); // default
+    expect(light.state.bri).toBe(254); // default
   });
 });
