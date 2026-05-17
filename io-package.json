@@ -1,279 +1,279 @@
 {
-  "common": {
-    "name": "hueemu",
-    "version": "1.4.6",
-    "news": {
-      "1.4.6": {
-        "en": "Internal modernisation: updated TypeScript, test runner, linting and release toolchain. No user-facing changes.",
-        "de": "Interne Modernisierung: aktualisiertes TypeScript, Test-Runner, Linting und Release-Toolchain. Keine nutzersichtbaren Änderungen.",
-        "ru": "Внутренняя модернизация: обновлены TypeScript, тестовый движок, линтинг и инструменты релиза. Видимых изменений нет.",
-        "pt": "Modernização interna: TypeScript, executor de testes, linting e toolchain de release atualizados. Sem alterações visíveis ao utilizador.",
-        "nl": "Interne modernisering: bijgewerkt TypeScript, testrunner, linting en release-toolchain. Geen zichtbare wijzigingen voor de gebruiker.",
-        "fr": "Modernisation interne : TypeScript, exécuteur de tests, outillage de linting et de release mis à jour. Aucun changement visible pour l'utilisateur.",
-        "it": "Modernizzazione interna: TypeScript, test runner, linting e toolchain di rilascio aggiornati. Nessuna modifica visibile all'utente.",
-        "es": "Modernización interna: TypeScript, ejecutor de pruebas, linting y toolchain de release actualizados. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzna modernizacja: zaktualizowano TypeScript, runner testów, narzędzia lintingu i wydań. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішня модернізація: оновлено TypeScript, тестовий движок, засоби лінтингу та релізу. Жодних змін для користувача.",
-        "zh-cn": "内部现代化：更新了 TypeScript、测试运行器、代码检查和发布工具链。无用户可见更改。"
-      },
-      "1.4.5": {
-        "en": "Debug log traces previously silent paths: TLS cert validity on reuse, Hue API errors, SSDP discovery responses and device-binding scale decisions. Default log unchanged.",
-        "de": "Debug-Log dokumentiert stille Pfade: TLS-Zertifikat-Prüfung beim Wiederverwenden, Hue-API-Fehler, SSDP-Antworten und Skalen-Entscheidungen im Device-Binding. Default-Log unverändert.",
-        "ru": "Журнал отладки прослеживает тихие пути: проверка TLS-сертификата при повторном использовании, ошибки Hue API, ответы SSDP и решения масштабирования. Стандартный лог не изменился.",
-        "pt": "Log de depuração rastreia caminhos silenciosos: validade do certificado TLS ao reutilizar, erros da API Hue, respostas SSDP e decisões de escala. Log padrão inalterado.",
-        "nl": "Debug-log volgt stille paden: TLS-certificaat geldigheid bij hergebruik, Hue API-fouten, SSDP-antwoorden en schaalbeslissingen. Standaard log ongewijzigd.",
-        "fr": "Le journal de débogage trace les chemins silencieux : validité du certificat TLS au réemploi, erreurs Hue API, réponses SSDP et décisions d'échelle. Journal par défaut inchangé.",
-        "it": "Log di debug traccia percorsi silenziosi: validità del certificato TLS al riuso, errori dell'API Hue, risposte SSDP e decisioni di scala. Log predefinito invariato.",
-        "es": "Log de depuración rastrea rutas silenciosas: validez del certificado TLS al reutilizar, errores de la API Hue, respuestas SSDP y decisiones de escala. Log por defecto sin cambios.",
-        "pl": "Log debugowania śledzi ciche ścieżki: ważność certyfikatu TLS przy ponownym użyciu, błędy API Hue, odpowiedzi SSDP i decyzje skali. Domyślny log bez zmian.",
-        "uk": "Журнал зневадження відстежує тихі шляхи: дійсність TLS-сертифіката при повторному використанні, помилки Hue API, відповіді SSDP і рішення масштабу. Стандартний лог без змін.",
-        "zh-cn": "调试日志跟踪以前静默的路径：复用时的 TLS 证书有效性、Hue API 错误、SSDP 发现响应以及 device-binding 缩放决策。默认日志保持不变。"
-      },
-      "1.4.4": {
-        "en": "Brightness and saturation now have an explicit scale option per device (Auto / Percent / Normalized / Hue-Raw). Pick Percent on devices storing 0..100 — fixes 1 % misread as full bright.",
-        "de": "Helligkeit und Sättigung haben jetzt pro Gerät eine explizite Skala-Option (Auto / Prozent / Normalisiert / Hue-Roh). Bei Geräten mit 0..100 Prozent wählen — fixt 1 % als Vollhelligkeit.",
-        "ru": "Яркость и насыщенность теперь имеют явный выбор шкалы на устройство (Auto / Percent / Normalized / Hue-Raw). Для устройств 0..100 выберите Percent — устраняет ошибку 1 % как макс яркость.",
-        "pt": "Brilho e saturação agora têm escala explícita por dispositivo (Auto / Percent / Normalized / Hue-Raw). Escolha Percent em dispositivos 0..100 — corrige 1 % lido como brilho máximo.",
-        "nl": "Helderheid en verzadiging hebben nu een expliciete schaal per apparaat (Auto / Percent / Normalized / Hue-Raw). Kies Percent voor 0..100-apparaten — lost 1 % gelezen als max helderheid op.",
-        "fr": "La luminosité et la saturation ont désormais une échelle explicite par appareil (Auto / Pourcentage / Normalisé / Hue-Brut). Choisissez Pourcentage pour 0..100 — corrige 1 % lu comme max.",
-        "it": "Luminosità e saturazione ora hanno una scala esplicita per dispositivo (Auto / Percentuale / Normalizzato / Hue-Grezzo). Scegli Percentuale per 0..100 — risolve 1 % letto come massimo.",
-        "es": "El brillo y la saturación ahora tienen escala explícita por dispositivo (Auto / Porcentaje / Normalizado / Hue-Crudo). Elija Porcentaje para 0..100 — corrige 1 % leído como brillo máximo.",
-        "pl": "Jasność i nasycenie mają teraz jawną skalę per urządzenie (Auto / Procent / Znormalizowane / Hue-Surowe). Wybierz Procent dla 0..100 — naprawia 1 % odczytany jako pełna jasność.",
-        "uk": "Яскравість і насиченість тепер мають явну шкалу на пристрій (Auto / Відсотки / Нормалізовано / Hue-Сире). Для пристроїв 0..100 — Відсотки; виправляє 1 % як максимум.",
-        "zh-cn": "亮度和饱和度现在为每个设备提供明确的刻度选项（自动 / 百分比 / 归一化 / Hue 原生）。对于使用 0..100 的设备请选择百分比，修复 1 % 被读成最大亮度的问题，旧设备默认保留自动模式。"
-      },
-      "1.4.3": {
-        "en": "TLS certificate is now reused across restarts (clients trust it once), the HTTP API stays up even when SSDP port 1900 is busy, and pairing has a 64-client per-window safety cap.",
-        "de": "Das TLS-Zertifikat bleibt über Neustarts erhalten (Clients vertrauen einmal), die HTTP-API läuft auch wenn SSDP-Port 1900 belegt ist, und Pairing hat ein 64-Clients-Limit pro Fenster.",
-        "ru": "TLS-сертификат сохраняется между перезапусками (клиенты доверяют ему один раз), HTTP API работает даже при занятом SSDP-порту 1900, у сопряжения лимит 64 клиента на окно.",
-        "pt": "O certificado TLS é reutilizado entre reinícios (os clientes confiam uma vez), a API HTTP funciona mesmo com a porta SSDP 1900 ocupada, e o pairing tem limite de 64 clientes por janela.",
-        "nl": "TLS-certificaat blijft tussen herstarts (clients vertrouwen één keer), HTTP-API blijft beschikbaar bij bezette SSDP-poort 1900, pairing heeft limiet 64 clients per venster.",
-        "fr": "Le certificat TLS est réutilisé après redémarrage (clients acceptent une fois), l'API HTTP reste accessible si le port SSDP 1900 est pris, appairage limité à 64 clients par fenêtre.",
-        "it": "Il certificato TLS viene riutilizzato dopo un riavvio (i client lo accettano una sola volta), l'API HTTP resta attiva anche con la porta SSDP 1900 occupata, pairing limitato a 64 client per finestra.",
-        "es": "El certificado TLS se conserva entre reinicios (los clientes lo aceptan una vez), la API HTTP funciona aunque el puerto SSDP 1900 esté ocupado, pairing limitado a 64 clientes por ventana.",
-        "pl": "Certyfikat TLS jest zachowywany między restartami (klienci ufają mu raz), API HTTP działa nawet gdy port SSDP 1900 jest zajęty, parowanie ma limit 64 klientów na okno.",
-        "uk": "TLS-сертифікат зберігається між перезапусками (клієнти довіряють йому один раз), HTTP API працює навіть із зайнятим SSDP-портом 1900, спарювання має ліміт 64 клієнтів на вікно.",
-        "zh-cn": "TLS 证书在重启之间保留（客户端只需信任一次），即使 SSDP 端口 1900 被占用 HTTP API 仍可访问，配对窗口最多接受 64 个客户端，避免局域网噪声填满网桥。"
-      },
-      "1.4.2": {
-        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) remain unchanged.",
-        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen (11 Sprachen) bleiben erhalten.",
-        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний (11 языков) сохраняются.",
-        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Os nomes de estados localizados (11 idiomas) permanecem inalterados.",
-        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen (11 talen) blijven ongewijzigd.",
-        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états localisés (11 langues) restent inchangés.",
-        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati localizzati (11 lingue) rimangono invariati.",
-        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados localizados (11 idiomas) permanecen sin cambios.",
-        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów (11 języków) pozostają bez zmian.",
-        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів (11 мов) залишаються без змін.",
-        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称（11 种语言）保持不变。"
-      },
-      "1.4.1": {
-        "en": "Internal hardening (type safety + test coverage). No user-facing changes.",
-        "de": "Internes Hardening (Typsicherheit + Testabdeckung). Keine Änderungen für Benutzer.",
-        "ru": "Внутреннее упрочнение (типобезопасность + покрытие тестами). Для пользователей ничего не меняется.",
-        "pt": "Robustecimento interno (segurança de tipos + cobertura de testes). Sem alterações para utilizadores.",
-        "nl": "Interne hardening (type-veiligheid + testdekking). Geen wijzigingen voor gebruikers.",
-        "fr": "Renforcement interne (sécurité des types + couverture de tests). Aucun changement pour les utilisateurs.",
-        "it": "Rafforzamento interno (type-safety + copertura di test). Nessuna modifica per gli utenti.",
-        "es": "Endurecimiento interno (seguridad de tipos + cobertura de tests). Sin cambios para los usuarios.",
-        "pl": "Wewnętrzne wzmocnienie (typy + pokrycie testami). Bez zmian dla użytkowników.",
-        "uk": "Внутрішнє зміцнення (типобезпека + покриття тестами). Без змін для користувачів.",
-        "zh-cn": "内部加固（类型安全 + 测试覆盖）。用户无任何变化。"
-      },
-      "1.4.0": {
-        "en": "State names and log messages localized in 11 ioBroker languages, following the system setting. Existing v1.3.x installs migrated automatically. Baseline: Node 22, Admin 7.8.23.",
-        "de": "Datenpunkt-Namen und Log-Meldungen in 11 ioBroker-Sprachen, folgen der Systemsprache. Bestehende v1.3.x-Installs werden automatisch migriert. Basis: Node 22, Admin 7.8.23.",
-        "ru": "Имена датчиков и сообщения журнала на 11 языках ioBroker, следуют системному языку. Существующие установки v1.3.x мигрируются автоматически. База: Node 22, Admin 7.8.23.",
-        "pt": "Nomes de datapoints e logs em 11 idiomas ioBroker, seguindo o idioma do sistema. Instalações v1.3.x existentes são migradas automaticamente. Base: Node 22, Admin 7.8.23.",
-        "nl": "Datapunt-namen en logberichten in 11 ioBroker-talen, volgen de systeemtaal. Bestaande v1.3.x-installaties worden automatisch gemigreerd. Basis: Node 22, Admin 7.8.23.",
-        "fr": "Noms de datapoints et logs traduits en 11 langues ioBroker, suivent la langue système. Les installations v1.3.x existantes sont migrées automatiquement. Base : Node 22, Admin 7.8.23.",
-        "it": "Nomi dei datapoint e log in 11 lingue ioBroker, seguono la lingua di sistema. Le installazioni v1.3.x esistenti vengono migrate automaticamente. Base: Node 22, Admin 7.8.23.",
-        "es": "Nombres de datapoints y logs en 11 idiomas ioBroker, siguen el idioma del sistema. Las instalaciones v1.3.x existentes se migran automáticamente. Base: Node 22, Admin 7.8.23.",
-        "pl": "Nazwy datapointów i logi w 11 językach ioBroker, podążają za językiem systemu. Istniejące instalacje v1.3.x są migrowane automatycznie. Baza: Node 22, Admin 7.8.23.",
-        "uk": "Назви датапойнтів та логи 11 мовами ioBroker, слідують за системною мовою. Наявні встановлення v1.3.x мігрують автоматично. База: Node 22, Admin 7.8.23.",
-        "zh-cn": "数据点名称和日志现支持 11 种 ioBroker 语言，跟随系统语言。现有 v1.3.x 安装将自动迁移。基线：Node 22，Admin 7.8.23。"
-      }
+    "common": {
+        "name": "hueemu",
+        "version": "1.4.6",
+        "news": {
+            "1.4.6": {
+                "en": "Internal refactoring. No user-facing changes.",
+                "de": "Interne Überarbeitung. Keine nutzersichtbaren Änderungen.",
+                "ru": "Внутренняя переработка. Видимых изменений нет.",
+                "pt": "Refatoração interna. Sem alterações visíveis ao utilizador.",
+                "nl": "Interne herstructurering. Geen zichtbare wijzigingen voor de gebruiker.",
+                "fr": "Refactorisation interne. Aucun changement visible pour l'utilisateur.",
+                "it": "Ristrutturazione interna. Nessuna modifica visibile all'utente.",
+                "es": "Refactorización interna. Sin cambios visibles para el usuario.",
+                "pl": "Wewnętrzna przebudowa. Brak zmian widocznych dla użytkownika.",
+                "uk": "Внутрішня переробка. Жодних змін для користувача.",
+                "zh-cn": "内部重构。无用户可见更改。"
+            },
+            "1.4.5": {
+                "en": "Debug log traces previously silent paths: TLS cert validity on reuse, Hue API errors, SSDP discovery responses and device-binding scale decisions. Default log unchanged.",
+                "de": "Debug-Log dokumentiert stille Pfade: TLS-Zertifikat-Prüfung beim Wiederverwenden, Hue-API-Fehler, SSDP-Antworten und Skalen-Entscheidungen im Device-Binding. Default-Log unverändert.",
+                "ru": "Журнал отладки прослеживает тихие пути: проверка TLS-сертификата при повторном использовании, ошибки Hue API, ответы SSDP и решения масштабирования. Стандартный лог не изменился.",
+                "pt": "Log de depuração rastreia caminhos silenciosos: validade do certificado TLS ao reutilizar, erros da API Hue, respostas SSDP e decisões de escala. Log padrão inalterado.",
+                "nl": "Debug-log volgt stille paden: TLS-certificaat geldigheid bij hergebruik, Hue API-fouten, SSDP-antwoorden en schaalbeslissingen. Standaard log ongewijzigd.",
+                "fr": "Le journal de débogage trace les chemins silencieux : validité du certificat TLS au réemploi, erreurs Hue API, réponses SSDP et décisions d'échelle. Journal par défaut inchangé.",
+                "it": "Log di debug traccia percorsi silenziosi: validità del certificato TLS al riuso, errori dell'API Hue, risposte SSDP e decisioni di scala. Log predefinito invariato.",
+                "es": "Log de depuración rastrea rutas silenciosas: validez del certificado TLS al reutilizar, errores de la API Hue, respuestas SSDP y decisiones de escala. Log por defecto sin cambios.",
+                "pl": "Log debugowania śledzi ciche ścieżki: ważność certyfikatu TLS przy ponownym użyciu, błędy API Hue, odpowiedzi SSDP i decyzje skali. Domyślny log bez zmian.",
+                "uk": "Журнал зневадження відстежує тихі шляхи: дійсність TLS-сертифіката при повторному використанні, помилки Hue API, відповіді SSDP і рішення масштабу. Стандартний лог без змін.",
+                "zh-cn": "调试日志跟踪以前静默的路径：复用时的 TLS 证书有效性、Hue API 错误、SSDP 发现响应以及 device-binding 缩放决策。默认日志保持不变。"
+            },
+            "1.4.4": {
+                "en": "Brightness and saturation now have an explicit scale option per device (Auto / Percent / Normalized / Hue-Raw). Pick Percent on devices storing 0..100 — fixes 1 % misread as full bright.",
+                "de": "Helligkeit und Sättigung haben jetzt pro Gerät eine explizite Skala-Option (Auto / Prozent / Normalisiert / Hue-Roh). Bei Geräten mit 0..100 Prozent wählen — fixt 1 % als Vollhelligkeit.",
+                "ru": "Яркость и насыщенность теперь имеют явный выбор шкалы на устройство (Auto / Percent / Normalized / Hue-Raw). Для устройств 0..100 выберите Percent — устраняет ошибку 1 % как макс яркость.",
+                "pt": "Brilho e saturação agora têm escala explícita por dispositivo (Auto / Percent / Normalized / Hue-Raw). Escolha Percent em dispositivos 0..100 — corrige 1 % lido como brilho máximo.",
+                "nl": "Helderheid en verzadiging hebben nu een expliciete schaal per apparaat (Auto / Percent / Normalized / Hue-Raw). Kies Percent voor 0..100-apparaten — lost 1 % gelezen als max helderheid op.",
+                "fr": "La luminosité et la saturation ont désormais une échelle explicite par appareil (Auto / Pourcentage / Normalisé / Hue-Brut). Choisissez Pourcentage pour 0..100 — corrige 1 % lu comme max.",
+                "it": "Luminosità e saturazione ora hanno una scala esplicita per dispositivo (Auto / Percentuale / Normalizzato / Hue-Grezzo). Scegli Percentuale per 0..100 — risolve 1 % letto come massimo.",
+                "es": "El brillo y la saturación ahora tienen escala explícita por dispositivo (Auto / Porcentaje / Normalizado / Hue-Crudo). Elija Porcentaje para 0..100 — corrige 1 % leído como brillo máximo.",
+                "pl": "Jasność i nasycenie mają teraz jawną skalę per urządzenie (Auto / Procent / Znormalizowane / Hue-Surowe). Wybierz Procent dla 0..100 — naprawia 1 % odczytany jako pełna jasność.",
+                "uk": "Яскравість і насиченість тепер мають явну шкалу на пристрій (Auto / Відсотки / Нормалізовано / Hue-Сире). Для пристроїв 0..100 — Відсотки; виправляє 1 % як максимум.",
+                "zh-cn": "亮度和饱和度现在为每个设备提供明确的刻度选项（自动 / 百分比 / 归一化 / Hue 原生）。对于使用 0..100 的设备请选择百分比，修复 1 % 被读成最大亮度的问题，旧设备默认保留自动模式。"
+            },
+            "1.4.3": {
+                "en": "TLS certificate is now reused across restarts (clients trust it once), the HTTP API stays up even when SSDP port 1900 is busy, and pairing has a 64-client per-window safety cap.",
+                "de": "Das TLS-Zertifikat bleibt über Neustarts erhalten (Clients vertrauen einmal), die HTTP-API läuft auch wenn SSDP-Port 1900 belegt ist, und Pairing hat ein 64-Clients-Limit pro Fenster.",
+                "ru": "TLS-сертификат сохраняется между перезапусками (клиенты доверяют ему один раз), HTTP API работает даже при занятом SSDP-порту 1900, у сопряжения лимит 64 клиента на окно.",
+                "pt": "O certificado TLS é reutilizado entre reinícios (os clientes confiam uma vez), a API HTTP funciona mesmo com a porta SSDP 1900 ocupada, e o pairing tem limite de 64 clientes por janela.",
+                "nl": "TLS-certificaat blijft tussen herstarts (clients vertrouwen één keer), HTTP-API blijft beschikbaar bij bezette SSDP-poort 1900, pairing heeft limiet 64 clients per venster.",
+                "fr": "Le certificat TLS est réutilisé après redémarrage (clients acceptent une fois), l'API HTTP reste accessible si le port SSDP 1900 est pris, appairage limité à 64 clients par fenêtre.",
+                "it": "Il certificato TLS viene riutilizzato dopo un riavvio (i client lo accettano una sola volta), l'API HTTP resta attiva anche con la porta SSDP 1900 occupata, pairing limitato a 64 client per finestra.",
+                "es": "El certificado TLS se conserva entre reinicios (los clientes lo aceptan una vez), la API HTTP funciona aunque el puerto SSDP 1900 esté ocupado, pairing limitado a 64 clientes por ventana.",
+                "pl": "Certyfikat TLS jest zachowywany między restartami (klienci ufają mu raz), API HTTP działa nawet gdy port SSDP 1900 jest zajęty, parowanie ma limit 64 klientów na okno.",
+                "uk": "TLS-сертифікат зберігається між перезапусками (клієнти довіряють йому один раз), HTTP API працює навіть із зайнятим SSDP-портом 1900, спарювання має ліміт 64 клієнтів на вікно.",
+                "zh-cn": "TLS 证书在重启之间保留（客户端只需信任一次），即使 SSDP 端口 1900 被占用 HTTP API 仍可访问，配对窗口最多接受 64 个客户端，避免局域网噪声填满网桥。"
+            },
+            "1.4.2": {
+                "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) remain unchanged.",
+                "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen (11 Sprachen) bleiben erhalten.",
+                "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний (11 языков) сохраняются.",
+                "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Os nomes de estados localizados (11 idiomas) permanecem inalterados.",
+                "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen (11 talen) blijven ongewijzigd.",
+                "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états localisés (11 langues) restent inchangés.",
+                "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati localizzati (11 lingue) rimangono invariati.",
+                "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados localizados (11 idiomas) permanecen sin cambios.",
+                "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów (11 języków) pozostają bez zmian.",
+                "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів (11 мов) залишаються без змін.",
+                "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称（11 种语言）保持不变。"
+            },
+            "1.4.1": {
+                "en": "Internal hardening (type safety + test coverage). No user-facing changes.",
+                "de": "Internes Hardening (Typsicherheit + Testabdeckung). Keine Änderungen für Benutzer.",
+                "ru": "Внутреннее упрочнение (типобезопасность + покрытие тестами). Для пользователей ничего не меняется.",
+                "pt": "Robustecimento interno (segurança de tipos + cobertura de testes). Sem alterações para utilizadores.",
+                "nl": "Interne hardening (type-veiligheid + testdekking). Geen wijzigingen voor gebruikers.",
+                "fr": "Renforcement interne (sécurité des types + couverture de tests). Aucun changement pour les utilisateurs.",
+                "it": "Rafforzamento interno (type-safety + copertura di test). Nessuna modifica per gli utenti.",
+                "es": "Endurecimiento interno (seguridad de tipos + cobertura de tests). Sin cambios para los usuarios.",
+                "pl": "Wewnętrzne wzmocnienie (typy + pokrycie testami). Bez zmian dla użytkowników.",
+                "uk": "Внутрішнє зміцнення (типобезпека + покриття тестами). Без змін для користувачів.",
+                "zh-cn": "内部加固（类型安全 + 测试覆盖）。用户无任何变化。"
+            },
+            "1.4.0": {
+                "en": "State names and log messages localized in 11 ioBroker languages, following the system setting. Existing v1.3.x installs migrated automatically. Baseline: Node 22, Admin 7.8.23.",
+                "de": "Datenpunkt-Namen und Log-Meldungen in 11 ioBroker-Sprachen, folgen der Systemsprache. Bestehende v1.3.x-Installs werden automatisch migriert. Basis: Node 22, Admin 7.8.23.",
+                "ru": "Имена датчиков и сообщения журнала на 11 языках ioBroker, следуют системному языку. Существующие установки v1.3.x мигрируются автоматически. База: Node 22, Admin 7.8.23.",
+                "pt": "Nomes de datapoints e logs em 11 idiomas ioBroker, seguindo o idioma do sistema. Instalações v1.3.x existentes são migradas automaticamente. Base: Node 22, Admin 7.8.23.",
+                "nl": "Datapunt-namen en logberichten in 11 ioBroker-talen, volgen de systeemtaal. Bestaande v1.3.x-installaties worden automatisch gemigreerd. Basis: Node 22, Admin 7.8.23.",
+                "fr": "Noms de datapoints et logs traduits en 11 langues ioBroker, suivent la langue système. Les installations v1.3.x existantes sont migrées automatiquement. Base : Node 22, Admin 7.8.23.",
+                "it": "Nomi dei datapoint e log in 11 lingue ioBroker, seguono la lingua di sistema. Le installazioni v1.3.x esistenti vengono migrate automaticamente. Base: Node 22, Admin 7.8.23.",
+                "es": "Nombres de datapoints y logs en 11 idiomas ioBroker, siguen el idioma del sistema. Las instalaciones v1.3.x existentes se migran automáticamente. Base: Node 22, Admin 7.8.23.",
+                "pl": "Nazwy datapointów i logi w 11 językach ioBroker, podążają za językiem systemu. Istniejące instalacje v1.3.x są migrowane automatycznie. Baza: Node 22, Admin 7.8.23.",
+                "uk": "Назви датапойнтів та логи 11 мовами ioBroker, слідують за системною мовою. Наявні встановлення v1.3.x мігрують автоматично. База: Node 22, Admin 7.8.23.",
+                "zh-cn": "数据点名称和日志现支持 11 种 ioBroker 语言，跟随系统语言。现有 v1.3.x 安装将自动迁移。基线：Node 22，Admin 7.8.23。"
+            }
+        },
+        "titleLang": {
+            "en": "Hue Bridge Emulator",
+            "de": "Hue Bridge Emulator",
+            "ru": "Hue Bridge Emulator",
+            "pt": "Hue Bridge Emulator",
+            "nl": "Hue Bridge Emulator",
+            "fr": "Hue Bridge Emulator",
+            "it": "Hue Bridge Emulator",
+            "es": "Hue Bridge Emulator",
+            "pl": "Hue Bridge Emulator",
+            "uk": "Hue Bridge Emulator",
+            "zh-cn": "Hue Bridge Emulator"
+        },
+        "desc": {
+            "en": "Emulates a Philips Hue Bridge (v2) to control ioBroker states from older devices that only support Philips Hue",
+            "de": "Emuliert eine Philips Hue Bridge (v2) zur Steuerung von ioBroker-States durch ältere Geräte, die nur Philips Hue unterstützen",
+            "ru": "Эмулирует Philips Hue Bridge (v2) для управления состояниями ioBroker со старых устройств, поддерживающих только Philips Hue",
+            "pt": "Emula uma Philips Hue Bridge (v2) para controlar estados ioBroker a partir de dispositivos antigos que só suportam Philips Hue",
+            "nl": "Emuleert een Philips Hue Bridge (v2) om ioBroker-states te besturen vanaf oudere apparaten die alleen Philips Hue ondersteunen",
+            "fr": "Émule un Philips Hue Bridge (v2) pour contrôler des états ioBroker depuis des appareils anciens qui ne supportent que Philips Hue",
+            "it": "Emula un Philips Hue Bridge (v2) per controllare stati ioBroker da dispositivi datati che supportano solo Philips Hue",
+            "es": "Emula un Philips Hue Bridge (v2) para controlar estados de ioBroker desde dispositivos antiguos que solo admiten Philips Hue",
+            "pl": "Emuluje Philips Hue Bridge (v2) do sterowania stanami ioBroker ze starszych urządzeń obsługujących tylko Philips Hue",
+            "uk": "Емулює Philips Hue Bridge (v2) для керування станами ioBroker зі старих пристроїв, які підтримують лише Philips Hue",
+            "zh-cn": "模拟 Philips Hue Bridge (v2)，让仅支持 Philips Hue 的旧设备控制 ioBroker 状态"
+        },
+        "authors": [
+            "Christopher Holomek <holomekc.github@gmail.com>",
+            "krobi <krobi@power-dreams.com>"
+        ],
+        "keywords": [
+            "Hue",
+            "Philips",
+            "Bridge",
+            "home automation"
+        ],
+        "licenseInformation": {
+            "license": "MIT",
+            "type": "free"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "hue-emu-logo.png",
+        "enabled": false,
+        "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.hueemu@main/admin/hue-emu-logo.png",
+        "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/main/README.md",
+        "loglevel": "info",
+        "mode": "daemon",
+        "type": "lighting",
+        "compact": true,
+        "adminUI": {
+            "config": "json"
+        },
+        "connectionType": "local",
+        "dataSource": "push",
+        "tier": 3,
+        "supportedMessages": {
+            "stopInstance": true
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=7.0.7"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.8.23"
+            }
+        ]
     },
-    "titleLang": {
-      "en": "Hue Bridge Emulator",
-      "de": "Hue Bridge Emulator",
-      "ru": "Hue Bridge Emulator",
-      "pt": "Hue Bridge Emulator",
-      "nl": "Hue Bridge Emulator",
-      "fr": "Hue Bridge Emulator",
-      "it": "Hue Bridge Emulator",
-      "es": "Hue Bridge Emulator",
-      "pl": "Hue Bridge Emulator",
-      "uk": "Hue Bridge Emulator",
-      "zh-cn": "Hue Bridge Emulator"
+    "native": {
+        "host": "192.168.178.10",
+        "port": "8080",
+        "discoveryHost": "192.168.178.10",
+        "discoveryPort": "8080",
+        "httpsPort": "",
+        "tlsCert": "",
+        "tlsKey": "",
+        "udn": "",
+        "mac": "",
+        "upnpPort": "1900",
+        "devices": [],
+        "trustProxy": false
     },
-    "desc": {
-      "en": "Emulates a Philips Hue Bridge (v2) to control ioBroker states from older devices that only support Philips Hue",
-      "de": "Emuliert eine Philips Hue Bridge (v2) zur Steuerung von ioBroker-States durch ältere Geräte, die nur Philips Hue unterstützen",
-      "ru": "Эмулирует Philips Hue Bridge (v2) для управления состояниями ioBroker со старых устройств, поддерживающих только Philips Hue",
-      "pt": "Emula uma Philips Hue Bridge (v2) para controlar estados ioBroker a partir de dispositivos antigos que só suportam Philips Hue",
-      "nl": "Emuleert een Philips Hue Bridge (v2) om ioBroker-states te besturen vanaf oudere apparaten die alleen Philips Hue ondersteunen",
-      "fr": "Émule un Philips Hue Bridge (v2) pour contrôler des états ioBroker depuis des appareils anciens qui ne supportent que Philips Hue",
-      "it": "Emula un Philips Hue Bridge (v2) per controllare stati ioBroker da dispositivi datati che supportano solo Philips Hue",
-      "es": "Emula un Philips Hue Bridge (v2) para controlar estados de ioBroker desde dispositivos antiguos que solo admiten Philips Hue",
-      "pl": "Emuluje Philips Hue Bridge (v2) do sterowania stanami ioBroker ze starszych urządzeń obsługujących tylko Philips Hue",
-      "uk": "Емулює Philips Hue Bridge (v2) для керування станами ioBroker зі старих пристроїв, які підтримують лише Philips Hue",
-      "zh-cn": "模拟 Philips Hue Bridge (v2)，让仅支持 Philips Hue 的旧设备控制 ioBroker 状态"
-    },
-    "authors": [
-      "Christopher Holomek <holomekc.github@gmail.com>",
-      "krobi <krobi@power-dreams.com>"
-    ],
-    "keywords": [
-      "Hue",
-      "Philips",
-      "Bridge",
-      "home automation"
-    ],
-    "licenseInformation": {
-      "license": "MIT",
-      "type": "free"
-    },
-    "platform": "Javascript/Node.js",
-    "icon": "hue-emu-logo.png",
-    "enabled": false,
-    "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.hueemu@main/admin/hue-emu-logo.png",
-    "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/main/README.md",
-    "loglevel": "info",
-    "mode": "daemon",
-    "type": "lighting",
-    "compact": true,
-    "adminUI": {
-      "config": "json"
-    },
-    "connectionType": "local",
-    "dataSource": "push",
-    "tier": 3,
-    "supportedMessages": {
-      "stopInstance": true
-    },
-    "dependencies": [
-      {
-        "js-controller": ">=7.0.7"
-      }
-    ],
-    "globalDependencies": [
-      {
-        "admin": ">=7.8.23"
-      }
+    "objects": [],
+    "instanceObjects": [
+        {
+            "_id": "startPairing",
+            "type": "state",
+            "common": {
+                "name": {
+                    "en": "Start Pairing",
+                    "de": "Pairing starten",
+                    "ru": "Начать сопряжение",
+                    "pt": "Iniciar emparelhamento",
+                    "nl": "Koppelen starten",
+                    "fr": "Démarrer l'appairage",
+                    "it": "Avvia accoppiamento",
+                    "es": "Iniciar emparejamiento",
+                    "pl": "Rozpocznij parowanie",
+                    "uk": "Почати спарювання",
+                    "zh-cn": "开始配对"
+                },
+                "type": "boolean",
+                "role": "button",
+                "write": true,
+                "read": true,
+                "desc": {
+                    "en": "Enable pairing mode for 50 seconds",
+                    "de": "Pairing-Modus für 50 Sekunden aktivieren",
+                    "ru": "Включить режим сопряжения на 50 секунд",
+                    "pt": "Ativar modo de emparelhamento por 50 segundos",
+                    "nl": "Koppelmodus 50 seconden activeren",
+                    "fr": "Activer le mode d'appairage pendant 50 secondes",
+                    "it": "Attiva la modalità accoppiamento per 50 secondi",
+                    "es": "Activar el modo de emparejamiento durante 50 segundos",
+                    "pl": "Włącz tryb parowania na 50 sekund",
+                    "uk": "Увімкнути режим спарювання на 50 секунд",
+                    "zh-cn": "启用配对模式 50 秒"
+                }
+            },
+            "native": {}
+        },
+        {
+            "_id": "disableAuth",
+            "type": "state",
+            "common": {
+                "name": {
+                    "en": "Disable Authentication",
+                    "de": "Authentifizierung deaktivieren",
+                    "ru": "Отключить аутентификацию",
+                    "pt": "Desativar autenticação",
+                    "nl": "Aanmelding uitschakelen",
+                    "fr": "Désactiver l'authentification",
+                    "it": "Disattiva autenticazione",
+                    "es": "Desactivar autenticación",
+                    "pl": "Wyłącz uwierzytelnianie",
+                    "uk": "Вимкнути автентифікацію",
+                    "zh-cn": "禁用身份验证"
+                },
+                "type": "boolean",
+                "role": "switch",
+                "write": true,
+                "read": true,
+                "desc": {
+                    "en": "Disable authentication (allow all requests)",
+                    "de": "Authentifizierung deaktivieren (alle Anfragen erlauben)",
+                    "ru": "Отключить аутентификацию (разрешить все запросы)",
+                    "pt": "Desativar autenticação (permitir todos os pedidos)",
+                    "nl": "Aanmelding uitschakelen (alle aanvragen toestaan)",
+                    "fr": "Désactiver l'authentification (autoriser toutes les requêtes)",
+                    "it": "Disattiva l'autenticazione (consenti tutte le richieste)",
+                    "es": "Desactivar autenticación (permitir todas las solicitudes)",
+                    "pl": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
+                    "uk": "Вимкнути автентифікацію (дозволити всі запити)",
+                    "zh-cn": "禁用身份验证（允许所有请求）"
+                }
+            },
+            "native": {}
+        },
+        {
+            "_id": "clients",
+            "type": "meta",
+            "common": {
+                "name": {
+                    "en": "Paired Clients",
+                    "de": "Verbundene Clients",
+                    "ru": "Связанные клиенты",
+                    "pt": "Clientes emparelhados",
+                    "nl": "Gekoppelde clients",
+                    "fr": "Clients appariés",
+                    "it": "Client accoppiati",
+                    "es": "Clientes emparejados",
+                    "pl": "Sparowane klienty",
+                    "uk": "Спарені клієнти",
+                    "zh-cn": "已配对客户端"
+                },
+                "type": "meta.folder"
+            },
+            "native": {}
+        }
     ]
-  },
-  "native": {
-    "host": "192.168.178.10",
-    "port": "8080",
-    "discoveryHost": "192.168.178.10",
-    "discoveryPort": "8080",
-    "httpsPort": "",
-    "tlsCert": "",
-    "tlsKey": "",
-    "udn": "",
-    "mac": "",
-    "upnpPort": "1900",
-    "devices": [],
-    "trustProxy": false
-  },
-  "objects": [],
-  "instanceObjects": [
-    {
-      "_id": "startPairing",
-      "type": "state",
-      "common": {
-        "name": {
-          "en": "Start Pairing",
-          "de": "Pairing starten",
-          "ru": "Начать сопряжение",
-          "pt": "Iniciar emparelhamento",
-          "nl": "Koppelen starten",
-          "fr": "Démarrer l'appairage",
-          "it": "Avvia accoppiamento",
-          "es": "Iniciar emparejamiento",
-          "pl": "Rozpocznij parowanie",
-          "uk": "Почати спарювання",
-          "zh-cn": "开始配对"
-        },
-        "type": "boolean",
-        "role": "button",
-        "write": true,
-        "read": true,
-        "desc": {
-          "en": "Enable pairing mode for 50 seconds",
-          "de": "Pairing-Modus für 50 Sekunden aktivieren",
-          "ru": "Включить режим сопряжения на 50 секунд",
-          "pt": "Ativar modo de emparelhamento por 50 segundos",
-          "nl": "Koppelmodus 50 seconden activeren",
-          "fr": "Activer le mode d'appairage pendant 50 secondes",
-          "it": "Attiva la modalità accoppiamento per 50 secondi",
-          "es": "Activar el modo de emparejamiento durante 50 segundos",
-          "pl": "Włącz tryb parowania na 50 sekund",
-          "uk": "Увімкнути режим спарювання на 50 секунд",
-          "zh-cn": "启用配对模式 50 秒"
-        }
-      },
-      "native": {}
-    },
-    {
-      "_id": "disableAuth",
-      "type": "state",
-      "common": {
-        "name": {
-          "en": "Disable Authentication",
-          "de": "Authentifizierung deaktivieren",
-          "ru": "Отключить аутентификацию",
-          "pt": "Desativar autenticação",
-          "nl": "Aanmelding uitschakelen",
-          "fr": "Désactiver l'authentification",
-          "it": "Disattiva autenticazione",
-          "es": "Desactivar autenticación",
-          "pl": "Wyłącz uwierzytelnianie",
-          "uk": "Вимкнути автентифікацію",
-          "zh-cn": "禁用身份验证"
-        },
-        "type": "boolean",
-        "role": "switch",
-        "write": true,
-        "read": true,
-        "desc": {
-          "en": "Disable authentication (allow all requests)",
-          "de": "Authentifizierung deaktivieren (alle Anfragen erlauben)",
-          "ru": "Отключить аутентификацию (разрешить все запросы)",
-          "pt": "Desativar autenticação (permitir todos os pedidos)",
-          "nl": "Aanmelding uitschakelen (alle aanvragen toestaan)",
-          "fr": "Désactiver l'authentification (autoriser toutes les requêtes)",
-          "it": "Disattiva l'autenticazione (consenti tutte le richieste)",
-          "es": "Desactivar autenticación (permitir todas las solicitudes)",
-          "pl": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
-          "uk": "Вимкнути автентифікацію (дозволити всі запити)",
-          "zh-cn": "禁用身份验证（允许所有请求）"
-        }
-      },
-      "native": {}
-    },
-    {
-      "_id": "clients",
-      "type": "meta",
-      "common": {
-        "name": {
-          "en": "Paired Clients",
-          "de": "Verbundene Clients",
-          "ru": "Связанные клиенты",
-          "pt": "Clientes emparelhados",
-          "nl": "Gekoppelde clients",
-          "fr": "Clients appariés",
-          "it": "Client accoppiati",
-          "es": "Clientes emparejados",
-          "pl": "Sparowane klienty",
-          "uk": "Спарені клієнти",
-          "zh-cn": "已配对客户端"
-        },
-        "type": "meta.folder"
-      },
-      "native": {}
-    }
-  ]
 }
