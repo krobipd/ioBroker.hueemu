@@ -155,7 +155,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 1.4.6 (2026-05-17)
 - (krobi) Internal modernisation: updated TypeScript, test runner, linting and release toolchain. No user-facing changes.
 
 ### 1.4.5 (2026-05-13)
@@ -173,9 +173,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.4.2 (2026-05-09)
 - Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names are unchanged.
-
-### 1.4.1 (2026-05-07)
-- Internal hardening. No user-facing changes.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

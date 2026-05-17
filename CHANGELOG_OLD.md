@@ -1,4 +1,7 @@
 # Older Changes
+## 1.4.1 (2026-05-07)
+- Internal hardening. No user-facing changes.
+
 ## 1.4.0 (2026-05-07)
 - State names are localized in 11 languages following the ioBroker system language.
 - Existing installs are migrated automatically — names are backfilled on first start, nothing to do.
