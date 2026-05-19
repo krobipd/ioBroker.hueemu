@@ -27,3 +27,4 @@ coverage/
 # Environment
 .env
 .env.local
+admin/hue-emu-logo.png
