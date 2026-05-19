@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.6",
+    "version": "1.4.7",
     "news": {
-      "NEXT": {
+      "1.4.7": {
         "en": "TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.",
         "de": "Der private TLS-Schlüssel wird jetzt verschlüsselt in der ioBroker-Objektdatenbank gespeichert. Code-Qualität durch strikte Lint-Regeln und einheitliche Formatierung erzwungen.",
         "ru": "Приватный ключ TLS теперь шифруется в базе данных объектов ioBroker. Качество кода обеспечивается строгими правилами линтинга и стандартным форматированием.",
