@@ -136,9 +136,9 @@
             "type": "free"
         },
         "platform": "Javascript/Node.js",
-        "icon": "hue-emu-logo.png",
+        "icon": "hue-emu-logo.svg",
         "enabled": false,
-        "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.hueemu@main/admin/hue-emu-logo.png",
+        "extIcon": "https://cdn.jsdelivr.net/gh/krobipd/ioBroker.hueemu@main/admin/hue-emu-logo.svg",
         "readme": "https://github.com/krobipd/ioBroker.hueemu/blob/main/README.md",
         "loglevel": "info",
         "mode": "daemon",

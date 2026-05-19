@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <style>
+    text { font-family: 'Arial Rounded MT Bold', Nunito, 'Helvetica Neue', Arial, sans-serif; font-weight: bold; font-size: 82px; letter-spacing: 2px; }
+  </style>
+  <text text-anchor="middle">
+    <tspan x="128" y="118">
+      <tspan fill="#E53935">h</tspan><tspan fill="#FB8C00">u</tspan><tspan fill="#C0CA33">e</tspan>
+    </tspan>
+    <tspan x="128" y="208">
+      <tspan fill="#43A047">e</tspan><tspan fill="#039BE5">m</tspan><tspan fill="#E53935">u</tspan>
+    </tspan>
+  </text>
+</svg>
