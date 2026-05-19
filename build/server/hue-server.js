@@ -41,6 +41,11 @@ class HueServer {
   config;
   handler;
   logger;
+  /**
+   * Create a new Hue emulator server
+   *
+   * @param options - Server options
+   */
   constructor(options) {
     this.config = options.config;
     this.handler = options.handler;
@@ -81,6 +86,8 @@ class HueServer {
   }
   /**
    * Create a Fastify server instance — HTTP or HTTPS based on flag.
+   *
+   * @param https - Whether to create an HTTPS server
    */
   async createServer(https) {
     const baseOptions = {
@@ -129,7 +136,7 @@ class HueServer {
       handler: this.handler,
       logger: this.logger
     });
-    server.get("/health", async () => ({ status: "ok" }));
+    server.get("/health", () => ({ status: "ok" }));
     return server;
   }
 }

@@ -73,6 +73,9 @@ class HueApiError extends Error {
   }
   /**
    * Format error description with parameters
+   *
+   * @param type - Hue error type enum value
+   * @param params - Substitution parameters for the error template
    */
   static formatDescription(type, params) {
     let desc = ERROR_DESCRIPTIONS[type] || "unknown error";
@@ -94,30 +97,82 @@ class HueApiError extends Error {
     };
   }
   // Static factory methods for common errors
+  /**
+   * Create an unauthorized user error
+   *
+   * @param address - API endpoint address
+   */
   static unauthorizedUser(address = "") {
     return new HueApiError(1 /* UNAUTHORIZED_USER */, address);
   }
+  /**
+   * Create an invalid JSON error
+   *
+   * @param address - API endpoint address
+   */
   static invalidJson(address = "") {
     return new HueApiError(2 /* INVALID_JSON */, address);
   }
+  /**
+   * Create a resource not available error
+   *
+   * @param resource - Resource identifier
+   * @param address - API endpoint address
+   */
   static resourceNotAvailable(resource, address = "") {
     return new HueApiError(3 /* RESOURCE_NOT_AVAILABLE */, address, [resource]);
   }
+  /**
+   * Create a method not available error
+   *
+   * @param method - HTTP method
+   * @param resource - Resource identifier
+   * @param address - API endpoint address
+   */
   static methodNotAvailable(method, resource, address = "") {
     return new HueApiError(4 /* METHOD_NOT_AVAILABLE */, address, [method, resource]);
   }
+  /**
+   * Create a missing parameters error
+   *
+   * @param address - API endpoint address
+   */
   static missingParameters(address = "") {
     return new HueApiError(5 /* MISSING_PARAMETERS */, address);
   }
+  /**
+   * Create a parameter not available error
+   *
+   * @param parameter - Parameter name
+   * @param address - API endpoint address
+   */
   static parameterNotAvailable(parameter, address = "") {
     return new HueApiError(6 /* PARAMETER_NOT_AVAILABLE */, address, [parameter]);
   }
+  /**
+   * Create an invalid parameter value error
+   *
+   * @param value - Invalid value
+   * @param parameter - Parameter name
+   * @param address - API endpoint address
+   */
   static invalidParameterValue(value, parameter, address = "") {
     return new HueApiError(7 /* INVALID_PARAMETER_VALUE */, address, [value, parameter]);
   }
+  /**
+   * Create a link button not pressed error
+   *
+   * @param address - API endpoint address
+   */
   static linkButtonNotPressed(address = "") {
     return new HueApiError(101 /* LINK_BUTTON_NOT_PRESSED */, address);
   }
+  /**
+   * Create an internal error
+   *
+   * @param details - Error details message
+   * @param address - API endpoint address
+   */
   static internalError(details, address = "") {
     return new HueApiError(901 /* INTERNAL_ERROR */, address, [details]);
   }

@@ -20,6 +20,7 @@ import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace ioBroker {
     interface AdapterConfig {
       host: string;
@@ -55,6 +56,11 @@ export class HueEmu extends utils.Adapter {
   private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
   private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
 
+  /**
+   * Create a new Hue Emulator adapter instance
+   *
+   * @param options - Adapter options
+   */
   public constructor(options: Partial<utils.AdapterOptions> = {}) {
     super({
       ...options,
@@ -89,10 +95,12 @@ export class HueEmu extends utils.Adapter {
     process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
 
+  /** Whether pairing mode is active */
   get pairingEnabled(): boolean {
     return this._pairingEnabled;
   }
 
+  /** Set pairing mode and manage timeout */
   set pairingEnabled(value: boolean) {
     this._pairingEnabled = value;
     if (!value && this.pairingTimeoutId) {
@@ -102,10 +110,12 @@ export class HueEmu extends utils.Adapter {
     void this.setState("startPairing", { ack: true, val: value });
   }
 
+  /** Whether authentication is disabled */
   get disableAuth(): boolean {
     return this._disableAuth;
   }
 
+  /** Set authentication disabled flag and persist */
   set disableAuth(value: boolean) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
@@ -472,6 +482,8 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Called when adapter shuts down
+   *
+   * @param callback - Callback to invoke when shutdown is complete
    */
   private onUnload(callback: () => void): void {
     try {
@@ -509,6 +521,9 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Called if a subscribed state changes
+   *
+   * @param id - Full state ID that changed
+   * @param state - New state value or null if deleted
    */
   private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
     if (!state) {
@@ -540,6 +555,8 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Handle startPairing state change
+   *
+   * @param state - State containing the pairing toggle value
    */
   private handleStartPairing(state: ioBroker.State): void {
     if (this.pairingTimeoutId) {
@@ -570,6 +587,7 @@ export class HueEmu extends utils.Adapter {
    * Migrate legacy devices (created via createLight JSON) to admin-configured DeviceConfig format.
    * Legacy devices are ioBroker device objects in the adapter namespace with state/name/data children.
    * After migration, DeviceBindingService uses the existing state objects as foreign states.
+   *
    * @returns true if migration was performed (adapter will restart with new config)
    */
   private async migrateLegacyDevices(): Promise<boolean> {
@@ -667,6 +685,8 @@ export class HueEmu extends utils.Adapter {
   /**
    * Parse a required port number from admin config (string or number).
    * Throws when the value is missing or unparseable — caller must handle.
+   *
+   * @param port - Raw port value from config
    */
   private toPort(port: unknown): number {
     const parsed = this.parsePort(port);
@@ -676,7 +696,11 @@ export class HueEmu extends utils.Adapter {
     return parsed;
   }
 
-  /** Shared port parser — returns undefined for missing/unparseable input. */
+  /**
+   * Shared port parser — returns undefined for missing/unparseable input.
+   *
+   * @param port - Raw port value (string or number)
+   */
   private parsePort(port: unknown): number | undefined {
     if (typeof port === "number") {
       return Number.isFinite(port) ? port : undefined;
@@ -690,6 +714,8 @@ export class HueEmu extends utils.Adapter {
 
   /**
    * Derive a stable MAC address from the UDN (used when no MAC is configured)
+   *
+   * @param udn - UUID to derive MAC address from
    */
   private macFromUdn(udn: string): string {
     const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");

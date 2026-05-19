@@ -33,9 +33,7 @@ describe("HueApiError", () => {
     it("should create methodNotAvailable error with two parameters", () => {
       const err = HueApiError.methodNotAvailable("DELETE", "/lights", "/api");
       expect(err.type).toBe(HueErrorType.METHOD_NOT_AVAILABLE);
-      expect(err.message).toBe(
-        "method, DELETE, not available for resource, /lights",
-      );
+      expect(err.message).toBe("method, DELETE, not available for resource, /lights");
     });
 
     it("should create missingParameters error", () => {
@@ -51,11 +49,7 @@ describe("HueApiError", () => {
     });
 
     it("should create invalidParameterValue error", () => {
-      const err = HueApiError.invalidParameterValue(
-        "999",
-        "bri",
-        "/lights/1/state",
-      );
+      const err = HueApiError.invalidParameterValue("999", "bri", "/lights/1/state");
       expect(err.type).toBe(HueErrorType.INVALID_PARAMETER_VALUE);
       expect(err.message).toBe("invalid value, 999, for parameter, bri");
     });
@@ -97,9 +91,7 @@ describe("HueApiError", () => {
       const response = err.toResponse();
 
       expect(response.error.type).toBe(3);
-      expect(response.error.description).toBe(
-        "resource, 99, not available",
-      );
+      expect(response.error.description).toBe("resource, 99, not available");
       expect(response.error.address).toBe("/lights/99");
     });
   });

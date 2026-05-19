@@ -74,6 +74,11 @@ class DeviceBindingService {
   devices;
   logger;
   stateCache = /* @__PURE__ */ new Map();
+  /**
+   * Create a new device binding service
+   *
+   * @param config - Device binding service configuration
+   */
   constructor(config) {
     this.adapter = config.adapter;
     this.devices = config.devices || [];
@@ -81,6 +86,9 @@ class DeviceBindingService {
   }
   /**
    * Get state ID from device config for a given state name
+   *
+   * @param device - Device configuration
+   * @param stateName - Hue state name (on, bri, ct, etc.)
    */
   getStateId(device, stateName) {
     const configKey = STATE_TO_CONFIG[stateName];
@@ -91,6 +99,8 @@ class DeviceBindingService {
   }
   /**
    * Get all state IDs from a device config
+   *
+   * @param device - Device configuration
    */
   getAllStateIds(device) {
     const stateIds = [];
@@ -144,6 +154,9 @@ class DeviceBindingService {
   }
   /**
    * Update state cache when a state changes
+   *
+   * @param id - Full state ID
+   * @param value - New state value
    */
   updateStateCache(id, value) {
     this.stateCache.set(id, value);
@@ -184,6 +197,8 @@ class DeviceBindingService {
    * evaluate false, so we accessed `devices[NaN]` (undefined) and crashed
    * later with a confusing TypeError. Now bad ids surface as Hue
    * `resourceNotAvailable` (404) at the boundary.
+   *
+   * @param lightId - 1-based light ID string
    */
   async getLightById(lightId) {
     const index = (0, import_coerce.parseLightIndex)(lightId, this.devices.length);
@@ -234,6 +249,9 @@ class DeviceBindingService {
   }
   /**
    * Set light state
+   *
+   * @param lightId - 1-based light ID string
+   * @param stateUpdate - State properties to update
    */
   async setLightState(lightId, stateUpdate) {
     const index = (0, import_coerce.parseLightIndex)(lightId, this.devices.length);
@@ -277,6 +295,10 @@ class DeviceBindingService {
   }
   /**
    * Get state value from cache or adapter
+   *
+   * @param stateId - Full ioBroker state ID
+   * @param stateName - Hue state name (on, bri, ct, etc.)
+   * @param device - Device configuration for scale settings
    */
   async getStateValue(stateId, stateName, device) {
     if (this.stateCache.has(stateId)) {
@@ -385,6 +407,10 @@ class DeviceBindingService {
    * always wrote raw 1..254 regardless of source scale, so a
    * `level.dimmer` (0..100) bound to bri ended up with values like 254
    * — confusing other consumers of that state.
+   *
+   * @param stateName - Hue state name (on, bri, ct, etc.)
+   * @param value - Value from Hue API
+   * @param device - Device configuration for scale settings
    */
   convertValueForState(stateName, value, device) {
     switch (stateName) {
@@ -422,6 +448,8 @@ class DeviceBindingService {
   }
   /**
    * Get default value for a state
+   *
+   * @param stateName - Hue state name
    */
   getDefaultValue(stateName) {
     switch (stateName) {
@@ -458,6 +486,13 @@ class DeviceBindingService {
    *   with clamp + round.
    *
    * `null` / non-finite input always returns `max` (current default).
+   *
+   * @param value - Raw value from the foreign state
+   * @param scale - Configured scale mode
+   * @param min - Minimum Hue API value (inclusive)
+   * @param max - Maximum Hue API value (inclusive)
+   * @param device - Device configuration for logging
+   * @param stateName - State name for logging
    */
   scaleValueFromState(value, scale, min, max, device, stateName) {
     var _a;
@@ -501,6 +536,10 @@ class DeviceBindingService {
    * Earlier the write side always wrote raw Hue values regardless of the
    * source scale: a `level.dimmer` (0..100) bound to bri got values like
    * 254 written into it, breaking other adapters that read it.
+   *
+   * @param hueValue - Hue-native value (1..254)
+   * @param scale - Configured scale mode for the foreign state
+   * @param max - Maximum Hue API value
    */
   scaleValueForState(hueValue, scale, max) {
     const mode = scale != null ? scale : "auto";

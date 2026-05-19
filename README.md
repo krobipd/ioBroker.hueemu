@@ -155,6 +155,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.
+
 ### 1.4.6 (2026-05-17)
 - Internal refactoring. No user-facing changes.
 
@@ -170,9 +173,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - HTTP API stays reachable even when SSDP port 1900 is already used by another adapter — the log explains how to add the bridge by IP.
 - "Disable Auth" now reliably keeps its value across adapter restarts.
 - Pairing window has a safety cap so a noisy network can't flood the bridge with new clients.
-
-### 1.4.2 (2026-05-09)
-- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names are unchanged.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

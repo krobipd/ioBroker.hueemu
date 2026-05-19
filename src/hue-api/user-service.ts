@@ -11,10 +11,15 @@ import { errText, sanitizeId } from "../types/utils";
  * Adapter interface for user service
  */
 export interface UserServiceAdapter {
+  /** Adapter namespace (e.g. hueemu.0) */
   namespace: string;
+  /** ioBroker logger */
   log: ioBroker.Logger;
+  /** Create an object if it does not exist */
   setObjectNotExistsAsync(id: string, obj: ioBroker.SettableObject): Promise<{ id: string }>;
+  /** Set a state value */
   setStateAsync(id: string, state: ioBroker.SettableState): Promise<{ id: string }>;
+  /** Get all state objects under a parent */
   getStatesOfAsync(parentDevice?: string, parentChannel?: string): Promise<ioBroker.StateObject[]>;
 }
 
@@ -64,6 +69,11 @@ export class UserService {
   private autoAddedThisWindow = 0;
   private autoAddCapWarned = false;
 
+  /**
+   * Create a new user service
+   *
+   * @param config - User service configuration
+   */
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
@@ -166,6 +176,9 @@ export class UserService {
 
   /**
    * Create a new user with optional provided username
+   *
+   * @param providedUsername - Pre-defined username (generates UUID if empty)
+   * @param devicetype - Client device type string
    */
   public async createUser(providedUsername?: string, devicetype = "unknown"): Promise<string> {
     const username = providedUsername && providedUsername.length > 0 ? providedUsername : uuid.v4();
@@ -181,6 +194,8 @@ export class UserService {
    * once on the first call after start, then served from RAM. Hue clients
    * (Echo, Harmony) poll `/api/{user}` frequently — earlier each call did
    * a `getStatesOfAsync` round-trip.
+   *
+   * @param username - Username to verify
    */
   public async isUserAuthenticated(username: string): Promise<boolean> {
     const safeUsername = sanitizeId(username);

@@ -45,6 +45,11 @@ export class HueSsdpServer {
   private readonly config: Required<SsdpServerConfig>;
   private isRunning = false;
 
+  /**
+   * Create a new SSDP discovery server
+   *
+   * @param config - SSDP server configuration
+   */
   constructor(config: SsdpServerConfig) {
     this.config = {
       ...config,

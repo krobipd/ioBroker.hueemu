@@ -85,19 +85,33 @@ export interface LightsCollection {
  * Light state update request
  */
 export interface LightStateUpdate {
+  /** Set on/off */
   on?: boolean;
+  /** Set brightness (1-254) */
   bri?: number;
+  /** Set hue (0-65535) */
   hue?: number;
+  /** Set saturation (0-254) */
   sat?: number;
+  /** Set color temperature in mireds (153-500) */
   ct?: number;
+  /** Set CIE x,y color coordinates */
   xy?: [number, number];
+  /** Set light effect */
   effect?: LightEffect;
+  /** Set light alert */
   alert?: LightAlert;
+  /** Transition time in multiples of 100ms */
   transitiontime?: number;
+  /** Brightness increment/decrement */
   bri_inc?: number;
+  /** Saturation increment/decrement */
   sat_inc?: number;
+  /** Hue increment/decrement */
   hue_inc?: number;
+  /** Color temperature increment/decrement */
   ct_inc?: number;
+  /** CIE x,y increment/decrement */
   xy_inc?: [number, number];
 }
 
@@ -105,6 +119,7 @@ export interface LightStateUpdate {
  * Success response for state updates
  */
 export interface LightStateSuccessResponse {
+  /** Success payload keyed by resource path */
   success: {
     [path: string]: unknown;
   };

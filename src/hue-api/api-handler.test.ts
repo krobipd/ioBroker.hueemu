@@ -51,7 +51,7 @@ function createMockAdapter(
     },
     getStatesOfAsync: async () => {
       return Array.from(clients).map(
-        (name) =>
+        name =>
           ({
             _id: `${namespace}.clients.${name}`,
             type: "state",
@@ -74,10 +74,7 @@ function createMockAdapter(
   return adapter;
 }
 
-function createHandler(
-  existingClients: string[] = [],
-  opts: { pairingEnabled?: boolean; disableAuth?: boolean } = {},
-) {
+function createHandler(existingClients: string[] = [], opts: { pairingEnabled?: boolean; disableAuth?: boolean } = {}) {
   const adapter = createMockAdapter(existingClients, opts);
   const handler = new ApiHandler({
     adapter,
@@ -86,7 +83,7 @@ function createHandler(
       discoveryHost: "192.168.1.100",
     },
     devices: [],
-    logger: createMockLogger()
+    logger: createMockLogger(),
   });
   return { handler, adapter };
 }
@@ -115,18 +112,15 @@ describe("ApiHandler", () => {
         throw new Error("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(HueApiError);
-        expect((error as HueApiError).type).toBe(
-          HueErrorType.LINK_BUTTON_NOT_PRESSED,
-        );
+        expect((error as HueApiError).type).toBe(HueErrorType.LINK_BUTTON_NOT_PRESSED);
       }
     });
 
     it("allows pairing when pairingEnabled=true", async () => {
       const { handler } = createHandler([], { pairingEnabled: true });
-      const username = await handler.createUser(
-        makeRequest({ devicetype: "Amazon Echo" }),
-        { devicetype: "Amazon Echo" },
-      );
+      const username = await handler.createUser(makeRequest({ devicetype: "Amazon Echo" }), {
+        devicetype: "Amazon Echo",
+      });
       expect(typeof username).toBe("string");
       expect(username.length).toBeGreaterThan(0);
     });
@@ -141,10 +135,7 @@ describe("ApiHandler", () => {
 
     it("allows pairing when disableAuth=true even without link button", async () => {
       const { handler } = createHandler([], { disableAuth: true });
-      const username = await handler.createUser(
-        makeRequest({ devicetype: "free-pass" }),
-        { devicetype: "free-pass" },
-      );
+      const username = await handler.createUser(makeRequest({ devicetype: "free-pass" }), { devicetype: "free-pass" });
       expect(username.length).toBeGreaterThan(0);
     });
   });
@@ -181,14 +172,9 @@ describe("ApiHandler", () => {
         devicetype: "test",
         username: { foo: "bar" },
       } as unknown as CreateUserRequest;
-      const username = await handler.createUser(
-        makeRequest({ devicetype: "test", username: { foo: "bar" } }),
-        body,
-      );
+      const username = await handler.createUser(makeRequest({ devicetype: "test", username: { foo: "bar" } }), body);
       // Must not be "[object Object]" — should be a generated UUID
-      expect(username).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
+      expect(username).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it("ignores empty body.username and generates UUID", async () => {
@@ -197,10 +183,7 @@ describe("ApiHandler", () => {
         devicetype: "test",
         username: "",
       } as CreateUserRequest;
-      const username = await handler.createUser(
-        makeRequest({ devicetype: "test", username: "" }),
-        body,
-      );
+      const username = await handler.createUser(makeRequest({ devicetype: "test", username: "" }), body);
       expect(username).not.toBe("");
       expect(username.length).toBeGreaterThan(10);
     });
@@ -211,10 +194,7 @@ describe("ApiHandler", () => {
         devicetype: "test",
         username: "my-custom-name",
       };
-      const username = await handler.createUser(
-        makeRequest({ devicetype: "test", username: "my-custom-name" }),
-        body,
-      );
+      const username = await handler.createUser(makeRequest({ devicetype: "test", username: "my-custom-name" }), body);
       expect(username).toBe("my-custom-name");
     });
 

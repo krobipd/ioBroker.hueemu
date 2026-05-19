@@ -22,10 +22,10 @@ __export(description_route_exports, {
 });
 module.exports = __toCommonJS(description_route_exports);
 var import_discovery = require("../../discovery");
-async function descriptionRoute(fastify, options) {
+function descriptionRoute(fastify, options) {
   const { descriptionOptions } = options;
   const descriptionXml = (0, import_discovery.generateDescriptionXml)(descriptionOptions);
-  fastify.get("/description.xml", async (_request, reply) => {
+  fastify.get("/description.xml", (_request, reply) => {
     reply.type("application/xml").header("Content-Length", Buffer.byteLength(descriptionXml)).send(descriptionXml);
   });
 }

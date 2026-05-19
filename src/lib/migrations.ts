@@ -25,7 +25,9 @@ export const INSTANCE_OBJECT_MIGRATION_PAIRS: ReadonlyArray<{
  * accept anything ioBroker hands back without typing the whole world.
  */
 export interface MigratableCommon {
+  /** Object name (string or translation object) */
   name?: unknown;
+  /** Object description (string or translation object) */
   desc?: unknown;
 }
 
@@ -58,8 +60,11 @@ export function buildInstanceObjectMigrationPatch(
 
 /** Adapter surface required by `runInstanceObjectMigration`. */
 export interface InstanceObjectMigrationAdapter {
+  /** Read an object by ID */
   getObjectAsync(id: string): Promise<{ common?: MigratableCommon } | null | undefined>;
+  /** Extend an object with partial data */
   extendObjectAsync(id: string, obj: { common: { name?: unknown; desc?: unknown } }): Promise<unknown>;
+  /** Logger with debug method */
   log: { debug(message: string): void };
 }
 
@@ -99,13 +104,18 @@ export const OBSOLETE_STATE_IDS: ReadonlyArray<{ id: string; removedIn: string }
 
 /** Adapter surface required by `runObsoleteStateCleanup`. */
 export interface ObsoleteStateCleanupAdapter {
+  /** Adapter namespace (e.g. hueemu.0) */
   namespace: string;
+  /** Read an object by ID */
   getObjectAsync(id: string): Promise<unknown>;
+  /** Delete an object by ID */
   delObjectAsync(id: string): Promise<unknown>;
+  /** List objects within a key range */
   getObjectListAsync(query: {
     startkey: string;
     endkey: string;
   }): Promise<{ rows: Array<{ id: string }> } | null | undefined>;
+  /** Logger with debug method */
   log: { debug(message: string): void };
 }
 

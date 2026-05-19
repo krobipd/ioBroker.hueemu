@@ -32,6 +32,11 @@ class ApiHandler {
   lightService;
   configService;
   logger;
+  /**
+   * Create a new API handler and initialize all services
+   *
+   * @param config - API handler configuration
+   */
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
@@ -59,12 +64,18 @@ class ApiHandler {
   }
   /**
    * Update state cache when a foreign state changes
+   *
+   * @param id - Full state ID that changed
+   * @param value - New state value
    */
   onStateChange(id, value) {
     this.lightService.updateStateCache(id, value);
   }
   /**
    * Create a new user
+   *
+   * @param req - Incoming HTTP request
+   * @param body - User creation request body
    */
   async createUser(req, body) {
     var _a;
@@ -85,6 +96,9 @@ class ApiHandler {
   }
   /**
    * Get full bridge state
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param username - Authenticated username
    */
   async getFullState(_req, username) {
     this.logger.debug(`Get full state for user: ${username}`);
@@ -95,13 +109,19 @@ class ApiHandler {
   }
   /**
    * Get bridge configuration
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
    */
-  async getConfig(_req, _username) {
+  getConfig(_req, _username) {
     this.logger.debug("Get config");
     return this.configService.getConfig();
   }
   /**
    * Get all lights
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
    */
   async getAllLights(_req, _username) {
     this.logger.debug("Get all lights");
@@ -109,6 +129,10 @@ class ApiHandler {
   }
   /**
    * Get a single light by ID
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   * @param lightId - Light identifier
    */
   async getLightById(_req, _username, lightId) {
     this.logger.debug(`Get light: ${lightId}`);
@@ -116,6 +140,11 @@ class ApiHandler {
   }
   /**
    * Set light state
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   * @param lightId - Light identifier
+   * @param state - State update to apply
    */
   async setLightState(_req, _username, lightId, state) {
     this.logger.debug(`Set light ${lightId} state: ${JSON.stringify(state)}`);
@@ -123,6 +152,11 @@ class ApiHandler {
   }
   /**
    * Set group action — applies state to all configured lights
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   * @param groupId - Group identifier
+   * @param state - State update to apply to all lights
    */
   async setGroupAction(_req, _username, groupId, state) {
     this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
@@ -140,13 +174,17 @@ class ApiHandler {
   }
   /**
    * Fallback for unhandled routes
+   *
+   * @param req - Incoming HTTP request
    */
-  async fallback(req) {
+  fallback(req) {
     this.logger.warn(`Unhandled request: ${req.method} ${req.url}`);
     return {};
   }
   /**
    * Check if user is authenticated
+   *
+   * @param username - Username to check
    */
   async isUserAuthenticated(username) {
     const isAuth = await this.userService.isUserAuthenticated(username);

@@ -33,6 +33,11 @@ export class HueServer {
   private readonly handler: HueApiHandler;
   private readonly logger: Logger;
 
+  /**
+   * Create a new Hue emulator server
+   *
+   * @param options - Server options
+   */
   constructor(options: HueServerOptions) {
     this.config = options.config;
     this.handler = options.handler;
@@ -84,6 +89,8 @@ export class HueServer {
 
   /**
    * Create a Fastify server instance — HTTP or HTTPS based on flag.
+   *
+   * @param https - Whether to create an HTTPS server
    */
   private async createServer(https: boolean): Promise<FastifyInstance> {
     // v1.4.3 (SV1): trustProxy is opt-in via admin config — was unconditional
@@ -161,7 +168,7 @@ export class HueServer {
     });
 
     // Health check endpoint
-    server.get("/health", async () => ({ status: "ok" }));
+    server.get("/health", () => ({ status: "ok" }));
 
     return server;
   }

@@ -15,7 +15,9 @@ import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } fr
  * Combined adapter interface for the API handler
  */
 export interface ApiHandlerAdapter extends UserServiceAdapter, DeviceBindingAdapter {
+  /** Whether pairing mode is currently active */
   pairingEnabled: boolean;
+  /** Whether authentication is disabled */
   disableAuth: boolean;
 }
 
@@ -44,6 +46,11 @@ export class ApiHandler implements HueApiHandler {
   private readonly lightService: DeviceBindingService;
   private readonly configService: ConfigService;
   private readonly logger: Logger;
+  /**
+   * Create a new API handler and initialize all services
+   *
+   * @param config - API handler configuration
+   */
   constructor(config: ApiHandlerConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
@@ -80,6 +87,9 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Update state cache when a foreign state changes
+   *
+   * @param id - Full state ID that changed
+   * @param value - New state value
    */
   public onStateChange(id: string, value: unknown): void {
     this.lightService.updateStateCache(id, value);
@@ -87,6 +97,9 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Create a new user
+   *
+   * @param req - Incoming HTTP request
+   * @param body - User creation request body
    */
   public async createUser(req: HueRequest, body: CreateUserRequest): Promise<string> {
     // Sanitize devicetype at the boundary — routes already require string,
@@ -118,6 +131,9 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Get full bridge state
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param username - Authenticated username
    */
   public async getFullState(_req: HueRequest, username: string): Promise<FullState> {
     this.logger.debug(`Get full state for user: ${username}`);
@@ -130,14 +146,20 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Get bridge configuration
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
    */
-  public async getConfig(_req: HueRequest, _username: string): Promise<BridgeConfigPublic> {
+  public getConfig(_req: HueRequest, _username: string): BridgeConfigPublic {
     this.logger.debug("Get config");
     return this.configService.getConfig();
   }
 
   /**
    * Get all lights
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
    */
   public async getAllLights(_req: HueRequest, _username: string): Promise<LightsCollection> {
     this.logger.debug("Get all lights");
@@ -146,6 +168,10 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Get a single light by ID
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   * @param lightId - Light identifier
    */
   public async getLightById(_req: HueRequest, _username: string, lightId: string): Promise<Light> {
     this.logger.debug(`Get light: ${lightId}`);
@@ -154,6 +180,11 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Set light state
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   * @param lightId - Light identifier
+   * @param state - State update to apply
    */
   public async setLightState(
     _req: HueRequest,
@@ -167,6 +198,11 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Set group action — applies state to all configured lights
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   * @param groupId - Group identifier
+   * @param state - State update to apply to all lights
    */
   public async setGroupAction(
     _req: HueRequest,
@@ -195,14 +231,18 @@ export class ApiHandler implements HueApiHandler {
 
   /**
    * Fallback for unhandled routes
+   *
+   * @param req - Incoming HTTP request
    */
-  public async fallback(req: HueRequest): Promise<unknown> {
+  public fallback(req: HueRequest): unknown {
     this.logger.warn(`Unhandled request: ${req.method} ${req.url}`);
     return {};
   }
 
   /**
    * Check if user is authenticated
+   *
+   * @param username - Username to check
    */
   public async isUserAuthenticated(username: string): Promise<boolean> {
     // During pairing, auto-add unknown users (Amazon Echo compatibility)

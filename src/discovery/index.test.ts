@@ -2,10 +2,7 @@
  * Tests for UPnP description XML generation
  */
 
-import {
-  generateDescriptionXml,
-  getDescriptionUrl,
-} from "./description-xml";
+import { generateDescriptionXml, getDescriptionUrl } from "./description-xml";
 import { createTestIdentity } from "../../test/test-helpers";
 
 describe("Description XML", () => {
@@ -62,9 +59,7 @@ describe("Description XML", () => {
         port: 8080,
       });
 
-      expect(xml).toContain(
-        `<serialNumber>${identity.serialNumber}</serialNumber>`,
-      );
+      expect(xml).toContain(`<serialNumber>${identity.serialNumber}</serialNumber>`);
     });
 
     it("should include UDN from identity", () => {

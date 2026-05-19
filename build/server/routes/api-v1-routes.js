@@ -60,7 +60,7 @@ async function requireAuth(handler, username, address) {
     throw import_errors.HueApiError.unauthorizedUser(address);
   }
 }
-async function apiV1Routes(fastify, options) {
+function apiV1Routes(fastify, options) {
   const { handler, logger } = options;
   async function runWithLog(req, rep, fn) {
     return handleErrors(req, rep, fn, logger);
@@ -86,7 +86,7 @@ async function apiV1Routes(fastify, options) {
     });
   });
   fastify.get("/api/:username/config", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
+    await runWithLog(request, reply, () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
       return handler.getConfig(hueReq, username);
@@ -142,7 +142,7 @@ async function apiV1Routes(fastify, options) {
     });
   }
   fastify.all("/api/*", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
+    await runWithLog(request, reply, () => {
       const hueReq = toHueRequest(request);
       return handler.fallback(hueReq);
     });

@@ -1,4 +1,7 @@
 # Older Changes
+## 1.4.2 (2026-05-09)
+- Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names are unchanged.
+
 ## 1.4.1 (2026-05-07)
 - Internal hardening. No user-facing changes.
 

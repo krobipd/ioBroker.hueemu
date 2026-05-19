@@ -14,15 +14,13 @@ interface MockUserAdapter extends UserServiceAdapter {
   getStatesShouldFail: boolean;
 }
 
-function createMockAdapter(
-  existingClients: string[] = [],
-): MockUserAdapter {
+function createMockAdapter(existingClients: string[] = []): MockUserAdapter {
   const writtenObjects = new Map<string, ioBroker.SettableObject>();
   const writtenStates = new Map<string, ioBroker.SettableState>();
   const namespace = "hueemu.0";
 
   const stateObjects: ioBroker.StateObject[] = existingClients.map(
-    (name) =>
+    name =>
       ({
         _id: `${namespace}.clients.${name}`,
         type: "state",
@@ -73,7 +71,7 @@ function createMockAdapter(
 
 function createService(existingClients: string[] = []) {
   const adapter = createMockAdapter(existingClients);
-  const service = new UserService({ adapter, logger: createMockLogger()});
+  const service = new UserService({ adapter, logger: createMockLogger() });
   return { service, adapter };
 }
 
@@ -90,9 +88,7 @@ describe("UserService", () => {
     it("sanitizes FORBIDDEN_CHARS in username", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
-      expect(adapter.writtenObjects.has("clients.user_with_dots")).toBe(
-        true,
-      );
+      expect(adapter.writtenObjects.has("clients.user_with_dots")).toBe(true);
     });
 
     it("sanitizes whitespace and special chars", async () => {
@@ -112,9 +108,7 @@ describe("UserService", () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
       const state = adapter.writtenStates.get("clients.user_with_dots");
-      expect((state as { val: unknown } | undefined)?.val).toBe(
-        "user.with.dots",
-      );
+      expect((state as { val: unknown } | undefined)?.val).toBe("user.with.dots");
     });
 
     it("creates clients parent folder", async () => {
@@ -149,9 +143,7 @@ describe("UserService", () => {
     it("generates a UUID when no username is provided", async () => {
       const { service } = createService();
       const result = await service.createUser(undefined, "test");
-      expect(result).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
+      expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it("generates a UUID when username is empty string", async () => {
@@ -189,9 +181,7 @@ describe("UserService", () => {
     it("matches using sanitized username", async () => {
       // Stored as sanitized "user_with_dots", lookup with raw dotted form
       const { service } = createService(["user_with_dots"]);
-      expect(await service.isUserAuthenticated("user.with.dots")).toBe(
-        true,
-      );
+      expect(await service.isUserAuthenticated("user.with.dots")).toBe(true);
     });
 
     it("returns false when getStatesOfAsync throws", async () => {

@@ -6,8 +6,11 @@
  * TLS/SSL configuration for HTTPS support
  */
 export interface TlsConfig {
+  /** HTTPS listening port */
   port: number;
+  /** PEM-encoded certificate */
   cert: string;
+  /** PEM-encoded private key */
   key: string;
 }
 
@@ -57,9 +60,13 @@ export interface HueEmulatorConfig {
  * Logger interface compatible with ioBroker
  */
 export interface Logger {
+  /** Log a debug message */
   debug(message: string): void;
+  /** Log an info message */
   info(message: string): void;
+  /** Log a warning message */
   warn(message: string): void;
+  /** Log an error message */
   error(message: string): void;
 }
 
@@ -68,6 +75,8 @@ export const BRIDGE_MODEL_ID = "BSB002";
 
 /**
  * Generate bridge ID from MAC address
+ *
+ * @param mac - MAC address to derive the bridge ID from
  */
 export function generateBridgeId(mac: string): string {
   const cleanMac = mac.replace(/:/g, "").toUpperCase();
@@ -77,6 +86,8 @@ export function generateBridgeId(mac: string): string {
 
 /**
  * Generate serial number from MAC address
+ *
+ * @param mac - MAC address to derive the serial number from
  */
 export function generateSerialNumber(mac: string): string {
   return mac.replace(/:/g, "").toLowerCase();

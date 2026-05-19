@@ -28,6 +28,11 @@ class HueSsdpServer {
   server = null;
   config;
   isRunning = false;
+  /**
+   * Create a new SSDP discovery server
+   *
+   * @param config - SSDP server configuration
+   */
   constructor(config) {
     var _a;
     this.config = {

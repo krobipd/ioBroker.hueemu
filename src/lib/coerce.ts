@@ -38,6 +38,8 @@ export function coerceFiniteNumber(v: unknown): number | null {
  */
 /**
  * Coerce arbitrary values to a strict boolean.
+ *
+ * @param v - Value to coerce to boolean
  */
 export function coerceBool(v: unknown): boolean {
   if (typeof v === "boolean") {
@@ -53,6 +55,12 @@ export function coerceBool(v: unknown): boolean {
   return false;
 }
 
+/**
+ * Parse a 1-based light ID string into a zero-based array index.
+ *
+ * @param id - Light id from the URL path
+ * @param max - Total number of items in the collection
+ */
 export function parseLightIndex(id: unknown, max: number): number | null {
   if (typeof id !== "string" || id.length === 0) {
     return null;

@@ -9,10 +9,7 @@ import {
 describe("migrations", () => {
   describe("buildInstanceObjectMigrationPatch", () => {
     it("returns name patch when common.name is a string", () => {
-      const patch = buildInstanceObjectMigrationPatch(
-        { name: "Start Pairing" },
-        INSTANCE_OBJECT_MIGRATION_PAIRS[0],
-      );
+      const patch = buildInstanceObjectMigrationPatch({ name: "Start Pairing" }, INSTANCE_OBJECT_MIGRATION_PAIRS[0]);
       expect(patch).not.toBeNull();
       expect(patch!.name).toBeTypeOf("object");
     });

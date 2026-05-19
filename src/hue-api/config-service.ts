@@ -42,6 +42,11 @@ export class ConfigService {
   private static readonly MODEL_ID = BRIDGE_MODEL_ID;
   private static readonly BRIDGE_NAME = "Philips hue";
 
+  /**
+   * Create a new config service
+   *
+   * @param config - Config service configuration
+   */
   constructor(config: ConfigServiceConfig) {
     this.identity = config.identity;
     this.discoveryHost = config.discoveryHost;
@@ -57,7 +62,12 @@ export class ConfigService {
     }
   }
 
-  /** v1.4.3 (C3): Hue spec timestamp shape `YYYY-MM-DD HH:MM:SS` in `timezone`. */
+  /**
+   * v1.4.3 (C3): Hue spec timestamp shape `YYYY-MM-DD HH:MM:SS` in `timezone`.
+   *
+   * @param date - Date to format
+   * @param timezone - IANA timezone string
+   */
   private static formatHueTimestamp(date: Date, timezone: string): string {
     try {
       const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -145,6 +155,8 @@ export class ConfigService {
 
   /**
    * Build full state response
+   *
+   * @param lights - Collection of lights to include in the state
    */
   public buildFullState(lights: LightsCollection): FullState {
     return {

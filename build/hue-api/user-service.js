@@ -52,6 +52,11 @@ class UserService {
    */
   autoAddedThisWindow = 0;
   autoAddCapWarned = false;
+  /**
+   * Create a new user service
+   *
+   * @param config - User service configuration
+   */
   constructor(config) {
     this.adapter = config.adapter;
     this.logger = config.logger;
@@ -140,6 +145,9 @@ class UserService {
   }
   /**
    * Create a new user with optional provided username
+   *
+   * @param providedUsername - Pre-defined username (generates UUID if empty)
+   * @param devicetype - Client device type string
    */
   async createUser(providedUsername, devicetype = "unknown") {
     const username = providedUsername && providedUsername.length > 0 ? providedUsername : uuid.v4();
@@ -153,6 +161,8 @@ class UserService {
    * once on the first call after start, then served from RAM. Hue clients
    * (Echo, Harmony) poll `/api/{user}` frequently — earlier each call did
    * a `getStatesOfAsync` round-trip.
+   *
+   * @param username - Username to verify
    */
   async isUserAuthenticated(username) {
     const safeUsername = (0, import_utils.sanitizeId)(username);

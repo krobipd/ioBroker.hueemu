@@ -6,7 +6,13 @@ import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import type { Logger } from "../../types/config";
 import { HueApiError } from "../../types/errors";
 
-/** Fastify error handler that converts errors to Hue API format (no logging). */
+/**
+ * Fastify error handler that converts errors to Hue API format (no logging).
+ *
+ * @param error - Error thrown during request handling
+ * @param request - Fastify request object
+ * @param reply - Fastify reply object
+ */
 export function hueErrorHandler(
   error: FastifyError | HueApiError | Error,
   request: FastifyRequest,
@@ -29,7 +35,11 @@ export function hueErrorHandler(
   }
 }
 
-/** Factory returning a Fastify error handler with debug logging. */
+/**
+ * Factory returning a Fastify error handler with debug logging.
+ *
+ * @param logger - Optional logger for debug output
+ */
 export function createHueErrorHandler(
   logger?: Logger,
 ): (error: FastifyError | HueApiError | Error, request: FastifyRequest, reply: FastifyReply) => void {
@@ -51,6 +61,8 @@ export function createHueErrorHandler(
 
 /**
  * Create a Hue success response array
+ *
+ * @param data - Key-value pairs for the success response
  */
 export function createSuccessResponse(data: Record<string, unknown>): unknown[] {
   return [{ success: data }];

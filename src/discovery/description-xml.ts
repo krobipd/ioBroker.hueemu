@@ -20,6 +20,8 @@ export interface DescriptionXmlOptions {
 
 /**
  * Generate the UPnP description.xml content for Hue bridge discovery
+ *
+ * @param options - Description XML generation options
  */
 export function generateDescriptionXml(options: DescriptionXmlOptions): string {
   const { identity, host, port, urlBase } = options;
@@ -59,6 +61,9 @@ export function generateDescriptionXml(options: DescriptionXmlOptions): string {
 
 /**
  * Get SSDP location URL for the description.xml
+ *
+ * @param host - Bridge host address
+ * @param port - HTTP port number
  */
 export function getDescriptionUrl(host: string, port: number): string {
   return `http://${host}:${port}/description.xml`;

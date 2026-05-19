@@ -78,16 +78,26 @@ export type LightStateScale = "auto" | "percent" | "normalized" | "raw";
  * Device configuration from admin UI (jsonConfig format)
  */
 export interface DeviceConfig {
+  /** Display name of the device */
   name: string;
+  /** Light type (onoff, dimmable, ct, color) */
   lightType: keyof typeof LIGHT_TYPES;
   // State mappings
+  /** ioBroker state ID for on/off */
   onState?: string;
+  /** ioBroker state ID for brightness */
   briState?: string;
+  /** Scale of the brightness source state */
   briScale?: LightStateScale;
+  /** ioBroker state ID for color temperature */
   ctState?: string;
+  /** ioBroker state ID for hue */
   hueState?: string;
+  /** ioBroker state ID for saturation */
   satState?: string;
+  /** Scale of the saturation source state */
   satScale?: LightStateScale;
+  /** ioBroker state ID for XY color */
   xyState?: string;
 }
 
@@ -107,10 +117,15 @@ const STATE_TO_CONFIG: Record<string, keyof DeviceConfig> = {
  * Adapter interface for device binding service
  */
 export interface DeviceBindingAdapter {
+  /** Adapter namespace (e.g. hueemu.0) */
   namespace: string;
+  /** ioBroker logger */
   log: ioBroker.Logger;
+  /** Read a foreign state by ID */
   getForeignStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
+  /** Write a foreign state by ID */
   setForeignStateAsync(id: string, state: ioBroker.SettableState): Promise<void>;
+  /** Subscribe to foreign state changes */
   subscribeForeignStates(pattern: string): void;
 }
 
@@ -118,8 +133,11 @@ export interface DeviceBindingAdapter {
  * Device binding service configuration
  */
 export interface DeviceBindingServiceConfig {
+  /** Adapter instance for state access */
   adapter: DeviceBindingAdapter;
+  /** Device configurations from admin UI */
   devices: DeviceConfig[];
+  /** Logger instance */
   logger: Logger;
   /** ioBroker system language for user-facing log strings */
 }
@@ -133,6 +151,11 @@ export class DeviceBindingService {
   private readonly logger: Logger;
   private stateCache: Map<string, unknown> = new Map();
 
+  /**
+   * Create a new device binding service
+   *
+   * @param config - Device binding service configuration
+   */
   constructor(config: DeviceBindingServiceConfig) {
     this.adapter = config.adapter;
     this.devices = config.devices || [];
@@ -141,6 +164,9 @@ export class DeviceBindingService {
 
   /**
    * Get state ID from device config for a given state name
+   *
+   * @param device - Device configuration
+   * @param stateName - Hue state name (on, bri, ct, etc.)
    */
   private getStateId(device: DeviceConfig, stateName: string): string | undefined {
     const configKey = STATE_TO_CONFIG[stateName];
@@ -152,6 +178,8 @@ export class DeviceBindingService {
 
   /**
    * Get all state IDs from a device config
+   *
+   * @param device - Device configuration
    */
   private getAllStateIds(device: DeviceConfig): string[] {
     const stateIds: string[] = [];
@@ -212,6 +240,9 @@ export class DeviceBindingService {
 
   /**
    * Update state cache when a state changes
+   *
+   * @param id - Full state ID
+   * @param value - New state value
    */
   public updateStateCache(id: string, value: unknown): void {
     this.stateCache.set(id, value);
@@ -256,6 +287,8 @@ export class DeviceBindingService {
    * evaluate false, so we accessed `devices[NaN]` (undefined) and crashed
    * later with a confusing TypeError. Now bad ids surface as Hue
    * `resourceNotAvailable` (404) at the boundary.
+   *
+   * @param lightId - 1-based light ID string
    */
   public async getLightById(lightId: string): Promise<Light> {
     const index = parseLightIndex(lightId, this.devices.length);
@@ -318,6 +351,9 @@ export class DeviceBindingService {
 
   /**
    * Set light state
+   *
+   * @param lightId - 1-based light ID string
+   * @param stateUpdate - State properties to update
    */
   public async setLightState(lightId: string, stateUpdate: LightStateUpdate): Promise<LightStateResult[]> {
     const index = parseLightIndex(lightId, this.devices.length);
@@ -372,6 +408,10 @@ export class DeviceBindingService {
 
   /**
    * Get state value from cache or adapter
+   *
+   * @param stateId - Full ioBroker state ID
+   * @param stateName - Hue state name (on, bri, ct, etc.)
+   * @param device - Device configuration for scale settings
    */
   private async getStateValue(stateId: string, stateName: string, device: DeviceConfig): Promise<unknown> {
     // Try cache first
@@ -495,6 +535,10 @@ export class DeviceBindingService {
    * always wrote raw 1..254 regardless of source scale, so a
    * `level.dimmer` (0..100) bound to bri ended up with values like 254
    * — confusing other consumers of that state.
+   *
+   * @param stateName - Hue state name (on, bri, ct, etc.)
+   * @param value - Value from Hue API
+   * @param device - Device configuration for scale settings
    */
   private convertValueForState(stateName: string, value: unknown, device?: DeviceConfig): ioBroker.StateValue {
     switch (stateName) {
@@ -533,6 +577,8 @@ export class DeviceBindingService {
 
   /**
    * Get default value for a state
+   *
+   * @param stateName - Hue state name
    */
   private getDefaultValue(stateName: string): unknown {
     switch (stateName) {
@@ -570,6 +616,13 @@ export class DeviceBindingService {
    *   with clamp + round.
    *
    * `null` / non-finite input always returns `max` (current default).
+   *
+   * @param value - Raw value from the foreign state
+   * @param scale - Configured scale mode
+   * @param min - Minimum Hue API value (inclusive)
+   * @param max - Maximum Hue API value (inclusive)
+   * @param device - Device configuration for logging
+   * @param stateName - State name for logging
    */
   private scaleValueFromState(
     value: unknown,
@@ -620,6 +673,10 @@ export class DeviceBindingService {
    * Earlier the write side always wrote raw Hue values regardless of the
    * source scale: a `level.dimmer` (0..100) bound to bri got values like
    * 254 written into it, breaking other adapters that read it.
+   *
+   * @param hueValue - Hue-native value (1..254)
+   * @param scale - Configured scale mode for the foreign state
+   * @param max - Maximum Hue API value
    */
   private scaleValueForState(hueValue: number, scale: LightStateScale | undefined, max: number): number {
     const mode: LightStateScale = scale ?? "auto";

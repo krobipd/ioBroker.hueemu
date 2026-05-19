@@ -54,6 +54,11 @@ class HueEmu extends utils.Adapter {
   apiHandler = null;
   unhandledRejectionHandler = null;
   uncaughtExceptionHandler = null;
+  /**
+   * Create a new Hue Emulator adapter instance
+   *
+   * @param options - Adapter options
+   */
   constructor(options = {}) {
     super({
       ...options,
@@ -77,9 +82,11 @@ class HueEmu extends utils.Adapter {
     process.on("unhandledRejection", this.unhandledRejectionHandler);
     process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
+  /** Whether pairing mode is active */
   get pairingEnabled() {
     return this._pairingEnabled;
   }
+  /** Set pairing mode and manage timeout */
   set pairingEnabled(value) {
     this._pairingEnabled = value;
     if (!value && this.pairingTimeoutId) {
@@ -88,9 +95,11 @@ class HueEmu extends utils.Adapter {
     }
     void this.setState("startPairing", { ack: true, val: value });
   }
+  /** Whether authentication is disabled */
   get disableAuth() {
     return this._disableAuth;
   }
+  /** Set authentication disabled flag and persist */
   set disableAuth(value) {
     this._disableAuth = value;
     void this.setState("disableAuth", { ack: true, val: value });
@@ -360,6 +369,8 @@ class HueEmu extends utils.Adapter {
   }
   /**
    * Called when adapter shuts down
+   *
+   * @param callback - Callback to invoke when shutdown is complete
    */
   onUnload(callback) {
     try {
@@ -389,6 +400,9 @@ class HueEmu extends utils.Adapter {
   }
   /**
    * Called if a subscribed state changes
+   *
+   * @param id - Full state ID that changed
+   * @param state - New state value or null if deleted
    */
   onStateChange(id, state) {
     if (!state) {
@@ -412,6 +426,8 @@ class HueEmu extends utils.Adapter {
   }
   /**
    * Handle startPairing state change
+   *
+   * @param state - State containing the pairing toggle value
    */
   handleStartPairing(state) {
     var _a;
@@ -438,6 +454,7 @@ class HueEmu extends utils.Adapter {
    * Migrate legacy devices (created via createLight JSON) to admin-configured DeviceConfig format.
    * Legacy devices are ioBroker device objects in the adapter namespace with state/name/data children.
    * After migration, DeviceBindingService uses the existing state objects as foreign states.
+   *
    * @returns true if migration was performed (adapter will restart with new config)
    */
   async migrateLegacyDevices() {
@@ -515,6 +532,8 @@ class HueEmu extends utils.Adapter {
   /**
    * Parse a required port number from admin config (string or number).
    * Throws when the value is missing or unparseable — caller must handle.
+   *
+   * @param port - Raw port value from config
    */
   toPort(port) {
     const parsed = this.parsePort(port);
@@ -523,7 +542,11 @@ class HueEmu extends utils.Adapter {
     }
     return parsed;
   }
-  /** Shared port parser — returns undefined for missing/unparseable input. */
+  /**
+   * Shared port parser — returns undefined for missing/unparseable input.
+   *
+   * @param port - Raw port value (string or number)
+   */
   parsePort(port) {
     if (typeof port === "number") {
       return Number.isFinite(port) ? port : void 0;
@@ -536,6 +559,8 @@ class HueEmu extends utils.Adapter {
   }
   /**
    * Derive a stable MAC address from the UDN (used when no MAC is configured)
+   *
+   * @param udn - UUID to derive MAC address from
    */
   macFromUdn(udn) {
     const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");

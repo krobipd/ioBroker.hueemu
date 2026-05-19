@@ -3,24 +3,22 @@ name: Test and Release
 on:
   push:
     branches:
-      # master removed — branch renamed to main
       - main
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-**'
-  pull_request: {}
+      - v[0-9]+.[0-9]+.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+-**
+  pull_request:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ===== CHECK & LINT =====
   check-and-lint:
     if: contains(github.event.head_commit.message, '[skip ci]') == false
-
     runs-on: ubuntu-latest
-
     steps:
       - uses: ioBroker/testing-action-check@v2.0.0
         with:
@@ -103,7 +101,7 @@ jobs:
       - name: Lint workflow YAML files (actionlint)
         uses: reviewdog/action-actionlint@v1
         with:
-          fail_on_error: true
+          fail_level: error
 
   adapter-tests:
     if: contains(github.event.head_commit.message, '[skip ci]') == false

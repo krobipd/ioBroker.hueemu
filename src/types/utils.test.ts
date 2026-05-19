@@ -26,9 +26,7 @@ describe("sanitizeId", () => {
   });
 
   it("should handle Alexa-style UUIDs", () => {
-    expect(sanitizeId("2WLEDHardworworworworworwo#Srehto")).toBe(
-      "2WLEDHardworworworworworwo_Srehto",
-    );
+    expect(sanitizeId("2WLEDHardworworworworworwo#Srehto")).toBe("2WLEDHardworworworworworwo_Srehto");
   });
 
   it("should handle empty string", () => {
@@ -40,9 +38,7 @@ describe("sanitizeId", () => {
   });
 
   it("should handle Harmony Hub style identifiers", () => {
-    expect(sanitizeId("harmony-hub-192.168.1.50")).toBe(
-      "harmony-hub-192_168_1_50",
-    );
+    expect(sanitizeId("harmony-hub-192.168.1.50")).toBe("harmony-hub-192_168_1_50");
   });
 
   it("should preserve uppercase and lowercase", () => {

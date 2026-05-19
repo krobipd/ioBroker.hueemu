@@ -37,6 +37,8 @@ interface LightParams {
 
 /**
  * Convert Fastify request to HueRequest
+ *
+ * @param request - Fastify request to convert
  */
 function toHueRequest(request: FastifyRequest): HueRequest {
   return {
@@ -56,11 +58,16 @@ function toHueRequest(request: FastifyRequest): HueRequest {
  * converged error — `requireAuth`-Throws, route-handler-Throws, body-validation.
  * Without this, the route-level error-Convergenz war komplett silent. Logger
  * ist optional (Tests passieren handler ohne).
+ *
+ * @param request - Fastify request object
+ * @param reply - Fastify reply object
+ * @param handler - Async route handler function
+ * @param logger - Optional logger for debug output
  */
 async function handleErrors(
   request: FastifyRequest,
   reply: FastifyReply,
-  handler: () => Promise<unknown>,
+  handler: () => unknown,
   logger?: Logger,
 ): Promise<void> {
   try {
@@ -87,6 +94,10 @@ async function handleErrors(
 /**
  * Verify the user is authenticated (or auth is disabled).
  * Throws HueApiError.unauthorizedUser if not.
+ *
+ * @param handler - API handler to check auth against
+ * @param username - Username to verify
+ * @param address - API address for error reporting
  */
 async function requireAuth(handler: HueApiHandler, username: string, address: string): Promise<void> {
   const isAuth = await handler.isUserAuthenticated(username);
@@ -97,13 +108,16 @@ async function requireAuth(handler: HueApiHandler, username: string, address: st
 
 /**
  * Fastify plugin that registers all Hue API v1 routes
+ *
+ * @param fastify - Fastify instance to register routes on
+ * @param options - Plugin options with handler and logger
  */
-export async function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions): Promise<void> {
+export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions): void {
   const { handler, logger } = options;
 
   // Local helper closure that captures `logger` from plugin options — saves
   // passing the logger through all 9 call-sites of `handleErrors`.
-  async function runWithLog(req: FastifyRequest, rep: FastifyReply, fn: () => Promise<unknown>): Promise<void> {
+  async function runWithLog(req: FastifyRequest, rep: FastifyReply, fn: () => unknown): Promise<void> {
     return handleErrors(req, rep, fn, logger);
   }
 
@@ -142,7 +156,7 @@ export async function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOp
 
   // GET /api/:username/config - Get config
   fastify.get<{ Params: UsernameParams }>("/api/:username/config", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
+    await runWithLog(request, reply, () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
 
@@ -216,7 +230,7 @@ export async function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOp
 
   // Fallback for unhandled API routes
   fastify.all("/api/*", async (request: FastifyRequest, reply: FastifyReply) => {
-    await runWithLog(request, reply, async () => {
+    await runWithLog(request, reply, () => {
       const hueReq = toHueRequest(request);
       return handler.fallback(hueReq);
     });

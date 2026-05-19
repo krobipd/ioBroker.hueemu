@@ -15,14 +15,17 @@ export interface DescriptionRouteOptions extends FastifyPluginOptions {
 
 /**
  * Fastify plugin that registers the /description.xml route
+ *
+ * @param fastify - Fastify instance to register the route on
+ * @param options - Plugin options with description XML config
  */
-export async function descriptionRoute(fastify: FastifyInstance, options: DescriptionRouteOptions): Promise<void> {
+export function descriptionRoute(fastify: FastifyInstance, options: DescriptionRouteOptions): void {
   const { descriptionOptions } = options;
 
   // Generate the XML once (it's static)
   const descriptionXml = generateDescriptionXml(descriptionOptions);
 
-  fastify.get("/description.xml", async (_request, reply) => {
+  fastify.get("/description.xml", (_request, reply) => {
     reply.type("application/xml").header("Content-Length", Buffer.byteLength(descriptionXml)).send(descriptionXml);
   });
 }

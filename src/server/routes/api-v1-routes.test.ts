@@ -5,19 +5,8 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { apiV1Routes } from "./api-v1-routes";
 import { hueErrorHandler } from "../middleware/error-handler";
-import type {
-  HueApiHandler,
-  HueRequest,
-  CreateUserRequest,
-  FullState,
-  BridgeConfigPublic,
-} from "../../types/hue-api";
-import type {
-  Light,
-  LightsCollection,
-  LightStateUpdate,
-  LightStateResult,
-} from "../../types/light";
+import type { HueApiHandler, HueRequest, CreateUserRequest, FullState, BridgeConfigPublic } from "../../types/hue-api";
+import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../../types/light";
 
 interface MockHandlerCalls {
   createUser: Array<{ req: HueRequest; body: CreateUserRequest }>;
@@ -50,9 +39,8 @@ function createMockHandler(
       calls.createUser.push({ req, body });
       return opts.username ?? "generated-user-123";
     },
-    getFullState: async () =>
-      ({ lights: {}, groups: {}, config: {} }) as unknown as FullState,
-    getConfig: async () =>
+    getFullState: async () => ({ lights: {}, groups: {}, config: {} }) as unknown as FullState,
+    getConfig: () =>
       ({
         name: "Philips hue",
         bridgeid: "TESTBRIDGE",
@@ -74,7 +62,7 @@ function createMockHandler(
       calls.setGroupAction.push({ groupId, state });
       return [] as LightStateResult[];
     },
-    fallback: async (req) => {
+    fallback: req => {
       calls.fallback.push(req);
       return {};
     },

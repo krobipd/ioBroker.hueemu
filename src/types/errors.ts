@@ -50,6 +50,7 @@ const ERROR_DESCRIPTIONS: Record<HueErrorType, string> = {
  * Hue API error response format
  */
 export interface HueErrorResponse {
+  /** Error details */
   error: {
     type: number;
     address: string;
@@ -76,6 +77,9 @@ export class HueApiError extends Error {
 
   /**
    * Format error description with parameters
+   *
+   * @param type - Hue error type enum value
+   * @param params - Substitution parameters for the error template
    */
   private static formatDescription(type: HueErrorType, params: string[]): string {
     let desc = ERROR_DESCRIPTIONS[type] || "unknown error";
@@ -100,38 +104,90 @@ export class HueApiError extends Error {
 
   // Static factory methods for common errors
 
+  /**
+   * Create an unauthorized user error
+   *
+   * @param address - API endpoint address
+   */
   static unauthorizedUser(address = ""): HueApiError {
     return new HueApiError(HueErrorType.UNAUTHORIZED_USER, address);
   }
 
+  /**
+   * Create an invalid JSON error
+   *
+   * @param address - API endpoint address
+   */
   static invalidJson(address = ""): HueApiError {
     return new HueApiError(HueErrorType.INVALID_JSON, address);
   }
 
+  /**
+   * Create a resource not available error
+   *
+   * @param resource - Resource identifier
+   * @param address - API endpoint address
+   */
   static resourceNotAvailable(resource: string, address = ""): HueApiError {
     return new HueApiError(HueErrorType.RESOURCE_NOT_AVAILABLE, address, [resource]);
   }
 
+  /**
+   * Create a method not available error
+   *
+   * @param method - HTTP method
+   * @param resource - Resource identifier
+   * @param address - API endpoint address
+   */
   static methodNotAvailable(method: string, resource: string, address = ""): HueApiError {
     return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [method, resource]);
   }
 
+  /**
+   * Create a missing parameters error
+   *
+   * @param address - API endpoint address
+   */
   static missingParameters(address = ""): HueApiError {
     return new HueApiError(HueErrorType.MISSING_PARAMETERS, address);
   }
 
+  /**
+   * Create a parameter not available error
+   *
+   * @param parameter - Parameter name
+   * @param address - API endpoint address
+   */
   static parameterNotAvailable(parameter: string, address = ""): HueApiError {
     return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [parameter]);
   }
 
+  /**
+   * Create an invalid parameter value error
+   *
+   * @param value - Invalid value
+   * @param parameter - Parameter name
+   * @param address - API endpoint address
+   */
   static invalidParameterValue(value: string, parameter: string, address = ""): HueApiError {
     return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [value, parameter]);
   }
 
+  /**
+   * Create a link button not pressed error
+   *
+   * @param address - API endpoint address
+   */
   static linkButtonNotPressed(address = ""): HueApiError {
     return new HueApiError(HueErrorType.LINK_BUTTON_NOT_PRESSED, address);
   }
 
+  /**
+   * Create an internal error
+   *
+   * @param details - Error details message
+   * @param address - API endpoint address
+   */
   static internalError(details: string, address = ""): HueApiError {
     return new HueApiError(HueErrorType.INTERNAL_ERROR, address, [details]);
   }
