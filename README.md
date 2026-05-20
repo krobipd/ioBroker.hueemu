@@ -156,7 +156,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     ### **WORK IN PROGRESS**
 -->
 ### 1.4.8 (2026-05-20)
-- TLS private key is now also protected from being exposed to the admin frontend. CI tests extended to Node.js 22 and 24.
+- Improved security: TLS private key is no longer visible in the admin interface.
 
 ### 1.4.7 (2026-05-19)
 - TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.
