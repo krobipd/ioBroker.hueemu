@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.7",
+    "version": "1.4.8",
     "news": {
-      "NEXT": {
+      "1.4.8": {
         "en": "TLS private key is now also protected from being exposed to the admin frontend. CI tests extended to Node.js 20, 22 and 24.",
         "de": "Der private TLS-Schlüssel wird jetzt auch vor der Ausgabe im Admin-Frontend geschützt. CI-Tests auf Node.js 20, 22 und 24 erweitert.",
         "ru": "Закрытый ключ TLS теперь также защищён от отображения в интерфейсе администратора. CI-тесты расширены на Node.js 20, 22 и 24.",
