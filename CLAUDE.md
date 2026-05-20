@@ -6,14 +6,14 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.4.7 (released 2026-05-19, npm latest) — NUT-Konsistenz: strict eslint (0 disabled rules, 0 warnings), prettier auf ioBroker-Standard, `encryptedNative: ["tlsKey"]` (TLS-Key at rest encrypted), CI/config aligned mit NUT-Referenz (dependabot, workflow, releaseconfig), vitest `singleFork: false`, `translate` Script, Legacy-Shell-Scripts entfernt. Vorgänger: v1.4.6 (2026-05-17) Toolchain-Parity. v1.4.5 (2026-05-13) Debug-Coverage-Welle. v1.4.4 (2026-05-10) D3 per-device briScale/satScale. v1.4.3 (2026-05-10) 17-Finding Hardening. v1.4.2 (2026-05-09) Logs revert to English.
+- **Version:** 1.4.8 (released 2026-05-20, npm latest) — `protectedNative: ["tlsKey"]` (W1093 fix — TLS key not exposed to admin frontend), `@types/node ^22` (S0067), CI node-matrix [22,24] aligned with engines.node>=22, `npm update` aus releaseconfig entfernt. Vorgänger: v1.4.7 (2026-05-19) NUT-Konsistenz. v1.4.6 (2026-05-17) Toolchain-Parity. v1.4.5 (2026-05-13) Debug-Coverage-Welle. v1.4.4 (2026-05-10) D3 per-device briScale/satScale. v1.4.3 (2026-05-10) 17-Finding Hardening.
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
 - **Original Author:** Christopher Holomek (@holomekc) — Fork, modernisiert 2026
 - **Runtime-Deps:** `@iobroker/adapter-core`, `fastify`, `node-ssdp`, `node-forge`, `uuid`
 - **Test-Setup:** vitest (globals mode, pool: forks) — Tests neben Source unter `src/**/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` als Shared-Mock-Factory außerhalb src/
-- **`@types/node` an `engines.node`-Min gekoppelt:** `^22.x` weil `engines.node: ">=22"`
+- **`@types/node` an `engines.node`-Min gekoppelt:** `^22` weil `engines.node: ">=22"`
 
 ## Architektur
 
@@ -92,6 +92,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights |
 |---------|------------|
+| 1.4.8 | `protectedNative: ["tlsKey"]` (W1093 — TLS key not exposed to admin frontend), `@types/node ^22` (S0067), CI node-matrix [22,24] aligned with engines.node>=22, `npm update` aus releaseconfig entfernt |
 | 1.4.7 | **NUT-Konsistenz**: strict eslint (0 disabled rules, 0 warnings — 210 jsdoc fixes + 7 code fixes), prettier auf ioBroker-Standard, `encryptedNative: ["tlsKey"]` (Govee-Pattern, 0 LOC migration), CI/config aligned mit NUT (dependabot, workflow, releaseconfig), vitest `singleFork: false`, `translate` Script, 3 Legacy-Shell-Scripts entfernt |
 | 1.4.6 | **Toolchain-Parity** (letzter der 6 krobi-Adapter): TS ~5.9→~6.0.3, mocha+chai→vitest (globals, pool:forks), eslint-config 2.2→2.3.4, release-script 5.1→5.2.0. Code-Cleanup: `coerceBool` nach `lib/coerce.ts` (shared), `toUndefinedPort` inlined, `private log()` aus 5 Klassen (33→direct). `scripts/sync-iopackage-from-i18n.py` (hassemu/beszel-Linie). extIcon jsdelivr CSP-Fix. `pre-release.py --audit-current` Hook. nyc/source-map-support/ts-node raus |
 | 1.4.5 | **Debug-Coverage-Welle**: 9-Klassen-Audit (6588 LOC + 70 Log-Sites), Score 6.8→8.9 — 8/9 Klassen auf 9/10. Reine `log.debug`-Inserts: `createHueErrorHandler(logger)`-Factory + handleErrors 3 catch-Branches; convertValueFromState default-fallback hue/ct/xy; scaleValueFromState auto-Branch-Trace inkl. D3-Heuristik-Diagnose; SSDP USN-Trace + M-SEARCH-response + advertise-bye Hooks (advertise-alive NICHT — Cadence 8640/day); TLS-Cert validity parse + notAfter-Check (expired auto-rotate) + persist-fail-warn; onReady-Anchor + subscribeStates-Anchor. Plus README v1.4.x-Bullets gekürzt + Features-Block 4→8 + HTTPS-Tabellen-Erklärung + Troubleshooting-bri-Hinweis um alle 4 Skalen; CHANGELOG_OLD.md 21 von 30 Einträgen zu „Internal cleanup" konsolidiert, Brand-Listen + Repochecker-Codes + 1.1.3/1.1.4-Duplikat bereinigt. Drei Krobi-Reconciles: Cooldown-Helper gestrichen (info-Pattern aus hassemu falsch übertragen), keine Frequenz-Filter, isUserAuthenticated + Pairing-Reject redundant zu handleErrors. Neues Memory `feedback_patch_wert_sanity_check.md` |
