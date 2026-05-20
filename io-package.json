@@ -181,6 +181,9 @@
   "encryptedNative": [
     "tlsKey"
   ],
+  "protectedNative": [
+    "tlsKey"
+  ],
   "objects": [],
   "instanceObjects": [
     {
