@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.7",
     "news": {
+      "NEXT": {
+        "en": "TLS private key is now also protected from being exposed to the admin frontend. CI tests extended to Node.js 20, 22 and 24.",
+        "de": "Der private TLS-Schlüssel wird jetzt auch vor der Ausgabe im Admin-Frontend geschützt. CI-Tests auf Node.js 20, 22 und 24 erweitert.",
+        "ru": "Закрытый ключ TLS теперь также защищён от отображения в интерфейсе администратора. CI-тесты расширены на Node.js 20, 22 и 24.",
+        "pt": "A chave privada TLS agora também está protegida contra exposição no frontend do admin. Testes CI estendidos para Node.js 20, 22 e 24.",
+        "nl": "De privé TLS-sleutel wordt nu ook beschermd tegen weergave in het admin-frontend. CI-tests uitgebreid naar Node.js 20, 22 en 24.",
+        "fr": "La clé privée TLS est désormais également protégée contre l'affichage dans l'interface d'administration. Tests CI étendus à Node.js 20, 22 et 24.",
+        "it": "La chiave privata TLS è ora protetta anche dall'esposizione nel frontend di amministrazione. Test CI estesi a Node.js 20, 22 e 24.",
+        "es": "La clave privada TLS ahora también está protegida contra la exposición en el frontend de administración. Pruebas CI extendidas a Node.js 20, 22 y 24.",
+        "pl": "Klucz prywatny TLS jest teraz również chroniony przed wyświetlaniem w panelu administracyjnym. Testy CI rozszerzone na Node.js 20, 22 i 24.",
+        "uk": "Приватний ключ TLS тепер також захищений від відображення в інтерфейсі адміністрування. CI-тести розширені на Node.js 20, 22 та 24.",
+        "zh-cn": "TLS 私钥现在也受到保护，不会在管理界面前端中暴露。CI 测试扩展到 Node.js 20、22 和 24。"
+      },
       "1.4.7": {
         "en": "TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.",
         "de": "Der private TLS-Schlüssel wird jetzt verschlüsselt in der ioBroker-Objektdatenbank gespeichert. Code-Qualität durch strikte Lint-Regeln und einheitliche Formatierung erzwungen.",
@@ -80,19 +93,6 @@
         "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów (11 języków) pozostają bez zmian.",
         "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів (11 мов) залишаються без змін.",
         "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称（11 种语言）保持不变。"
-      },
-      "1.4.1": {
-        "en": "Internal hardening (type safety + test coverage). No user-facing changes.",
-        "de": "Internes Hardening (Typsicherheit + Testabdeckung). Keine Änderungen für Benutzer.",
-        "ru": "Внутреннее упрочнение (типобезопасность + покрытие тестами). Для пользователей ничего не меняется.",
-        "pt": "Robustecimento interno (segurança de tipos + cobertura de testes). Sem alterações para utilizadores.",
-        "nl": "Interne hardening (type-veiligheid + testdekking). Geen wijzigingen voor gebruikers.",
-        "fr": "Renforcement interne (sécurité des types + couverture de tests). Aucun changement pour les utilisateurs.",
-        "it": "Rafforzamento interno (type-safety + copertura di test). Nessuna modifica per gli utenti.",
-        "es": "Endurecimiento interno (seguridad de tipos + cobertura de tests). Sin cambios para los usuarios.",
-        "pl": "Wewnętrzne wzmocnienie (typy + pokrycie testami). Bez zmian dla użytkowników.",
-        "uk": "Внутрішнє зміцнення (типобезпека + покриття тестами). Без змін для користувачів.",
-        "zh-cn": "内部加固（类型安全 + 测试覆盖）。用户无任何变化。"
       }
     },
     "titleLang": {
