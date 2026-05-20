@@ -4,17 +4,17 @@
     "version": "1.4.8",
     "news": {
       "1.4.8": {
-        "en": "TLS private key is now also protected from being exposed to the admin frontend. CI tests extended to Node.js 20, 22 and 24.",
-        "de": "Der private TLS-Schlüssel wird jetzt auch vor der Ausgabe im Admin-Frontend geschützt. CI-Tests auf Node.js 20, 22 und 24 erweitert.",
-        "ru": "Закрытый ключ TLS теперь также защищён от отображения в интерфейсе администратора. CI-тесты расширены на Node.js 20, 22 и 24.",
-        "pt": "A chave privada TLS agora também está protegida contra exposição no frontend do admin. Testes CI estendidos para Node.js 20, 22 e 24.",
-        "nl": "De privé TLS-sleutel wordt nu ook beschermd tegen weergave in het admin-frontend. CI-tests uitgebreid naar Node.js 20, 22 en 24.",
-        "fr": "La clé privée TLS est désormais également protégée contre l'affichage dans l'interface d'administration. Tests CI étendus à Node.js 20, 22 et 24.",
-        "it": "La chiave privata TLS è ora protetta anche dall'esposizione nel frontend di amministrazione. Test CI estesi a Node.js 20, 22 e 24.",
-        "es": "La clave privada TLS ahora también está protegida contra la exposición en el frontend de administración. Pruebas CI extendidas a Node.js 20, 22 y 24.",
-        "pl": "Klucz prywatny TLS jest teraz również chroniony przed wyświetlaniem w panelu administracyjnym. Testy CI rozszerzone na Node.js 20, 22 i 24.",
-        "uk": "Приватний ключ TLS тепер також захищений від відображення в інтерфейсі адміністрування. CI-тести розширені на Node.js 20, 22 та 24.",
-        "zh-cn": "TLS 私钥现在也受到保护，不会在管理界面前端中暴露。CI 测试扩展到 Node.js 20、22 和 24。"
+        "en": "TLS private key is now also protected from being exposed to the admin frontend. CI tests extended to Node.js 22 and 24.",
+        "de": "Der private TLS-Schlüssel wird jetzt auch vor der Ausgabe im Admin-Frontend geschützt. CI-Tests auf Node.js 22 und 24 erweitert.",
+        "ru": "Закрытый ключ TLS теперь также защищён от отображения в интерфейсе администратора. CI-тесты расширены на Node.js 22 и 24.",
+        "pt": "A chave privada TLS agora também está protegida contra exposição no frontend do admin. Testes CI estendidos para Node.js 22 e 24.",
+        "nl": "De privé TLS-sleutel wordt nu ook beschermd tegen weergave in het admin-frontend. CI-tests uitgebreid naar Node.js 22 en 24.",
+        "fr": "La clé privée TLS est désormais également protégée contre l'affichage dans l'interface d'administration. Tests CI étendus à Node.js 22 et 24.",
+        "it": "La chiave privata TLS è ora protetta anche dall'esposizione nel frontend di amministrazione. Test CI estesi a Node.js 22 e 24.",
+        "es": "La clave privada TLS ahora también está protegida contra la exposición en el frontend de administración. Pruebas CI extendidas a Node.js 22 y 24.",
+        "pl": "Klucz prywatny TLS jest teraz również chroniony przed wyświetlaniem w panelu administracyjnym. Testy CI rozszerzone na Node.js 22 i 24.",
+        "uk": "Приватний ключ TLS тепер також захищений від відображення в інтерфейсі адміністрування. CI-тести розширені на Node.js 22 та 24.",
+        "zh-cn": "TLS 私钥现在也受到保护，不会在管理界面前端中暴露。CI 测试扩展到 Node.js 22 和 24。"
       },
       "1.4.7": {
         "en": "TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.",
