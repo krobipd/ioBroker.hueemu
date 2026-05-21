@@ -6,7 +6,8 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.4.8 (released 2026-05-20, npm latest) — `protectedNative: ["tlsKey"]` (W1093 fix — TLS key not exposed to admin frontend), `@types/node ^22` (S0067), CI node-matrix [22,24] aligned with engines.node>=22, `npm update` aus releaseconfig entfernt. Vorgänger: v1.4.7 (2026-05-19) NUT-Konsistenz. v1.4.6 (2026-05-17) Toolchain-Parity. v1.4.5 (2026-05-13) Debug-Coverage-Welle. v1.4.4 (2026-05-10) D3 per-device briScale/satScale. v1.4.3 (2026-05-10) 17-Finding Hardening.
+- **Version:** 1.4.9 (released 2026-05-22) — Community-standard event handler pattern: `.bind(this)` + try/catch in handler body statt `.catch()` call-site (mcm1957 PR #654). Lokale `scripts/sync-iopackage-from-i18n.py` gelöscht (zentral).
+- **Vorgänger 1.4.8** (released 2026-05-20, npm latest) — `protectedNative: ["tlsKey"]` (W1093 fix — TLS key not exposed to admin frontend), `@types/node ^22` (S0067), CI node-matrix [22,24] aligned with engines.node>=22, `npm update` aus releaseconfig entfernt. Vorgänger: v1.4.7 (2026-05-19) NUT-Konsistenz. v1.4.6 (2026-05-17) Toolchain-Parity. v1.4.5 (2026-05-13) Debug-Coverage-Welle. v1.4.4 (2026-05-10) D3 per-device briScale/satScale. v1.4.3 (2026-05-10) 17-Finding Hardening.
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
 - **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, im Latest-Repo)
@@ -30,6 +31,7 @@ src/lib/i18n-states.ts            → 5 STATE_NAMES × 11 Sprachen + tName
 src/server/hue-server.ts          → Fastify HTTP/HTTPS (trustProxy opt-in, bodyLimit 64KiB, forceCloseConnections)
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints
 src/types/                        → config (HueEmulatorConfig.trustProxy), errors, hue-api, light, utils (sanitizeId + errText)
+../scripts/sync-iopackage-from-i18n.py → hält io-package.json:instanceObjects synchron mit i18n-states.ts (zentral)
 ```
 
 ## Design-Entscheidungen

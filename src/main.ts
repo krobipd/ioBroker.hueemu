@@ -67,12 +67,7 @@ export class HueEmu extends utils.Adapter {
       name: "hueemu",
     });
 
-    // Defense in depth: even though onReady has an inner try/catch, wrap the
-    // async handler so a future refactor that moves code outside the try block
-    // cannot turn a bug into an unhandled promise rejection (→ SIGKILL → loop).
-    this.on("ready", () => {
-      this.onReady().catch((err: unknown) => this.log.error(`onReady failed: ${errText(err)}`));
-    });
+    this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
 
@@ -526,30 +521,34 @@ export class HueEmu extends utils.Adapter {
    * @param state - New state value or null if deleted
    */
   private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
-    if (!state) {
-      this.log.debug(`State ${id} deleted`);
-      return;
-    }
+    try {
+      if (!state) {
+        this.log.debug(`State ${id} deleted`);
+        return;
+      }
 
-    this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
+      this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
 
-    // Update API handler state cache for device binding
-    if (this.apiHandler && state.ack) {
-      this.apiHandler.onStateChange(id, state.val);
-    }
+      // Update API handler state cache for device binding
+      if (this.apiHandler && state.ack) {
+        this.apiHandler.onStateChange(id, state.val);
+      }
 
-    // Only handle non-acked state changes for our own states
-    if (state.ack) {
-      return;
-    }
+      // Only handle non-acked state changes for our own states
+      if (state.ack) {
+        return;
+      }
 
-    if (id === `${this.namespace}.startPairing`) {
-      this.handleStartPairing(state);
-    } else if (id === `${this.namespace}.disableAuth`) {
-      this.disableAuth = coerceBool(state.val);
-    } else if (id.startsWith(this.namespace)) {
-      // Acknowledge other own state changes
-      void this.setState(id, { ack: true, val: state.val });
+      if (id === `${this.namespace}.startPairing`) {
+        this.handleStartPairing(state);
+      } else if (id === `${this.namespace}.disableAuth`) {
+        this.disableAuth = coerceBool(state.val);
+      } else if (id.startsWith(this.namespace)) {
+        // Acknowledge other own state changes
+        void this.setState(id, { ack: true, val: state.val });
+      }
+    } catch (err: unknown) {
+      this.log.error(`stateChange failed: ${errText(err)}`);
     }
   }
 

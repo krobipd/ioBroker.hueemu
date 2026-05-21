@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.8",
     "news": {
+      "NEXT": {
+        "en": "Use community-standard event handler pattern (.bind + try/catch).",
+        "de": "Community-Standard-Eventhandler-Pattern (.bind + try/catch) verwendet.",
+        "ru": "Используется стандартный шаблон обработчиков событий (.bind + try/catch).",
+        "pt": "Utilizado o padrão comunitário de manipuladores de eventos (.bind + try/catch).",
+        "nl": "Community-standaard event handler patroon (.bind + try/catch) gebruikt.",
+        "fr": "Utilisation du modèle standard communautaire pour les gestionnaires d'événements (.bind + try/catch).",
+        "it": "Utilizzato il modello standard della community per i gestori di eventi (.bind + try/catch).",
+        "es": "Utilizado el patrón estándar de la comunidad para manejadores de eventos (.bind + try/catch).",
+        "pl": "Zastosowano standardowy wzorzec obsługi zdarzeń (.bind + try/catch).",
+        "uk": "Використано стандартний шаблон обробників подій (.bind + try/catch).",
+        "zh-cn": "使用社区标准事件处理程序模式（.bind + try/catch）。"
+      },
       "1.4.8": {
         "en": "Improved security: TLS private key is no longer visible in the admin interface.",
         "de": "Verbesserte Sicherheit: Der private TLS-Schlüssel ist in der Admin-Oberfläche nicht mehr sichtbar.",
@@ -80,19 +93,6 @@
         "pl": "Certyfikat TLS jest zachowywany między restartami (klienci ufają mu raz), API HTTP działa nawet gdy port SSDP 1900 jest zajęty, parowanie ma limit 64 klientów na okno.",
         "uk": "TLS-сертифікат зберігається між перезапусками (клієнти довіряють йому один раз), HTTP API працює навіть із зайнятим SSDP-портом 1900, спарювання має ліміт 64 клієнтів на вікно.",
         "zh-cn": "TLS 证书在重启之间保留（客户端只需信任一次），即使 SSDP 端口 1900 被占用 HTTP API 仍可访问，配对窗口最多接受 64 个客户端，避免局域网噪声填满网桥。"
-      },
-      "1.4.2": {
-        "en": "Adapter log messages are now English only, in line with the ioBroker community standard. Localized state names (11 languages) remain unchanged.",
-        "de": "Adapter-Logs sind jetzt nur noch auf Englisch, gemäß ioBroker-Community-Standard. Lokalisierte Datenpunkt-Namen (11 Sprachen) bleiben erhalten.",
-        "ru": "Сообщения журнала теперь только на английском, согласно стандарту сообщества ioBroker. Локализованные имена состояний (11 языков) сохраняются.",
-        "pt": "As mensagens de log do adaptador agora são apenas em inglês, conforme o padrão da comunidade ioBroker. Os nomes de estados localizados (11 idiomas) permanecem inalterados.",
-        "nl": "Adapter-logberichten zijn nu alleen Engels, conform de ioBroker-communitystandaard. Gelokaliseerde statusnamen (11 talen) blijven ongewijzigd.",
-        "fr": "Les messages de log de l'adaptateur sont désormais uniquement en anglais, conformément au standard de la communauté ioBroker. Les noms d'états localisés (11 langues) restent inchangés.",
-        "it": "I messaggi di log dell'adattatore sono ora solo in inglese, secondo lo standard della community ioBroker. I nomi degli stati localizzati (11 lingue) rimangono invariati.",
-        "es": "Los mensajes de registro del adaptador ahora son solo en inglés, conforme al estándar de la comunidad ioBroker. Los nombres de estados localizados (11 idiomas) permanecen sin cambios.",
-        "pl": "Komunikaty dziennika adaptera są teraz wyłącznie po angielsku, zgodnie ze standardem społeczności ioBroker. Zlokalizowane nazwy stanów (11 języków) pozostają bez zmian.",
-        "uk": "Повідомлення журналу адаптера тепер лише англійською, відповідно до стандарту спільноти ioBroker. Локалізовані назви станів (11 мов) залишаються без змін.",
-        "zh-cn": "适配器日志消息现在仅为英文，符合 ioBroker 社区标准。本地化的数据点名称（11 种语言）保持不变。"
       }
     },
     "titleLang": {

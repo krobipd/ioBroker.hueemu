@@ -155,6 +155,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- Use community-standard event handler pattern (.bind + try/catch).
+
 ### 1.4.8 (2026-05-20)
 - Improved security: TLS private key is no longer visible in the admin interface.
 
