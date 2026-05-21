@@ -155,7 +155,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 1.4.9 (2026-05-21)
 - Use community-standard event handler pattern (.bind + try/catch).
 
 ### 1.4.8 (2026-05-20)
@@ -169,9 +169,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.4.5 (2026-05-13)
 - Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
-
-### 1.4.4 (2026-05-10)
-- Brightness and saturation now have an explicit scale option per device, so values stored as 0..100 are no longer misread as full brightness. Existing setups keep working on the default.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

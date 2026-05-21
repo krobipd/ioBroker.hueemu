@@ -1,4 +1,7 @@
 # Older Changes
+## 1.4.4 (2026-05-10)
+- Brightness and saturation now have an explicit scale option per device, so values stored as 0..100 are no longer misread as full brightness. Existing setups keep working on the default.
+
 ## 1.4.3 (2026-05-10)
 - TLS certificate is now stored and reused across restarts — clients only need to trust it once, and the adapter starts noticeably faster.
 - Paired clients appear in Hue tools that read the bridge whitelist.

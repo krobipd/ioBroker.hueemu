@@ -64,9 +64,7 @@ class HueEmu extends utils.Adapter {
       ...options,
       name: "hueemu"
     });
-    this.on("ready", () => {
-      this.onReady().catch((err) => this.log.error(`onReady failed: ${(0, import_utils.errText)(err)}`));
-    });
+    this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
     this.unhandledRejectionHandler = (reason) => {
@@ -405,23 +403,27 @@ class HueEmu extends utils.Adapter {
    * @param state - New state value or null if deleted
    */
   onStateChange(id, state) {
-    if (!state) {
-      this.log.debug(`State ${id} deleted`);
-      return;
-    }
-    this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
-    if (this.apiHandler && state.ack) {
-      this.apiHandler.onStateChange(id, state.val);
-    }
-    if (state.ack) {
-      return;
-    }
-    if (id === `${this.namespace}.startPairing`) {
-      this.handleStartPairing(state);
-    } else if (id === `${this.namespace}.disableAuth`) {
-      this.disableAuth = (0, import_coerce.coerceBool)(state.val);
-    } else if (id.startsWith(this.namespace)) {
-      void this.setState(id, { ack: true, val: state.val });
+    try {
+      if (!state) {
+        this.log.debug(`State ${id} deleted`);
+        return;
+      }
+      this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
+      if (this.apiHandler && state.ack) {
+        this.apiHandler.onStateChange(id, state.val);
+      }
+      if (state.ack) {
+        return;
+      }
+      if (id === `${this.namespace}.startPairing`) {
+        this.handleStartPairing(state);
+      } else if (id === `${this.namespace}.disableAuth`) {
+        this.disableAuth = (0, import_coerce.coerceBool)(state.val);
+      } else if (id.startsWith(this.namespace)) {
+        void this.setState(id, { ack: true, val: state.val });
+      }
+    } catch (err) {
+      this.log.error(`stateChange failed: ${(0, import_utils.errText)(err)}`);
     }
   }
   /**
