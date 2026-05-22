@@ -6,32 +6,39 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === "object") || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod,
+  )
+);
+var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var main_exports = {};
 __export(main_exports, {
-  HueEmu: () => HueEmu
+  HueEmu: () => HueEmu,
 });
 module.exports = __toCommonJS(main_exports);
 var utils = __toESM(require("@iobroker/adapter-core"));
+var import_adapter_core = require("@iobroker/adapter-core");
+var import_node_path = require("node:path");
 var uuid = __toESM(require("uuid"));
 var forge = __toESM(require("node-forge"));
 var import_node_crypto = require("node:crypto");
@@ -39,7 +46,7 @@ var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
 var import_coerce = require("./lib/coerce");
-var import_i18n_states = require("./lib/i18n-states");
+var import_i18n = require("./lib/i18n");
 var import_migrations = require("./lib/migrations");
 var import_config = require("./types/config");
 var import_utils = require("./types/utils");
@@ -62,17 +69,17 @@ class HueEmu extends utils.Adapter {
   constructor(options = {}) {
     super({
       ...options,
-      name: "hueemu"
+      name: "hueemu",
     });
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-    this.unhandledRejectionHandler = (reason) => {
+    this.unhandledRejectionHandler = reason => {
       var _a;
       this.log.error(`Unhandled rejection: ${(0, import_utils.errText)(reason)}`);
       (_a = this.terminate) == null ? void 0 : _a.call(this, 11);
     };
-    this.uncaughtExceptionHandler = (err) => {
+    this.uncaughtExceptionHandler = err => {
       var _a;
       this.log.error(`Uncaught exception: ${(0, import_utils.errText)(err)}`);
       (_a = this.terminate) == null ? void 0 : _a.call(this, 11);
@@ -109,7 +116,10 @@ class HueEmu extends utils.Adapter {
   async onReady() {
     var _a, _b;
     try {
-      this.log.debug(`onReady: starting (devices in config: ${(_b = (_a = this.config.devices) == null ? void 0 : _a.length) != null ? _b : 0})`);
+      await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
+      this.log.debug(
+        `onReady: starting (devices in config: ${(_b = (_a = this.config.devices) == null ? void 0 : _a.length) != null ? _b : 0})`,
+      );
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
         return;
@@ -123,29 +133,29 @@ class HueEmu extends utils.Adapter {
         host: emulatorConfig.discoveryHost || emulatorConfig.host,
         port: emulatorConfig.discoveryPort || emulatorConfig.port,
         ssdpPort: emulatorConfig.upnpPort,
-        logger
+        logger,
       });
       this.apiHandler = new import_hue_api.ApiHandler({
         adapter: this,
         configServiceConfig: {
           identity: emulatorConfig.identity,
-          discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host
+          discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host,
         },
         devices,
-        logger
+        logger,
       });
       await this.apiHandler.initialize();
       this.hueServer = new import_server.HueServer({
         config: emulatorConfig,
         handler: this.apiHandler,
-        logger
+        logger,
       });
       await this.hueServer.start();
       try {
         await this.ssdpServer.start();
       } catch (err) {
         this.log.warn(
-          `SSDP discovery disabled \u2014 port 1900 unavailable (${(0, import_utils.errText)(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`
+          `SSDP discovery disabled \u2014 port 1900 unavailable (${(0, import_utils.errText)(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`,
         );
       }
       await this.initializeAdapterStates();
@@ -153,7 +163,7 @@ class HueEmu extends utils.Adapter {
       this.subscribeStates("*");
       this.log.debug("Subscribed to own states (pattern: *)");
       this.log.info(
-        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`
+        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
       );
     } catch (error) {
       this.log.error(`Failed to start Hue Emulator: ${(0, import_utils.errText)(error)}`);
@@ -177,9 +187,12 @@ class HueEmu extends utils.Adapter {
     }
     const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
     const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || this.macFromUdn(udn);
-    if (!((_e = this.config.udn) == null ? void 0 : _e.trim()) || !((_f = this.config.mac) == null ? void 0 : _f.trim())) {
+    if (
+      !((_e = this.config.udn) == null ? void 0 : _e.trim()) ||
+      !((_f = this.config.mac) == null ? void 0 : _f.trim())
+    ) {
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-        native: { udn, mac }
+        native: { udn, mac },
       });
     }
     const upnpPort = 1900;
@@ -188,7 +201,7 @@ class HueEmu extends utils.Adapter {
       mac,
       bridgeId: (0, import_config.generateBridgeId)(mac),
       modelId: import_config.BRIDGE_MODEL_ID,
-      serialNumber: (0, import_config.generateSerialNumber)(mac)
+      serialNumber: (0, import_config.generateSerialNumber)(mac),
     };
     let https;
     if (httpsPort) {
@@ -196,7 +209,7 @@ class HueEmu extends utils.Adapter {
       https = { port: httpsPort, cert, key };
     }
     this.log.debug(
-      `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`
+      `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
     );
     this.log.debug(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
     this.log.debug(`UDN: ${identity.udn}`);
@@ -208,7 +221,7 @@ class HueEmu extends utils.Adapter {
       https,
       upnpPort,
       identity,
-      trustProxy: this.config.trustProxy === true
+      trustProxy: this.config.trustProxy === true,
     };
   }
   /**
@@ -223,7 +236,11 @@ class HueEmu extends utils.Adapter {
   async getOrCreateTlsMaterial() {
     const persistedCert = typeof this.config.tlsCert === "string" ? this.config.tlsCert.trim() : "";
     const persistedKey = typeof this.config.tlsKey === "string" ? this.config.tlsKey.trim() : "";
-    if (persistedCert.startsWith("-----BEGIN CERTIFICATE-----") && (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") || persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))) {
+    if (
+      persistedCert.startsWith("-----BEGIN CERTIFICATE-----") &&
+      (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") ||
+        persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))
+    ) {
       try {
         const parsed = forge.pki.certificateFromPem(persistedCert);
         if (parsed.validity.notAfter > /* @__PURE__ */ new Date()) {
@@ -231,7 +248,7 @@ class HueEmu extends utils.Adapter {
           return { cert: persistedCert, key: persistedKey };
         }
         this.log.warn(
-          `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) \u2014 regenerating`
+          `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) \u2014 regenerating`,
         );
       } catch (err) {
         this.log.warn(`Persisted TLS certificate invalid (${(0, import_utils.errText)(err)}) \u2014 regenerating`);
@@ -240,11 +257,13 @@ class HueEmu extends utils.Adapter {
     const generated = this.generateCertificate();
     try {
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-        native: { tlsCert: generated.certificate, tlsKey: generated.privateKey }
+        native: { tlsCert: generated.certificate, tlsKey: generated.privateKey },
       });
       this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
     } catch (err) {
-      this.log.warn(`TLS cert generated but failed to persist: ${(0, import_utils.errText)(err)} \u2014 will regenerate next restart`);
+      this.log.warn(
+        `TLS cert generated but failed to persist: ${(0, import_utils.errText)(err)} \u2014 will regenerate next restart`,
+      );
     }
     return { cert: generated.certificate, key: generated.privateKey };
   }
@@ -265,14 +284,14 @@ class HueEmu extends utils.Adapter {
     const attrs = [
       { name: "commonName", value: "Philips Hue" },
       { name: "countryName", value: "NL" },
-      { name: "organizationName", value: "Philips Hue" }
+      { name: "organizationName", value: "Philips Hue" },
     ];
     cert.setSubject(attrs);
     cert.setIssuer(attrs);
     cert.sign(keys.privateKey, forge.md.sha256.create());
     return {
       certificate: forge.pki.certificateToPem(cert),
-      privateKey: forge.pki.privateKeyToPem(keys.privateKey)
+      privateKey: forge.pki.privateKeyToPem(keys.privateKey),
     };
   }
   /**
@@ -293,9 +312,9 @@ class HueEmu extends utils.Adapter {
    */
   async migrateInstanceObjectNames() {
     await (0, import_migrations.runInstanceObjectMigration)({
-      getObjectAsync: (id) => this.getObjectAsync(id),
-      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj),
-      log: { debug: (msg) => this.log.debug(msg) }
+      getObjectAsync: id => this.getObjectAsync(id),
+      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj, { preserve: { common: ["name"] } }),
+      log: { debug: msg => this.log.debug(msg) },
     });
   }
   /**
@@ -304,10 +323,10 @@ class HueEmu extends utils.Adapter {
   async cleanupObsoleteStates() {
     await (0, import_migrations.runObsoleteStateCleanup)({
       namespace: this.namespace,
-      getObjectAsync: (id) => this.getObjectAsync(id),
-      delObjectAsync: (id) => this.delObjectAsync(id),
-      getObjectListAsync: (query) => this.getObjectListAsync(query),
-      log: { debug: (msg) => this.log.debug(msg) }
+      getObjectAsync: id => this.getObjectAsync(id),
+      delObjectAsync: id => this.delObjectAsync(id),
+      getObjectListAsync: query => this.getObjectListAsync(query),
+      log: { debug: msg => this.log.debug(msg) },
     });
     await this.migrateUserToClients();
   }
@@ -323,16 +342,16 @@ class HueEmu extends utils.Adapter {
     }
     const children = await this.getObjectListAsync({
       startkey: `${this.namespace}.user.`,
-      endkey: `${this.namespace}.user.\u9999`
+      endkey: `${this.namespace}.user.\u9999`,
     });
     if ((children == null ? void 0 : children.rows) && children.rows.length > 0) {
       await this.setObjectNotExistsAsync("clients", {
         type: "meta",
-        common: { name: (0, import_i18n_states.tName)("clientsFolder"), type: "meta.folder" },
-        native: {}
+        common: { name: (0, import_i18n.tName)("clientsFolder"), type: "meta.folder" },
+        native: {},
       });
       await Promise.all(
-        children.rows.map(async (row) => {
+        children.rows.map(async row => {
           const oldId = row.id.replace(`${this.namespace}.`, "");
           const username = oldId.replace("user.", "");
           const newId = `clients.${(0, import_utils.sanitizeId)(username)}`;
@@ -341,28 +360,30 @@ class HueEmu extends utils.Adapter {
           await this.setObjectNotExistsAsync(newId, {
             type: "state",
             common: obj.common,
-            native: obj.native || {}
+            native: obj.native || {},
           });
           if ((state == null ? void 0 : state.val) !== void 0 && (state == null ? void 0 : state.val) !== null) {
             await this.setStateAsync(newId, { val: state.val, ack: true });
           }
           await this.delObjectAsync(oldId);
           this.log.debug(`Migrated client ${username}: user \u2192 clients`);
-        })
+        }),
       );
     }
     await this.delObjectAsync("user");
-    this.log.info(`Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`);
+    this.log.info(
+      `Migrated ${(_b = (_a = children == null ? void 0 : children.rows) == null ? void 0 : _a.length) != null ? _b : 0} paired client(s) from "user" to "clients"`,
+    );
   }
   /**
    * Create a logger adapter for the modules
    */
   createLogger() {
     return {
-      debug: (msg) => this.log.debug(msg),
-      info: (msg) => this.log.info(msg),
-      warn: (msg) => this.log.warn(msg),
-      error: (msg) => this.log.error(msg)
+      debug: msg => this.log.debug(msg),
+      info: msg => this.log.info(msg),
+      warn: msg => this.log.warn(msg),
+      error: msg => this.log.error(msg),
     };
   }
   /**
@@ -380,7 +401,7 @@ class HueEmu extends utils.Adapter {
         this.ssdpServer.stop();
       }
       if (this.hueServer) {
-        this.hueServer.stop().catch((err) => this.log.error(`Server stop error: ${(0, import_utils.errText)(err)}`));
+        this.hueServer.stop().catch(err => this.log.error(`Server stop error: ${(0, import_utils.errText)(err)}`));
       }
       if (this.unhandledRejectionHandler) {
         process.off("unhandledRejection", this.unhandledRejectionHandler);
@@ -474,9 +495,10 @@ class HueEmu extends utils.Adapter {
       const deviceId = device._id.substring(this.namespace.length + 1);
       try {
         const nameState = await this.getStateAsync(`${deviceId}.name`);
-        const name = (nameState == null ? void 0 : nameState.val) || ((_a = device.common) == null ? void 0 : _a.name) || deviceId;
+        const name =
+          (nameState == null ? void 0 : nameState.val) || ((_a = device.common) == null ? void 0 : _a.name) || deviceId;
         const stateObjects = await this.getStatesOfAsync(deviceId, "state");
-        const stateKeys = new Set((stateObjects || []).map((s) => s._id.substring(s._id.lastIndexOf(".") + 1)));
+        const stateKeys = new Set((stateObjects || []).map(s => s._id.substring(s._id.lastIndexOf(".") + 1)));
         let lightType;
         if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
           lightType = "color";
@@ -509,14 +531,10 @@ class HueEmu extends utils.Adapter {
         migratedDevices.push(config);
         this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
         await Promise.all([
-          this.delObjectAsync(`${deviceId}.name`).catch(() => {
-          }),
-          this.delObjectAsync(`${deviceId}.data`).catch(() => {
-          }),
-          this.delObjectAsync(`${deviceId}.state`).catch(() => {
-          }),
-          this.delObjectAsync(deviceId).catch(() => {
-          })
+          this.delObjectAsync(`${deviceId}.name`).catch(() => {}),
+          this.delObjectAsync(`${deviceId}.data`).catch(() => {}),
+          this.delObjectAsync(`${deviceId}.state`).catch(() => {}),
+          this.delObjectAsync(deviceId).catch(() => {}),
         ]);
       } catch (error) {
         this.log.warn(`Could not migrate legacy device ${deviceId}: ${(0, import_utils.errText)(error)}`);
@@ -526,7 +544,7 @@ class HueEmu extends utils.Adapter {
       return false;
     }
     await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { devices: migratedDevices }
+      native: { devices: migratedDevices },
     });
     this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
     return true;
@@ -570,12 +588,13 @@ class HueEmu extends utils.Adapter {
   }
 }
 if (require.main !== module) {
-  module.exports = (options) => new HueEmu(options);
+  module.exports = options => new HueEmu(options);
 } else {
   (() => new HueEmu())();
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  HueEmu
-});
+0 &&
+  (module.exports = {
+    HueEmu,
+  });
 //# sourceMappingURL=main.js.map

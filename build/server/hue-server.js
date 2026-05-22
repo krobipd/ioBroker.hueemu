@@ -6,29 +6,34 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === "object") || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (
+  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
+  __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod,
+  )
+);
+var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var hue_server_exports = {};
 __export(hue_server_exports, {
-  HueServer: () => HueServer
+  HueServer: () => HueServer,
 });
 module.exports = __toCommonJS(hue_server_exports);
 var import_fastify = __toESM(require("fastify"));
@@ -58,14 +63,14 @@ class HueServer {
     this.httpServer = await this.createServer(false);
     await this.httpServer.listen({
       port: this.config.port,
-      host: this.config.host || "0.0.0.0"
+      host: this.config.host || "0.0.0.0",
     });
     this.logger.debug(`HTTP server listening on ${this.config.host}:${this.config.port}`);
     if (this.config.https) {
       this.httpsServer = await this.createServer(true);
       await this.httpsServer.listen({
         port: this.config.https.port,
-        host: this.config.host || "0.0.0.0"
+        host: this.config.host || "0.0.0.0",
       });
       this.logger.debug(`HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
     }
@@ -96,7 +101,7 @@ class HueServer {
       bodyLimit: 65536,
       caseSensitive: false,
       ignoreTrailingSlash: true,
-      forceCloseConnections: true
+      forceCloseConnections: true,
     };
     let server;
     if (https && this.config.https) {
@@ -104,8 +109,8 @@ class HueServer {
         ...baseOptions,
         https: {
           key: this.config.https.key,
-          cert: this.config.https.cert
-        }
+          cert: this.config.https.cert,
+        },
       };
       server = (0, import_fastify.default)(httpsOptions);
     } else {
@@ -129,19 +134,20 @@ class HueServer {
       descriptionOptions: {
         identity: this.config.identity,
         host: this.config.discoveryHost || this.config.host,
-        port: this.config.discoveryPort || this.config.port
-      }
+        port: this.config.discoveryPort || this.config.port,
+      },
     });
     await server.register(import_api_v1_routes.apiV1Routes, {
       handler: this.handler,
-      logger: this.logger
+      logger: this.logger,
     });
     server.get("/health", () => ({ status: "ok" }));
     return server;
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  HueServer
-});
+0 &&
+  (module.exports = {
+    HueServer,
+  });
 //# sourceMappingURL=hue-server.js.map

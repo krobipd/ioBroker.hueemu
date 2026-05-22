@@ -7,7 +7,7 @@
  * wrappers that pass `this`.
  */
 
-import { tName } from "./i18n-states";
+import { tName } from "./i18n";
 
 /** Pairs `(instanceObject id, i18n keys)` that v1.4.0 backfills. */
 export const INSTANCE_OBJECT_MIGRATION_PAIRS: ReadonlyArray<{
@@ -63,7 +63,11 @@ export interface InstanceObjectMigrationAdapter {
   /** Read an object by ID */
   getObjectAsync(id: string): Promise<{ common?: MigratableCommon } | null | undefined>;
   /** Extend an object with partial data */
-  extendObjectAsync(id: string, obj: { common: { name?: unknown; desc?: unknown } }): Promise<unknown>;
+  extendObjectAsync(
+    id: string,
+    obj: { common: { name?: unknown; desc?: unknown } },
+    options?: { preserve?: { common?: string[] } },
+  ): Promise<unknown>;
   /** Logger with debug method */
   log: { debug(message: string): void };
 }
@@ -85,7 +89,7 @@ export async function runInstanceObjectMigration(adapter: InstanceObjectMigratio
     if (!patch) {
       continue;
     }
-    await adapter.extendObjectAsync(pair.id, { common: patch });
+    await adapter.extendObjectAsync(pair.id, { common: patch }, { preserve: { common: ["name"] } });
     adapter.log.debug(`Translated instanceObject names: ${pair.id}`);
   }
 }

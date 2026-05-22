@@ -2,6 +2,12 @@
  * Tests for ApiHandler — orchestration, auth, pairing, malformed inputs
  */
 
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: vi.fn((key: string) => ({ en: key, de: `${key}_de` })),
+  },
+}));
+
 import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
 import type { HueRequest, CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";

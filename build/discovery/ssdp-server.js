@@ -4,21 +4,23 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === "object") || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var ssdp_server_exports = {};
 __export(ssdp_server_exports, {
-  HueSsdpServer: () => HueSsdpServer
+  HueSsdpServer: () => HueSsdpServer,
 });
 module.exports = __toCommonJS(ssdp_server_exports);
 var import_node_ssdp = require("node-ssdp");
@@ -37,7 +39,7 @@ class HueSsdpServer {
     var _a;
     this.config = {
       ...config,
-      ssdpPort: (_a = config.ssdpPort) != null ? _a : 1900
+      ssdpPort: (_a = config.ssdpPort) != null ? _a : 1900,
     };
   }
   /**
@@ -60,9 +62,9 @@ class HueSsdpServer {
         suppressRootDeviceAdvertisements: false,
         headers: {
           "hue-bridgeid": this.config.identity.bridgeId,
-          SERVER: "Linux/3.14.0 UPnP/1.0 IpBridge/1.41.0"
+          SERVER: "Linux/3.14.0 UPnP/1.0 IpBridge/1.41.0",
         },
-        udn: `uuid:${this.config.identity.udn}`
+        udn: `uuid:${this.config.identity.udn}`,
       };
       this.server = new import_node_ssdp.Server(serverOptions);
       this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
@@ -70,7 +72,7 @@ class HueSsdpServer {
       this.server.addUSN("upnp:rootdevice");
       this.config.logger.debug("SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
       const serverWithEvents = this.server;
-      serverWithEvents.on("error", (err) => {
+      serverWithEvents.on("error", err => {
         this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
       });
       serverWithEvents.on("response", (_headers, _statusCode, rinfo) => {
@@ -86,7 +88,7 @@ class HueSsdpServer {
           reject(new Error("Server not initialized"));
           return;
         }
-        void this.server.start((err) => {
+        void this.server.start(err => {
           if (err) {
             reject(err);
           } else {
@@ -119,7 +121,8 @@ class HueSsdpServer {
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  HueSsdpServer
-});
+0 &&
+  (module.exports = {
+    HueSsdpServer,
+  });
 //# sourceMappingURL=ssdp-server.js.map

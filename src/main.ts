@@ -4,6 +4,8 @@
  */
 
 import * as utils from "@iobroker/adapter-core";
+import { I18n } from "@iobroker/adapter-core";
+import { join } from "node:path";
 import * as uuid from "uuid";
 import * as forge from "node-forge";
 import { randomBytes } from "node:crypto";
@@ -12,7 +14,7 @@ import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
 import { coerceBool } from "./lib/coerce";
-import { tName } from "./lib/i18n-states";
+import { tName } from "./lib/i18n";
 import { runInstanceObjectMigration, runObsoleteStateCleanup } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber } from "./types/config";
@@ -122,6 +124,7 @@ export class HueEmu extends utils.Adapter {
    */
   private async onReady(): Promise<void> {
     try {
+      await I18n.init(join(this.adapterDir, "admin"), this);
       this.log.debug(`onReady: starting (devices in config: ${this.config.devices?.length ?? 0})`);
 
       // Migrate legacy devices (created via createLight) to admin config format
@@ -385,7 +388,8 @@ export class HueEmu extends utils.Adapter {
   private async migrateInstanceObjectNames(): Promise<void> {
     await runInstanceObjectMigration({
       getObjectAsync: id => this.getObjectAsync(id),
-      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj as ioBroker.SettableObject),
+      extendObjectAsync: (id, obj) =>
+        this.extendObjectAsync(id, obj as ioBroker.SettableObject, { preserve: { common: ["name"] } }),
       log: { debug: msg => this.log.debug(msg) },
     });
   }

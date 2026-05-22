@@ -48,11 +48,11 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 
 ## Ports
 
-| Port | Protocol | Purpose | Configurable |
-|------|----------|---------|--------------|
-| 8080 | TCP/HTTP | Hue Bridge API | Yes — clients are informed via SSDP |
-| 1900 | UDP      | SSDP/UPnP Discovery | No — fixed by the UPnP standard |
-| —    | TCP/HTTPS | Optional TLS (if configured) | Yes |
+| Port | Protocol  | Purpose                      | Configurable                        |
+| ---- | --------- | ---------------------------- | ----------------------------------- |
+| 8080 | TCP/HTTP  | Hue Bridge API               | Yes — clients are informed via SSDP |
+| 1900 | UDP       | SSDP/UPnP Discovery          | No — fixed by the UPnP standard     |
+| —    | TCP/HTTPS | Optional TLS (if configured) | Yes                                 |
 
 ---
 
@@ -60,12 +60,12 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 
 ### Network Settings
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| **Host** | IP address of the bridge (must be a real network IP) | — |
-| **HTTP Port** | Port for the Hue API | 8080 |
-| **HTTPS Port** | Only needed if a client insists on TLS; leave empty otherwise | — |
-| **MAC Address** | Bridge MAC (auto-generated if empty) | — |
+| Option          | Description                                                   | Default |
+| --------------- | ------------------------------------------------------------- | ------- |
+| **Host**        | IP address of the bridge (must be a real network IP)          | —       |
+| **HTTP Port**   | Port for the Hue API                                          | 8080    |
+| **HTTPS Port**  | Only needed if a client insists on TLS; leave empty otherwise | —       |
+| **MAC Address** | Bridge MAC (auto-generated if empty)                          | —       |
 
 ### Adding Devices
 
@@ -77,12 +77,12 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 
 ### Supported Light Types
 
-| Type | States | Hue Model |
-|------|--------|-----------|
-| **On/Off** | `on` | LWB007 |
-| **Dimmable** | `on`, `bri` | LWB010 |
-| **Color Temperature** | `on`, `bri`, `ct` | LTW001 |
-| **Color Light** | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003 |
+| Type                  | States                                | Hue Model |
+| --------------------- | ------------------------------------- | --------- |
+| **On/Off**            | `on`                                  | LWB007    |
+| **Dimmable**          | `on`, `bri`                           | LWB010    |
+| **Color Temperature** | `on`, `bri`, `ct`                     | LTW001    |
+| **Color Light**       | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003    |
 
 ### Pairing
 
@@ -151,23 +151,35 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ---
 
 ## Changelog
+
 <!--
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### **WORK IN PROGRESS**
+
+- User-modified state names are no longer overwritten on adapter restart
+- State name translations migrated to standard ioBroker i18n framework
+
 ### 1.4.9 (2026-05-21)
+
 - Use community-standard event handler pattern (.bind + try/catch).
 
 ### 1.4.8 (2026-05-20)
+
 - Improved security: TLS private key is no longer visible in the admin interface.
 
 ### 1.4.7 (2026-05-19)
+
 - TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.
 
 ### 1.4.6 (2026-05-17)
+
 - Internal refactoring. No user-facing changes.
 
 ### 1.4.5 (2026-05-13)
+
 - Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
@@ -221,4 +233,4 @@ SOFTWARE.
 
 ---
 
-*Developed with assistance from Claude.ai*
+_Developed with assistance from Claude.ai_

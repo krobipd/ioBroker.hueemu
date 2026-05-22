@@ -1,3 +1,9 @@
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: vi.fn((key: string) => ({ en: key, de: `${key}_de` })),
+  },
+}));
+
 import {
   buildInstanceObjectMigrationPatch,
   INSTANCE_OBJECT_MIGRATION_PAIRS,
@@ -53,11 +59,11 @@ describe("migrations", () => {
         disableAuth: { common: { name: { en: "Already migrated" }, desc: { en: "ok" } } },
         clients: { common: { name: "Paired Clients" } },
       };
-      const calls: Array<{ id: string; patch: unknown }> = [];
+      const calls: Array<{ id: string; patch: unknown; options: unknown }> = [];
       await runInstanceObjectMigration({
         getObjectAsync: async id => objects[id] ?? null,
-        extendObjectAsync: async (id, obj) => {
-          calls.push({ id, patch: obj.common });
+        extendObjectAsync: async (id, obj, options) => {
+          calls.push({ id, patch: obj.common, options });
           return null;
         },
         log: { debug: () => {} },
@@ -66,6 +72,26 @@ describe("migrations", () => {
       expect(calls).toHaveLength(2);
       expect(calls[0].id).toBe("startPairing");
       expect(calls[1].id).toBe("clients");
+    });
+
+    it("passes preserve option to extendObjectAsync", async () => {
+      const objects: Record<string, { common?: { name?: unknown } }> = {
+        startPairing: { common: { name: "startPairing" } },
+        disableAuth: { common: { name: { en: "x" } } },
+        clients: { common: { name: { en: "x" } } },
+      };
+      const calls: Array<{ options: unknown }> = [];
+      await runInstanceObjectMigration({
+        getObjectAsync: async id => objects[id] ?? null,
+        extendObjectAsync: async (_id, _obj, options) => {
+          calls.push({ options });
+          return null;
+        },
+        log: { debug: () => {} },
+      });
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0].options).toEqual({ preserve: { common: ["name"] } });
     });
 
     it("skips non-existing objects", async () => {

@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.4.9",
     "news": {
+      "NEXT": {
+        "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
+        "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
+        "ru": "Пользовательские имена состояний сохраняются; переводы используют стандартный ioBroker i18n",
+        "pt": "Nomes de estados modificados pelo utilizador são preservados; traduções utilizam i18n padrão do ioBroker",
+        "nl": "Door gebruiker gewijzigde statusnamen worden behouden; vertalingen gebruiken standaard ioBroker i18n",
+        "fr": "Les noms d'états modifiés par l'utilisateur sont préservés ; les traductions utilisent le i18n standard d'ioBroker",
+        "it": "I nomi degli stati modificati dall'utente vengono preservati; le traduzioni utilizzano l'i18n standard di ioBroker",
+        "es": "Los nombres de estados modificados por el usuario se conservan; las traducciones usan el i18n estándar de ioBroker",
+        "pl": "Nazwy stanów zmienione przez użytkownika są zachowane; tłumaczenia używają standardowego i18n ioBroker",
+        "uk": "Змінені користувачем назви станів зберігаються; переклади використовують стандартний i18n ioBroker",
+        "zh-cn": "保留用户修改的状态名称；翻译使用 ioBroker 标准 i18n"
+      },
       "1.4.9": {
         "en": "Use community-standard event handler pattern (.bind + try/catch).",
         "de": "Community-Standard-Eventhandler-Pattern (.bind + try/catch) verwendet.",
@@ -80,19 +93,6 @@
         "pl": "Jasność i nasycenie mają teraz jawną skalę per urządzenie (Auto / Procent / Znormalizowane / Hue-Surowe). Wybierz Procent dla 0..100 — naprawia 1 % odczytany jako pełna jasność.",
         "uk": "Яскравість і насиченість тепер мають явну шкалу на пристрій (Auto / Відсотки / Нормалізовано / Hue-Сире). Для пристроїв 0..100 — Відсотки; виправляє 1 % як максимум.",
         "zh-cn": "亮度和饱和度现在为每个设备提供明确的刻度选项（自动 / 百分比 / 归一化 / Hue 原生）。对于使用 0..100 的设备请选择百分比，修复 1 % 被读成最大亮度的问题，旧设备默认保留自动模式。"
-      },
-      "1.4.3": {
-        "en": "TLS certificate is now reused across restarts (clients trust it once), the HTTP API stays up even when SSDP port 1900 is busy, and pairing has a 64-client per-window safety cap.",
-        "de": "Das TLS-Zertifikat bleibt über Neustarts erhalten (Clients vertrauen einmal), die HTTP-API läuft auch wenn SSDP-Port 1900 belegt ist, und Pairing hat ein 64-Clients-Limit pro Fenster.",
-        "ru": "TLS-сертификат сохраняется между перезапусками (клиенты доверяют ему один раз), HTTP API работает даже при занятом SSDP-порту 1900, у сопряжения лимит 64 клиента на окно.",
-        "pt": "O certificado TLS é reutilizado entre reinícios (os clientes confiam uma vez), a API HTTP funciona mesmo com a porta SSDP 1900 ocupada, e o pairing tem limite de 64 clientes por janela.",
-        "nl": "TLS-certificaat blijft tussen herstarts (clients vertrouwen één keer), HTTP-API blijft beschikbaar bij bezette SSDP-poort 1900, pairing heeft limiet 64 clients per venster.",
-        "fr": "Le certificat TLS est réutilisé après redémarrage (clients acceptent une fois), l'API HTTP reste accessible si le port SSDP 1900 est pris, appairage limité à 64 clients par fenêtre.",
-        "it": "Il certificato TLS viene riutilizzato dopo un riavvio (i client lo accettano una sola volta), l'API HTTP resta attiva anche con la porta SSDP 1900 occupata, pairing limitato a 64 client per finestra.",
-        "es": "El certificado TLS se conserva entre reinicios (los clientes lo aceptan una vez), la API HTTP funciona aunque el puerto SSDP 1900 esté ocupado, pairing limitado a 64 clientes por ventana.",
-        "pl": "Certyfikat TLS jest zachowywany między restartami (klienci ufają mu raz), API HTTP działa nawet gdy port SSDP 1900 jest zajęty, parowanie ma limit 64 klientów na okno.",
-        "uk": "TLS-сертифікат зберігається між перезапусками (клієнти довіряють йому один раз), HTTP API працює навіть із зайнятим SSDP-портом 1900, спарювання має ліміт 64 клієнтів на вікно.",
-        "zh-cn": "TLS 证书在重启之间保留（客户端只需信任一次），即使 SSDP 端口 1900 被占用 HTTP API 仍可访问，配对窗口最多接受 64 个客户端，避免局域网噪声填满网桥。"
       }
     },
     "titleLang": {
@@ -121,16 +121,8 @@
       "uk": "Емулює Philips Hue Bridge (v2) для керування станами ioBroker зі старих пристроїв, які підтримують лише Philips Hue",
       "zh-cn": "模拟 Philips Hue Bridge (v2)，让仅支持 Philips Hue 的旧设备控制 ioBroker 状态"
     },
-    "authors": [
-      "Christopher Holomek <holomekc.github@gmail.com>",
-      "krobi <krobi@power-dreams.com>"
-    ],
-    "keywords": [
-      "Hue",
-      "Philips",
-      "Bridge",
-      "home automation"
-    ],
+    "authors": ["Christopher Holomek <holomekc.github@gmail.com>", "krobi <krobi@power-dreams.com>"],
+    "keywords": ["Hue", "Philips", "Bridge", "home automation"],
     "licenseInformation": {
       "license": "MIT",
       "type": "free"
@@ -178,12 +170,8 @@
     "devices": [],
     "trustProxy": false
   },
-  "encryptedNative": [
-    "tlsKey"
-  ],
-  "protectedNative": [
-    "tlsKey"
-  ],
+  "encryptedNative": ["tlsKey"],
+  "protectedNative": ["tlsKey"],
   "objects": [],
   "instanceObjects": [
     {

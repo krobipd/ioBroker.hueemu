@@ -4,21 +4,23 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
+  if ((from && typeof from === "object") || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+        __defProp(to, key, {
+          get: () => from[key],
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
+        });
   }
   return to;
 };
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var device_binding_service_exports = {};
 __export(device_binding_service_exports, {
-  DeviceBindingService: () => DeviceBindingService
+  DeviceBindingService: () => DeviceBindingService,
 });
 module.exports = __toCommonJS(device_binding_service_exports);
 var import_errors = require("../types/errors");
@@ -40,26 +42,26 @@ const LIGHT_TYPES = {
     name: "Dimmable light",
     type: "Dimmable light",
     states: ["on", "bri"],
-    modelid: "LWB007"
+    modelid: "LWB007",
   },
   dimmable: {
     name: "Dimmable Light",
     type: "Dimmable light",
     states: ["on", "bri"],
-    modelid: "LWB010"
+    modelid: "LWB010",
   },
   ct: {
     name: "Color Temperature Light",
     type: "Color temperature light",
     states: ["on", "bri", "ct"],
-    modelid: "LTW001"
+    modelid: "LTW001",
   },
   color: {
     name: "Extended Color Light",
     type: "Extended color light",
     states: ["on", "bri", "hue", "sat", "ct", "xy"],
-    modelid: "LCT003"
-  }
+    modelid: "LCT003",
+  },
 };
 const STATE_TO_CONFIG = {
   on: "onState",
@@ -67,7 +69,7 @@ const STATE_TO_CONFIG = {
   ct: "ctState",
   hue: "hueState",
   sat: "satState",
-  xy: "xyState"
+  xy: "xyState",
 };
 class DeviceBindingService {
   adapter;
@@ -140,7 +142,7 @@ class DeviceBindingService {
       }
     }
     await Promise.all(
-      [...allIds].map(async (stateId) => {
+      [...allIds].map(async stateId => {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== void 0) {
@@ -149,7 +151,7 @@ class DeviceBindingService {
         } catch (error) {
           this.logger.debug(`Could not load state ${stateId}: ${(0, import_utils.errText)(error)}`);
         }
-      })
+      }),
     );
   }
   /**
@@ -180,7 +182,7 @@ class DeviceBindingService {
           this.logger.warn(`Could not load device "${device.name}": ${(0, import_utils.errText)(error)}`);
           return null;
         }
-      })
+      }),
     );
     for (const entry of built) {
       if (entry) {
@@ -209,7 +211,7 @@ class DeviceBindingService {
     const lightTypeConfig = LIGHT_TYPES[device.lightType] || LIGHT_TYPES.color;
     const state = {
       reachable: true,
-      mode: "homeautomation"
+      mode: "homeautomation",
     };
     for (const stateName of lightTypeConfig.states) {
       const stateId = this.getStateId(device, stateName);
@@ -243,7 +245,7 @@ class DeviceBindingService {
       // light index instead of repeating the decimal string. Earlier:
       // light id 100 → "100:100:100" which is not a valid MAC pair.
       uniqueid: `00:17:88:01:00:${this.lightUniqueidSuffix(index + 1)}-0b`,
-      swversion: "1.0.0"
+      swversion: "1.0.0",
     };
     return light;
   }
@@ -261,7 +263,9 @@ class DeviceBindingService {
     const device = this.devices[index];
     const results = [];
     this.logger.debug(
-      `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}`
+      `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate)
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+        .join(", ")}`,
     );
     for (const [key, value] of Object.entries(stateUpdate)) {
       const address = `/lights/${lightId}/state/${key}`;
@@ -275,7 +279,7 @@ class DeviceBindingService {
         const convertedValue = this.convertValueForState(key, value, device);
         await this.adapter.setForeignStateAsync(stateId, {
           val: convertedValue,
-          ack: false
+          ack: false,
         });
         this.stateCache.set(stateId, convertedValue);
         results.push({ success: { [address]: value } });
@@ -338,21 +342,39 @@ class DeviceBindingService {
         }
         return Boolean(value);
       case "bri":
-        return this.scaleValueFromState(value, device == null ? void 0 : device.briScale, HUE_BRI_MIN, HUE_BRI_MAX, device, "bri");
+        return this.scaleValueFromState(
+          value,
+          device == null ? void 0 : device.briScale,
+          HUE_BRI_MIN,
+          HUE_BRI_MAX,
+          device,
+          "bri",
+        );
       case "hue": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         if (n === null) {
-          this.logger.debug(`Default fallback for hue (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+          this.logger.debug(
+            `Default fallback for hue (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`,
+          );
           return 0;
         }
         return clampRound(n, 0, HUE_HUE_MAX);
       }
       case "sat":
-        return this.scaleValueFromState(value, device == null ? void 0 : device.satScale, 0, HUE_SAT_MAX, device, "sat");
+        return this.scaleValueFromState(
+          value,
+          device == null ? void 0 : device.satScale,
+          0,
+          HUE_SAT_MAX,
+          device,
+          "sat",
+        );
       case "ct": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         if (n === null) {
-          this.logger.debug(`Default fallback for ct (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+          this.logger.debug(
+            `Default fallback for ct (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`,
+          );
           return HUE_CT_DEFAULT;
         }
         return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
@@ -377,8 +399,7 @@ class DeviceBindingService {
                   return [x, y];
                 }
               }
-            } catch {
-            }
+            } catch {}
           }
           const parts = trimmed.split(",");
           if (parts.length >= 2) {
@@ -390,7 +411,7 @@ class DeviceBindingService {
           }
         }
         this.logger.debug(
-          `Default fallback for xy (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)} not parsable`
+          `Default fallback for xy (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)} not parsable`,
         );
         return HUE_XY_DEFAULT;
       }
@@ -499,14 +520,14 @@ class DeviceBindingService {
     const n = (0, import_coerce.coerceFiniteNumber)(value);
     if (n === null) {
       this.logger.debug(
-        `Default fallback for ${stateName != null ? stateName : "?"} (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`
+        `Default fallback for ${stateName != null ? stateName : "?"} (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`,
       );
       return max;
     }
     const mode = scale != null ? scale : "auto";
     switch (mode) {
       case "percent":
-        return clampRound(n / 100 * max, min, max);
+        return clampRound((n / 100) * max, min, max);
       case "normalized":
         return clampRound(n * max, Math.max(0, min), max);
       case "raw":
@@ -520,12 +541,14 @@ class DeviceBindingService {
           result = Math.round(n * max);
         } else if (n <= 100) {
           branch = "le100";
-          result = Math.max(min, Math.round(n / 100 * max));
+          result = Math.max(min, Math.round((n / 100) * max));
         } else {
           branch = "raw";
           result = clampRound(n, min, max);
         }
-        this.logger.debug(`scale-auto[${(_a = device == null ? void 0 : device.name) != null ? _a : "?"}/${stateName != null ? stateName : "?"}/${branch}]: n=${n} \u2192 ${result}`);
+        this.logger.debug(
+          `scale-auto[${(_a = device == null ? void 0 : device.name) != null ? _a : "?"}/${stateName != null ? stateName : "?"}/${branch}]: n=${n} \u2192 ${result}`,
+        );
         return result;
       }
     }
@@ -545,9 +568,9 @@ class DeviceBindingService {
     const mode = scale != null ? scale : "auto";
     switch (mode) {
       case "percent":
-        return Math.round(hueValue / max * 100 * 10) / 10;
+        return Math.round((hueValue / max) * 100 * 10) / 10;
       case "normalized":
-        return Math.round(hueValue / max * 1e3) / 1e3;
+        return Math.round((hueValue / max) * 1e3) / 1e3;
       case "raw":
       case "auto":
       default:
@@ -566,14 +589,15 @@ class DeviceBindingService {
    */
   lightUniqueidSuffix(oneBasedIndex) {
     const n = oneBasedIndex >>> 0;
-    const b0 = n >>> 16 & 255;
-    const b1 = n >>> 8 & 255;
+    const b0 = (n >>> 16) & 255;
+    const b1 = (n >>> 8) & 255;
     const b2 = n & 255;
-    return [b0, b1, b2].map((b) => b.toString(16).padStart(2, "0")).join(":");
+    return [b0, b1, b2].map(b => b.toString(16).padStart(2, "0")).join(":");
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  DeviceBindingService
-});
+0 &&
+  (module.exports = {
+    DeviceBindingService,
+  });
 //# sourceMappingURL=device-binding-service.js.map

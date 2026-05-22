@@ -18,26 +18,18 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-var server_exports = {};
-__export(server_exports, {
-  HueServer: () => import_hue_server.HueServer,
-  apiV1Routes: () => import_api_v1_routes.apiV1Routes,
-  createSuccessResponse: () => import_error_handler.createSuccessResponse,
-  descriptionRoute: () => import_description_route.descriptionRoute,
-  hueErrorHandler: () => import_error_handler.hueErrorHandler,
+var i18n_exports = {};
+__export(i18n_exports, {
+  tName: () => tName,
 });
-module.exports = __toCommonJS(server_exports);
-var import_hue_server = require("./hue-server");
-var import_api_v1_routes = require("./routes/api-v1-routes");
-var import_description_route = require("./routes/description-route");
-var import_error_handler = require("./middleware/error-handler");
+module.exports = __toCommonJS(i18n_exports);
+var import_adapter_core = require("@iobroker/adapter-core");
+function tName(key) {
+  return import_adapter_core.I18n.getTranslatedObject(key);
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 &&
   (module.exports = {
-    HueServer,
-    apiV1Routes,
-    createSuccessResponse,
-    descriptionRoute,
-    hueErrorHandler,
+    tName,
   });
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=i18n.js.map

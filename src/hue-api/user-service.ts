@@ -4,7 +4,7 @@
 
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
-import { tName } from "../lib/i18n-states";
+import { tName } from "../lib/i18n";
 import { errText, sanitizeId } from "../types/utils";
 
 /**
