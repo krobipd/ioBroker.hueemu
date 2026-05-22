@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.4.9",
+    "version": "1.5.0",
     "news": {
-      "NEXT": {
+      "1.5.0": {
         "en": "Preserve user-modified state names; state translations use standard ioBroker i18n",
         "de": "Vom Benutzer geänderte Datenpunktnamen bleiben erhalten; Übersetzungen nutzen Standard-ioBroker-i18n",
         "ru": "Пользовательские имена состояний сохраняются; переводы используют стандартный ioBroker i18n",
@@ -121,8 +121,16 @@
       "uk": "Емулює Philips Hue Bridge (v2) для керування станами ioBroker зі старих пристроїв, які підтримують лише Philips Hue",
       "zh-cn": "模拟 Philips Hue Bridge (v2)，让仅支持 Philips Hue 的旧设备控制 ioBroker 状态"
     },
-    "authors": ["Christopher Holomek <holomekc.github@gmail.com>", "krobi <krobi@power-dreams.com>"],
-    "keywords": ["Hue", "Philips", "Bridge", "home automation"],
+    "authors": [
+      "Christopher Holomek <holomekc.github@gmail.com>",
+      "krobi <krobi@power-dreams.com>"
+    ],
+    "keywords": [
+      "Hue",
+      "Philips",
+      "Bridge",
+      "home automation"
+    ],
     "licenseInformation": {
       "license": "MIT",
       "type": "free"
@@ -170,8 +178,12 @@
     "devices": [],
     "trustProxy": false
   },
-  "encryptedNative": ["tlsKey"],
-  "protectedNative": ["tlsKey"],
+  "encryptedNative": [
+    "tlsKey"
+  ],
+  "protectedNative": [
+    "tlsKey"
+  ],
   "objects": [],
   "instanceObjects": [
     {

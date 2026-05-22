@@ -4,34 +4,32 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if ((from && typeof from === "object") || typeof from === "function") {
+  if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, {
-          get: () => from[key],
-          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
-        });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
   return to;
 };
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var migrations_exports = {};
 __export(migrations_exports, {
   INSTANCE_OBJECT_MIGRATION_PAIRS: () => INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS: () => OBSOLETE_STATE_IDS,
   buildInstanceObjectMigrationPatch: () => buildInstanceObjectMigrationPatch,
   runInstanceObjectMigration: () => runInstanceObjectMigration,
-  runObsoleteStateCleanup: () => runObsoleteStateCleanup,
+  runObsoleteStateCleanup: () => runObsoleteStateCleanup
 });
 module.exports = __toCommonJS(migrations_exports);
 var import_i18n = require("./i18n");
 const INSTANCE_OBJECT_MIGRATION_PAIRS = [
   { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
   { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
-  { id: "clients", nameKey: "clientsFolder" },
+  { id: "clients", nameKey: "clientsFolder" }
 ];
 function buildInstanceObjectMigrationPatch(common, pair) {
   const nameIsString = typeof (common == null ? void 0 : common.name) === "string";
@@ -66,7 +64,7 @@ const OBSOLETE_STATE_IDS = [
   { id: "info.configuredDevices", removedIn: "1.0.15" },
   { id: "info.connection", removedIn: "1.1.3" },
   { id: "info", removedIn: "after info.* removed" },
-  { id: "createLight", removedIn: "1.1.0" },
+  { id: "createLight", removedIn: "1.1.0" }
 ];
 async function runObsoleteStateCleanup(adapter) {
   for (const { id } of OBSOLETE_STATE_IDS) {
@@ -83,7 +81,7 @@ async function runObsoleteStateCleanup(adapter) {
     const parentId = id.substring(0, dot);
     const children = await adapter.getObjectListAsync({
       startkey: `${adapter.namespace}.${parentId}.`,
-      endkey: `${adapter.namespace}.${parentId}.\u9999`,
+      endkey: `${adapter.namespace}.${parentId}.\u9999`
     });
     if ((children == null ? void 0 : children.rows.length) === 0) {
       await adapter.delObjectAsync(parentId);
@@ -92,12 +90,11 @@ async function runObsoleteStateCleanup(adapter) {
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 &&
-  (module.exports = {
-    INSTANCE_OBJECT_MIGRATION_PAIRS,
-    OBSOLETE_STATE_IDS,
-    buildInstanceObjectMigrationPatch,
-    runInstanceObjectMigration,
-    runObsoleteStateCleanup,
-  });
+0 && (module.exports = {
+  INSTANCE_OBJECT_MIGRATION_PAIRS,
+  OBSOLETE_STATE_IDS,
+  buildInstanceObjectMigrationPatch,
+  runInstanceObjectMigration,
+  runObsoleteStateCleanup
+});
 //# sourceMappingURL=migrations.js.map

@@ -4,23 +4,21 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if ((from && typeof from === "object") || typeof from === "function") {
+  if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, {
-          get: () => from[key],
-          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
-        });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
   return to;
 };
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var config_service_exports = {};
 __export(config_service_exports, {
-  ConfigService: () => ConfigService,
+  ConfigService: () => ConfigService
 });
 module.exports = __toCommonJS(config_service_exports);
 var import_config = require("../types/config");
@@ -69,7 +67,7 @@ class ConfigService {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
-        hour12: false,
+        hour12: false
       });
       return fmt.format(date).replace(", ", " ").replace(",", " ");
     } catch {
@@ -90,7 +88,7 @@ class ConfigService {
       factorynew: false,
       replacesbridgeid: null,
       modelid: ConfigService.MODEL_ID,
-      starterkitid: "",
+      starterkitid: ""
     };
   }
   /**
@@ -114,7 +112,8 @@ class ConfigService {
         for (const id of ids) {
           whitelist[id] = { name: id, "create date": ts, "last use date": ts };
         }
-      } catch {}
+      } catch {
+      }
     }
     return {
       ...this.getConfig(),
@@ -128,7 +127,7 @@ class ConfigService {
         signedon: true,
         incoming: false,
         outgoing: true,
-        communication: "disconnected",
+        communication: "disconnected"
       },
       linkbutton: false,
       touchlink: false,
@@ -136,7 +135,7 @@ class ConfigService {
       UTC: ConfigService.formatHueTimestamp(now, "UTC"),
       localtime: ConfigService.formatHueTimestamp(now, tz),
       timezone: tz,
-      whitelist,
+      whitelist
     };
   }
   /**
@@ -153,13 +152,12 @@ class ConfigService {
       scenes: {},
       rules: {},
       sensors: {},
-      resourcelinks: {},
+      resourcelinks: {}
     };
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 &&
-  (module.exports = {
-    ConfigService,
-  });
+0 && (module.exports = {
+  ConfigService
+});
 //# sourceMappingURL=config-service.js.map

@@ -1,4 +1,7 @@
 # Older Changes
+## 1.4.5 (2026-05-13)
+
+- Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
 
 ## 1.4.4 (2026-05-10)
 

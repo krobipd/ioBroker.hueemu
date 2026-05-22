@@ -6,34 +6,29 @@ var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if ((from && typeof from === "object") || typeof from === "function") {
+  if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, {
-          get: () => from[key],
-          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
-        });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (
-  (target = mod != null ? __create(__getProtoOf(mod)) : {}),
-  __copyProps(
-    // If the importer is in node compatibility mode or this is not an ESM
-    // file that has been converted to a CommonJS file using a Babel-
-    // compatible transform (i.e. "__esModule" has not been set), then set
-    // "default" to the CommonJS "module.exports" for node compatibility.
-    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-    mod,
-  )
-);
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var user_service_exports = {};
 __export(user_service_exports, {
-  UserService: () => UserService,
+  UserService: () => UserService
 });
 module.exports = __toCommonJS(user_service_exports);
 var uuid = __toESM(require("uuid"));
@@ -94,7 +89,7 @@ class UserService {
       if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
         if (!this.autoAddCapWarned) {
           this.logger.warn(
-            `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) \u2014 further unknown clients will be rejected until pairing is re-enabled`,
+            `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) \u2014 further unknown clients will be rejected until pairing is re-enabled`
           );
           this.autoAddCapWarned = true;
         }
@@ -113,9 +108,9 @@ class UserService {
           type: "string",
           role: "text",
           read: true,
-          write: false,
+          write: false
         },
-        native: { username },
+        native: { username }
       });
     } catch (err) {
       this.logger.warn(`Failed to create client object ${safeUsername}: ${(0, import_utils.errText)(err)}`);
@@ -123,7 +118,7 @@ class UserService {
     try {
       await this.adapter.setStateAsync(`clients.${safeUsername}`, {
         ack: true,
-        val: username,
+        val: username
       });
     } catch (err) {
       this.logger.warn(`Failed to set client state ${safeUsername}: ${(0, import_utils.errText)(err)}`);
@@ -185,7 +180,7 @@ class UserService {
     }
     const cache = /* @__PURE__ */ new Set();
     try {
-      const stateObjects = (await this.adapter.getStatesOfAsync("clients", void 0)) || [];
+      const stateObjects = await this.adapter.getStatesOfAsync("clients", void 0) || [];
       const offset = this.adapter.namespace.length + 1 + "clients.".length;
       for (const state of stateObjects) {
         const id = state._id.substring(offset);
@@ -211,9 +206,9 @@ class UserService {
         type: "meta",
         common: {
           name: (0, import_i18n.tName)("clientsFolder"),
-          type: "meta.folder",
+          type: "meta.folder"
         },
-        native: {},
+        native: {}
       });
     } catch (err) {
       this.logger.warn(`Failed to create clients folder: ${(0, import_utils.errText)(err)}`);
@@ -221,8 +216,7 @@ class UserService {
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 &&
-  (module.exports = {
-    UserService,
-  });
+0 && (module.exports = {
+  UserService
+});
 //# sourceMappingURL=user-service.js.map

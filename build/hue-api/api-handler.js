@@ -4,23 +4,21 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if ((from && typeof from === "object") || typeof from === "function") {
+  if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, {
-          get: () => from[key],
-          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
-        });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
   return to;
 };
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var api_handler_exports = {};
 __export(api_handler_exports, {
-  ApiHandler: () => ApiHandler,
+  ApiHandler: () => ApiHandler
 });
 module.exports = __toCommonJS(api_handler_exports);
 var import_errors = require("../types/errors");
@@ -44,17 +42,17 @@ class ApiHandler {
     this.logger = config.logger;
     this.userService = new import_user_service.UserService({
       adapter: config.adapter,
-      logger: config.logger,
+      logger: config.logger
     });
     this.configService = new import_config_service.ConfigService({
       ...config.configServiceConfig,
-      whitelistProvider: () => this.userService.listCachedClientIds(),
+      whitelistProvider: () => this.userService.listCachedClientIds()
     });
     const devices = config.devices || [];
     this.lightService = new import_device_binding_service.DeviceBindingService({
       adapter: config.adapter,
       devices,
-      logger: config.logger,
+      logger: config.logger
     });
     this.logger.debug(`${devices.length} device(s) configured`);
   }
@@ -164,14 +162,14 @@ class ApiHandler {
     this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
     const lights = await this.lightService.getAllLights();
     await Promise.all(
-      Object.keys(lights).map(lightId =>
-        this.lightService.setLightState(lightId, state).catch(err => {
+      Object.keys(lights).map(
+        (lightId) => this.lightService.setLightState(lightId, state).catch((err) => {
           this.logger.warn(`Group action: failed to set light ${lightId}: ${(0, import_utils.errText)(err)}`);
-        }),
-      ),
+        })
+      )
     );
     return Object.entries(state).map(([key, value]) => ({
-      success: { [`/groups/${groupId}/action/${key}`]: value },
+      success: { [`/groups/${groupId}/action/${key}`]: value }
     }));
   }
   /**
@@ -214,8 +212,7 @@ class ApiHandler {
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 &&
-  (module.exports = {
-    ApiHandler,
-  });
+0 && (module.exports = {
+  ApiHandler
+});
 //# sourceMappingURL=api-handler.js.map

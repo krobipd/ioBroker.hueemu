@@ -4,23 +4,21 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if ((from && typeof from === "object") || typeof from === "function") {
+  if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, {
-          get: () => from[key],
-          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
-        });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
   return to;
 };
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var api_v1_routes_exports = {};
 __export(api_v1_routes_exports, {
-  apiV1Routes: () => apiV1Routes,
+  apiV1Routes: () => apiV1Routes
 });
 module.exports = __toCommonJS(api_v1_routes_exports);
 var import_errors = require("../../types/errors");
@@ -32,7 +30,7 @@ function toHueRequest(request) {
     params: request.params || {},
     body: request.body,
     headers: request.headers,
-    ip: request.ip,
+    ip: request.ip
   };
 }
 async function handleErrors(request, reply, handler, logger) {
@@ -43,22 +41,14 @@ async function handleErrors(request, reply, handler, logger) {
     }
   } catch (error) {
     if (error instanceof import_errors.HueApiError) {
-      logger == null
-        ? void 0
-        : logger.debug(
-            `Hue API error: ${request.method} ${request.url} \u2192 ${String(error.type)} (${error.message})`,
-          );
+      logger == null ? void 0 : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 ${String(error.type)} (${error.message})`);
       reply.status(200).send([error.toResponse()]);
     } else if (error instanceof Error) {
-      logger == null
-        ? void 0
-        : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 internal_error (${error.message})`);
+      logger == null ? void 0 : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 internal_error (${error.message})`);
       const hueError = import_errors.HueApiError.internalError(error.message, request.url);
       reply.status(200).send([hueError.toResponse()]);
     } else {
-      logger == null
-        ? void 0
-        : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 unknown (${String(error)})`);
+      logger == null ? void 0 : logger.debug(`Hue API error: ${request.method} ${request.url} \u2192 unknown (${String(error)})`);
       const hueError = import_errors.HueApiError.internalError("Unknown error", request.url);
       reply.status(200).send([hueError.toResponse()]);
     }
@@ -79,13 +69,7 @@ function apiV1Routes(fastify, options) {
     await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const raw = request.body;
-      if (
-        !raw ||
-        typeof raw !== "object" ||
-        Array.isArray(raw) ||
-        typeof raw.devicetype !== "string" ||
-        raw.devicetype.length === 0
-      ) {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw) || typeof raw.devicetype !== "string" || raw.devicetype.length === 0) {
         throw import_errors.HueApiError.missingParameters("/api");
       }
       const body = raw;
@@ -165,8 +149,7 @@ function apiV1Routes(fastify, options) {
   });
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 &&
-  (module.exports = {
-    apiV1Routes,
-  });
+0 && (module.exports = {
+  apiV1Routes
+});
 //# sourceMappingURL=api-v1-routes.js.map

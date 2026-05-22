@@ -4,25 +4,23 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
-  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
-  if ((from && typeof from === "object") || typeof from === "function") {
+  if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, {
-          get: () => from[key],
-          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable,
-        });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
   return to;
 };
-var __toCommonJS = mod => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var error_handler_exports = {};
 __export(error_handler_exports, {
   createHueErrorHandler: () => createHueErrorHandler,
   createSuccessResponse: () => createSuccessResponse,
-  hueErrorHandler: () => hueErrorHandler,
+  hueErrorHandler: () => hueErrorHandler
 });
 module.exports = __toCommonJS(error_handler_exports);
 var import_errors = require("../../types/errors");
@@ -43,12 +41,7 @@ function createHueErrorHandler(logger) {
     return hueErrorHandler;
   }
   return function loggedHueErrorHandler(error, request, reply) {
-    const errorType =
-      error instanceof import_errors.HueApiError
-        ? String(error.type)
-        : "validation" in error && error.validation
-          ? "invalid_json"
-          : "internal_error";
+    const errorType = error instanceof import_errors.HueApiError ? String(error.type) : "validation" in error && error.validation ? "invalid_json" : "internal_error";
     const message = error.message || "Unknown error";
     logger.debug(`Hue error-handler: ${request.method} ${request.url} \u2192 ${errorType} (${message})`);
     hueErrorHandler(error, request, reply);
@@ -58,10 +51,9 @@ function createSuccessResponse(data) {
   return [{ success: data }];
 }
 // Annotate the CommonJS export names for ESM import in node:
-0 &&
-  (module.exports = {
-    createHueErrorHandler,
-    createSuccessResponse,
-    hueErrorHandler,
-  });
+0 && (module.exports = {
+  createHueErrorHandler,
+  createSuccessResponse,
+  hueErrorHandler
+});
 //# sourceMappingURL=error-handler.js.map

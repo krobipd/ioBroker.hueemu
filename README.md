@@ -156,8 +156,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-
-### **WORK IN PROGRESS**
+### 1.5.0 (2026-05-22)
 
 - User-modified state names are no longer overwritten on adapter restart
 - State name translations migrated to standard ioBroker i18n framework
@@ -177,10 +176,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.4.6 (2026-05-17)
 
 - Internal refactoring. No user-facing changes.
-
-### 1.4.5 (2026-05-13)
-
-- Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 
