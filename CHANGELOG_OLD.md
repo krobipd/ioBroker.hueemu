@@ -1,7 +1,7 @@
 # Older Changes
 ## 1.4.5 (2026-05-13)
 
-- Debug log now traces previously silent paths: TLS certificate validity on reuse, every Hue API error response, SSDP discovery answers and device-binding scale decisions. Default log unchanged.
+- Improved debug logging for easier diagnosis of TLS, API and discovery issues.
 
 ## 1.4.4 (2026-05-10)
 
@@ -50,7 +50,7 @@
 
 ## 1.2.8 (2026-04-26)
 
-- Crash defense: process-level error handlers catch unexpected errors and restart cleanly instead of leaving the adapter half-broken.
+- Improved crash resilience — unexpected errors are now caught and the adapter restarts cleanly.
 
 ## 1.2.7 (2026-04-23)
 

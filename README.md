@@ -156,14 +156,17 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Changelog rewritten in user-centric style across all versions.
+
 ### 1.5.0 (2026-05-22)
 
 - User-modified state names are no longer overwritten on adapter restart
-- State name translations migrated to standard ioBroker i18n framework
 
 ### 1.4.9 (2026-05-21)
 
-- Use community-standard event handler pattern (.bind + try/catch).
+- Improved error handling and stability.
 
 ### 1.4.8 (2026-05-20)
 
@@ -171,7 +174,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ### 1.4.7 (2026-05-19)
 
-- TLS private key is now encrypted at rest in the ioBroker object database. Code quality enforced with strict linting rules and standard formatting.
+- TLS private key is now encrypted at rest in the ioBroker object database.
 
 ### 1.4.6 (2026-05-17)
 
