@@ -1,4 +1,8 @@
 # Older Changes
+## 1.4.6 (2026-05-17)
+
+- Internal refactoring. No user-facing changes.
+
 ## 1.4.5 (2026-05-13)
 
 - Improved debug logging for easier diagnosis of TLS, API and discovery issues.
