@@ -89,11 +89,17 @@ class HueEmu extends utils.Adapter {
   /** Set pairing mode and manage timeout */
   set pairingEnabled(value) {
     this._pairingEnabled = value;
-    if (!value && this.pairingTimeoutId) {
+    if (!value) {
+      this.clearPairingTimeout();
+    }
+    void this.setState("startPairing", { ack: true, val: value });
+  }
+  /** Clear the pairing-window timeout if one is pending */
+  clearPairingTimeout() {
+    if (this.pairingTimeoutId) {
       this.clearTimeout(this.pairingTimeoutId);
       this.pairingTimeoutId = void 0;
     }
-    void this.setState("startPairing", { ack: true, val: value });
   }
   /** Whether authentication is disabled */
   get disableAuth() {
@@ -179,7 +185,7 @@ class HueEmu extends utils.Adapter {
       throw new Error(`HTTPS port ${httpsPort} equals HTTP port \u2014 pick a different port`);
     }
     const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
-    const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || this.macFromUdn(udn);
+    const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || (0, import_config.macFromUdn)(udn);
     if (!((_e = this.config.udn) == null ? void 0 : _e.trim()) || !((_f = this.config.mac) == null ? void 0 : _f.trim())) {
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
         native: { udn, mac }
@@ -375,10 +381,7 @@ class HueEmu extends utils.Adapter {
    */
   onUnload(callback) {
     try {
-      if (this.pairingTimeoutId) {
-        this.clearTimeout(this.pairingTimeoutId);
-        this.pairingTimeoutId = void 0;
-      }
+      this.clearPairingTimeout();
       if (this.ssdpServer) {
         this.ssdpServer.stop();
       }
@@ -436,10 +439,7 @@ class HueEmu extends utils.Adapter {
    */
   handleStartPairing(state) {
     var _a;
-    if (this.pairingTimeoutId) {
-      this.clearTimeout(this.pairingTimeoutId);
-      this.pairingTimeoutId = void 0;
-    }
+    this.clearPairingTimeout();
     const enabled = (0, import_coerce.coerceBool)(state.val);
     this.pairingEnabled = enabled;
     if (enabled) {
@@ -477,19 +477,12 @@ class HueEmu extends utils.Adapter {
       const deviceId = device._id.substring(this.namespace.length + 1);
       try {
         const nameState = await this.getStateAsync(`${deviceId}.name`);
-        const name = (nameState == null ? void 0 : nameState.val) || ((_a = device.common) == null ? void 0 : _a.name) || deviceId;
+        const nameVal = typeof (nameState == null ? void 0 : nameState.val) === "string" ? nameState.val : void 0;
+        const commonName = typeof ((_a = device.common) == null ? void 0 : _a.name) === "string" ? device.common.name : void 0;
+        const name = nameVal || commonName || deviceId;
         const stateObjects = await this.getStatesOfAsync(deviceId, "state");
         const stateKeys = new Set((stateObjects || []).map((s) => s._id.substring(s._id.lastIndexOf(".") + 1)));
-        let lightType;
-        if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
-          lightType = "color";
-        } else if (stateKeys.has("ct")) {
-          lightType = "ct";
-        } else if (stateKeys.has("bri")) {
-          lightType = "dimmable";
-        } else {
-          lightType = "onoff";
-        }
+        const lightType = (0, import_migrations.detectLegacyLightType)(stateKeys);
         const config = { name, lightType };
         if (stateKeys.has("on")) {
           config.onState = `${this.namespace}.${deviceId}.state.on`;
@@ -561,15 +554,6 @@ class HueEmu extends utils.Adapter {
       return Number.isFinite(n) ? n : void 0;
     }
     return void 0;
-  }
-  /**
-   * Derive a stable MAC address from the UDN (used when no MAC is configured)
-   *
-   * @param udn - UUID to derive MAC address from
-   */
-  macFromUdn(udn) {
-    const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
-    return hex.match(/.{2}/g).join(":");
   }
 }
 if (require.main !== module) {

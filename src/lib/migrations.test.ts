@@ -6,6 +6,7 @@ vi.mock("@iobroker/adapter-core", () => ({
 
 import {
   buildInstanceObjectMigrationPatch,
+  detectLegacyLightType,
   INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS,
   runInstanceObjectMigration,
@@ -13,6 +14,35 @@ import {
 } from "./migrations";
 
 describe("migrations", () => {
+  describe("detectLegacyLightType", () => {
+    it("returns color for any colour state (hue/sat/xy)", () => {
+      expect(detectLegacyLightType(new Set(["on", "bri", "hue"]))).toBe("color");
+      expect(detectLegacyLightType(new Set(["sat"]))).toBe("color");
+      expect(detectLegacyLightType(new Set(["xy"]))).toBe("color");
+    });
+
+    it("returns ct when ct is present but no colour state", () => {
+      expect(detectLegacyLightType(new Set(["on", "bri", "ct"]))).toBe("ct");
+    });
+
+    it("prioritises colour over ct", () => {
+      expect(detectLegacyLightType(new Set(["ct", "hue"]))).toBe("color");
+    });
+
+    it("returns dimmable when only bri is present", () => {
+      expect(detectLegacyLightType(new Set(["on", "bri"]))).toBe("dimmable");
+    });
+
+    it("prioritises ct over bri", () => {
+      expect(detectLegacyLightType(new Set(["bri", "ct"]))).toBe("ct");
+    });
+
+    it("returns onoff when no brightness/colour states", () => {
+      expect(detectLegacyLightType(new Set(["on"]))).toBe("onoff");
+      expect(detectLegacyLightType(new Set())).toBe("onoff");
+    });
+  });
+
   describe("buildInstanceObjectMigrationPatch", () => {
     it("returns name patch when common.name is a string", () => {
       const patch = buildInstanceObjectMigrationPatch({ name: "Start Pairing" }, INSTANCE_OBJECT_MIGRATION_PAIRS[0]);

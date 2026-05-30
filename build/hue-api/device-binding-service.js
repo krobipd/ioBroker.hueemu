@@ -43,7 +43,7 @@ const LIGHT_TYPES = {
     modelid: "LWB007"
   },
   dimmable: {
-    name: "Dimmable Light",
+    name: "Dimmable light",
     type: "Dimmable light",
     states: ["on", "bri"],
     modelid: "LWB010"
@@ -415,21 +415,18 @@ class DeviceBindingService {
   convertValueForState(stateName, value, device) {
     switch (stateName) {
       case "on":
+        if (typeof value === "string") {
+          return value !== "false" && value !== "0" && value !== "";
+        }
         return Boolean(value);
-      case "bri": {
-        const n = (0, import_coerce.coerceFiniteNumber)(value);
-        const hue = n === null ? HUE_BRI_MAX : clampRound(n, HUE_BRI_MIN, HUE_BRI_MAX);
-        return this.scaleValueForState(hue, device == null ? void 0 : device.briScale, HUE_BRI_MAX);
-      }
+      case "bri":
+        return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device == null ? void 0 : device.briScale);
       case "hue": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
       }
-      case "sat": {
-        const n = (0, import_coerce.coerceFiniteNumber)(value);
-        const hue = n === null ? HUE_SAT_MAX : clampRound(n, 0, HUE_SAT_MAX);
-        return this.scaleValueForState(hue, device == null ? void 0 : device.satScale, HUE_SAT_MAX);
-      }
+      case "sat":
+        return this.clampScaleForState(value, 0, HUE_SAT_MAX, device == null ? void 0 : device.satScale);
       case "ct": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
@@ -553,6 +550,21 @@ class DeviceBindingService {
       default:
         return hueValue;
     }
+  }
+  /**
+   * Write-path helper for bri/sat: coerce + clamp the incoming Hue value into
+   * [min,max], then scale it back into the configured foreign-state scale.
+   * Null/non-finite input maps to max (full), matching the per-state default.
+   *
+   * @param value - Raw value from the Hue API
+   * @param min - Minimum Hue API value (inclusive)
+   * @param max - Maximum Hue API value (inclusive)
+   * @param scale - Configured scale mode for the foreign state
+   */
+  clampScaleForState(value, min, max, scale) {
+    const n = (0, import_coerce.coerceFiniteNumber)(value);
+    const clamped = n === null ? max : clampRound(n, min, max);
+    return this.scaleValueForState(clamped, scale, max);
   }
   /**
    * Build the trailing 3-octet MAC suffix for a Hue `uniqueid`. The full

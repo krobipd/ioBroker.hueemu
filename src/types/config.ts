@@ -92,3 +92,15 @@ export function generateBridgeId(mac: string): string {
 export function generateSerialNumber(mac: string): string {
   return mac.replace(/:/g, "").toLowerCase();
 }
+
+/**
+ * Derive a stable MAC address from the UDN (used when no MAC is configured).
+ * Strips dashes, takes the first 12 hex chars (zero-padded if shorter), then
+ * groups them into colon-separated pairs.
+ *
+ * @param udn - UUID to derive the MAC address from
+ */
+export function macFromUdn(udn: string): string {
+  const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
+  return hex.match(/.{2}/g)!.join(":");
+}

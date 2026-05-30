@@ -156,6 +156,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.5.2 (2026-05-30)
+
+- Internal refactoring. No user-facing changes.
+
 ### 1.5.1 (2026-05-23)
 
 - Changelog rewritten in user-centric style across all versions.
@@ -171,10 +175,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.4.8 (2026-05-20)
 
 - Improved security: TLS private key is no longer visible in the admin interface.
-
-### 1.4.7 (2026-05-19)
-
-- TLS private key is now encrypted at rest in the ioBroker object database.
 
 Older entries are in [CHANGELOG_OLD.md](CHANGELOG_OLD.md).
 

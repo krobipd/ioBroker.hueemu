@@ -21,11 +21,24 @@ __export(migrations_exports, {
   INSTANCE_OBJECT_MIGRATION_PAIRS: () => INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS: () => OBSOLETE_STATE_IDS,
   buildInstanceObjectMigrationPatch: () => buildInstanceObjectMigrationPatch,
+  detectLegacyLightType: () => detectLegacyLightType,
   runInstanceObjectMigration: () => runInstanceObjectMigration,
   runObsoleteStateCleanup: () => runObsoleteStateCleanup
 });
 module.exports = __toCommonJS(migrations_exports);
 var import_i18n = require("./i18n");
+function detectLegacyLightType(stateKeys) {
+  if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
+    return "color";
+  }
+  if (stateKeys.has("ct")) {
+    return "ct";
+  }
+  if (stateKeys.has("bri")) {
+    return "dimmable";
+  }
+  return "onoff";
+}
 const INSTANCE_OBJECT_MIGRATION_PAIRS = [
   { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
   { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
@@ -94,6 +107,7 @@ async function runObsoleteStateCleanup(adapter) {
   INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS,
   buildInstanceObjectMigrationPatch,
+  detectLegacyLightType,
   runInstanceObjectMigration,
   runObsoleteStateCleanup
 });

@@ -9,6 +9,30 @@
 
 import { tName } from "./i18n";
 
+/** Light type keys understood by the legacy-device migration. */
+export type LegacyLightType = "onoff" | "dimmable" | "ct" | "color";
+
+/**
+ * Determine the Hue light type from the set of available legacy state keys.
+ * Priority: any colour state (hue/sat/xy) → `color`; else `ct` → `ct`; else
+ * `bri` → `dimmable`; otherwise `onoff`. Pure decision helper extracted from
+ * main.ts's legacy-device migration so it can be unit-tested directly.
+ *
+ * @param stateKeys - Set of state leaf names found under the legacy device
+ */
+export function detectLegacyLightType(stateKeys: Set<string>): LegacyLightType {
+  if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
+    return "color";
+  }
+  if (stateKeys.has("ct")) {
+    return "ct";
+  }
+  if (stateKeys.has("bri")) {
+    return "dimmable";
+  }
+  return "onoff";
+}
+
 /** Pairs `(instanceObject id, i18n keys)` that v1.4.0 backfills. */
 export const INSTANCE_OBJECT_MIGRATION_PAIRS: ReadonlyArray<{
   id: string;

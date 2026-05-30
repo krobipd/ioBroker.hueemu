@@ -15,9 +15,9 @@ import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
 import { coerceBool } from "./lib/coerce";
 import { tName } from "./lib/i18n";
-import { runInstanceObjectMigration, runObsoleteStateCleanup } from "./lib/migrations";
+import { detectLegacyLightType, runInstanceObjectMigration, runObsoleteStateCleanup } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
-import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber } from "./types/config";
+import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber, macFromUdn } from "./types/config";
 import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -100,11 +100,18 @@ export class HueEmu extends utils.Adapter {
   /** Set pairing mode and manage timeout */
   set pairingEnabled(value: boolean) {
     this._pairingEnabled = value;
-    if (!value && this.pairingTimeoutId) {
+    if (!value) {
+      this.clearPairingTimeout();
+    }
+    void this.setState("startPairing", { ack: true, val: value });
+  }
+
+  /** Clear the pairing-window timeout if one is pending */
+  private clearPairingTimeout(): void {
+    if (this.pairingTimeoutId) {
       this.clearTimeout(this.pairingTimeoutId);
       this.pairingTimeoutId = undefined;
     }
-    void this.setState("startPairing", { ack: true, val: value });
   }
 
   /** Whether authentication is disabled */
@@ -234,7 +241,7 @@ export class HueEmu extends utils.Adapter {
       throw new Error(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
     }
     const udn = this.config.udn?.trim() || uuid.v4();
-    const mac = this.config.mac?.trim() || this.macFromUdn(udn);
+    const mac = this.config.mac?.trim() || macFromUdn(udn);
 
     // Persist generated UDN/MAC so identity stays stable across restarts
     if (!this.config.udn?.trim() || !this.config.mac?.trim()) {
@@ -487,10 +494,7 @@ export class HueEmu extends utils.Adapter {
   private onUnload(callback: () => void): void {
     try {
       // Clear pairing timeout
-      if (this.pairingTimeoutId) {
-        this.clearTimeout(this.pairingTimeoutId);
-        this.pairingTimeoutId = undefined;
-      }
+      this.clearPairingTimeout();
 
       // Stop SSDP server
       if (this.ssdpServer) {
@@ -562,10 +566,7 @@ export class HueEmu extends utils.Adapter {
    * @param state - State containing the pairing toggle value
    */
   private handleStartPairing(state: ioBroker.State): void {
-    if (this.pairingTimeoutId) {
-      this.clearTimeout(this.pairingTimeoutId);
-      this.pairingTimeoutId = undefined;
-    }
+    this.clearPairingTimeout();
 
     const enabled = coerceBool(state.val);
     this.pairingEnabled = enabled;
@@ -613,25 +614,19 @@ export class HueEmu extends utils.Adapter {
       const deviceId = device._id.substring(this.namespace.length + 1);
 
       try {
-        // Read device name from name state or device common.name
+        // Read device name from name state or device common.name (type-guarded:
+        // state.val can be number/bool, common.name can be a translation object)
         const nameState = await this.getStateAsync(`${deviceId}.name`);
-        const name = (nameState?.val as string) || (device.common?.name as string) || deviceId;
+        const nameVal = typeof nameState?.val === "string" ? nameState.val : undefined;
+        const commonName = typeof device.common?.name === "string" ? device.common.name : undefined;
+        const name = nameVal || commonName || deviceId;
 
         // Read state channel to find available state keys
         const stateObjects = await this.getStatesOfAsync(deviceId, "state");
         const stateKeys = new Set((stateObjects || []).map(s => s._id.substring(s._id.lastIndexOf(".") + 1)));
 
         // Determine light type from available states
-        let lightType: "onoff" | "dimmable" | "ct" | "color";
-        if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
-          lightType = "color";
-        } else if (stateKeys.has("ct")) {
-          lightType = "ct";
-        } else if (stateKeys.has("bri")) {
-          lightType = "dimmable";
-        } else {
-          lightType = "onoff";
-        }
+        const lightType = detectLegacyLightType(stateKeys);
 
         // Build DeviceConfig with state IDs pointing to existing internal states
         const config: DeviceConfig = { name, lightType };
@@ -713,16 +708,6 @@ export class HueEmu extends utils.Adapter {
       return Number.isFinite(n) ? n : undefined;
     }
     return undefined;
-  }
-
-  /**
-   * Derive a stable MAC address from the UDN (used when no MAC is configured)
-   *
-   * @param udn - UUID to derive MAC address from
-   */
-  private macFromUdn(udn: string): string {
-    const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
-    return hex.match(/.{2}/g)!.join(":");
   }
 }
 

@@ -2,11 +2,26 @@
  * Tests for config utilities and ConfigService
  */
 
-import { generateBridgeId, generateSerialNumber } from "./config";
+import { generateBridgeId, generateSerialNumber, macFromUdn } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { createTestIdentity } from "../../test/test-helpers";
 
 describe("Config utilities", () => {
+  describe("macFromUdn", () => {
+    it("derives a colon-paired MAC from a UUID (dashes stripped, first 12 hex)", () => {
+      expect(macFromUdn("12345678-1234-1234-1234-123456789abc")).toBe("12:34:56:78:12:34");
+    });
+
+    it("zero-pads a short UDN to 12 hex chars", () => {
+      expect(macFromUdn("ab-cd")).toBe("ab:cd:00:00:00:00");
+    });
+
+    it("is deterministic — same UDN yields the same MAC", () => {
+      const udn = "12345678-1234-1234-1234-123456789abc";
+      expect(macFromUdn(udn)).toBe(macFromUdn(udn));
+    });
+  });
+
   describe("generateBridgeId", () => {
     it("should insert FFFE in the middle of the MAC", () => {
       const result = generateBridgeId("AA:BB:CC:DD:EE:FF");

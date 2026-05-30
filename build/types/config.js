@@ -20,7 +20,8 @@ var config_exports = {};
 __export(config_exports, {
   BRIDGE_MODEL_ID: () => BRIDGE_MODEL_ID,
   generateBridgeId: () => generateBridgeId,
-  generateSerialNumber: () => generateSerialNumber
+  generateSerialNumber: () => generateSerialNumber,
+  macFromUdn: () => macFromUdn
 });
 module.exports = __toCommonJS(config_exports);
 const BRIDGE_MODEL_ID = "BSB002";
@@ -31,10 +32,15 @@ function generateBridgeId(mac) {
 function generateSerialNumber(mac) {
   return mac.replace(/:/g, "").toLowerCase();
 }
+function macFromUdn(udn) {
+  const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
+  return hex.match(/.{2}/g).join(":");
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   BRIDGE_MODEL_ID,
   generateBridgeId,
-  generateSerialNumber
+  generateSerialNumber,
+  macFromUdn
 });
 //# sourceMappingURL=config.js.map

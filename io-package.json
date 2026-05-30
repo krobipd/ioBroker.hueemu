@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "news": {
+      "1.5.2": {
+        "en": "Internal refactoring. No user-facing changes.",
+        "de": "Interne Überarbeitung. Keine nutzersichtbaren Änderungen.",
+        "ru": "Внутренняя переработка. Видимых изменений нет.",
+        "pt": "Refatoração interna. Sem alterações visíveis ao utilizador.",
+        "nl": "Interne herstructurering. Geen zichtbare wijzigingen voor de gebruiker.",
+        "fr": "Refactorisation interne. Aucun changement visible pour l'utilisateur.",
+        "it": "Ristrutturazione interna. Nessuna modifica visibile all'utente.",
+        "es": "Refactorización interna. Sin cambios visibles para el usuario.",
+        "pl": "Wewnętrzna przebudowa. Brak zmian widocznych dla użytkownika.",
+        "uk": "Внутрішня переробка. Жодних змін для користувача.",
+        "zh-cn": "内部重构。无用户可见更改。"
+      },
       "1.5.1": {
         "en": "Changelog rewritten in user-centric style across all versions.",
         "de": "Changelog in benutzerfreundlichem Stil über alle Versionen umgeschrieben.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzna przebudowa. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішня переробка. Жодних змін для користувача.",
         "zh-cn": "内部重构。无用户可见更改。"
-      },
-      "1.4.5": {
-        "en": "Improved debug logging for easier diagnosis of TLS, API and discovery issues.",
-        "de": "Verbessertes Debug-Logging für einfachere Diagnose von TLS-, API- und Discovery-Problemen.",
-        "ru": "Улучшено debug-логирование для упрощённой диагностики проблем TLS, API и обнаружения.",
-        "pt": "Logging de depuração melhorado para diagnóstico mais fácil de problemas TLS, API e descoberta.",
-        "nl": "Verbeterd debug-logging voor eenvoudigere diagnose van TLS-, API- en discovery-problemen.",
-        "fr": "Journalisation de débogage améliorée pour un diagnostic plus facile des problèmes TLS, API et découverte.",
-        "it": "Logging di debug migliorato per una diagnosi più semplice di problemi TLS, API e discovery.",
-        "es": "Logging de depuración mejorado para un diagnóstico más fácil de problemas TLS, API y descubrimiento.",
-        "pl": "Ulepszone logowanie debugowania dla łatwiejszej diagnostyki problemów TLS, API i odkrywania.",
-        "uk": "Покращене debug-логування для простішої діагностики проблем TLS, API та виявлення.",
-        "zh-cn": "改进了调试日志，便于诊断 TLS、API 和发现问题。"
       }
     },
     "titleLang": {
@@ -206,7 +206,7 @@
         "type": "boolean",
         "role": "button",
         "write": true,
-        "read": true,
+        "read": false,
         "desc": {
           "en": "Enable pairing mode for 50 seconds",
           "de": "Pairing-Modus für 50 Sekunden aktivieren",

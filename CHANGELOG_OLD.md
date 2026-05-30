@@ -1,4 +1,8 @@
 # Older Changes
+## 1.4.7 (2026-05-19)
+
+- TLS private key is now encrypted at rest in the ioBroker object database.
+
 ## 1.4.6 (2026-05-17)
 
 - Internal refactoring. No user-facing changes.
