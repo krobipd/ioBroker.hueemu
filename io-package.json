@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.5.2",
+    "version": "1.6.0",
     "news": {
-      "NEXT": {
+      "1.6.0": {
         "en": "Brightness and saturation from source states with unusual scales now stay within the valid Hue range (edge-case 0% or negative values no longer leak out of range).",
         "de": "Helligkeit und Sättigung aus Quell-States mit ungewöhnlichen Skalen bleiben jetzt im gültigen Hue-Bereich (Randwerte wie 0% oder negativ laufen nicht mehr aus dem Bereich).",
         "ru": "Яркость и насыщенность из исходных состояний с необычными шкалами теперь остаются в допустимом диапазоне Hue (граничные значения 0% или отрицательные не выходят за пределы).",

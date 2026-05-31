@@ -1,4 +1,8 @@
 # Older Changes
+## 1.4.8 (2026-05-20)
+
+- Improved security: TLS private key is no longer visible in the admin interface.
+
 ## 1.4.7 (2026-05-19)
 
 - TLS private key is now encrypted at rest in the ioBroker object database.
