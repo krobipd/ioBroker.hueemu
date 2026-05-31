@@ -20,7 +20,8 @@ var coerce_exports = {};
 __export(coerce_exports, {
   coerceBool: () => coerceBool,
   coerceFiniteNumber: () => coerceFiniteNumber,
-  parseLightIndex: () => parseLightIndex
+  parseLightIndex: () => parseLightIndex,
+  parsePort: () => parsePort
 });
 module.exports = __toCommonJS(coerce_exports);
 function coerceFiniteNumber(v) {
@@ -59,10 +60,21 @@ function parseLightIndex(id, max) {
   }
   return n - 1;
 }
+function parsePort(port) {
+  if (typeof port === "number") {
+    return Number.isFinite(port) ? port : void 0;
+  }
+  if (typeof port === "string" && port.trim().length > 0) {
+    const n = parseInt(port.trim(), 10);
+    return Number.isFinite(n) ? n : void 0;
+  }
+  return void 0;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   coerceBool,
   coerceFiniteNumber,
-  parseLightIndex
+  parseLightIndex,
+  parsePort
 });
 //# sourceMappingURL=coerce.js.map

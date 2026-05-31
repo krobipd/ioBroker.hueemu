@@ -3,7 +3,9 @@
  */
 
 /**
- * Hue API error types as defined in the Hue API specification
+ * Hue API error types as defined in the Hue API specification. This is the
+ * full spec catalog kept as the documented Hue error-type mapping; the
+ * emulator only constructs the subset it actually returns.
  */
 export enum HueErrorType {
   UNAUTHORIZED_USER = 1,
@@ -133,44 +135,12 @@ export class HueApiError extends Error {
   }
 
   /**
-   * Create a method not available error
-   *
-   * @param method - HTTP method
-   * @param resource - Resource identifier
-   * @param address - API endpoint address
-   */
-  static methodNotAvailable(method: string, resource: string, address = ""): HueApiError {
-    return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [method, resource]);
-  }
-
-  /**
    * Create a missing parameters error
    *
    * @param address - API endpoint address
    */
   static missingParameters(address = ""): HueApiError {
     return new HueApiError(HueErrorType.MISSING_PARAMETERS, address);
-  }
-
-  /**
-   * Create a parameter not available error
-   *
-   * @param parameter - Parameter name
-   * @param address - API endpoint address
-   */
-  static parameterNotAvailable(parameter: string, address = ""): HueApiError {
-    return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [parameter]);
-  }
-
-  /**
-   * Create an invalid parameter value error
-   *
-   * @param value - Invalid value
-   * @param parameter - Parameter name
-   * @param address - API endpoint address
-   */
-  static invalidParameterValue(value: string, parameter: string, address = ""): HueApiError {
-    return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [value, parameter]);
   }
 
   /**

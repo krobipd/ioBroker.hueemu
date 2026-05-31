@@ -13,9 +13,14 @@ import { randomBytes } from "node:crypto";
 import { HueServer } from "./server";
 import { HueSsdpServer } from "./discovery";
 import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
-import { coerceBool } from "./lib/coerce";
+import { coerceBool, parsePort } from "./lib/coerce";
 import { tName } from "./lib/i18n";
-import { detectLegacyLightType, runInstanceObjectMigration, runObsoleteStateCleanup } from "./lib/migrations";
+import {
+  ID_RANGE_END,
+  detectLegacyLightType,
+  runInstanceObjectMigration,
+  runObsoleteStateCleanup,
+} from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber, macFromUdn } from "./types/config";
 import { errText, sanitizeId } from "./types/utils";
@@ -36,7 +41,6 @@ declare global {
       udn: string;
       mac: string;
       devices: DeviceConfig[];
-      [key: string]: any;
     }
   }
 }
@@ -55,8 +59,6 @@ export class HueEmu extends utils.Adapter {
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
   private apiHandler: ApiHandler | null = null;
-  private unhandledRejectionHandler: ((reason: unknown) => void) | null = null;
-  private uncaughtExceptionHandler: ((err: Error) => void) | null = null;
 
   /**
    * Create a new Hue Emulator adapter instance
@@ -72,24 +74,6 @@ export class HueEmu extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-
-    // Last-line-of-defence against unhandled rejections / sync throws from
-    // fire-and-forget paths. The per-handler wrappers cover documented async
-    // paths; this catches anything that slips past during refactors.
-    // v1.4.3 (M9): log + terminate via the adapter's `terminate` (exit code
-    // 11 = "unrecoverable error"). Logging without exit leaves the process
-    // in an undefined state — the per-handler wrappers handle expected paths,
-    // anything reaching here is by definition unexpected.
-    this.unhandledRejectionHandler = (reason: unknown) => {
-      this.log.error(`Unhandled rejection: ${errText(reason)}`);
-      this.terminate?.(11);
-    };
-    this.uncaughtExceptionHandler = (err: Error) => {
-      this.log.error(`Uncaught exception: ${errText(err)}`);
-      this.terminate?.(11);
-    };
-    process.on("unhandledRejection", this.unhandledRejectionHandler);
-    process.on("uncaughtException", this.uncaughtExceptionHandler);
   }
 
   /** Whether pairing mode is active */
@@ -103,7 +87,7 @@ export class HueEmu extends utils.Adapter {
     if (!value) {
       this.clearPairingTimeout();
     }
-    void this.setState("startPairing", { ack: true, val: value });
+    this.ackState("startPairing", value);
   }
 
   /** Clear the pairing-window timeout if one is pending */
@@ -114,6 +98,18 @@ export class HueEmu extends utils.Adapter {
     }
   }
 
+  /**
+   * Fire-and-forget ack write that never rejects — a broker-down during the
+   * setState is logged, not fatal. Covers the `void this.setState(...)` paths
+   * locally, so no global process-level unhandled-rejection net is needed.
+   *
+   * @param id - State id (relative to namespace)
+   * @param val - Value to write with ack:true
+   */
+  private ackState(id: string, val: ioBroker.StateValue): void {
+    void this.setState(id, { ack: true, val }).catch(e => this.log.error(`setState ${id} failed: ${errText(e)}`));
+  }
+
   /** Whether authentication is disabled */
   get disableAuth(): boolean {
     return this._disableAuth;
@@ -122,7 +118,7 @@ export class HueEmu extends utils.Adapter {
   /** Set authentication disabled flag and persist */
   set disableAuth(value: boolean) {
     this._disableAuth = value;
-    void this.setState("disableAuth", { ack: true, val: value });
+    this.ackState("disableAuth", value);
     this.log.info(value ? "Authentication disabled (all requests allowed)" : "Authentication enabled");
   }
 
@@ -233,7 +229,7 @@ export class HueEmu extends utils.Adapter {
     const port = this.toPort(this.config.port);
     const discoveryHost = this.config.discoveryHost?.trim() || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
-    const httpsPort = this.parsePort(this.config.httpsPort);
+    const httpsPort = parsePort(this.config.httpsPort);
     // v1.4.3 (SV4): port collision check — a same-port HTTP+HTTPS pair would
     // make the second listen() throw EADDRINUSE much later, easier to debug
     // when surfaced here.
@@ -430,7 +426,7 @@ export class HueEmu extends utils.Adapter {
     // Find all states under user.*
     const children = await this.getObjectListAsync({
       startkey: `${this.namespace}.user.`,
-      endkey: `${this.namespace}.user.\u9999`,
+      endkey: `${this.namespace}.user.${ID_RANGE_END}`,
     });
 
     if (children?.rows && children.rows.length > 0) {
@@ -505,16 +501,6 @@ export class HueEmu extends utils.Adapter {
       if (this.hueServer) {
         this.hueServer.stop().catch((err: Error) => this.log.error(`Server stop error: ${errText(err)}`));
       }
-
-      // Detach process-level last-line-of-defence handlers
-      if (this.unhandledRejectionHandler) {
-        process.off("unhandledRejection", this.unhandledRejectionHandler);
-        this.unhandledRejectionHandler = null;
-      }
-      if (this.uncaughtExceptionHandler) {
-        process.off("uncaughtException", this.uncaughtExceptionHandler);
-        this.uncaughtExceptionHandler = null;
-      }
     } catch (error) {
       this.log.error(`Error during shutdown: ${errText(error)}`);
     } finally {
@@ -553,7 +539,7 @@ export class HueEmu extends utils.Adapter {
         this.disableAuth = coerceBool(state.val);
       } else if (id.startsWith(this.namespace)) {
         // Acknowledge other own state changes
-        void this.setState(id, { ack: true, val: state.val });
+        this.ackState(id, state.val);
       }
     } catch (err: unknown) {
       this.log.error(`stateChange failed: ${errText(err)}`);
@@ -579,7 +565,7 @@ export class HueEmu extends utils.Adapter {
       this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
         this._pairingEnabled = false;
-        void this.setState("startPairing", { ack: true, val: false });
+        this.ackState("startPairing", false);
         this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
@@ -687,27 +673,11 @@ export class HueEmu extends utils.Adapter {
    * @param port - Raw port value from config
    */
   private toPort(port: unknown): number {
-    const parsed = this.parsePort(port);
+    const parsed = parsePort(port);
     if (parsed === undefined) {
       throw new Error("Port not specified");
     }
     return parsed;
-  }
-
-  /**
-   * Shared port parser — returns undefined for missing/unparseable input.
-   *
-   * @param port - Raw port value (string or number)
-   */
-  private parsePort(port: unknown): number | undefined {
-    if (typeof port === "number") {
-      return Number.isFinite(port) ? port : undefined;
-    }
-    if (typeof port === "string" && port.trim().length > 0) {
-      const n = parseInt(port.trim(), 10);
-      return Number.isFinite(n) ? n : undefined;
-    }
-    return undefined;
   }
 }
 

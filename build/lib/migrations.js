@@ -18,6 +18,7 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var migrations_exports = {};
 __export(migrations_exports, {
+  ID_RANGE_END: () => ID_RANGE_END,
   INSTANCE_OBJECT_MIGRATION_PAIRS: () => INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS: () => OBSOLETE_STATE_IDS,
   buildInstanceObjectMigrationPatch: () => buildInstanceObjectMigrationPatch,
@@ -27,6 +28,7 @@ __export(migrations_exports, {
 });
 module.exports = __toCommonJS(migrations_exports);
 var import_i18n = require("./i18n");
+const ID_RANGE_END = "\uFFFF";
 function detectLegacyLightType(stateKeys) {
   if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
     return "color";
@@ -94,7 +96,7 @@ async function runObsoleteStateCleanup(adapter) {
     const parentId = id.substring(0, dot);
     const children = await adapter.getObjectListAsync({
       startkey: `${adapter.namespace}.${parentId}.`,
-      endkey: `${adapter.namespace}.${parentId}.\u9999`
+      endkey: `${adapter.namespace}.${parentId}.${ID_RANGE_END}`
     });
     if ((children == null ? void 0 : children.rows.length) === 0) {
       await adapter.delObjectAsync(parentId);
@@ -104,6 +106,7 @@ async function runObsoleteStateCleanup(adapter) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  ID_RANGE_END,
   INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS,
   buildInstanceObjectMigrationPatch,

@@ -123,41 +123,12 @@ class HueApiError extends Error {
     return new HueApiError(3 /* RESOURCE_NOT_AVAILABLE */, address, [resource]);
   }
   /**
-   * Create a method not available error
-   *
-   * @param method - HTTP method
-   * @param resource - Resource identifier
-   * @param address - API endpoint address
-   */
-  static methodNotAvailable(method, resource, address = "") {
-    return new HueApiError(4 /* METHOD_NOT_AVAILABLE */, address, [method, resource]);
-  }
-  /**
    * Create a missing parameters error
    *
    * @param address - API endpoint address
    */
   static missingParameters(address = "") {
     return new HueApiError(5 /* MISSING_PARAMETERS */, address);
-  }
-  /**
-   * Create a parameter not available error
-   *
-   * @param parameter - Parameter name
-   * @param address - API endpoint address
-   */
-  static parameterNotAvailable(parameter, address = "") {
-    return new HueApiError(6 /* PARAMETER_NOT_AVAILABLE */, address, [parameter]);
-  }
-  /**
-   * Create an invalid parameter value error
-   *
-   * @param value - Invalid value
-   * @param parameter - Parameter name
-   * @param address - API endpoint address
-   */
-  static invalidParameterValue(value, parameter, address = "") {
-    return new HueApiError(7 /* INVALID_PARAMETER_VALUE */, address, [value, parameter]);
   }
   /**
    * Create a link button not pressed error

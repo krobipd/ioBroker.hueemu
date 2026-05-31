@@ -2,7 +2,7 @@
  * Tests for the shared boundary coercion helpers.
  */
 
-import { coerceFiniteNumber, parseLightIndex } from "./coerce";
+import { coerceBool, coerceFiniteNumber, parseLightIndex, parsePort } from "./coerce";
 
 describe("coerceFiniteNumber", () => {
   it("returns finite numbers as-is", () => {
@@ -65,5 +65,66 @@ describe("parseLightIndex (E1 v1.4.3)", () => {
 
   it("returns null when the collection is empty", () => {
     expect(parseLightIndex("1", 0)).toBeNull();
+  });
+});
+
+describe("coerceBool", () => {
+  it("returns real booleans unchanged", () => {
+    expect(coerceBool(true)).toBe(true);
+    expect(coerceBool(false)).toBe(false);
+  });
+
+  it("treats non-zero numbers as true, 0 as false", () => {
+    expect(coerceBool(1)).toBe(true);
+    expect(coerceBool(-1)).toBe(true);
+    expect(coerceBool(0)).toBe(false);
+  });
+
+  it("accepts true-ish strings (case-insensitive, trimmed)", () => {
+    expect(coerceBool("true")).toBe(true);
+    expect(coerceBool("TRUE")).toBe(true);
+    expect(coerceBool(" yes ")).toBe(true);
+    expect(coerceBool("1")).toBe(true);
+    expect(coerceBool("on")).toBe(true);
+  });
+
+  it("treats false/0/empty/other strings as false (disableAuth must not flip on a stored string)", () => {
+    expect(coerceBool("false")).toBe(false);
+    expect(coerceBool("0")).toBe(false);
+    expect(coerceBool("")).toBe(false);
+    expect(coerceBool("nope")).toBe(false);
+  });
+
+  it("returns false for null/undefined/object", () => {
+    expect(coerceBool(null)).toBe(false);
+    expect(coerceBool(undefined)).toBe(false);
+    expect(coerceBool({})).toBe(false);
+    expect(coerceBool([])).toBe(false);
+  });
+});
+
+describe("parsePort", () => {
+  it("returns finite numbers as-is", () => {
+    expect(parsePort(8080)).toBe(8080);
+    expect(parsePort(80)).toBe(80);
+  });
+
+  it("parses numeric strings (trimmed)", () => {
+    expect(parsePort("8080")).toBe(8080);
+    expect(parsePort(" 443 ")).toBe(443);
+  });
+
+  it("returns undefined for missing / empty / non-numeric input", () => {
+    expect(parsePort(undefined)).toBeUndefined();
+    expect(parsePort(null)).toBeUndefined();
+    expect(parsePort("")).toBeUndefined();
+    expect(parsePort("   ")).toBeUndefined();
+    expect(parsePort("abc")).toBeUndefined();
+    expect(parsePort({})).toBeUndefined();
+  });
+
+  it("returns undefined for non-finite numbers", () => {
+    expect(parsePort(Number.NaN)).toBeUndefined();
+    expect(parsePort(Number.POSITIVE_INFINITY)).toBeUndefined();
   });
 });

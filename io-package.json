@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.5.2",
     "news": {
+      "NEXT": {
+        "en": "Brightness and saturation from source states with unusual scales now stay within the valid Hue range (edge-case 0% or negative values no longer leak out of range).",
+        "de": "Helligkeit und Sättigung aus Quell-States mit ungewöhnlichen Skalen bleiben jetzt im gültigen Hue-Bereich (Randwerte wie 0% oder negativ laufen nicht mehr aus dem Bereich).",
+        "ru": "Яркость и насыщенность из исходных состояний с необычными шкалами теперь остаются в допустимом диапазоне Hue (граничные значения 0% или отрицательные не выходят за пределы).",
+        "pt": "Brilho e saturação de estados de origem com escalas incomuns permanecem agora no intervalo Hue válido (valores-limite como 0% ou negativos já não saem do intervalo).",
+        "nl": "Helderheid en verzadiging uit bronstates met ongebruikelijke schalen blijven nu binnen het geldige Hue-bereik (randwaarden zoals 0% of negatief lopen niet meer buiten bereik).",
+        "fr": "La luminosité et la saturation issues d'états source aux échelles inhabituelles restent dans la plage Hue valide (les valeurs limites comme 0% ou négatives ne débordent plus).",
+        "it": "Luminosità e saturazione da stati sorgente con scale insolite restano ora nell'intervallo Hue valido (i valori limite come 0% o negativi non escono più dall'intervallo).",
+        "es": "El brillo y la saturación de estados de origen con escalas inusuales permanecen ahora en el rango Hue válido (los valores límite como 0% o negativos ya no salen del rango).",
+        "pl": "Jasność i nasycenie ze stanów źródłowych o nietypowych skalach pozostają teraz w prawidłowym zakresie Hue (wartości graniczne jak 0% lub ujemne nie wychodzą poza zakres).",
+        "uk": "Яскравість і насиченість із джерельних станів з незвичними шкалами тепер залишаються в допустимому діапазоні Hue (граничні значення 0% або від'ємні не виходять за межі).",
+        "zh-cn": "来自非常规刻度源状态的亮度和饱和度现在保持在有效的 Hue 范围内（0% 或负值等边界值不再超出范围）。"
+      },
       "1.5.2": {
         "en": "Internal refactoring. No user-facing changes.",
         "de": "Interne Überarbeitung. Keine nutzersichtbaren Änderungen.",
@@ -80,19 +93,6 @@
         "pl": "Klucz prywatny TLS jest teraz szyfrowany w bazie danych obiektów ioBroker.",
         "uk": "Приватний ключ TLS тепер шифрується в базі даних об єктів ioBroker.",
         "zh-cn": "TLS 私钥现在在 ioBroker 对象数据库中加密存储。"
-      },
-      "1.4.6": {
-        "en": "Internal refactoring. No user-facing changes.",
-        "de": "Interne Überarbeitung. Keine nutzersichtbaren Änderungen.",
-        "ru": "Внутренняя переработка. Видимых изменений нет.",
-        "pt": "Refatoração interna. Sem alterações visíveis ao utilizador.",
-        "nl": "Interne herstructurering. Geen zichtbare wijzigingen voor de gebruiker.",
-        "fr": "Refactorisation interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Ristrutturazione interna. Nessuna modifica visibile all'utente.",
-        "es": "Refactorización interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzna przebudowa. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішня переробка. Жодних змін для користувача.",
-        "zh-cn": "内部重构。无用户可见更改。"
       }
     },
     "titleLang": {
@@ -174,7 +174,6 @@
     "tlsKey": "",
     "udn": "",
     "mac": "",
-    "upnpPort": "1900",
     "devices": [],
     "trustProxy": false
   },

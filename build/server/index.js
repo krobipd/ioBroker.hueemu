@@ -18,23 +18,12 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var server_exports = {};
 __export(server_exports, {
-  HueServer: () => import_hue_server.HueServer,
-  apiV1Routes: () => import_api_v1_routes.apiV1Routes,
-  createSuccessResponse: () => import_error_handler.createSuccessResponse,
-  descriptionRoute: () => import_description_route.descriptionRoute,
-  hueErrorHandler: () => import_error_handler.hueErrorHandler
+  HueServer: () => import_hue_server.HueServer
 });
 module.exports = __toCommonJS(server_exports);
 var import_hue_server = require("./hue-server");
-var import_api_v1_routes = require("./routes/api-v1-routes");
-var import_description_route = require("./routes/description-route");
-var import_error_handler = require("./middleware/error-handler");
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  HueServer,
-  apiV1Routes,
-  createSuccessResponse,
-  descriptionRoute,
-  hueErrorHandler
+  HueServer
 });
 //# sourceMappingURL=index.js.map

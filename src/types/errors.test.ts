@@ -30,28 +30,10 @@ describe("HueApiError", () => {
       expect(err.address).toBe("/lights/42");
     });
 
-    it("should create methodNotAvailable error with two parameters", () => {
-      const err = HueApiError.methodNotAvailable("DELETE", "/lights", "/api");
-      expect(err.type).toBe(HueErrorType.METHOD_NOT_AVAILABLE);
-      expect(err.message).toBe("method, DELETE, not available for resource, /lights");
-    });
-
     it("should create missingParameters error", () => {
       const err = HueApiError.missingParameters("/api");
       expect(err.type).toBe(HueErrorType.MISSING_PARAMETERS);
       expect(err.message).toBe("missing parameters in body");
-    });
-
-    it("should create parameterNotAvailable error", () => {
-      const err = HueApiError.parameterNotAvailable("xyz", "/lights/1/state");
-      expect(err.type).toBe(HueErrorType.PARAMETER_NOT_AVAILABLE);
-      expect(err.message).toBe("parameter, xyz, not available");
-    });
-
-    it("should create invalidParameterValue error", () => {
-      const err = HueApiError.invalidParameterValue("999", "bri", "/lights/1/state");
-      expect(err.type).toBe(HueErrorType.INVALID_PARAMETER_VALUE);
-      expect(err.message).toBe("invalid value, 999, for parameter, bri");
     });
 
     it("should create linkButtonNotPressed error", () => {

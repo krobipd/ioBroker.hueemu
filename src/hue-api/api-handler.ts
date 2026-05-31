@@ -33,7 +33,6 @@ export interface ApiHandlerConfig {
   devices?: DeviceConfig[];
   /** Logger */
   logger: Logger;
-  /** ioBroker system language for user-facing log strings */
 }
 
 /**

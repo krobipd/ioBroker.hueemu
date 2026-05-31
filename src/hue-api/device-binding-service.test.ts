@@ -377,15 +377,13 @@ describe("DeviceBindingService", () => {
         expect(light.state.bri).toBe(254);
       });
 
-      it("should convert percentage 0 to minimum 1 (via max(1,...))", async () => {
-        // 0/100 * 254 = 0, but max(1, 0) = ... actually 0 <= 1, so <= 1 branch
-        // 0 * 254 = 0
+      it("should clamp percentage 0 up to the Hue minimum of 1 (B1)", async () => {
         const { service } = createService([{ name: "Test", lightType: "dimmable", briState: "test.bri" }], {
           "test.bri": 0,
         });
         const light = await service.getLightById("1");
-        // 0 <= 1, so 0-1 range: Math.round(0 * 254) = 0
-        expect(light.state.bri).toBe(0);
+        // auto le1 branch now clamps to [1,254]: 0 → 1 (Hue bri minimum)
+        expect(light.state.bri).toBe(1);
       });
 
       it("should convert 0-1 range (0.5) to ~127", async () => {
@@ -527,15 +525,13 @@ describe("DeviceBindingService", () => {
         expect(light.state.sat).toBe(127);
       });
 
-      it("should handle negative values (treated as 0-1 range)", async () => {
-        // Negative values hit the `value <= 1` branch and get multiplied by 254
-        // This is a known edge case — negative sat values don't make practical sense
+      it("clamps nonsensical negative values to the Hue minimum (B1)", async () => {
         const { service } = createService([{ name: "Test", lightType: "color", satState: "test.sat" }], {
           "test.sat": -10,
         });
         const light = await service.getLightById("1");
-        // -10 * 254 = -2540 (not clamped — edge case, negative input is nonsensical)
-        expect(light.state.sat).toBe(-2540);
+        // auto le1 branch now clamps to [0,254]: -10 → 0 (was -2540 unclamped)
+        expect(light.state.sat).toBe(0);
       });
 
       it("should clamp to 254 maximum", async () => {

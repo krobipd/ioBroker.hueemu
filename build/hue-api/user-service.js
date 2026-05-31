@@ -128,17 +128,9 @@ class UserService {
     }
   }
   /**
-   * Returns the set of paired client ids (sanitized form) for spec-compliant
-   * `whitelist` exposure. Reuses the same lazy cache as the auth path.
-   */
-  async listClientIds() {
-    const cache = await this.ensureCache();
-    return [...cache];
-  }
-  /**
-   * Synchronous variant — returns whatever is currently cached (empty until
-   * the first auth check populates it). Used in spots where async fanout
-   * would force the caller to become async too (whitelist render-path).
+   * Returns the paired client ids (sanitized form) currently in the cache —
+   * empty until the first auth check populates it. Synchronous on purpose so
+   * the whitelist render-path (config-service) needn't become async.
    */
   listCachedClientIds() {
     return this.clientIdsCache ? [...this.clientIdsCache] : [];

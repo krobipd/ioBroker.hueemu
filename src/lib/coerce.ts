@@ -24,19 +24,6 @@ export function coerceFiniteNumber(v: unknown): number | null {
 }
 
 /**
- * Parse a 1-based light ID string (as it appears in Hue API URLs) into the
- * matching zero-based array index. Returns null when the value is not a
- * positive integer in `[1, max]`.
- *
- * Caller is expected to translate `null` into a Hue `resourceNotAvailable`
- * (404). Earlier `parseInt("abc")` produced `NaN` which silently passed
- * `index < 0` and `index >= length` checks, accessed `devices[NaN]`, and
- * crashed several lines later with a confusing TypeError.
- *
- * @param id Light id from the URL path (typically `req.params.id`).
- * @param max Total number of items in the bound collection.
- */
-/**
  * Coerce arbitrary values to a strict boolean.
  *
  * @param v - Value to coerce to boolean
@@ -56,7 +43,11 @@ export function coerceBool(v: unknown): boolean {
 }
 
 /**
- * Parse a 1-based light ID string into a zero-based array index.
+ * Parse a 1-based light ID string (Hue API URL path) into a zero-based array
+ * index. Returns null when the value is not a positive integer in `[1, max]`.
+ * Caller translates `null` into a Hue `resourceNotAvailable` (404). Earlier
+ * `parseInt("abc")` produced `NaN`, which silently passed the bound checks and
+ * crashed later with a confusing TypeError.
  *
  * @param id - Light id from the URL path
  * @param max - Total number of items in the collection
@@ -73,4 +64,22 @@ export function parseLightIndex(id: unknown, max: number): number | null {
     return null;
   }
   return n - 1;
+}
+
+/**
+ * Parse a port number from an admin-config value (number or numeric string).
+ * Returns undefined for missing / non-finite / unparseable input — the caller
+ * decides whether a missing port is fatal.
+ *
+ * @param port - Raw value from `this.config.<portField>`.
+ */
+export function parsePort(port: unknown): number | undefined {
+  if (typeof port === "number") {
+    return Number.isFinite(port) ? port : undefined;
+  }
+  if (typeof port === "string" && port.trim().length > 0) {
+    const n = parseInt(port.trim(), 10);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
 }

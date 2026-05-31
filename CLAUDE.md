@@ -19,14 +19,14 @@
 ## Architektur
 
 ```
-src/main.ts                       → Adapter (Lifecycle, Pairing, TLS getOrCreateTlsMaterial, systemLang, migrations, parallel-start HTTP-first-then-SSDP, terminate(11)-handlers)
+src/main.ts                       → Adapter (Lifecycle, Pairing, TLS getOrCreateTlsMaterial, systemLang, migrations, parallel-start HTTP-first-then-SSDP, ackState fire-and-forget guards)
 src/discovery/ssdp-server.ts      → UPnP/SSDP (urn:schemas-upnp-org:device:Basic:1)
 src/discovery/description-xml.ts  → UPnP XML
 src/hue-api/api-handler.ts        → API Orchestrator + resetAutoAddBudget + whitelistProvider wireup
 src/hue-api/config-service.ts     → Bridge Config (IPv4-gateway, IANA-tz, whitelist from provider)
 src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights (parallel refresh/getAllLights, parseLightIndex, hex uniqueid, xy round-trip)
 src/hue-api/user-service.ts       → Auth/Pairing (auto-add-cap 64/window, in-memory client-id cache, listCachedClientIds for whitelist)
-src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex (shared boundary helpers)
+src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex + parsePort (shared boundary helpers)
 src/lib/i18n.ts                   → tName: type-safe I18n.getTranslatedObject wrapper (keys from admin/i18n/en.json)
 src/server/hue-server.ts          → Fastify HTTP/HTTPS (trustProxy opt-in, bodyLimit 64KiB, forceCloseConnections)
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints
@@ -61,25 +61,27 @@ src/types/                        → config (HueEmulatorConfig.trustProxy), err
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (308 unit + 57 standard + 1 integration = 366)
+## Tests (314 unit + 57 standard + 1 integration = 372)
 
 Runner: **vitest** (globals, pool: forks, singleFork: true). Config: `vitest.config.ts`.
 
 ```
-src/types/utils.test.ts                    → 18: sanitizeId (10) + errText (8)
-src/types/errors.test.ts                   → 16: HueApiError, createSuccessResponse
-src/types/config.test.ts                   → 28: generateBridgeId, generateSerialNumber, ConfigService
-src/discovery/index.test.ts                → 10: UPnP description XML, URL building
-src/hue-api/device-binding-service.test.ts → 120: DeviceBindingService, value conversion, edge cases
-src/hue-api/user-service.test.ts           → 24: addUser sanitization, createUser, isUserAuthenticated
-src/hue-api/api-handler.test.ts            → 17: auth/pairing gates, malformed devicetype, fallback
-src/server/routes/api-v1-routes.test.ts    → 20: Fastify route tests (inject), body validation, auth
-src/lib/i18n.test.ts                       → 4: tName delegation + i18n completeness (11 langs, identical keysets, state name keys)
-src/lib/coerce.test.ts                     → 9: coerceBool + coerceFiniteNumber + parseLightIndex
-src/lib/migrations.test.ts                 → 15: buildInstanceObjectMigrationPatch + runInstanceObjectMigration
-test/test-helpers.ts                       → Shared mock factories (no tests, ausserhalb src/)
-test/package.js                            → 57 standard: @iobroker/testing packageFiles
-test/integration.js                        → 1 standard: @iobroker/testing integration (CI only)
+src/types/utils.test.ts                     → 18: sanitizeId (10) + errText (8)
+src/types/errors.test.ts                    → 13: HueApiError factories (used set), enum values, toResponse, createSuccessResponse
+src/types/config.test.ts                    → 31: generateBridgeId, generateSerialNumber, macFromUdn, ConfigService
+src/discovery/index.test.ts                 → 10: UPnP description XML, URL building
+src/discovery/ssdp-server.test.ts           → 8: option wiring, USNs, lifecycle, start-fail (node-ssdp mocked)
+src/hue-api/device-binding-service.test.ts  → 120: value conversion (read/write), scales, edge cases
+src/hue-api/user-service.test.ts            → 24: addUser sanitization, auth, auto-add cap, cache
+src/hue-api/api-handler.test.ts             → 17: auth/pairing gates, malformed devicetype, fallback
+src/server/routes/api-v1-routes.test.ts     → 20: Fastify route tests (inject), body validation, auth
+src/server/middleware/error-handler.test.ts → 9: hueErrorHandler branches + createHueErrorHandler + createSuccessResponse
+src/lib/i18n.test.ts                        → 4: tName delegation + i18n completeness (11 langs)
+src/lib/coerce.test.ts                      → 18: coerceBool + coerceFiniteNumber + parseLightIndex + parsePort
+src/lib/migrations.test.ts                  → 22: detectLegacyLightType + migration-patch + obsolete-cleanup helpers
+test/test-helpers.ts                        → Shared mock factories (no tests, ausserhalb src/)
+test/package.js                             → 57 standard: @iobroker/testing packageFiles
+test/integration.js                         → 1 standard: @iobroker/testing integration (CI only)
 ```
 
 **WICHTIG:** .gitignore hat `*.js` — test/package.js und test/integration.js haben Ausnahmen!

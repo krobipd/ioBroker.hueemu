@@ -505,7 +505,7 @@ class DeviceBindingService {
       case "percent":
         return clampRound(n / 100 * max, min, max);
       case "normalized":
-        return clampRound(n * max, Math.max(0, min), max);
+        return clampRound(n * max, min, max);
       case "raw":
         return clampRound(n, min, max);
       case "auto":
@@ -514,10 +514,10 @@ class DeviceBindingService {
         let result;
         if (n <= 1) {
           branch = "le1";
-          result = Math.round(n * max);
+          result = clampRound(n * max, min, max);
         } else if (n <= 100) {
           branch = "le100";
-          result = Math.max(min, Math.round(n / 100 * max));
+          result = clampRound(n / 100 * max, min, max);
         } else {
           branch = "raw";
           result = clampRound(n, min, max);

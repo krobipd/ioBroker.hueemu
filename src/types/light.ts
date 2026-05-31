@@ -101,6 +101,10 @@ export interface LightStateUpdate {
   effect?: LightEffect;
   /** Set light alert */
   alert?: LightAlert;
+  // transitiontime and the *_inc relative fields below are accepted by the
+  // routes (and reported as success) but NOT applied — the emulator has no
+  // transition or relative-increment semantics. Kept for Hue request-shape
+  // compatibility.
   /** Transition time in multiples of 100ms */
   transitiontime?: number;
   /** Brightness increment/decrement */

@@ -9,6 +9,12 @@
 
 import { tName } from "./i18n";
 
+/**
+ * Upper bound for `getObjectList`/`getObjectView` range queries over an id
+ * prefix — the highest BMP code unit, so the range covers every sanitized id.
+ */
+export const ID_RANGE_END = "￿";
+
 /** Light type keys understood by the legacy-device migration. */
 export type LegacyLightType = "onoff" | "dimmable" | "ct" | "color";
 
@@ -168,7 +174,7 @@ export async function runObsoleteStateCleanup(adapter: ObsoleteStateCleanupAdapt
     const parentId = id.substring(0, dot);
     const children = await adapter.getObjectListAsync({
       startkey: `${adapter.namespace}.${parentId}.`,
-      endkey: `${adapter.namespace}.${parentId}.香`,
+      endkey: `${adapter.namespace}.${parentId}.${ID_RANGE_END}`,
     });
     if (children?.rows.length === 0) {
       await adapter.delObjectAsync(parentId);
