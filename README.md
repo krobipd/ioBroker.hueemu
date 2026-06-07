@@ -159,7 +159,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 - Internal refactoring. No user-facing changes.
 
-### 1.5.1 (2026-05-23)
+### 1.5.1 (2026-05-23) — stable
 
 - Changelog rewritten in user-centric style across all versions.
 
