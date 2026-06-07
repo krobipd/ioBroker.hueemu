@@ -1,4 +1,8 @@
 # Older Changes
+## 1.4.9 (2026-05-21)
+
+- Improved error handling and stability.
+
 ## 1.4.8 (2026-05-20)
 
 - Improved security: TLS private key is no longer visible in the admin interface.

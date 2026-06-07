@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "news": {
+      "1.7.0": {
+        "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
+        "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
+        "ru": "Добавлена необязательная отправка ошибок через Sentry: сбои отправляются разработчику, чтобы быстрее их устранять. Работает только при включённой диагностике ioBroker; анонимно.",
+        "pt": "Adicionado relatório de erros opcional via Sentry: as falhas são enviadas ao programador para corrigir problemas mais rápido. Ativo apenas com o diagnóstico do ioBroker ligado; anónimo.",
+        "nl": "Optionele foutrapportage via Sentry toegevoegd: crashes worden naar de ontwikkelaar gestuurd om problemen sneller op te lossen. Alleen actief met ioBroker-diagnostiek ingeschakeld; anoniem.",
+        "fr": "Rapport d'erreurs optionnel via Sentry ajouté : les plantages sont envoyés au développeur pour corriger plus vite. Actif seulement si le diagnostic ioBroker est activé ; anonyme.",
+        "it": "Aggiunta segnalazione errori opzionale via Sentry: gli arresti vengono inviati allo sviluppatore per risolvere prima i problemi. Attivo solo con la diagnostica ioBroker attiva; anonimo.",
+        "es": "Añadido informe de errores opcional mediante Sentry: los fallos se envían al desarrollador para solucionar problemas más rápido. Activo solo con el diagnóstico de ioBroker activado; anónimo.",
+        "pl": "Dodano opcjonalne raportowanie błędów przez Sentry: awarie są wysyłane do dewelopera, aby szybciej rozwiązywać problemy. Aktywne tylko przy włączonej diagnostyce ioBroker; anonimowo.",
+        "uk": "Додано необов'язкову відправку помилок через Sentry: збої надсилаються розробнику, щоб швидше їх виправляти. Працює лише з увімкненою діагностикою ioBroker; анонімно.",
+        "zh-cn": "新增可选的 Sentry 错误上报：崩溃信息会发送给开发者以更快修复问题。仅在启用 ioBroker 诊断时生效；匿名。"
+      },
       "1.6.0": {
         "en": "Brightness and saturation from source states with unusual scales now stay within the valid Hue range (edge-case 0% or negative values no longer leak out of range).",
         "de": "Helligkeit und Sättigung aus Quell-States mit ungewöhnlichen Skalen bleiben jetzt im gültigen Hue-Bereich (Randwerte wie 0% oder negativ laufen nicht mehr aus dem Bereich).",
@@ -80,19 +93,11 @@
         "pl": "Poprawione bezpieczeństwo: klucz prywatny TLS nie jest już widoczny w interfejsie administracyjnym.",
         "uk": "Покращена безпека: приватний ключ TLS більше не відображається в інтерфейсі адміністрування.",
         "zh-cn": "安全性改进：TLS 私钥不再在管理界面中可见。"
-      },
-      "1.4.7": {
-        "en": "TLS private key is now encrypted at rest in the ioBroker object database.",
-        "de": "Der private TLS-Schlüssel wird jetzt verschlüsselt in der ioBroker-Objektdatenbank gespeichert.",
-        "ru": "Приватный ключ TLS теперь шифруется в базе данных объектов ioBroker.",
-        "pt": "A chave privada TLS é agora encriptada na base de dados de objetos do ioBroker.",
-        "nl": "De privé TLS-sleutel wordt nu versleuteld opgeslagen in de ioBroker-objectdatabase.",
-        "fr": "La clé privée TLS est désormais chiffrée dans la base d objets ioBroker.",
-        "it": "La chiave privata TLS è ora crittografata nel database oggetti di ioBroker.",
-        "es": "La clave privada TLS ahora se cifra en la base de datos de objetos de ioBroker.",
-        "pl": "Klucz prywatny TLS jest teraz szyfrowany w bazie danych obiektów ioBroker.",
-        "uk": "Приватний ключ TLS тепер шифрується в базі даних об єктів ioBroker.",
-        "zh-cn": "TLS 私钥现在在 ioBroker 对象数据库中加密存储。"
+      }
+    },
+    "plugins": {
+      "sentry": {
+        "dsn": "https://66f27ceff38c1ce1e6cdcc3095ba06d3@o4511524771266560.ingest.de.sentry.io/4511524773560400"
       }
     },
     "titleLang": {
