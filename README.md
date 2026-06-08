@@ -44,7 +44,7 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 ## Requirements
 
 - **Node.js >= 22**
-- **ioBroker js-controller >= 7.0.7**
+- **ioBroker js-controller >= 7.1.2**
 - **ioBroker Admin >= 7.8.23**
 
 ---
