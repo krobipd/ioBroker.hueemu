@@ -6,7 +6,8 @@
 
 **ioBroker Hue Emulator** — Emuliert Philips Hue Bridge (v2, BSB002) für ältere Geräte, die nur die Hue-API sprechen. Moderne Voice Assistants sollen ioBroker.matter nutzen.
 
-- **Version:** 1.7.0 (optional Sentry → power-dreams; Vorgänger 1.6.0) (In-Depth-Audit #2, minor: B1 auto-scale `n≤1`/`n≤100` clamp [bri 0→1, sat -10→0], C1 Prozess-`terminate(11)`-Handler raus + `ackState`-Guard, dead-code raus [`listClientIds`, 3 ungenutzte HueApiError-Factories, server-Barrel], C2 `[key]:any` raus, C4 `native.upnpPort` raus, `parsePort`+`coerceBool` extrahiert/getestet → 314 unit, integration-verifiziert). Vorgänger **1.5.2** In-Depth-Audit (W1134, DRY-Extraktion, +26 Tests). **1.5.1** changelog rewrite. **1.5.0** Preserve + i18n migration (mcm-Feedback Pilot).
+- **Version:** 1.8.0 (In-Depth-Audit #3, minor) (released 2026-06-09, npm latest) — Ergebnisoffene Tiefen-Analyse (Source + alle 13 Test-Files vollständig gelesen; Verdikt release-würdig, nur Trivia). **User-facing:** colormode wird jetzt aus den TATSÄCHLICH gemappten Farb-States abgeleitet, nicht aus defaulteten — ein color-Light mit hue/sat gemappt aber ohne xy meldete fälschlich `colormode=xy` + `xy=[0.5,0.5]` (Clients, die colormode ehren, zeigten Weiß statt der echten Farbe); jetzt hs/ct/xy nach Mapping-Priorität (`detectColorMode`). **Toter Code raus** (kein Prod-Caller, nur getestet — gleiche Kategorie wie v1.6.0 `listClientIds`): `DeviceBindingService.deviceCount`, `UserService.isAutoAddCapReached`, `HueSsdpServer.running` (+ Tests/Asserts auf Verhalten umgestellt). **Testbarkeit:** `validateNetworkConfig` aus main.ts:buildConfig in pure `types/config` extrahiert + Throw-Branches (leerer host / `httpsPort===port`) unit-getestet. **Härtung:** UPnP `description.xml` escaped `host`/`urlBase` (XSS/Injection-Guard für selbst-konfigurierte Werte). `OBSOLETE_STATE_IDS`-Prosa→Version (`1.1.3`). +6 → 320 unit + 57 standard + 1 integration. Alle Gates grün (tsc, lint 0/0, repochecker, state-role-gate, consistency).
+- **Vorgänger 1.7.0** (optional Sentry → power-dreams) (released 2026-06-07) — optional Sentry-Error-Reporting (README-Badge + `## Sentry`-Abschnitt). Vorgänger **1.6.0** (In-Depth-Audit #2, minor: B1 auto-scale `n≤1`/`n≤100` clamp [bri 0→1, sat -10→0], C1 Prozess-`terminate(11)`-Handler raus + `ackState`-Guard, dead-code raus [`listClientIds`, 3 ungenutzte HueApiError-Factories, server-Barrel], C2 `[key]:any` raus, C4 `native.upnpPort` raus, `parsePort`+`coerceBool` extrahiert/getestet → 314 unit, integration-verifiziert). Vorgänger **1.5.2** In-Depth-Audit (W1134, DRY-Extraktion, +26 Tests). **1.5.1** changelog rewrite. **1.5.0** Preserve + i18n migration (mcm-Feedback Pilot).
 - **Vorgänger 1.4.9** (released 2026-05-22) — Community-standard event handler pattern. Vorgänger: v1.4.8 (2026-05-20) protectedNative W1093. v1.4.7 (2026-05-19) NUT-Konsistenz. v1.4.6 (2026-05-17) Toolchain-Parity. v1.4.5 (2026-05-13) Debug-Coverage-Welle. v1.4.4 (2026-05-10) D3 per-device briScale/satScale. v1.4.3 (2026-05-10) 17-Finding Hardening.
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
@@ -24,13 +25,13 @@ src/discovery/ssdp-server.ts      → UPnP/SSDP (urn:schemas-upnp-org:device:Bas
 src/discovery/description-xml.ts  → UPnP XML
 src/hue-api/api-handler.ts        → API Orchestrator + resetAutoAddBudget + whitelistProvider wireup
 src/hue-api/config-service.ts     → Bridge Config (IPv4-gateway, IANA-tz, whitelist from provider)
-src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights (parallel refresh/getAllLights, parseLightIndex, hex uniqueid, xy round-trip)
+src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights (parallel refresh/getAllLights, parseLightIndex, hex uniqueid, xy round-trip, detectColorMode from mapped states)
 src/hue-api/user-service.ts       → Auth/Pairing (auto-add-cap 64/window, in-memory client-id cache, listCachedClientIds for whitelist)
 src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex + parsePort (shared boundary helpers)
 src/lib/i18n.ts                   → tName: type-safe I18n.getTranslatedObject wrapper (keys from admin/i18n/en.json)
 src/server/hue-server.ts          → Fastify HTTP/HTTPS (trustProxy opt-in, bodyLimit 64KiB, forceCloseConnections)
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints
-src/types/                        → config (HueEmulatorConfig.trustProxy), errors, hue-api, light, utils (sanitizeId + errText)
+src/types/                        → config (HueEmulatorConfig.trustProxy, validateNetworkConfig), errors, hue-api, light, utils (sanitizeId + errText)
 ../scripts/sync-iopackage-from-i18n.py → hält io-package.json:instanceObjects synchron mit admin/i18n (zentral, source: admin-i18n)
 ```
 
@@ -61,17 +62,17 @@ src/types/                        → config (HueEmulatorConfig.trustProxy), err
 - **ct**: 153-500 Mireds (clamped), **xy**: Array oder CSV → [x,y]
 - **on**: String "false" korrekt behandelt (v1.0.24 fix)
 
-## Tests (314 unit + 57 standard + 1 integration = 372)
+## Tests (320 unit + 57 standard + 1 integration = 378)
 
 Runner: **vitest** (globals, pool: forks, singleFork: true). Config: `vitest.config.ts`.
 
 ```
 src/types/utils.test.ts                     → 18: sanitizeId (10) + errText (8)
 src/types/errors.test.ts                    → 13: HueApiError factories (used set), enum values, toResponse, createSuccessResponse
-src/types/config.test.ts                    → 31: generateBridgeId, generateSerialNumber, macFromUdn, ConfigService
-src/discovery/index.test.ts                 → 10: UPnP description XML, URL building
+src/types/config.test.ts                    → 35: generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig, ConfigService
+src/discovery/index.test.ts                 → 11: UPnP description XML (incl. host escaping), URL building
 src/discovery/ssdp-server.test.ts           → 8: option wiring, USNs, lifecycle, start-fail (node-ssdp mocked)
-src/hue-api/device-binding-service.test.ts  → 120: value conversion (read/write), scales, edge cases
+src/hue-api/device-binding-service.test.ts  → 121: value conversion (read/write), scales, edge cases, colormode-from-mapped-states
 src/hue-api/user-service.test.ts            → 24: addUser sanitization, auth, auto-add cap, cache
 src/hue-api/api-handler.test.ts             → 17: auth/pairing gates, malformed devicetype, fallback
 src/server/routes/api-v1-routes.test.ts     → 20: Fastify route tests (inject), body validation, auth
@@ -97,6 +98,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 
 | Version | Highlights                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.8.0 | **In-Depth-Audit #3 (minor).** Color lights now derive `colormode` from the **mapped** colour states, not defaulted placeholders — a color light with hue/sat mapped but no xy wrongly reported `colormode=xy` + `xy=[0.5,0.5]` (clients honouring it rendered white); now hs/ct/xy by mapping priority (`detectColorMode`). Dead code removed (no production caller, tested-only): `DeviceBindingService.deviceCount`, `UserService.isAutoAddCapReached`, `HueSsdpServer.running`. `validateNetworkConfig` extracted from `buildConfig` + throw-branch unit tests. UPnP `description.xml` escapes `host`/`urlBase`. `OBSOLETE_STATE_IDS` prose→version. 320 unit + 57 standard + 1 integration. |
 | 1.7.0 | Optional Sentry error reporting (`common.plugins.sentry` → eigener power-dreams-Sentry; README-Badge + `## Sentry`-Abschnitt). |
 | 1.6.0   | **In-Depth-Audit #2 (minor, repochecker 5.17.4 / KISS-DRY / integration).** B1: auto-scale `n≤1`/`n≤100` now clamped (bri 0→1, sat -10→0; 2 tautology-tests fixed). C1: process-level `terminate(11)` handlers removed + local `ackState` guard (compact-mode hazard; integration-verified clean boot/shutdown). C2 `[key]:any` removed. C4 phantom `native.upnpPort` removed. Dead code: `UserService.listClientIds`, 3 unused HueApiError factories (+tests), server-barrel trimmed. `parsePort` extracted + `coerceBool` tested (auth path) → 314 unit. JSDoc / `ID_RANGE_END` / jsonConfig-colors cleanup. |
 | 1.5.2   | **In-Depth-Audit (repochecker 5.17.3 / KISS-DRY / dev-server).** W1134: `startPairing` button `read:false`. Hardened `on`-write-path (string-guard, symmetric with read). Workflow action `@v2.0.0`→`@v2` (W3042/S3042). DRY: `clearPairingTimeout()` helper, `clampScaleForState()` for bri/sat write-path. `macFromUdn` + `detectLegacyLightType` extracted to lib/types (pure, unit-tested). devDep `@tsconfig/node22` 22.0.5. +26 tests (SSDP-wiring 8, error-handler 9, macFromUdn 3, detectLegacyLightType 6) → 308 unit. dev-server-verified. |
@@ -123,7 +125,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (282)
+npm run test:ts          # Unit-Tests via vitest (320)
 npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
 npm run test:integration # Standard Integration-Tests (1, CI only)
