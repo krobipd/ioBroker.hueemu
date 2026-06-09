@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "news": {
+      "1.8.0": {
+        "en": "Color lights mapped via hue and saturation (without an XY state) now report the correct color mode, so apps that honor it show the actual color instead of a default white.",
+        "de": "Farblichter, die über Farbton und Sättigung (ohne XY-State) gemappt sind, melden jetzt den korrekten Farbmodus — Apps zeigen so die echte Farbe statt einem Standard-Weiß.",
+        "ru": "Цветные лампы, привязанные через тон и насыщенность (без XY-состояния), теперь сообщают правильный цветовой режим — приложения показывают реальный цвет вместо белого по умолчанию.",
+        "pt": "Luzes coloridas mapeadas por tonalidade e saturação (sem estado XY) agora informam o modo de cor correto, então os apps mostram a cor real em vez de um branco padrão.",
+        "nl": "Kleurlampen die via tint en verzadiging (zonder XY-state) zijn gekoppeld, melden nu de juiste kleurmodus, zodat apps de echte kleur tonen in plaats van een standaardwit.",
+        "fr": "Les lampes couleur mappées via teinte et saturation (sans état XY) signalent désormais le bon mode colorimétrique, donc les apps affichent la vraie couleur au lieu d'un blanc par défaut.",
+        "it": "Le luci a colori mappate tramite tonalità e saturazione (senza stato XY) ora segnalano la modalità colore corretta, così le app mostrano il colore reale invece di un bianco predefinito.",
+        "es": "Las luces de color mapeadas por tono y saturación (sin estado XY) ahora informan el modo de color correcto, así las apps muestran el color real en lugar de un blanco predeterminado.",
+        "pl": "Lampy kolorowe mapowane przez barwę i nasycenie (bez stanu XY) zgłaszają teraz poprawny tryb koloru, więc aplikacje pokazują rzeczywisty kolor zamiast domyślnej bieli.",
+        "uk": "Кольорові лампи, прив'язані через відтінок і насиченість (без XY-стану), тепер повідомляють правильний колірний режим — застосунки показують справжній колір замість білого за умовчанням.",
+        "zh-cn": "通过色调和饱和度（无 XY 状态）映射的彩色灯现在报告正确的颜色模式，因此支持的应用会显示真实颜色而非默认白色。"
+      },
       "1.7.0": {
         "en": "Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.",
         "de": "Optionale Fehlermeldung über Sentry hinzugefügt: Abstürze werden an den Entwickler gesendet, damit Probleme schneller behoben werden. Nur aktiv bei eingeschalteter ioBroker-Diagnose; anonym.",
@@ -80,19 +93,6 @@
         "pl": "Poprawiona obsługa błędów i stabilność.",
         "uk": "Покращено обробку помилок та стабільність.",
         "zh-cn": "改进了错误处理和稳定性。"
-      },
-      "1.4.8": {
-        "en": "Improved security: TLS private key is no longer visible in the admin interface.",
-        "de": "Verbesserte Sicherheit: Der private TLS-Schlüssel ist in der Admin-Oberfläche nicht mehr sichtbar.",
-        "ru": "Улучшена безопасность: приватный ключ TLS больше не отображается в интерфейсе администратора.",
-        "pt": "Segurança melhorada: a chave privada TLS já não é visível na interface de administração.",
-        "nl": "Verbeterde beveiliging: de privé TLS-sleutel is niet meer zichtbaar in de admin-interface.",
-        "fr": "Sécurité améliorée : la clé privée TLS n'est plus visible dans l'interface d'administration.",
-        "it": "Sicurezza migliorata: la chiave privata TLS non è più visibile nell'interfaccia di amministrazione.",
-        "es": "Seguridad mejorada: la clave privada TLS ya no es visible en la interfaz de administración.",
-        "pl": "Poprawione bezpieczeństwo: klucz prywatny TLS nie jest już widoczny w interfejsie administracyjnym.",
-        "uk": "Покращена безпека: приватний ключ TLS більше не відображається в інтерфейсі адміністрування.",
-        "zh-cn": "安全性改进：TLS 私钥不再在管理界面中可见。"
       }
     },
     "plugins": {

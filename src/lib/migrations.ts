@@ -132,7 +132,7 @@ export async function runInstanceObjectMigration(adapter: InstanceObjectMigratio
 export const OBSOLETE_STATE_IDS: ReadonlyArray<{ id: string; removedIn: string }> = [
   { id: "info.configuredDevices", removedIn: "1.0.15" },
   { id: "info.connection", removedIn: "1.1.3" },
-  { id: "info", removedIn: "after info.* removed" },
+  { id: "info", removedIn: "1.1.3" },
   { id: "createLight", removedIn: "1.1.0" },
 ];
 

@@ -78,7 +78,6 @@ describe("HueSsdpServer", () => {
       "urn:schemas-upnp-org:device:basic:1",
       "upnp:rootdevice",
     ]);
-    expect(server.running).toBe(true);
   });
 
   it("honours a custom ssdpPort", async () => {
@@ -105,12 +104,11 @@ describe("HueSsdpServer", () => {
     expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("→ ?"));
   });
 
-  it("stop() stops the underlying server and clears running", async () => {
+  it("stop() stops the underlying server", async () => {
     const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
     await server.start();
     server.stop();
     expect(h.instances[0].stopCalls).toBe(1);
-    expect(server.running).toBe(false);
   });
 
   it("is idempotent — a second start() does not create a second server", async () => {
@@ -127,13 +125,11 @@ describe("HueSsdpServer", () => {
     const logger = spyLogger();
     const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
     await expect(server.start()).rejects.toThrow(/EADDRINUSE/);
-    expect(server.running).toBe(false);
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to start SSDP server"));
   });
 
   it("stop() before start() is a no-op", () => {
     const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
     expect(() => server.stop()).not.toThrow();
-    expect(server.running).toBe(false);
   });
 });

@@ -4,7 +4,14 @@
  */
 
 import type { Logger } from "../types/config";
-import type { Light, LightsCollection, LightState, LightStateUpdate, LightStateResult } from "../types/light";
+import type {
+  Light,
+  LightsCollection,
+  LightState,
+  LightStateUpdate,
+  LightStateResult,
+  ColorMode,
+} from "../types/light";
 import { HueApiError } from "../types/errors";
 import { errText } from "../types/utils";
 import { coerceFiniteNumber, parseLightIndex } from "../lib/coerce";
@@ -298,15 +305,20 @@ export class DeviceBindingService {
     const device = this.devices[index];
     const lightTypeConfig = LIGHT_TYPES[device.lightType] || LIGHT_TYPES.color;
 
-    // Build state object from mappings
+    // Build state object from mappings. Track which colour states the device
+    // actually maps (vs. defaulted placeholders) so colormode reflects reality.
     const state: Partial<LightState> = {
       reachable: true,
       mode: "homeautomation",
     };
+    const mappedColorStates = new Set<string>();
 
     for (const stateName of lightTypeConfig.states) {
       const stateId = this.getStateId(device, stateName);
       if (stateId) {
+        if (stateName === "xy" || stateName === "ct" || stateName === "hue" || stateName === "sat") {
+          mappedColorStates.add(stateName);
+        }
         const value = await this.getStateValue(stateId, stateName, device);
         if (value !== undefined) {
           (state as Record<string, unknown>)[stateName] = value;
@@ -322,13 +334,9 @@ export class DeviceBindingService {
       state.on = false;
     }
 
-    // Set color mode based on available states
-    if (state.xy !== undefined) {
-      state.colormode = "xy";
-    } else if (state.ct !== undefined) {
-      state.colormode = "ct";
-    } else if (state.hue !== undefined && state.sat !== undefined) {
-      state.colormode = "hs";
+    const colormode = this.detectColorMode(mappedColorStates, state);
+    if (colormode) {
+      state.colormode = colormode;
     }
 
     const light: Light = {
@@ -399,10 +407,34 @@ export class DeviceBindingService {
   }
 
   /**
-   * Get the number of configured devices
+   * Derive the Hue `colormode` from the colour states the device actually
+   * maps, not from defaulted placeholders. Priority xy > ct > hs matches real
+   * Hue. A `color` light always carries a defaulted `xy`, so without the
+   * "mapped" distinction every colour light would report `xy` even when the
+   * user only bound hue/sat — a client honouring colormode would then render
+   * the [0.5,0.5] default instead of the actual hue/sat colour. Falls back to
+   * whichever colour state carries a (default) value when nothing is mapped.
+   *
+   * @param mapped Colour state names (xy/ct/hue/sat) that have a configured stateId.
+   * @param state The assembled light state (carries defaulted values).
    */
-  public get deviceCount(): number {
-    return this.devices.length;
+  private detectColorMode(mapped: Set<string>, state: Partial<LightState>): ColorMode | undefined {
+    if (mapped.has("xy")) {
+      return "xy";
+    }
+    if (mapped.has("ct")) {
+      return "ct";
+    }
+    if (mapped.has("hue") && mapped.has("sat")) {
+      return "hs";
+    }
+    if (state.xy !== undefined) {
+      return "xy";
+    }
+    if (state.ct !== undefined) {
+      return "ct";
+    }
+    return undefined;
   }
 
   /**

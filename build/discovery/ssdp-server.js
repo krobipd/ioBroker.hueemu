@@ -111,12 +111,6 @@ class HueSsdpServer {
       this.config.logger.debug("SSDP server stopped");
     }
   }
-  /**
-   * Check if server is running
-   */
-  get running() {
-    return this.isRunning;
-  }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

@@ -210,8 +210,7 @@ describe("UserService", () => {
       for (let i = 0; i < 64; i++) {
         await service.addUser(`auto-${i}`, "echo", true);
       }
-      expect(service.isAutoAddCapReached()).toBe(true);
-      // 65th throws
+      // 65th throws — the per-window cap is exhausted
       try {
         await service.addUser("auto-65", "echo", true);
         throw new Error("Should have thrown after cap");
@@ -238,10 +237,10 @@ describe("UserService", () => {
       for (let i = 0; i < 64; i++) {
         await service.addUser(`auto-${i}`, "echo", true);
       }
-      expect(service.isAutoAddCapReached()).toBe(true);
+      // Cap exhausted: a further auto-add throws...
+      await expect(service.addUser("over-cap", "echo", true)).rejects.toThrow(/cap reached/i);
+      // ...until the window resets, after which auto-add works again.
       service.resetAutoAddBudget();
-      expect(service.isAutoAddCapReached()).toBe(false);
-      // Fresh window can auto-add again
       await service.addUser("fresh-1", "echo", true);
     });
   });

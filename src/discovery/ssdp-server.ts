@@ -149,11 +149,4 @@ export class HueSsdpServer {
       this.config.logger.debug("SSDP server stopped");
     }
   }
-
-  /**
-   * Check if server is running
-   */
-  public get running(): boolean {
-    return this.isRunning;
-  }
 }

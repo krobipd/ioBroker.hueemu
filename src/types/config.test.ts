@@ -2,7 +2,7 @@
  * Tests for config utilities and ConfigService
  */
 
-import { generateBridgeId, generateSerialNumber, macFromUdn } from "./config";
+import { generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { createTestIdentity } from "../../test/test-helpers";
 
@@ -53,6 +53,24 @@ describe("Config utilities", () => {
     it("should handle MAC without colons", () => {
       const result = generateSerialNumber("AABBCCDDEEFF");
       expect(result).toBe("aabbccddeeff");
+    });
+  });
+
+  describe("validateNetworkConfig", () => {
+    it("passes for a valid host with no HTTPS port", () => {
+      expect(() => validateNetworkConfig("192.168.1.5", 8080, undefined)).not.toThrow();
+    });
+
+    it("passes when the HTTPS port differs from the HTTP port", () => {
+      expect(() => validateNetworkConfig("192.168.1.5", 8080, 443)).not.toThrow();
+    });
+
+    it("throws for an empty host", () => {
+      expect(() => validateNetworkConfig("", 8080, undefined)).toThrow(/host is empty/i);
+    });
+
+    it("throws when the HTTPS port equals the HTTP port", () => {
+      expect(() => validateNetworkConfig("192.168.1.5", 8080, 8080)).toThrow(/equals HTTP port/i);
     });
   });
 });

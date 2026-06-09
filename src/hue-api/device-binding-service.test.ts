@@ -19,21 +19,6 @@ function createService(devices: DeviceConfig[], stateValues: Record<string, unkn
 }
 
 describe("DeviceBindingService", () => {
-  describe("deviceCount", () => {
-    it("should return 0 for empty devices", () => {
-      const { service } = createService([]);
-      expect(service.deviceCount).toBe(0);
-    });
-
-    it("should return correct count", () => {
-      const { service } = createService([
-        { name: "Light 1", lightType: "onoff" },
-        { name: "Light 2", lightType: "dimmable" },
-      ]);
-      expect(service.deviceCount).toBe(2);
-    });
-  });
-
   describe("getAllLights", () => {
     it("should return empty collection for no devices", async () => {
       const { service } = createService([]);
@@ -217,8 +202,8 @@ describe("DeviceBindingService", () => {
       });
     });
 
-    describe("color mode detection", () => {
-      it("should set colormode to xy when xy is available", async () => {
+    describe("color mode detection (derived from mapped states, not defaults)", () => {
+      it("should set colormode to xy when xy is mapped", async () => {
         const { service } = createService([{ name: "Test", lightType: "color", xyState: "test.xy" }], {
           "test.xy": [0.3, 0.4],
         });
@@ -226,46 +211,67 @@ describe("DeviceBindingService", () => {
         expect(light.state.colormode).toBe("xy");
       });
 
-      it("should set colormode to ct when ct is available but not xy", async () => {
+      it("should set colormode to ct when ct is mapped but not xy", async () => {
         const { service } = createService([{ name: "Test", lightType: "ct", ctState: "test.ct" }], { "test.ct": 300 });
         const light = await service.getLightById("1");
         expect(light.state.colormode).toBe("ct");
       });
 
-      it("should set colormode to xy for color lights (xy has priority over hs)", async () => {
-        // color lights always have xy in their states list, so even with hue+sat
-        // configured, xy gets a default value and takes priority
+      // The fix: a color light with hue+sat mapped but xy UNmapped reports
+      // colormode "hs" (derived from the mapped states), not "xy" with the
+      // defaulted [0.5,0.5]. Earlier the defaulted xy always won, so a client
+      // honouring colormode rendered white instead of the actual hue/sat colour.
+      it("reports hs for a color light with hue+sat mapped but xy unmapped", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", hueState: "test.hue", satState: "test.sat" }],
+          { "test.hue": 10000, "test.sat": 200 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.colormode).toBe("hs");
+      });
+
+      it("prioritises mapped ct over hs for a color light (ct mapped, no xy)", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", hueState: "test.hue", satState: "test.sat", ctState: "test.ct" }],
+          { "test.hue": 10000, "test.sat": 200, "test.ct": 300 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.colormode).toBe("ct");
+      });
+
+      it("prioritises mapped xy over everything for a color light", async () => {
         const { service } = createService(
           [
             {
               name: "Test",
               lightType: "color",
+              xyState: "test.xy",
               hueState: "test.hue",
               satState: "test.sat",
+              ctState: "test.ct",
             },
           ],
-          { "test.hue": 10000, "test.sat": 200 },
+          { "test.xy": [0.4, 0.3], "test.hue": 10000, "test.sat": 200, "test.ct": 300 },
         );
         const light = await service.getLightById("1");
         expect(light.state.colormode).toBe("xy");
       });
 
-      it("should set colormode to hs for ct light with hue+sat only", async () => {
-        // ct lights don't have xy in their states list, so only hs is available
+      it("falls back to xy for a color light with no colour state mapped", async () => {
+        // Nothing colour-relevant mapped — the defaulted xy keeps a sane mode.
+        const { service } = createService([{ name: "Test", lightType: "color" }]);
+        const light = await service.getLightById("1");
+        expect(light.state.colormode).toBe("xy");
+      });
+
+      it("a ct light with stray hue/sat config still reports ct (hue/sat not in its state list)", async () => {
+        // ct lights expose only [on, bri, ct]; hue/sat config is never read,
+        // so the defaulted ct drives colormode.
         const { service } = createService(
-          [
-            {
-              name: "Test",
-              lightType: "ct",
-              hueState: "test.hue",
-              satState: "test.sat",
-              ctState: undefined,
-            },
-          ],
+          [{ name: "Test", lightType: "ct", hueState: "test.hue", satState: "test.sat" }],
           { "test.hue": 10000, "test.sat": 200 },
         );
         const light = await service.getLightById("1");
-        // ct type doesn't have hue/sat in states list, so neither hs nor xy is set
         expect(light.state.colormode).toBe("ct");
       });
     });

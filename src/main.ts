@@ -22,7 +22,13 @@ import {
   runObsoleteStateCleanup,
 } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
-import { BRIDGE_MODEL_ID, generateBridgeId, generateSerialNumber, macFromUdn } from "./types/config";
+import {
+  BRIDGE_MODEL_ID,
+  generateBridgeId,
+  generateSerialNumber,
+  macFromUdn,
+  validateNetworkConfig,
+} from "./types/config";
 import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -220,22 +226,15 @@ export class HueEmu extends utils.Adapter {
   private async buildConfig(): Promise<HueEmulatorConfig> {
     // Parse configuration values
     const host = this.config.host?.trim() || "";
-    // v1.4.3 (E2): empty host means SSDP advertises an empty location AND
-    // Fastify binds to 0.0.0.0 — Hue clients can't connect to the bridge.
-    // Surface this immediately instead of starting a half-broken adapter.
-    if (!host) {
-      throw new Error("Bridge host is empty — set 'host' in admin config to the IP that clients should reach");
-    }
     const port = this.toPort(this.config.port);
     const discoveryHost = this.config.discoveryHost?.trim() || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
     const httpsPort = parsePort(this.config.httpsPort);
-    // v1.4.3 (SV4): port collision check — a same-port HTTP+HTTPS pair would
-    // make the second listen() throw EADDRINUSE much later, easier to debug
-    // when surfaced here.
-    if (httpsPort !== undefined && httpsPort === port) {
-      throw new Error(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
-    }
+    // v1.4.3 (E2): empty host → SSDP advertises an empty location and Fastify
+    // binds 0.0.0.0; clients can't reach the bridge. v1.4.3 (SV4): an HTTPS
+    // port equal to the HTTP port makes the second listen() throw EADDRINUSE
+    // far from the cause. Both surfaced up-front via validateNetworkConfig.
+    validateNetworkConfig(host, port, httpsPort);
     const udn = this.config.udn?.trim() || uuid.v4();
     const mac = this.config.mac?.trim() || macFromUdn(udn);
 

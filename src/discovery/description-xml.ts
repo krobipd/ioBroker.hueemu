@@ -19,6 +19,21 @@ export interface DescriptionXmlOptions {
 }
 
 /**
+ * Minimal XML escaping for interpolated, user-configured values (host /
+ * urlBase). Identity fields are derived hex/uuid and are safe verbatim.
+ *
+ * @param s - Raw string to escape.
+ */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/**
  * Generate the UPnP description.xml content for Hue bridge discovery
  *
  * @param options - Description XML generation options
@@ -26,6 +41,8 @@ export interface DescriptionXmlOptions {
 export function generateDescriptionXml(options: DescriptionXmlOptions): string {
   const { identity, host, port, urlBase } = options;
   const baseUrl = urlBase || `http://${host}:${port}/`;
+  const safeHost = escapeXml(host);
+  const safeBaseUrl = escapeXml(baseUrl);
 
   return `<?xml version="1.0" encoding="UTF-8" ?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
@@ -33,10 +50,10 @@ export function generateDescriptionXml(options: DescriptionXmlOptions): string {
         <major>1</major>
         <minor>0</minor>
     </specVersion>
-    <URLBase>${baseUrl}</URLBase>
+    <URLBase>${safeBaseUrl}</URLBase>
     <device>
         <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>Philips hue (${host})</friendlyName>
+        <friendlyName>Philips hue (${safeHost})</friendlyName>
         <manufacturer>Signify</manufacturer>
         <manufacturerURL>http://www.philips-hue.com</manufacturerURL>
         <modelDescription>Philips hue Personal Wireless Lighting</modelDescription>

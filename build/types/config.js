@@ -21,7 +21,8 @@ __export(config_exports, {
   BRIDGE_MODEL_ID: () => BRIDGE_MODEL_ID,
   generateBridgeId: () => generateBridgeId,
   generateSerialNumber: () => generateSerialNumber,
-  macFromUdn: () => macFromUdn
+  macFromUdn: () => macFromUdn,
+  validateNetworkConfig: () => validateNetworkConfig
 });
 module.exports = __toCommonJS(config_exports);
 const BRIDGE_MODEL_ID = "BSB002";
@@ -36,11 +37,20 @@ function macFromUdn(udn) {
   const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
   return hex.match(/.{2}/g).join(":");
 }
+function validateNetworkConfig(host, port, httpsPort) {
+  if (!host) {
+    throw new Error("Bridge host is empty \u2014 set 'host' in admin config to the IP that clients should reach");
+  }
+  if (httpsPort !== void 0 && httpsPort === port) {
+    throw new Error(`HTTPS port ${httpsPort} equals HTTP port \u2014 pick a different port`);
+  }
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   BRIDGE_MODEL_ID,
   generateBridgeId,
   generateSerialNumber,
-  macFromUdn
+  macFromUdn,
+  validateNetworkConfig
 });
 //# sourceMappingURL=config.js.map

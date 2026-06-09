@@ -22,19 +22,24 @@ __export(description_xml_exports, {
   getDescriptionUrl: () => getDescriptionUrl
 });
 module.exports = __toCommonJS(description_xml_exports);
+function escapeXml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
 function generateDescriptionXml(options) {
   const { identity, host, port, urlBase } = options;
   const baseUrl = urlBase || `http://${host}:${port}/`;
+  const safeHost = escapeXml(host);
+  const safeBaseUrl = escapeXml(baseUrl);
   return `<?xml version="1.0" encoding="UTF-8" ?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
     <specVersion>
         <major>1</major>
         <minor>0</minor>
     </specVersion>
-    <URLBase>${baseUrl}</URLBase>
+    <URLBase>${safeBaseUrl}</URLBase>
     <device>
         <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>Philips hue (${host})</friendlyName>
+        <friendlyName>Philips hue (${safeHost})</friendlyName>
         <manufacturer>Signify</manufacturer>
         <manufacturerURL>http://www.philips-hue.com</manufacturerURL>
         <modelDescription>Philips hue Personal Wireless Lighting</modelDescription>

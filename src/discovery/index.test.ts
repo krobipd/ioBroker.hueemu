@@ -92,6 +92,17 @@ describe("Description XML", () => {
 
       expect(xml).toContain("<manufacturer>Signify</manufacturer>");
     });
+
+    it("XML-escapes special characters in the user-configured host", () => {
+      const xml = generateDescriptionXml({
+        identity,
+        host: 'a<b>&"x',
+        port: 8080,
+      });
+      // Raw markup must not leak into the document; escaped form appears instead.
+      expect(xml).not.toContain("a<b>");
+      expect(xml).toContain("a&lt;b&gt;&amp;&quot;x");
+    });
   });
 
   describe("getDescriptionUrl", () => {

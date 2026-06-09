@@ -211,9 +211,13 @@ class DeviceBindingService {
       reachable: true,
       mode: "homeautomation"
     };
+    const mappedColorStates = /* @__PURE__ */ new Set();
     for (const stateName of lightTypeConfig.states) {
       const stateId = this.getStateId(device, stateName);
       if (stateId) {
+        if (stateName === "xy" || stateName === "ct" || stateName === "hue" || stateName === "sat") {
+          mappedColorStates.add(stateName);
+        }
         const value = await this.getStateValue(stateId, stateName, device);
         if (value !== void 0) {
           state[stateName] = value;
@@ -225,12 +229,9 @@ class DeviceBindingService {
     if (state.on === void 0) {
       state.on = false;
     }
-    if (state.xy !== void 0) {
-      state.colormode = "xy";
-    } else if (state.ct !== void 0) {
-      state.colormode = "ct";
-    } else if (state.hue !== void 0 && state.sat !== void 0) {
-      state.colormode = "hs";
+    const colormode = this.detectColorMode(mappedColorStates, state);
+    if (colormode) {
+      state.colormode = colormode;
     }
     const light = {
       state,
@@ -288,10 +289,34 @@ class DeviceBindingService {
     return results;
   }
   /**
-   * Get the number of configured devices
+   * Derive the Hue `colormode` from the colour states the device actually
+   * maps, not from defaulted placeholders. Priority xy > ct > hs matches real
+   * Hue. A `color` light always carries a defaulted `xy`, so without the
+   * "mapped" distinction every colour light would report `xy` even when the
+   * user only bound hue/sat — a client honouring colormode would then render
+   * the [0.5,0.5] default instead of the actual hue/sat colour. Falls back to
+   * whichever colour state carries a (default) value when nothing is mapped.
+   *
+   * @param mapped Colour state names (xy/ct/hue/sat) that have a configured stateId.
+   * @param state The assembled light state (carries defaulted values).
    */
-  get deviceCount() {
-    return this.devices.length;
+  detectColorMode(mapped, state) {
+    if (mapped.has("xy")) {
+      return "xy";
+    }
+    if (mapped.has("ct")) {
+      return "ct";
+    }
+    if (mapped.has("hue") && mapped.has("sat")) {
+      return "hs";
+    }
+    if (state.xy !== void 0) {
+      return "xy";
+    }
+    if (state.ct !== void 0) {
+      return "ct";
+    }
+    return void 0;
   }
   /**
    * Get state value from cache or adapter

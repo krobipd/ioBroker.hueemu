@@ -70,12 +70,6 @@ class UserService {
     this.autoAddCapWarned = false;
   }
   /**
-   * Whether the auto-add cap for the current pairing window is exhausted.
-   */
-  isAutoAddCapReached() {
-    return this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW;
-  }
-  /**
    * Add a new client (Hue API "user").
    *
    * @param username Raw username (will be sanitized for the state id).

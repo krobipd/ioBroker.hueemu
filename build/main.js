@@ -171,16 +171,11 @@ class HueEmu extends utils.Adapter {
   async buildConfig() {
     var _a, _b, _c, _d, _e, _f;
     const host = ((_a = this.config.host) == null ? void 0 : _a.trim()) || "";
-    if (!host) {
-      throw new Error("Bridge host is empty \u2014 set 'host' in admin config to the IP that clients should reach");
-    }
     const port = this.toPort(this.config.port);
     const discoveryHost = ((_b = this.config.discoveryHost) == null ? void 0 : _b.trim()) || host;
     const discoveryPort = this.toPort(this.config.discoveryPort) || port;
     const httpsPort = (0, import_coerce.parsePort)(this.config.httpsPort);
-    if (httpsPort !== void 0 && httpsPort === port) {
-      throw new Error(`HTTPS port ${httpsPort} equals HTTP port \u2014 pick a different port`);
-    }
+    (0, import_config.validateNetworkConfig)(host, port, httpsPort);
     const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
     const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || (0, import_config.macFromUdn)(udn);
     if (!((_e = this.config.udn) == null ? void 0 : _e.trim()) || !((_f = this.config.mac) == null ? void 0 : _f.trim())) {

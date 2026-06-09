@@ -159,6 +159,9 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.8.0 (2026-06-09)
+
+- Color lights mapped via hue and saturation (without an XY state) now report the correct color mode, so apps that honor it show the actual color instead of a default white.
 
 ### 1.7.0 (2026-06-07)
 
@@ -175,10 +178,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.5.1 (2026-05-23) — stable
 
 - Changelog rewritten in user-centric style across all versions.
-
-### 1.5.0 (2026-05-22)
-
-- User-modified state names are no longer overwritten on adapter restart
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

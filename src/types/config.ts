@@ -104,3 +104,24 @@ export function macFromUdn(udn: string): string {
   const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
   return hex.match(/.{2}/g)!.join(":");
 }
+
+/**
+ * Validate the resolved network config before the servers start. Throws with a
+ * user-actionable message when the bridge host is empty (SSDP would advertise
+ * an empty location and Fastify would bind 0.0.0.0 — clients can't reach the
+ * bridge) or when the HTTPS port collides with the HTTP port (the second
+ * listen would otherwise fail later with EADDRINUSE, far from the cause).
+ * Pure so the throw branches are unit-testable without standing up the adapter.
+ *
+ * @param host - Resolved bridge host (already trimmed).
+ * @param port - Resolved HTTP port.
+ * @param httpsPort - Resolved HTTPS port, or undefined when HTTPS is off.
+ */
+export function validateNetworkConfig(host: string, port: number, httpsPort: number | undefined): void {
+  if (!host) {
+    throw new Error("Bridge host is empty — set 'host' in admin config to the IP that clients should reach");
+  }
+  if (httpsPort !== undefined && httpsPort === port) {
+    throw new Error(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
+  }
+}
