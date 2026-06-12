@@ -24,12 +24,13 @@ __export(coerce_exports, {
   parsePort: () => parsePort
 });
 module.exports = __toCommonJS(coerce_exports);
+const DECIMAL_NUMBER_RE = /^-?\d+(\.\d+)?$/;
 function coerceFiniteNumber(v) {
   if (typeof v === "number" && Number.isFinite(v)) {
     return v;
   }
-  if (typeof v === "string" && v.length > 0) {
-    const n = parseFloat(v);
+  if (typeof v === "string" && DECIMAL_NUMBER_RE.test(v)) {
+    const n = Number(v);
     return Number.isFinite(n) ? n : null;
   }
   return null;

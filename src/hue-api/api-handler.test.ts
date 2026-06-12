@@ -275,4 +275,117 @@ describe("ApiHandler", () => {
       expect(config).toHaveProperty("modelid");
     });
   });
+
+  // v1.8.1 — orchestration/delegation methods (previously only the
+  // auth/pairing gates were covered).
+  describe("light orchestration (v1.8.1)", () => {
+    function createHandlerWithDevices(
+      stateValues: Record<string, unknown>,
+      opts: { pairingEnabled?: boolean } = {},
+    ): { handler: ApiHandler; adapter: MockApiAdapter; foreignWrites: Map<string, unknown> } {
+      const adapter = createMockAdapter([], opts);
+      const foreignWrites = new Map<string, unknown>();
+      adapter.getForeignStateAsync = async (id: string) =>
+        id in stateValues ? ({ val: stateValues[id], ack: true } as ioBroker.State) : null;
+      adapter.setForeignStateAsync = async (id: string, state: ioBroker.SettableState) => {
+        foreignWrites.set(id, (state as { val?: unknown }).val);
+      };
+      const handler = new ApiHandler({
+        adapter,
+        configServiceConfig: { identity: createTestIdentity(), discoveryHost: "192.168.1.100" },
+        devices: [
+          { name: "Kitchen", lightType: "dimmable", onState: "test.on", briState: "test.bri" },
+          { name: "Lounge", lightType: "onoff", onState: "test2.on" },
+        ],
+        logger: createMockLogger(),
+      });
+      return { handler, adapter, foreignWrites };
+    }
+
+    const req = makeRequest(undefined);
+
+    it("getAllLights returns the configured lights with 1-based ids", async () => {
+      const { handler } = createHandlerWithDevices({ "test.on": true, "test.bri": 50 });
+      const lights = await handler.getAllLights(req, "user");
+      expect(Object.keys(lights)).toEqual(["1", "2"]);
+      expect(lights["1"].name).toBe("Kitchen");
+    });
+
+    it("getLightById delegates and returns the converted state", async () => {
+      const { handler } = createHandlerWithDevices({ "test.on": true, "test.bri": 50 });
+      const light = await handler.getLightById(req, "user", "1");
+      expect(light.state.on).toBe(true);
+      expect(light.state.bri).toBe(127);
+    });
+
+    it("setLightState writes the converted value to the foreign state", async () => {
+      const { handler, foreignWrites } = createHandlerWithDevices({});
+      const results = await handler.setLightState(req, "user", "1", { on: true, bri: 254 });
+      expect(foreignWrites.get("test.on")).toBe(true);
+      expect(foreignWrites.get("test.bri")).toBe(254);
+      expect(results).toHaveLength(2);
+    });
+
+    it("getFullState mirrors pairingEnabled into config.linkbutton", async () => {
+      const { handler, adapter } = createHandlerWithDevices({ "test.on": false });
+      adapter.pairingEnabled = true;
+      const state = await handler.getFullState(req, "user");
+      expect(state.config.linkbutton).toBe(true);
+      expect(Object.keys(state.lights)).toEqual(["1", "2"]);
+      adapter.pairingEnabled = false;
+      const state2 = await handler.getFullState(req, "user");
+      expect(state2.config.linkbutton).toBe(false);
+    });
+
+    it("setGroupAction applies the state to every light and returns group-addressed successes", async () => {
+      const { handler, foreignWrites } = createHandlerWithDevices({});
+      const results = await handler.setGroupAction(req, "user", "0", { on: false });
+      expect(foreignWrites.get("test.on")).toBe(false);
+      expect(foreignWrites.get("test2.on")).toBe(false);
+      expect(results).toEqual([{ success: { "/groups/0/action/on": false } }]);
+    });
+
+    it("setGroupAction tolerates a failing light (warn, others still set)", async () => {
+      const { handler, adapter, foreignWrites } = createHandlerWithDevices({});
+      const origSet = adapter.setForeignStateAsync;
+      adapter.setForeignStateAsync = async (id: string, state: ioBroker.SettableState) => {
+        if (id === "test.on") {
+          throw new Error("broker hiccup");
+        }
+        return origSet(id, state);
+      };
+      const results = await handler.setGroupAction(req, "user", "0", { on: true });
+      expect(foreignWrites.get("test2.on")).toBe(true); // second light unaffected
+      expect(results).toHaveLength(1); // group response shape regardless
+    });
+
+    it("onStateChange updates the binding cache so the next read sees the new value", async () => {
+      const { handler } = createHandlerWithDevices({ "test.on": false });
+      await handler.initialize();
+      expect((await handler.getLightById(req, "user", "1")).state.on).toBe(false);
+      handler.onStateChange("test.on", true);
+      expect((await handler.getLightById(req, "user", "1")).state.on).toBe(true);
+    });
+
+    it("initialize subscribes to all mapped foreign states", async () => {
+      const { handler, adapter } = createHandlerWithDevices({});
+      const patterns: string[] = [];
+      adapter.subscribeForeignStates = (pattern: string) => {
+        patterns.push(pattern);
+      };
+      await handler.initialize();
+      expect(patterns).toEqual(expect.arrayContaining(["test.on", "test.bri", "test2.on"]));
+    });
+
+    it("resetAutoAddBudget re-opens the auto-add window", async () => {
+      const { handler } = createHandler([], { pairingEnabled: true });
+      // Exhaust the cap via auto-adds
+      for (let i = 0; i < 64; i++) {
+        expect(await handler.isUserAuthenticated(`echo-${i}`)).toBe(true);
+      }
+      expect(await handler.isUserAuthenticated("over-cap")).toBe(false);
+      handler.resetAutoAddBudget();
+      expect(await handler.isUserAuthenticated("fresh-client")).toBe(true);
+    });
+  });
 });

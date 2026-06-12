@@ -208,6 +208,34 @@ describe("apiV1Routes — GET auth-required routes", () => {
   });
 });
 
+describe("apiV1Routes — GET full state and single light (v1.8.1)", () => {
+  it("GET /api/:username returns the full state for an authenticated user", async () => {
+    const handler = createMockHandler({ isAuthenticated: true });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api/valid-user" });
+    expect(res.statusCode).toBe(200);
+    const parsed = JSON.parse(res.body);
+    expect(parsed).toHaveProperty("lights");
+    expect(parsed).toHaveProperty("config");
+  });
+
+  it("GET /api/:username is blocked for unauthenticated users", async () => {
+    const handler = createMockHandler({ isAuthenticated: false });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api/stranger" });
+    expect(JSON.parse(res.body)[0].error.type).toBe(1); // UNAUTHORIZED_USER
+  });
+
+  it("GET /api/:username/lights/:id delegates to the handler with the id", async () => {
+    const handler = createMockHandler({ isAuthenticated: true });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api/valid-user/lights/3" });
+    expect(res.statusCode).toBe(200);
+    expect(handler.calls.getLightById).toEqual(["3"]);
+    expect(JSON.parse(res.body)).toHaveProperty("state");
+  });
+});
+
 describe("apiV1Routes — PUT /lights/:id/state", () => {
   it("accepts valid state update", async () => {
     const handler = createMockHandler();

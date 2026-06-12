@@ -67,6 +67,22 @@ export class HueEmu extends utils.Adapter {
   private apiHandler: ApiHandler | null = null;
 
   /**
+   * Factories for the server/discovery/API collaborators — default to the
+   * real constructors. Test seams (fleet pattern, see
+   * `reference_orchestration_test_harness`): the orchestration unit tests
+   * replace these with fakes to exercise onReady/onStateChange/onUnload
+   * without binding real ports or speaking SSDP.
+   *
+   * @param options Constructor options of the respective collaborator
+   */
+  private makeHueServer: (options: ConstructorParameters<typeof HueServer>[0]) => HueServer = options =>
+    new HueServer(options);
+  private makeSsdpServer: (options: ConstructorParameters<typeof HueSsdpServer>[0]) => HueSsdpServer = options =>
+    new HueSsdpServer(options);
+  private makeApiHandler: (options: ConstructorParameters<typeof ApiHandler>[0]) => ApiHandler = options =>
+    new ApiHandler(options);
+
+  /**
    * Create a new Hue Emulator adapter instance
    *
    * @param options - Adapter options
@@ -156,7 +172,7 @@ export class HueEmu extends utils.Adapter {
       const devices: DeviceConfig[] = this.config.devices || [];
 
       // Initialize SSDP discovery server
-      this.ssdpServer = new HueSsdpServer({
+      this.ssdpServer = this.makeSsdpServer({
         identity: emulatorConfig.identity,
         host: emulatorConfig.discoveryHost || emulatorConfig.host,
         port: emulatorConfig.discoveryPort || emulatorConfig.port,
@@ -169,7 +185,7 @@ export class HueEmu extends utils.Adapter {
       // interfaces specify `Promise<{ id: string }>`. They are semantically
       // equivalent for our usage; the explicit cast keeps the intent visible
       // without `any`.
-      this.apiHandler = new ApiHandler({
+      this.apiHandler = this.makeApiHandler({
         adapter: this as unknown as ApiHandlerAdapter,
         configServiceConfig: {
           identity: emulatorConfig.identity,
@@ -183,7 +199,7 @@ export class HueEmu extends utils.Adapter {
       await this.apiHandler.initialize();
 
       // Initialize HTTP server
-      this.hueServer = new HueServer({
+      this.hueServer = this.makeHueServer({
         config: emulatorConfig,
         handler: this.apiHandler,
         logger,

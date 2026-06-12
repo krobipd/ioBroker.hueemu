@@ -55,6 +55,18 @@ class HueEmu extends utils.Adapter {
   ssdpServer = null;
   apiHandler = null;
   /**
+   * Factories for the server/discovery/API collaborators — default to the
+   * real constructors. Test seams (fleet pattern, see
+   * `reference_orchestration_test_harness`): the orchestration unit tests
+   * replace these with fakes to exercise onReady/onStateChange/onUnload
+   * without binding real ports or speaking SSDP.
+   *
+   * @param options Constructor options of the respective collaborator
+   */
+  makeHueServer = (options) => new import_server.HueServer(options);
+  makeSsdpServer = (options) => new import_discovery.HueSsdpServer(options);
+  makeApiHandler = (options) => new import_hue_api.ApiHandler(options);
+  /**
    * Create a new Hue Emulator adapter instance
    *
    * @param options - Adapter options
@@ -124,14 +136,14 @@ class HueEmu extends utils.Adapter {
       const emulatorConfig = await this.buildConfig();
       const logger = this.createLogger();
       const devices = this.config.devices || [];
-      this.ssdpServer = new import_discovery.HueSsdpServer({
+      this.ssdpServer = this.makeSsdpServer({
         identity: emulatorConfig.identity,
         host: emulatorConfig.discoveryHost || emulatorConfig.host,
         port: emulatorConfig.discoveryPort || emulatorConfig.port,
         ssdpPort: emulatorConfig.upnpPort,
         logger
       });
-      this.apiHandler = new import_hue_api.ApiHandler({
+      this.apiHandler = this.makeApiHandler({
         adapter: this,
         configServiceConfig: {
           identity: emulatorConfig.identity,
@@ -141,7 +153,7 @@ class HueEmu extends utils.Adapter {
         logger
       });
       await this.apiHandler.initialize();
-      this.hueServer = new import_server.HueServer({
+      this.hueServer = this.makeHueServer({
         config: emulatorConfig,
         handler: this.apiHandler,
         logger

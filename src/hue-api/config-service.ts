@@ -63,6 +63,15 @@ export class ConfigService {
   }
 
   /**
+   * v1.8.1: per-timezone formatter cache. `getFullConfig` runs on every
+   * `/api/{user}` call (Echo polls every few seconds) and previously built
+   * 2-3 fresh `Intl.DateTimeFormat` instances per call — formatter
+   * construction is the expensive part, formatting is cheap. Only ever
+   * holds the host timezone + "UTC".
+   */
+  private static readonly formatterCache = new Map<string, Intl.DateTimeFormat>();
+
+  /**
    * v1.4.3 (C3): Hue spec timestamp shape `YYYY-MM-DD HH:MM:SS` in `timezone`.
    *
    * @param date - Date to format
@@ -70,16 +79,20 @@ export class ConfigService {
    */
   private static formatHueTimestamp(date: Date, timezone: string): string {
     try {
-      const fmt = new Intl.DateTimeFormat("en-CA", {
-        timeZone: timezone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
+      let fmt = ConfigService.formatterCache.get(timezone);
+      if (!fmt) {
+        fmt = new Intl.DateTimeFormat("en-CA", {
+          timeZone: timezone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+        ConfigService.formatterCache.set(timezone, fmt);
+      }
       return fmt.format(date).replace(", ", " ").replace(",", " ");
     } catch {
       return date.toISOString().replace("T", " ").substring(0, 19);

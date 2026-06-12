@@ -32,6 +32,27 @@ describe("coerceFiniteNumber", () => {
     expect(coerceFiniteNumber([])).toBeNull();
     expect(coerceFiniteNumber(true)).toBeNull();
   });
+
+  // v1.8.1 — strict decimal regex (fleet hardening, hassemu E8 / homewizard D8)
+  it("rejects strings with trailing garbage (parseFloat half-parsed these)", () => {
+    expect(coerceFiniteNumber("12abc")).toBeNull();
+    expect(coerceFiniteNumber("50%")).toBeNull();
+    expect(coerceFiniteNumber("3.5 units")).toBeNull();
+  });
+
+  it("rejects HEX and exponential notation strings", () => {
+    expect(coerceFiniteNumber("0x1F")).toBeNull();
+    expect(coerceFiniteNumber("1e3")).toBeNull();
+    expect(coerceFiniteNumber("2.5E-3")).toBeNull();
+  });
+
+  it("rejects whitespace-padded, plus-signed and bare-dot strings", () => {
+    expect(coerceFiniteNumber(" 42")).toBeNull();
+    expect(coerceFiniteNumber("42 ")).toBeNull();
+    expect(coerceFiniteNumber("+42")).toBeNull();
+    expect(coerceFiniteNumber(".5")).toBeNull();
+    expect(coerceFiniteNumber("5.")).toBeNull();
+  });
 });
 
 describe("parseLightIndex (E1 v1.4.3)", () => {

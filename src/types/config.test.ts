@@ -179,6 +179,33 @@ describe("ConfigService", () => {
       expect(full.whitelist).toEqual({});
     });
 
+    // C6 v1.4.3 — whitelist filled from the provider (paired clients).
+    it("fills the whitelist from the whitelistProvider (C6)", () => {
+      const svc = new ConfigService({
+        identity,
+        discoveryHost: "192.168.1.100",
+        whitelistProvider: () => ["alexa-1", "harmony-2"],
+      });
+      const full = svc.getFullConfig();
+      expect(Object.keys(full.whitelist!)).toEqual(["alexa-1", "harmony-2"]);
+      const entry = full.whitelist!["alexa-1"];
+      expect(entry.name).toBe("alexa-1");
+      expect(entry["create date"]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      expect(entry["last use date"]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    });
+
+    it("a throwing whitelistProvider leaves the whitelist empty (non-fatal)", () => {
+      const svc = new ConfigService({
+        identity,
+        discoveryHost: "192.168.1.100",
+        whitelistProvider: () => {
+          throw new Error("cache exploded");
+        },
+      });
+      expect(() => svc.getFullConfig()).not.toThrow();
+      expect(svc.getFullConfig().whitelist).toEqual({});
+    });
+
     it("should include UTC and localtime strings", () => {
       const full = service.getFullConfig();
       expect(full.UTC).toBeTypeOf("string");

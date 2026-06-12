@@ -6,9 +6,17 @@
  * outside our code are by definition unknown.
  */
 
+// Strict decimal regex — only optional minus sign + digits + optional fractional
+// part. Rejects HEX (`0x...`), exponential (`1e3`), trailing garbage (`12abc`,
+// which `parseFloat` half-parsed to 12) and leading/trailing whitespace. Same
+// hardening as hassemu (E8), homewizard (D8), beszel and parcelapp — fleet-wide
+// consistency for the shared coerce-helper.
+const DECIMAL_NUMBER_RE = /^-?\d+(\.\d+)?$/;
+
 /**
- * Coerce a value to a finite number. Accepts numbers and numeric strings.
- * Returns null for anything else.
+ * Coerce a value to a finite number. Accepts numbers directly and strict
+ * decimal strings; rejects NaN, Infinity, HEX, exponential notation and
+ * strings with trailing garbage. Returns null for anything else.
  *
  * @param v Value to coerce.
  */
@@ -16,8 +24,8 @@ export function coerceFiniteNumber(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) {
     return v;
   }
-  if (typeof v === "string" && v.length > 0) {
-    const n = parseFloat(v);
+  if (typeof v === "string" && DECIMAL_NUMBER_RE.test(v)) {
+    const n = Number(v);
     return Number.isFinite(n) ? n : null;
   }
   return null;
