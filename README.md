@@ -159,7 +159,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 1.8.1 (2026-06-12)
 
 - Number values read from light states are now parsed strictly: text with extra characters after the number falls back to the default instead of being half-parsed
 - Faster bridge config responses for clients that poll every second (such as Echo devices) by reusing the timestamp formatter instead of rebuilding it on every request
@@ -179,10 +179,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.5.2 (2026-05-30)
 
 - Internal refactoring. No user-facing changes.
-
-### 1.5.1 (2026-05-23) — stable
-
-- Changelog rewritten in user-centric style across all versions.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

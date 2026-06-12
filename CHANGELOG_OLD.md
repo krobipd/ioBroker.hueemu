@@ -1,4 +1,8 @@
 # Older Changes
+## 1.5.1 (2026-05-23) — stable
+
+- Changelog rewritten in user-centric style across all versions.
+
 ## 1.5.0 (2026-05-22)
 
 - User-modified state names are no longer overwritten on adapter restart
