@@ -2,6 +2,8 @@
  * Configuration types for the Hue Emulator
  */
 
+import { networkInterfaces } from "node:os";
+
 /**
  * TLS/SSL configuration for HTTPS support
  */
@@ -34,14 +36,12 @@ export interface BridgeIdentity {
  * Main configuration for the Hue Emulator
  */
 export interface HueEmulatorConfig {
-  /** Host address to bind the server */
+  /** Host address to bind the server (may be 0.0.0.0 to listen on all interfaces) */
   host: string;
-  /** HTTP port */
+  /** HTTP port (used both for binding and for the advertised description URL) */
   port: number;
-  /** Discovery host for SSDP announcements */
-  discoveryHost: string;
-  /** Discovery port */
-  discoveryPort: number;
+  /** Concrete IP advertised to clients (SSDP location / description.xml / config). Never 0.0.0.0. */
+  advertiseHost: string;
   /** Optional HTTPS configuration */
   https?: TlsConfig;
   /** UPnP/SSDP port (default: 1900) */
@@ -79,7 +79,7 @@ export const BRIDGE_MODEL_ID = "BSB002";
  * @param mac - MAC address to derive the bridge ID from
  */
 export function generateBridgeId(mac: string): string {
-  const cleanMac = mac.replace(/:/g, "").toUpperCase();
+  const cleanMac = mac.replace(/[^0-9a-fA-F]/g, "").toUpperCase();
   // Insert FFFE in the middle (standard for Hue bridge ID format)
   return `${cleanMac.slice(0, 6)}FFFE${cleanMac.slice(6)}`;
 }
@@ -90,7 +90,9 @@ export function generateBridgeId(mac: string): string {
  * @param mac - MAC address to derive the serial number from
  */
 export function generateSerialNumber(mac: string): string {
-  return mac.replace(/:/g, "").toLowerCase();
+  // Strip every non-hex char (not just colons) so a hand-typed/garbled mac can
+  // never put a metacharacter into the serial that feeds description.xml.
+  return mac.replace(/[^0-9a-fA-F]/g, "").toLowerCase();
 }
 
 /**
@@ -106,20 +108,42 @@ export function macFromUdn(udn: string): string {
 }
 
 /**
+ * Best-effort primary IPv4 of the host — the first non-internal IPv4 interface.
+ * Used as the advertised address when none is configured, so SSDP/description
+ * announce a routable IP rather than the bind wildcard. Returns "" if none found.
+ */
+export function detectPrimaryIPv4(): string {
+  for (const addrs of Object.values(networkInterfaces())) {
+    for (const addr of addrs ?? []) {
+      // Node typed `family` as the string "IPv4" historically and as the number
+      // 4 from v18 — accept both so detection works across runtimes.
+      const isV4 = addr.family === "IPv4" || (addr.family as unknown as number) === 4;
+      if (isV4 && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return "";
+}
+
+/**
  * Validate the resolved network config before the servers start. Throws with a
- * user-actionable message when the bridge host is empty (SSDP would advertise
- * an empty location and Fastify would bind 0.0.0.0 — clients can't reach the
- * bridge) or when the HTTPS port collides with the HTTP port (the second
- * listen would otherwise fail later with EADDRINUSE, far from the cause).
- * Pure so the throw branches are unit-testable without standing up the adapter.
+ * user-actionable message when no routable IP could be resolved to advertise
+ * (an empty/0.0.0.0 advertise address is not reachable by clients) or when the
+ * HTTPS port collides with the HTTP port (the second listen would otherwise
+ * fail later with EADDRINUSE, far from the cause). The bind host itself may be
+ * empty/0.0.0.0 — that just means "listen on all interfaces". Pure so the throw
+ * branches are unit-testable without standing up the adapter.
  *
- * @param host - Resolved bridge host (already trimmed).
+ * @param advertiseHost - Resolved address advertised to clients (already trimmed).
  * @param port - Resolved HTTP port.
  * @param httpsPort - Resolved HTTPS port, or undefined when HTTPS is off.
  */
-export function validateNetworkConfig(host: string, port: number, httpsPort: number | undefined): void {
-  if (!host) {
-    throw new Error("Bridge host is empty — set 'host' in admin config to the IP that clients should reach");
+export function validateNetworkConfig(advertiseHost: string, port: number, httpsPort: number | undefined): void {
+  if (!advertiseHost || advertiseHost === "0.0.0.0") {
+    throw new Error(
+      "Could not determine a routable IP to advertise — set the advertised IP in admin config to the address clients should reach",
+    );
   }
   if (httpsPort !== undefined && httpsPort === port) {
     throw new Error(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);

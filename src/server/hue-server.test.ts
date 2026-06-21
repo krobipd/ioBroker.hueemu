@@ -70,8 +70,7 @@ function makeConfig(overrides: Partial<HueEmulatorConfig> = {}): HueEmulatorConf
   return {
     host: "127.0.0.1",
     port: 0, // ephemeral — only used by the listen tests
-    discoveryHost: "127.0.0.1",
-    discoveryPort: 8080,
+    advertiseHost: "127.0.0.1",
     upnpPort: 1900,
     identity: createTestIdentity(),
     trustProxy: false,
@@ -118,8 +117,8 @@ describe("HueServer wiring (inject)", () => {
     expect(res.body).toContain(`uuid:${createTestIdentity().udn}`);
   });
 
-  it("uses discoveryHost/discoveryPort in the description URLBase", async () => {
-    app = await buildInstance(makeConfig({ discoveryHost: "192.168.7.7", discoveryPort: 8123 }));
+  it("uses advertiseHost (and the HTTP port) in the description URLBase", async () => {
+    app = await buildInstance(makeConfig({ advertiseHost: "192.168.7.7", port: 8123 }));
     const res = await app.inject({ method: "GET", url: "/description.xml" });
     expect(res.body).toContain("<URLBase>http://192.168.7.7:8123/</URLBase>");
   });

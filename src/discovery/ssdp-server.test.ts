@@ -80,6 +80,14 @@ describe("HueSsdpServer", () => {
     ]);
   });
 
+  it("disables wildcard M-SEARCH matching (ReDoS hardening) and drops the ttl option", async () => {
+    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
+    await server.start();
+    const opts = h.instances[0].opts;
+    expect(opts.allowWildcards).toBe(false);
+    expect(opts.ttl).toBeUndefined();
+  });
+
   it("honours a custom ssdpPort", async () => {
     const server = new HueSsdpServer({ identity, host: "10.0.0.1", port: 80, ssdpPort: 1901, logger: spyLogger() });
     await server.start();

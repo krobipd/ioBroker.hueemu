@@ -19,8 +19,9 @@ export interface DescriptionXmlOptions {
 }
 
 /**
- * Minimal XML escaping for interpolated, user-configured values (host /
- * urlBase). Identity fields are derived hex/uuid and are safe verbatim.
+ * Minimal XML escaping for interpolated values. Applied to every value that can
+ * originate from configuration — host/urlBase and the mac-derived
+ * serialNumber/udn — so a stray metacharacter cannot break or inject XML.
  *
  * @param s - Raw string to escape.
  */
@@ -43,6 +44,10 @@ export function generateDescriptionXml(options: DescriptionXmlOptions): string {
   const baseUrl = urlBase || `http://${host}:${port}/`;
   const safeHost = escapeXml(host);
   const safeBaseUrl = escapeXml(baseUrl);
+  // serialNumber derives from the admin-typed `mac` (free text), udn from a
+  // uuid/persisted value — escape both as well, not just host/urlBase.
+  const safeSerial = escapeXml(identity.serialNumber);
+  const safeUdn = escapeXml(identity.udn);
 
   return `<?xml version="1.0" encoding="UTF-8" ?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
@@ -60,8 +65,8 @@ export function generateDescriptionXml(options: DescriptionXmlOptions): string {
         <modelName>Philips hue bridge 2015</modelName>
         <modelNumber>BSB002</modelNumber>
         <modelURL>http://www.philips-hue.com</modelURL>
-        <serialNumber>${identity.serialNumber}</serialNumber>
-        <UDN>uuid:${identity.udn}</UDN>
+        <serialNumber>${safeSerial}</serialNumber>
+        <UDN>uuid:${safeUdn}</UDN>
         <presentationURL>index.html</presentationURL>
         <iconList>
             <icon>

@@ -2,7 +2,7 @@
   "networkSettings": "Red",
   "serverSettings": "Servidor",
   "host": "Host / Dirección IP",
-  "hostTooltip": "Seleccione la interfaz de red. Esta IP también se anuncia via SSDP — los clientes se conectan a esta dirección.",
+  "hostTooltip": "Interfaz de red en la que escuchar. Elige '0.0.0.0' para escuchar en todas las interfaces (sigue accesible si cambia la IP).",
   "port": "Puerto",
   "portTooltip": "Puerto HTTP para la API Hue (por defecto: 8080)",
   "advancedSettings": "Avanzado (opcional)",
@@ -49,5 +49,7 @@
   "startPairingName": "Iniciar emparejamiento",
   "startPairingDesc": "Activar el modo de emparejamiento durante 50 segundos",
   "disableAuthName": "Desactivar autenticación",
-  "disableAuthDesc": "Desactivar autenticación (permitir todas las solicitudes)"
+  "disableAuthDesc": "Desactivar autenticación (permitir todas las solicitudes)",
+  "advertiseHost": "IP anunciada",
+  "advertiseHostTooltip": "La IP accesible anunciada a los clientes (Alexa, Harmony) para la detección. Déjalo vacío para autodetección. Debe ser una IP concreta, no 0.0.0.0."
 }

@@ -44,7 +44,7 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 ## Requirements
 
 - **Node.js >= 22**
-- **ioBroker js-controller >= 7.1.2**
+- **ioBroker js-controller >= 7.2.2**
 - **ioBroker Admin >= 7.8.23**
 
 ---
@@ -63,12 +63,13 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ### Network Settings
 
-| Option          | Description                                                   | Default |
-| --------------- | ------------------------------------------------------------- | ------- |
-| **Host**        | IP address of the bridge (must be a real network IP)          | —       |
-| **HTTP Port**   | Port for the Hue API                                          | 8080    |
-| **HTTPS Port**  | Only needed if a client insists on TLS; leave empty otherwise | —       |
-| **MAC Address** | Bridge MAC (auto-generated if empty)                          | —       |
+| Option            | Description                                                                                                     | Default |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- | ------- |
+| **Host**          | Network interface to bind to. Choose `0.0.0.0` to listen on all interfaces (stays reachable if the IP changes) | 0.0.0.0 |
+| **Advertised IP** | The reachable IP announced to clients for discovery. Leave empty to auto-detect the primary interface          | auto    |
+| **HTTP Port**     | Port for the Hue API                                                                                           | 8080    |
+| **HTTPS Port**    | Only needed if a client insists on TLS; leave empty otherwise                                                  | —       |
+| **MAC Address**   | Bridge MAC (auto-generated if empty)                                                                           | —       |
 
 ### Adding Devices
 
@@ -159,6 +160,14 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- You can now listen on all network interfaces (`0.0.0.0`) and set a separate advertised IP, so discovery keeps working even if the bridge's IP address changes
+- Color lights mapped with only hue or only saturation now report the correct colour instead of falling back to a default white
+- Fixed already-paired clients being wrongly rejected until a restart after a transient error while loading clients at startup
+- A configured source state that no longer exists now produces a one-time warning in the log instead of a silently dead light
+- Hardened UPnP/SSDP discovery against malformed search requests
+
 ### 1.8.1 (2026-06-12) — stable
 
 - Number values read from light states are now parsed strictly: text with extra characters after the number falls back to the default instead of being half-parsed

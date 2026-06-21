@@ -96,7 +96,12 @@ interface FakeApiHandler {
 /** Typed access to the private members the orchestration tests drive. */
 function internalOf(adapter: HueEmu): {
   config: Record<string, unknown>;
-  log: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+  log: {
+    debug: ReturnType<typeof vi.fn>;
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
   setState: ReturnType<typeof vi.fn>;
   setTimeout: ReturnType<typeof vi.fn>;
   clearTimeout: ReturnType<typeof vi.fn>;
@@ -116,7 +121,13 @@ function internalOf(adapter: HueEmu): {
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
   onStateChange: (id: string, state: ioBroker.State | null | undefined) => void;
-  buildConfig: () => Promise<{ host: string; port: number; identity: { udn: string; mac: string }; https?: { cert: string; key: string } }>;
+  buildConfig: () => Promise<{
+    host: string;
+    port: number;
+    advertiseHost: string;
+    identity: { udn: string; mac: string };
+    https?: { cert: string; key: string };
+  }>;
   getOrCreateTlsMaterial: () => Promise<{ cert: string; key: string }>;
   migrateLegacyDevices: () => Promise<boolean>;
   migrateUserToClients: () => Promise<void>;
@@ -135,8 +146,7 @@ function setup(configOverrides: Record<string, unknown> = {}): {
   Object.assign(i.config, {
     host: "192.168.1.10",
     port: 8080,
-    discoveryHost: "",
-    discoveryPort: 0,
+    advertiseHost: "",
     httpsPort: undefined,
     udn: "12345678-1234-1234-1234-123456789abc",
     mac: "AA:BB:CC:DD:EE:FF",
@@ -205,9 +215,24 @@ describe("HueEmu buildConfig", () => {
     );
   });
 
-  it("throws a user-actionable error for an empty host", async () => {
+  it("treats a blank host as bind-all and auto-resolves a routable advertise IP", async () => {
     const { adapter } = setup({ host: "  " });
-    await expect(internalOf(adapter).buildConfig()).rejects.toThrow(/host is empty/i);
+    const config = await internalOf(adapter).buildConfig();
+    expect(config.host).toBe("0.0.0.0");
+    expect(config.advertiseHost).toBeTruthy();
+    expect(config.advertiseHost).not.toBe("0.0.0.0");
+  });
+
+  it("advertises the explicit advertiseHost when set", async () => {
+    const { adapter } = setup({ host: "0.0.0.0", advertiseHost: "10.1.2.3" });
+    const config = await internalOf(adapter).buildConfig();
+    expect(config.advertiseHost).toBe("10.1.2.3");
+  });
+
+  it("advertises a concrete bind host when advertiseHost is empty", async () => {
+    const { adapter } = setup({ host: "192.168.5.5", advertiseHost: "" });
+    const config = await internalOf(adapter).buildConfig();
+    expect(config.advertiseHost).toBe("192.168.5.5");
   });
 
   it("throws when the HTTPS port equals the HTTP port", async () => {
@@ -322,7 +347,9 @@ describe("HueEmu onReady", () => {
       "system.adapter.hueemu.0",
       expect.objectContaining({
         native: expect.objectContaining({
-          devices: [expect.objectContaining({ name: "Old Lamp", lightType: "onoff", onState: "hueemu.0.legacylight.state.on" })],
+          devices: [
+            expect.objectContaining({ name: "Old Lamp", lightType: "onoff", onState: "hueemu.0.legacylight.state.on" }),
+          ],
         }),
       }),
     );
@@ -331,7 +358,7 @@ describe("HueEmu onReady", () => {
   });
 
   it("catches a failing boot (e.g. invalid config) instead of crashing", async () => {
-    const { adapter } = setup({ host: "" });
+    const { adapter } = setup({ httpsPort: 8080 }); // httpsPort === port → buildConfig throws
     const i = internalOf(adapter);
     await i.onReady();
     expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("Failed to start Hue Emulator"));

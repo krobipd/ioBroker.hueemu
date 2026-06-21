@@ -142,10 +142,11 @@ export class UserService {
       this.logger.warn(`Failed to set client state ${safeUsername}: ${errText(err)}`);
     }
 
-    // v1.4.3 (U2): keep the auth-cache fresh after every add
-    if (this.clientIdsCache) {
-      this.clientIdsCache.add(safeUsername);
-    }
+    // v1.4.3 (U2): keep the auth-cache fresh after every add. Warm the cache
+    // first so a pairing that is the very first operation after boot still
+    // seeds the whitelist instead of leaving it empty until the next auth check.
+    await this.ensureCache();
+    this.clientIdsCache?.add(safeUsername);
   }
 
   /**
@@ -206,7 +207,12 @@ export class UserService {
         }
       }
     } catch (err) {
-      this.logger.debug(`Could not load clients into cache: ${errText(err)}`);
+      // Do NOT cache on failure: caching the empty set here would permanently
+      // reject every already-paired client until the adapter restarts (a single
+      // transient broker error poisons auth). Leave the cache null so the next
+      // lookup retries the broker.
+      this.logger.warn(`Could not load clients into cache, retrying on next request: ${errText(err)}`);
+      return cache;
     }
     this.clientIdsCache = cache;
     return cache;

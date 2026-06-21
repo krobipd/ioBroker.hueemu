@@ -26,6 +26,23 @@ var import_utils = require("../types/utils");
 var import_user_service = require("./user-service");
 var import_config_service = require("./config-service");
 var import_device_binding_service = require("./device-binding-service");
+const GROUP_ACTION_KEYS = /* @__PURE__ */ new Set([
+  "on",
+  "bri",
+  "hue",
+  "sat",
+  "ct",
+  "xy",
+  "transitiontime",
+  "bri_inc",
+  "sat_inc",
+  "hue_inc",
+  "ct_inc",
+  "xy_inc",
+  "effect",
+  "alert",
+  "colormode"
+]);
 class ApiHandler {
   adapter;
   userService;
@@ -80,17 +97,19 @@ class ApiHandler {
   async createUser(req, body) {
     var _a;
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
-    this.logger.debug(`Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
+    this.logger.debug(
+      `Pairing request: devicetype=${(0, import_utils.oneLine)(devicetype)}, generateclientkey=${(0, import_utils.oneLine)(String(body.generateclientkey))}`
+    );
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw import_errors.HueApiError.linkButtonNotPressed("/api");
     }
     const rawUsername = (_a = req.body) == null ? void 0 : _a.username;
     const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : void 0;
     if (providedUsername) {
-      this.logger.debug(`Using provided username: ${providedUsername}`);
+      this.logger.debug(`Using provided username: ${(0, import_utils.oneLine)(providedUsername)}`);
     }
     const username = await this.userService.createUser(providedUsername, devicetype);
-    this.logger.info(`Paired client "${devicetype}" as user ${username}`);
+    this.logger.info(`Paired client "${(0, import_utils.oneLine)(devicetype)}" as user ${(0, import_utils.oneLine)(username)}`);
     this.adapter.pairingEnabled = false;
     return username;
   }
@@ -160,15 +179,15 @@ class ApiHandler {
    */
   async setGroupAction(_req, _username, groupId, state) {
     this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
-    const lights = await this.lightService.getAllLights();
+    const lightIds = this.lightService.getLightIds();
     await Promise.all(
-      Object.keys(lights).map(
+      lightIds.map(
         (lightId) => this.lightService.setLightState(lightId, state).catch((err) => {
           this.logger.warn(`Group action: failed to set light ${lightId}: ${(0, import_utils.errText)(err)}`);
         })
       )
     );
-    return Object.entries(state).map(([key, value]) => ({
+    return Object.entries(state).filter(([key]) => GROUP_ACTION_KEYS.has(key)).map(([key, value]) => ({
       success: { [`/groups/${groupId}/action/${key}`]: value }
     }));
   }
@@ -191,10 +210,10 @@ class ApiHandler {
     if (!isAuth && this.adapter.pairingEnabled) {
       try {
         await this.userService.addUser(username, "auto-paired", true);
-        this.logger.debug(`Pairing enabled, auto-added user: ${username}`);
+        this.logger.debug(`Pairing enabled, auto-added user: ${(0, import_utils.oneLine)(username)}`);
         return true;
       } catch (err) {
-        this.logger.warn(`Auto-add rejected for ${username}: ${(0, import_utils.errText)(err)}`);
+        this.logger.warn(`Auto-add rejected for ${(0, import_utils.oneLine)(username)}: ${(0, import_utils.errText)(err)}`);
         return false;
       }
     }

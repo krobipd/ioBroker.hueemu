@@ -25,7 +25,7 @@ var import_config = require("../types/config");
 const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 class ConfigService {
   identity;
-  discoveryHost;
+  advertiseHost;
   whitelistProvider;
   // Bridge configuration constants
   static SW_VERSION = "1941132080";
@@ -40,7 +40,7 @@ class ConfigService {
    */
   constructor(config) {
     this.identity = config.identity;
-    this.discoveryHost = config.discoveryHost;
+    this.advertiseHost = config.advertiseHost;
     this.whitelistProvider = config.whitelistProvider;
   }
   /** v1.4.3 (C2): IANA timezone of the host (or UTC if unresolvable). */
@@ -114,8 +114,8 @@ class ConfigService {
   getFullConfig() {
     const tz = ConfigService.getHostTimezone();
     const now = /* @__PURE__ */ new Date();
-    const isIPv4 = IPV4_RE.test(this.discoveryHost);
-    const gateway = isIPv4 ? this.discoveryHost.replace(/\.\d+$/, ".1") : this.discoveryHost;
+    const isIPv4 = IPV4_RE.test(this.advertiseHost);
+    const gateway = isIPv4 ? this.advertiseHost.replace(/\.\d+$/, ".1") : this.advertiseHost;
     const whitelist = {};
     if (this.whitelistProvider) {
       try {
@@ -129,7 +129,7 @@ class ConfigService {
     }
     return {
       ...this.getConfig(),
-      ipaddress: this.discoveryHost,
+      ipaddress: this.advertiseHost,
       netmask: "255.255.255.0",
       gateway,
       dhcp: true,

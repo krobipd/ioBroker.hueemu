@@ -138,8 +138,8 @@ class HueEmu extends utils.Adapter {
       const devices = this.config.devices || [];
       this.ssdpServer = this.makeSsdpServer({
         identity: emulatorConfig.identity,
-        host: emulatorConfig.discoveryHost || emulatorConfig.host,
-        port: emulatorConfig.discoveryPort || emulatorConfig.port,
+        host: emulatorConfig.advertiseHost,
+        port: emulatorConfig.port,
         ssdpPort: emulatorConfig.upnpPort,
         logger
       });
@@ -147,7 +147,7 @@ class HueEmu extends utils.Adapter {
         adapter: this,
         configServiceConfig: {
           identity: emulatorConfig.identity,
-          discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host
+          advertiseHost: emulatorConfig.advertiseHost
         },
         devices,
         logger
@@ -171,7 +171,7 @@ class HueEmu extends utils.Adapter {
       this.subscribeStates("*");
       this.log.debug("Subscribed to own states (pattern: *)");
       this.log.info(
-        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`
+        `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`
       );
     } catch (error) {
       this.log.error(`Failed to start Hue Emulator: ${(0, import_utils.errText)(error)}`);
@@ -182,12 +182,11 @@ class HueEmu extends utils.Adapter {
    */
   async buildConfig() {
     var _a, _b, _c, _d, _e, _f;
-    const host = ((_a = this.config.host) == null ? void 0 : _a.trim()) || "";
+    const host = ((_a = this.config.host) == null ? void 0 : _a.trim()) || "0.0.0.0";
     const port = this.toPort(this.config.port);
-    const discoveryHost = ((_b = this.config.discoveryHost) == null ? void 0 : _b.trim()) || host;
-    const discoveryPort = this.toPort(this.config.discoveryPort) || port;
+    const advertiseHost = ((_b = this.config.advertiseHost) == null ? void 0 : _b.trim()) || (host && host !== "0.0.0.0" ? host : (0, import_config.detectPrimaryIPv4)());
     const httpsPort = (0, import_coerce.parsePort)(this.config.httpsPort);
-    (0, import_config.validateNetworkConfig)(host, port, httpsPort);
+    (0, import_config.validateNetworkConfig)(advertiseHost, port, httpsPort);
     const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
     const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || (0, import_config.macFromUdn)(udn);
     if (!((_e = this.config.udn) == null ? void 0 : _e.trim()) || !((_f = this.config.mac) == null ? void 0 : _f.trim())) {
@@ -211,13 +210,14 @@ class HueEmu extends utils.Adapter {
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`
     );
-    this.log.debug(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
+    this.log.debug(
+      `Network: bind=${host}:${port}, advertise=${advertiseHost}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`
+    );
     this.log.debug(`UDN: ${identity.udn}`);
     return {
       host,
       port,
-      discoveryHost,
-      discoveryPort,
+      advertiseHost,
       https,
       upnpPort,
       identity,
@@ -307,7 +307,7 @@ class HueEmu extends utils.Adapter {
   async migrateInstanceObjectNames() {
     await (0, import_migrations.runInstanceObjectMigration)({
       getObjectAsync: (id) => this.getObjectAsync(id),
-      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj, { preserve: { common: ["name"] } }),
+      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj),
       log: { debug: (msg) => this.log.debug(msg) }
     });
   }

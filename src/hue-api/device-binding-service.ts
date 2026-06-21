@@ -130,6 +130,8 @@ export interface DeviceBindingAdapter {
   log: ioBroker.Logger;
   /** Read a foreign state by ID */
   getForeignStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
+  /** Read a foreign object by ID (to tell "missing object" from "unset value") */
+  getForeignObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
   /** Write a foreign state by ID */
   setForeignStateAsync(id: string, state: ioBroker.SettableState): Promise<void>;
   /** Subscribe to foreign state changes */
@@ -212,6 +214,18 @@ export class DeviceBindingService {
       }
     }
 
+    // Warn once if a colour-capable light has no colour state mapped — it would
+    // otherwise silently report default colours with no diagnostic thread.
+    for (const device of this.devices) {
+      const cfg = LIGHT_TYPES[device.lightType];
+      const colourStates = cfg ? cfg.states.filter(s => s === "hue" || s === "sat" || s === "ct" || s === "xy") : [];
+      if (colourStates.length > 0 && !colourStates.some(s => this.getStateId(device, s))) {
+        this.logger.warn(
+          `Device "${device.name}" is configured as "${device.lightType}" but no colour state (${colourStates.join("/")}) is mapped — it will report default colours`,
+        );
+      }
+    }
+
     // Pre-load current state values
     await this.refreshStateCache();
   }
@@ -236,6 +250,16 @@ export class DeviceBindingService {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== undefined) {
             this.stateCache.set(stateId, state.val);
+          } else {
+            // null = the state has no value yet OR its object doesn't exist.
+            // Only the latter is a misconfiguration; warn once at init so a
+            // typo'd/renamed state id isn't a silently dead binding.
+            const obj = await this.adapter.getForeignObjectAsync(stateId);
+            if (!obj) {
+              this.logger.warn(
+                `Configured state "${stateId}" does not exist — the bound light will report default values`,
+              );
+            }
           }
         } catch (error) {
           this.logger.debug(`Could not load state ${stateId}: ${errText(error)}`);
@@ -252,6 +276,14 @@ export class DeviceBindingService {
    */
   public updateStateCache(id: string, value: unknown): void {
     this.stateCache.set(id, value);
+  }
+
+  /**
+   * 1-based light id strings for all configured devices. Cheap (no state reads)
+   * — used by group actions to fan out without rebuilding every light first.
+   */
+  public getLightIds(): string[] {
+    return this.devices.map((_, i) => String(i + 1));
   }
 
   /**
@@ -390,6 +422,12 @@ export class DeviceBindingService {
 
       try {
         const convertedValue = this.convertValueForState(key, value, device);
+        if (convertedValue === undefined) {
+          // Invalid payload for this attribute (e.g. a non-array xy). Skip the
+          // write rather than poison the state; still ack like a real bridge.
+          results.push({ success: { [address]: value } });
+          continue;
+        }
         await this.adapter.setForeignStateAsync(stateId, {
           val: convertedValue,
           ack: false,
@@ -425,7 +463,7 @@ export class DeviceBindingService {
     if (mapped.has("ct")) {
       return "ct";
     }
-    if (mapped.has("hue") && mapped.has("sat")) {
+    if (mapped.has("hue") || mapped.has("sat")) {
       return "hs";
     }
     if (state.xy !== undefined) {
@@ -571,7 +609,11 @@ export class DeviceBindingService {
    * @param value - Value from Hue API
    * @param device - Device configuration for scale settings
    */
-  private convertValueForState(stateName: string, value: unknown, device?: DeviceConfig): ioBroker.StateValue {
+  private convertValueForState(
+    stateName: string,
+    value: unknown,
+    device?: DeviceConfig,
+  ): ioBroker.StateValue | undefined {
     switch (stateName) {
       case "on":
         // Symmetric with the read path: string "false"/"0"/"" is falsey
@@ -582,22 +624,40 @@ export class DeviceBindingService {
         }
         return Boolean(value);
       case "bri":
-        return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device?.briScale);
+        return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device?.briScale, device, "bri");
       case "hue": {
         const n = coerceFiniteNumber(value);
-        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+        if (n === null) {
+          this.logger.debug(`Default fallback for hue (write, device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          return 0;
+        }
+        return clampRound(n, 0, HUE_HUE_MAX);
       }
       case "sat":
-        return this.clampScaleForState(value, 0, HUE_SAT_MAX, device?.satScale);
+        return this.clampScaleForState(value, 0, HUE_SAT_MAX, device?.satScale, device, "sat");
       case "ct": {
         const n = coerceFiniteNumber(value);
-        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
-      }
-      case "xy":
-        if (Array.isArray(value)) {
-          return JSON.stringify(value);
+        if (n === null) {
+          this.logger.debug(`Default fallback for ct (write, device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          return HUE_CT_DEFAULT;
         }
-        return String(value);
+        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+      }
+      case "xy": {
+        // Only a 2-element finite-number array (or its JSON round-trip) is a
+        // valid xy. Anything else (object, bare number) would serialize to junk
+        // like "[object Object]" — return undefined so the caller skips the
+        // write instead of poisoning the foreign state.
+        if (Array.isArray(value) && value.length >= 2) {
+          const x = coerceFiniteNumber(value[0]);
+          const y = coerceFiniteNumber(value[1]);
+          if (x !== null && y !== null) {
+            return JSON.stringify([x, y]);
+          }
+        }
+        this.logger.debug(`Ignoring invalid xy write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+        return undefined;
+      }
       default:
         if (value !== null && typeof value === "object") {
           return JSON.stringify(value);
@@ -733,11 +793,25 @@ export class DeviceBindingService {
    * @param min - Minimum Hue API value (inclusive)
    * @param max - Maximum Hue API value (inclusive)
    * @param scale - Configured scale mode for the foreign state
+   * @param device - Device configuration (used for the fallback log)
+   * @param stateName - State name (used for the fallback log)
    */
-  private clampScaleForState(value: unknown, min: number, max: number, scale: LightStateScale | undefined): number {
+  private clampScaleForState(
+    value: unknown,
+    min: number,
+    max: number,
+    scale: LightStateScale | undefined,
+    device?: DeviceConfig,
+    stateName?: string,
+  ): number {
     const n = coerceFiniteNumber(value);
-    const clamped = n === null ? max : clampRound(n, min, max);
-    return this.scaleValueForState(clamped, scale, max);
+    if (n === null) {
+      this.logger.debug(
+        `Default fallback for ${stateName ?? "?"} (write, device="${device?.name}"): raw=${JSON.stringify(value)}`,
+      );
+      return this.scaleValueForState(max, scale, max);
+    }
+    return this.scaleValueForState(clampRound(n, min, max), scale, max);
   }
 
   /**

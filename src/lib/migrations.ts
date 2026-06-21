@@ -44,10 +44,12 @@ export const INSTANCE_OBJECT_MIGRATION_PAIRS: ReadonlyArray<{
   id: string;
   nameKey: "startPairingName" | "disableAuthName" | "clientsFolder";
   descKey?: "startPairingDesc" | "disableAuthDesc";
+  /** Pre-1.4.0 plain-English default name; only translate when it still matches. */
+  oldName: string;
 }> = [
-  { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
-  { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
-  { id: "clients", nameKey: "clientsFolder" },
+  { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc", oldName: "Start Pairing" },
+  { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc", oldName: "Disable Authentication" },
+  { id: "clients", nameKey: "clientsFolder", oldName: "Paired Clients" },
 ];
 
 /**
@@ -73,13 +75,17 @@ export function buildInstanceObjectMigrationPatch(
   common: MigratableCommon | undefined,
   pair: (typeof INSTANCE_OBJECT_MIGRATION_PAIRS)[number],
 ): { name?: unknown; desc?: unknown } | null {
-  const nameIsString = typeof common?.name === "string";
+  // Only translate the NAME when it is still the old plain-English default. A
+  // user-renamed name (any other string) is left untouched — earlier this was
+  // attempted with extendObject `preserve`, but preserve ALSO blocked the
+  // legitimate default→translation update, so the i18n backfill never landed.
+  const nameIsOldDefault = typeof common?.name === "string" && common.name === pair.oldName;
   const descIsString = pair.descKey !== undefined && typeof common?.desc === "string";
-  if (!nameIsString && !descIsString) {
+  if (!nameIsOldDefault && !descIsString) {
     return null;
   }
   const patch: { name?: unknown; desc?: unknown } = {};
-  if (nameIsString) {
+  if (nameIsOldDefault) {
     patch.name = tName(pair.nameKey);
   }
   if (descIsString && pair.descKey) {
@@ -119,7 +125,10 @@ export async function runInstanceObjectMigration(adapter: InstanceObjectMigratio
     if (!patch) {
       continue;
     }
-    await adapter.extendObjectAsync(pair.id, { common: patch }, { preserve: { common: ["name"] } });
+    // No `preserve` needed: the patch only ever sets the name when it is the
+    // known old default (a user rename is never patched), so there is nothing
+    // to protect — and preserving name here would block the translation itself.
+    await adapter.extendObjectAsync(pair.id, { common: patch });
     adapter.log.debug(`Translated instanceObject names: ${pair.id}`);
   }
 }

@@ -44,10 +44,18 @@ describe("migrations", () => {
   });
 
   describe("buildInstanceObjectMigrationPatch", () => {
-    it("returns name patch when common.name is a string", () => {
+    it("returns a name patch when common.name is still the old English default", () => {
       const patch = buildInstanceObjectMigrationPatch({ name: "Start Pairing" }, INSTANCE_OBJECT_MIGRATION_PAIRS[0]);
       expect(patch).not.toBeNull();
       expect(patch!.name).toBeTypeOf("object");
+    });
+
+    it("does NOT patch a user-renamed name (rename preserved)", () => {
+      const patch = buildInstanceObjectMigrationPatch(
+        { name: "My Custom Pairing Button" },
+        INSTANCE_OBJECT_MIGRATION_PAIRS[0],
+      );
+      expect(patch).toBeNull();
     });
 
     it("returns desc patch when common.desc is a string", () => {
@@ -104,24 +112,27 @@ describe("migrations", () => {
       expect(calls[1].id).toBe("clients");
     });
 
-    it("passes preserve option to extendObjectAsync", async () => {
+    it("translates an old-default name but leaves a user-renamed name untouched", async () => {
       const objects: Record<string, { common?: { name?: unknown } }> = {
-        startPairing: { common: { name: "startPairing" } },
-        disableAuth: { common: { name: { en: "x" } } },
-        clients: { common: { name: { en: "x" } } },
+        startPairing: { common: { name: "Start Pairing" } }, // old default → translate
+        disableAuth: { common: { name: "My Renamed Switch" } }, // user rename → leave alone
+        clients: { common: { name: { en: "x" } } }, // already migrated → skip
       };
-      const calls: Array<{ options: unknown }> = [];
+      const calls: Array<{ id: string; patch: { name?: unknown } }> = [];
       await runInstanceObjectMigration({
         getObjectAsync: async id => objects[id] ?? null,
-        extendObjectAsync: async (_id, _obj, options) => {
-          calls.push({ options });
+        extendObjectAsync: async (id, obj) => {
+          calls.push({ id, patch: obj.common });
           return null;
         },
         log: { debug: () => {} },
       });
 
-      expect(calls).toHaveLength(1);
-      expect(calls[0].options).toEqual({ preserve: { common: ["name"] } });
+      // Only the old-default name is migrated; the renamed one is left untouched
+      // (the gate replaces the old `preserve` option, which used to block the
+      // translation itself).
+      expect(calls.map(c => c.id)).toEqual(["startPairing"]);
+      expect(calls[0].patch.name).toBeTypeOf("object");
     });
 
     it("skips non-existing objects", async () => {

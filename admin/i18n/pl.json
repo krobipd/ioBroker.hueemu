@@ -2,7 +2,7 @@
   "networkSettings": "Sieć",
   "serverSettings": "Serwer",
   "host": "Host / Adres IP",
-  "hostTooltip": "Wybierz interfejs sieciowy. Ten IP jest również ogłaszany przez SSDP — klienty łączą się z tym adresem.",
+  "hostTooltip": "Interfejs sieciowy do nasłuchu. Wybierz '0.0.0.0', aby nasłuchiwać na wszystkich interfejsach (pozostaje osiągalny po zmianie IP).",
   "port": "Port",
   "portTooltip": "Port HTTP dla API Hue (domyślnie: 8080)",
   "advancedSettings": "Zaawansowane (opcjonalne)",
@@ -49,5 +49,7 @@
   "startPairingName": "Rozpocznij parowanie",
   "startPairingDesc": "Włącz tryb parowania na 50 sekund",
   "disableAuthName": "Wyłącz uwierzytelnianie",
-  "disableAuthDesc": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)"
+  "disableAuthDesc": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
+  "advertiseHost": "Rozgłaszany IP",
+  "advertiseHostTooltip": "Osiągalny IP rozgłaszany klientom (Alexa, Harmony) do wykrywania. Pozostaw puste, aby wykryć automatycznie. Musi być konkretnym IP, nie 0.0.0.0."
 }

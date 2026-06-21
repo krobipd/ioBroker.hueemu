@@ -79,6 +79,7 @@ class UserService {
    *   `POST /api` createUser calls (unbounded, gated by the link button).
    */
   async addUser(username, devicetype = "unknown", viaAutoAdd = false) {
+    var _a;
     if (viaAutoAdd) {
       if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
         if (!this.autoAddCapWarned) {
@@ -117,9 +118,8 @@ class UserService {
     } catch (err) {
       this.logger.warn(`Failed to set client state ${safeUsername}: ${(0, import_utils.errText)(err)}`);
     }
-    if (this.clientIdsCache) {
-      this.clientIdsCache.add(safeUsername);
-    }
+    await this.ensureCache();
+    (_a = this.clientIdsCache) == null ? void 0 : _a.add(safeUsername);
   }
   /**
    * Returns the paired client ids (sanitized form) currently in the cache —
@@ -175,7 +175,8 @@ class UserService {
         }
       }
     } catch (err) {
-      this.logger.debug(`Could not load clients into cache: ${(0, import_utils.errText)(err)}`);
+      this.logger.warn(`Could not load clients into cache, retrying on next request: ${(0, import_utils.errText)(err)}`);
+      return cache;
     }
     this.clientIdsCache = cache;
     return cache;

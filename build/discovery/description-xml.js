@@ -30,6 +30,8 @@ function generateDescriptionXml(options) {
   const baseUrl = urlBase || `http://${host}:${port}/`;
   const safeHost = escapeXml(host);
   const safeBaseUrl = escapeXml(baseUrl);
+  const safeSerial = escapeXml(identity.serialNumber);
+  const safeUdn = escapeXml(identity.udn);
   return `<?xml version="1.0" encoding="UTF-8" ?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
     <specVersion>
@@ -46,8 +48,8 @@ function generateDescriptionXml(options) {
         <modelName>Philips hue bridge 2015</modelName>
         <modelNumber>BSB002</modelNumber>
         <modelURL>http://www.philips-hue.com</modelURL>
-        <serialNumber>${identity.serialNumber}</serialNumber>
-        <UDN>uuid:${identity.udn}</UDN>
+        <serialNumber>${safeSerial}</serialNumber>
+        <UDN>uuid:${safeUdn}</UDN>
         <presentationURL>index.html</presentationURL>
         <iconList>
             <icon>

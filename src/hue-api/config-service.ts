@@ -15,8 +15,8 @@ const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 export interface ConfigServiceConfig {
   /** Bridge identity */
   identity: BridgeIdentity;
-  /** Discovery host (IP address) */
-  discoveryHost: string;
+  /** Advertised host (concrete IP shown to clients in the bridge config) */
+  advertiseHost: string;
   /**
    * v1.4.3 (C6): paired client ids — used to populate the `whitelist` field
    * so spec-conformant Hue clients see who's currently paired. Synchronous
@@ -32,7 +32,7 @@ export interface ConfigServiceConfig {
  */
 export class ConfigService {
   private readonly identity: BridgeIdentity;
-  private readonly discoveryHost: string;
+  private readonly advertiseHost: string;
   private readonly whitelistProvider?: () => readonly string[];
 
   // Bridge configuration constants
@@ -49,7 +49,7 @@ export class ConfigService {
    */
   constructor(config: ConfigServiceConfig) {
     this.identity = config.identity;
-    this.discoveryHost = config.discoveryHost;
+    this.advertiseHost = config.advertiseHost;
     this.whitelistProvider = config.whitelistProvider;
   }
 
@@ -128,8 +128,8 @@ export class ConfigService {
   public getFullConfig(): BridgeConfigFull {
     const tz = ConfigService.getHostTimezone();
     const now = new Date();
-    const isIPv4 = IPV4_RE.test(this.discoveryHost);
-    const gateway = isIPv4 ? this.discoveryHost.replace(/\.\d+$/, ".1") : this.discoveryHost;
+    const isIPv4 = IPV4_RE.test(this.advertiseHost);
+    const gateway = isIPv4 ? this.advertiseHost.replace(/\.\d+$/, ".1") : this.advertiseHost;
     const whitelist: Record<string, { name: string; "create date": string; "last use date": string }> = {};
     if (this.whitelistProvider) {
       try {
@@ -144,7 +144,7 @@ export class ConfigService {
     }
     return {
       ...this.getConfig(),
-      ipaddress: this.discoveryHost,
+      ipaddress: this.advertiseHost,
       netmask: "255.255.255.0",
       gateway,
       dhcp: true,

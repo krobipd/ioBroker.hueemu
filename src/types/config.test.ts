@@ -2,7 +2,7 @@
  * Tests for config utilities and ConfigService
  */
 
-import { generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
+import { detectPrimaryIPv4, generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { createTestIdentity } from "../../test/test-helpers";
 
@@ -37,6 +37,10 @@ describe("Config utilities", () => {
       const result = generateBridgeId("AABBCCDDEEFF");
       expect(result).toBe("AABBCCFFFEDDEEFF");
     });
+
+    it("strips non-hex characters (hand-typed/garbled mac)", () => {
+      expect(generateBridgeId("aa:bb<x>cc dd:ee:ff")).toBe("AABBCCFFFEDDEEFF");
+    });
   });
 
   describe("generateSerialNumber", () => {
@@ -54,6 +58,17 @@ describe("Config utilities", () => {
       const result = generateSerialNumber("AABBCCDDEEFF");
       expect(result).toBe("aabbccddeeff");
     });
+
+    it("strips non-hex characters (garbled mac that feeds description.xml)", () => {
+      expect(generateSerialNumber("aa:bb<x>cc dd:ee:ff")).toBe("aabbccddeeff");
+    });
+  });
+
+  describe("detectPrimaryIPv4", () => {
+    it("returns an empty string or a dotted-quad IPv4 (best-effort host IP)", () => {
+      const ip = detectPrimaryIPv4();
+      expect(ip === "" || /^(\d{1,3}\.){3}\d{1,3}$/.test(ip)).toBe(true);
+    });
   });
 
   describe("validateNetworkConfig", () => {
@@ -65,8 +80,12 @@ describe("Config utilities", () => {
       expect(() => validateNetworkConfig("192.168.1.5", 8080, 443)).not.toThrow();
     });
 
-    it("throws for an empty host", () => {
-      expect(() => validateNetworkConfig("", 8080, undefined)).toThrow(/host is empty/i);
+    it("throws when no routable advertise IP could be resolved (empty)", () => {
+      expect(() => validateNetworkConfig("", 8080, undefined)).toThrow(/routable IP/i);
+    });
+
+    it("throws for a 0.0.0.0 advertise address (not routable for clients)", () => {
+      expect(() => validateNetworkConfig("0.0.0.0", 8080, undefined)).toThrow(/routable IP/i);
     });
 
     it("throws when the HTTPS port equals the HTTP port", () => {
@@ -82,7 +101,7 @@ describe("ConfigService", () => {
   beforeEach(() => {
     service = new ConfigService({
       identity,
-      discoveryHost: "192.168.1.100",
+      advertiseHost: "192.168.1.100",
     });
   });
 
@@ -145,7 +164,7 @@ describe("ConfigService", () => {
     it("should derive gateway from discovery host", () => {
       const svc = new ConfigService({
         identity,
-        discoveryHost: "10.20.30.40",
+        advertiseHost: "10.20.30.40",
       });
       const full = svc.getFullConfig();
       expect(full.gateway).toBe("10.20.30.1");
@@ -183,7 +202,7 @@ describe("ConfigService", () => {
     it("fills the whitelist from the whitelistProvider (C6)", () => {
       const svc = new ConfigService({
         identity,
-        discoveryHost: "192.168.1.100",
+        advertiseHost: "192.168.1.100",
         whitelistProvider: () => ["alexa-1", "harmony-2"],
       });
       const full = svc.getFullConfig();
@@ -197,7 +216,7 @@ describe("ConfigService", () => {
     it("a throwing whitelistProvider leaves the whitelist empty (non-fatal)", () => {
       const svc = new ConfigService({
         identity,
-        discoveryHost: "192.168.1.100",
+        advertiseHost: "192.168.1.100",
         whitelistProvider: () => {
           throw new Error("cache exploded");
         },
@@ -214,12 +233,24 @@ describe("ConfigService", () => {
       expect(full.UTC).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     });
 
+    it("formats UTC as the exact spec timestamp for a fixed instant (C3 — value, not just shape)", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2024-01-15T12:30:45Z"));
+      try {
+        expect(service.getFullConfig().UTC).toBe("2024-01-15 12:30:45");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     // C2 v1.4.3 — timezone is the host's IANA zone (Intl-resolved), not the
     // hardcoded "Europe/Berlin" of earlier versions.
     it("should report a real IANA timezone instead of the hardcoded one (C2 v1.4.3)", () => {
       const full = service.getFullConfig();
-      const expected = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-      expect(full.timezone).toBe(expected);
+      // Invariant: an IANA-shaped zone token (e.g. "Europe/Berlin" or "UTC"),
+      // asserted as a shape rather than re-derived with the implementation's own
+      // expression (which would make the test tautological).
+      expect(full.timezone).toMatch(/^[A-Za-z]+(\/[A-Za-z0-9_+-]+)*$/);
     });
 
     // C3 v1.4.3 — localtime should be in the spec format too.
@@ -233,7 +264,7 @@ describe("ConfigService", () => {
     it("should leave gateway as the host string when host is not IPv4 (C1 v1.4.3)", () => {
       const svc = new ConfigService({
         identity,
-        discoveryHost: "fe80::1",
+        advertiseHost: "fe80::1",
       });
       const full = svc.getFullConfig();
       expect(full.gateway).toBe("fe80::1");

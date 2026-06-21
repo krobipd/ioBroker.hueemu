@@ -42,3 +42,14 @@ export function errText(err: unknown): string {
     return Object.prototype.toString.call(err);
   }
 }
+
+/**
+ * Collapse control characters (CR/LF/tab) in an untrusted string to single
+ * spaces so client-supplied values (usernames, devicetypes) cannot forge extra
+ * lines when interpolated into a log message.
+ *
+ * @param s - Raw, potentially attacker-controlled string to make log-safe
+ */
+export function oneLine(s: string): string {
+  return s.replace(/[\r\n\t]/g, " ");
+}

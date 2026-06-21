@@ -128,8 +128,8 @@ class HueServer {
     await server.register(import_description_route.descriptionRoute, {
       descriptionOptions: {
         identity: this.config.identity,
-        host: this.config.discoveryHost || this.config.host,
-        port: this.config.discoveryPort || this.config.port
+        host: this.config.advertiseHost,
+        port: this.config.port
       }
     });
     await server.register(import_api_v1_routes.apiV1Routes, {

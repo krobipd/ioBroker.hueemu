@@ -123,6 +123,15 @@ class DeviceBindingService {
         this.logger.debug(`Subscribed to state: ${stateId}`);
       }
     }
+    for (const device of this.devices) {
+      const cfg = LIGHT_TYPES[device.lightType];
+      const colourStates = cfg ? cfg.states.filter((s) => s === "hue" || s === "sat" || s === "ct" || s === "xy") : [];
+      if (colourStates.length > 0 && !colourStates.some((s) => this.getStateId(device, s))) {
+        this.logger.warn(
+          `Device "${device.name}" is configured as "${device.lightType}" but no colour state (${colourStates.join("/")}) is mapped \u2014 it will report default colours`
+        );
+      }
+    }
     await this.refreshStateCache();
   }
   /**
@@ -145,6 +154,13 @@ class DeviceBindingService {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== void 0) {
             this.stateCache.set(stateId, state.val);
+          } else {
+            const obj = await this.adapter.getForeignObjectAsync(stateId);
+            if (!obj) {
+              this.logger.warn(
+                `Configured state "${stateId}" does not exist \u2014 the bound light will report default values`
+              );
+            }
           }
         } catch (error) {
           this.logger.debug(`Could not load state ${stateId}: ${(0, import_utils.errText)(error)}`);
@@ -160,6 +176,13 @@ class DeviceBindingService {
    */
   updateStateCache(id, value) {
     this.stateCache.set(id, value);
+  }
+  /**
+   * 1-based light id strings for all configured devices. Cheap (no state reads)
+   * — used by group actions to fan out without rebuilding every light first.
+   */
+  getLightIds() {
+    return this.devices.map((_, i) => String(i + 1));
   }
   /**
    * Get all configured lights
@@ -274,6 +297,10 @@ class DeviceBindingService {
       }
       try {
         const convertedValue = this.convertValueForState(key, value, device);
+        if (convertedValue === void 0) {
+          results.push({ success: { [address]: value } });
+          continue;
+        }
         await this.adapter.setForeignStateAsync(stateId, {
           val: convertedValue,
           ack: false
@@ -307,7 +334,7 @@ class DeviceBindingService {
     if (mapped.has("ct")) {
       return "ct";
     }
-    if (mapped.has("hue") && mapped.has("sat")) {
+    if (mapped.has("hue") || mapped.has("sat")) {
       return "hs";
     }
     if (state.xy !== void 0) {
@@ -445,22 +472,36 @@ class DeviceBindingService {
         }
         return Boolean(value);
       case "bri":
-        return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device == null ? void 0 : device.briScale);
+        return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device == null ? void 0 : device.briScale, device, "bri");
       case "hue": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
-        return n === null ? 0 : clampRound(n, 0, HUE_HUE_MAX);
+        if (n === null) {
+          this.logger.debug(`Default fallback for hue (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+          return 0;
+        }
+        return clampRound(n, 0, HUE_HUE_MAX);
       }
       case "sat":
-        return this.clampScaleForState(value, 0, HUE_SAT_MAX, device == null ? void 0 : device.satScale);
+        return this.clampScaleForState(value, 0, HUE_SAT_MAX, device == null ? void 0 : device.satScale, device, "sat");
       case "ct": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
-        return n === null ? HUE_CT_DEFAULT : clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
-      }
-      case "xy":
-        if (Array.isArray(value)) {
-          return JSON.stringify(value);
+        if (n === null) {
+          this.logger.debug(`Default fallback for ct (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+          return HUE_CT_DEFAULT;
         }
-        return String(value);
+        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+      }
+      case "xy": {
+        if (Array.isArray(value) && value.length >= 2) {
+          const x = (0, import_coerce.coerceFiniteNumber)(value[0]);
+          const y = (0, import_coerce.coerceFiniteNumber)(value[1]);
+          if (x !== null && y !== null) {
+            return JSON.stringify([x, y]);
+          }
+        }
+        this.logger.debug(`Ignoring invalid xy write (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+        return void 0;
+      }
       default:
         if (value !== null && typeof value === "object") {
           return JSON.stringify(value);
@@ -585,11 +626,18 @@ class DeviceBindingService {
    * @param min - Minimum Hue API value (inclusive)
    * @param max - Maximum Hue API value (inclusive)
    * @param scale - Configured scale mode for the foreign state
+   * @param device - Device configuration (used for the fallback log)
+   * @param stateName - State name (used for the fallback log)
    */
-  clampScaleForState(value, min, max, scale) {
+  clampScaleForState(value, min, max, scale, device, stateName) {
     const n = (0, import_coerce.coerceFiniteNumber)(value);
-    const clamped = n === null ? max : clampRound(n, min, max);
-    return this.scaleValueForState(clamped, scale, max);
+    if (n === null) {
+      this.logger.debug(
+        `Default fallback for ${stateName != null ? stateName : "?"} (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`
+      );
+      return this.scaleValueForState(max, scale, max);
+    }
+    return this.scaleValueForState(clampRound(n, min, max), scale, max);
   }
   /**
    * Build the trailing 3-octet MAC suffix for a Hue `uniqueid`. The full

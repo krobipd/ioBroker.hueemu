@@ -155,8 +155,8 @@ export class HueServer {
     await server.register(descriptionRoute, {
       descriptionOptions: {
         identity: this.config.identity,
-        host: this.config.discoveryHost || this.config.host,
-        port: this.config.discoveryPort || this.config.port,
+        host: this.config.advertiseHost,
+        port: this.config.port,
       },
     });
 

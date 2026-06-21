@@ -55,8 +55,13 @@ class HueSsdpServer {
         sourcePort: this.config.ssdpPort,
         adInterval: 1e4,
         // Advertise every 10 seconds
-        ttl: 4,
-        allowWildcards: true,
+        // allowWildcards stays OFF. Real Hue/UPnP clients search by an exact ST
+        // or `ssdp:all`, never with `*`. With it on, node-ssdp builds a fresh
+        // RegExp from the attacker-controlled M-SEARCH `ST` header on every
+        // packet — a crafted ST causes catastrophic backtracking (unauth DoS).
+        // Off = plain string equality. (`ttl` dropped: it set the M-SEARCH
+        // max-age, not the multicast hop limit, so the node-ssdp default fits.)
+        allowWildcards: false,
         suppressRootDeviceAdvertisements: false,
         headers: {
           "hue-bridgeid": this.config.identity.bridgeId,
@@ -70,9 +75,6 @@ class HueSsdpServer {
       this.server.addUSN("upnp:rootdevice");
       this.config.logger.debug("SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
       const serverWithEvents = this.server;
-      serverWithEvents.on("error", (err) => {
-        this.config.logger.error(`SSDP error: ${(0, import_utils.errText)(err)}`);
-      });
       serverWithEvents.on("response", (_headers, _statusCode, rinfo) => {
         var _a;
         const peer = (_a = rinfo == null ? void 0 : rinfo.address) != null ? _a : "?";

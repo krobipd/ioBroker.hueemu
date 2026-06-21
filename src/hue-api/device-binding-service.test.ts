@@ -5,6 +5,7 @@
 import { HueApiError, HueErrorType } from "../types/errors";
 import { DeviceBindingService, type DeviceConfig } from "./device-binding-service";
 import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
+import type { Logger } from "../types/config";
 
 // Helper to create service with test devices
 function createService(devices: DeviceConfig[], stateValues: Record<string, unknown> = {}) {
@@ -16,6 +17,13 @@ function createService(devices: DeviceConfig[], stateValues: Record<string, unkn
     logger,
   });
   return { service, adapter };
+}
+
+// Logger whose methods are vi spies, for asserting init-time diagnostics.
+function spyLogger(): Logger & { warn: ReturnType<typeof vi.fn> } {
+  return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger & {
+    warn: ReturnType<typeof vi.fn>;
+  };
 }
 
 describe("DeviceBindingService", () => {
@@ -226,6 +234,24 @@ describe("DeviceBindingService", () => {
           [{ name: "Test", lightType: "color", hueState: "test.hue", satState: "test.sat" }],
           { "test.hue": 10000, "test.sat": 200 },
         );
+        const light = await service.getLightById("1");
+        expect(light.state.colormode).toBe("hs");
+      });
+
+      // Single-channel corner: only hue (or only sat) mapped. Earlier this fell
+      // through to the defaulted xy=[0.5,0.5] white; now any mapped hue/sat wins.
+      it("reports hs for a color light with ONLY hue mapped (no defaulted-xy white)", async () => {
+        const { service } = createService([{ name: "Test", lightType: "color", hueState: "test.hue" }], {
+          "test.hue": 10000,
+        });
+        const light = await service.getLightById("1");
+        expect(light.state.colormode).toBe("hs");
+      });
+
+      it("reports hs for a color light with ONLY sat mapped", async () => {
+        const { service } = createService([{ name: "Test", lightType: "color", satState: "test.sat" }], {
+          "test.sat": 200,
+        });
         const light = await service.getLightById("1");
         expect(light.state.colormode).toBe("hs");
       });
@@ -832,6 +858,19 @@ describe("DeviceBindingService", () => {
       expect(adapter.writtenStates.get("test.xy")).toBe("[0.3,0.4]");
     });
 
+    it("skips the xy write for a non-array value instead of storing junk like '[object Object]'", async () => {
+      const { service, adapter } = createService([{ name: "Test", lightType: "color", xyState: "test.xy" }]);
+      await service.setLightState("1", { xy: { x: 1 } } as unknown as Record<string, unknown>);
+      // No junk written — the foreign state is left untouched
+      expect(adapter.writtenStates.has("test.xy")).toBe(false);
+    });
+
+    it("skips the xy write for an array with non-numeric entries", async () => {
+      const { service, adapter } = createService([{ name: "Test", lightType: "color", xyState: "test.xy" }]);
+      await service.setLightState("1", { xy: ["a", "b"] } as unknown as Record<string, unknown>);
+      expect(adapter.writtenStates.has("test.xy")).toBe(false);
+    });
+
     // D4 v1.4.3 — write side serialises xy as JSON string `"[0.3,0.4]"`.
     // Earlier the read side only handled CSV strings — a stored `"[0.3,0.4]"`
     // got split by comma to `["[0.3","0.4]"]`, parseFloat returned NaN, and
@@ -1033,6 +1072,30 @@ describe("DeviceBindingService", () => {
       );
       await service.initialize();
       expect(adapter.subscribedPatterns).toHaveLength(0);
+    });
+
+    it("warns when a configured state object does not exist (init misconfiguration diagnostic)", async () => {
+      const adapter = createMockDeviceBindingAdapter({}); // no states exist
+      const logger = spyLogger();
+      const service = new DeviceBindingService({
+        adapter,
+        devices: [{ name: "Typo", lightType: "dimmable", onState: "does.not.exist" }],
+        logger,
+      });
+      await service.initialize();
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("does.not.exist"));
+    });
+
+    it("warns when a color light has no colour state mapped", async () => {
+      const adapter = createMockDeviceBindingAdapter({ "x.on": true });
+      const logger = spyLogger();
+      const service = new DeviceBindingService({
+        adapter,
+        devices: [{ name: "ColorNoStates", lightType: "color", onState: "x.on" }],
+        logger,
+      });
+      await service.initialize();
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("no colour state"));
     });
   });
 });

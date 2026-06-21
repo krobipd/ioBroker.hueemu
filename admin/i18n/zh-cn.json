@@ -2,7 +2,7 @@
   "networkSettings": "网络",
   "serverSettings": "服务器",
   "host": "主机 / IP地址",
-  "hostTooltip": "选择监听的网络接口。此IP也通过SSDP广播——客户端通过此地址连接。",
+  "hostTooltip": "绑定监听的网络接口。选择 '0.0.0.0' 可在所有接口上监听（IP 变化时仍可访问）。",
   "port": "端口",
   "portTooltip": "Hue API的HTTP端口（默认：8080）",
   "advancedSettings": "高级（可选）",
@@ -49,5 +49,7 @@
   "startPairingName": "开始配对",
   "startPairingDesc": "启用配对模式 50 秒",
   "disableAuthName": "禁用身份验证",
-  "disableAuthDesc": "禁用身份验证（允许所有请求）"
+  "disableAuthDesc": "禁用身份验证（允许所有请求）",
+  "advertiseHost": "对外公布的 IP",
+  "advertiseHostTooltip": "向客户端（Alexa、Harmony）公布用于发现的可达 IP。留空则自动检测。必须是具体 IP，而非 0.0.0.0。"
 }

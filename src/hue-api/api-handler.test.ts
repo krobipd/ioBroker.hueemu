@@ -73,6 +73,7 @@ function createMockAdapter(
       );
     },
     getForeignStateAsync: async () => null,
+    getForeignObjectAsync: async () => null,
     setForeignStateAsync: async () => {},
     subscribeForeignStates: () => {},
   };
@@ -86,7 +87,7 @@ function createHandler(existingClients: string[] = [], opts: { pairingEnabled?: 
     adapter,
     configServiceConfig: {
       identity: createTestIdentity(),
-      discoveryHost: "192.168.1.100",
+      advertiseHost: "192.168.1.100",
     },
     devices: [],
     logger: createMockLogger(),
@@ -292,7 +293,7 @@ describe("ApiHandler", () => {
       };
       const handler = new ApiHandler({
         adapter,
-        configServiceConfig: { identity: createTestIdentity(), discoveryHost: "192.168.1.100" },
+        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
         devices: [
           { name: "Kitchen", lightType: "dimmable", onState: "test.on", briState: "test.bri" },
           { name: "Lounge", lightType: "onoff", onState: "test2.on" },
@@ -357,6 +358,16 @@ describe("ApiHandler", () => {
       const results = await handler.setGroupAction(req, "user", "0", { on: true });
       expect(foreignWrites.get("test2.on")).toBe(true); // second light unaffected
       expect(results).toHaveLength(1); // group response shape regardless
+    });
+
+    it("setGroupAction echoes only known light-state keys, not arbitrary body keys", async () => {
+      const { handler } = createHandlerWithDevices({});
+      const results = await handler.setGroupAction(req, "user", "0", {
+        on: true,
+        garbage: 1,
+        evilKey: "x",
+      } as unknown as Record<string, unknown>);
+      expect(results).toEqual([{ success: { "/groups/0/action/on": true } }]);
     });
 
     it("onStateChange updates the binding cache so the next read sees the new value", async () => {

@@ -6,10 +6,31 @@ import type { Logger } from "../types/config";
 import type { HueApiHandler, HueRequest, CreateUserRequest, FullState, BridgeConfigPublic } from "../types/hue-api";
 import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
-import { errText } from "../types/utils";
+import { errText, oneLine } from "../types/utils";
 import { UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
+
+// Hue light-state attributes a group action may legitimately set. The success
+// echo is built from these known keys instead of reflecting arbitrary body keys
+// straight back to the client.
+const GROUP_ACTION_KEYS = new Set([
+  "on",
+  "bri",
+  "hue",
+  "sat",
+  "ct",
+  "xy",
+  "transitiontime",
+  "bri_inc",
+  "sat_inc",
+  "hue_inc",
+  "ct_inc",
+  "xy_inc",
+  "effect",
+  "alert",
+  "colormode",
+]);
 
 /**
  * Combined adapter interface for the API handler
@@ -105,7 +126,9 @@ export class ApiHandler implements HueApiHandler {
     // but belt-and-braces in case createUser is called from another path.
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
 
-    this.logger.debug(`Pairing request: devicetype=${devicetype}, generateclientkey=${body.generateclientkey}`);
+    this.logger.debug(
+      `Pairing request: devicetype=${oneLine(devicetype)}, generateclientkey=${oneLine(String(body.generateclientkey))}`,
+    );
 
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw HueApiError.linkButtonNotPressed("/api");
@@ -116,11 +139,11 @@ export class ApiHandler implements HueApiHandler {
     const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : undefined;
 
     if (providedUsername) {
-      this.logger.debug(`Using provided username: ${providedUsername}`);
+      this.logger.debug(`Using provided username: ${oneLine(providedUsername)}`);
     }
 
     const username = await this.userService.createUser(providedUsername, devicetype);
-    this.logger.info(`Paired client "${devicetype}" as user ${username}`);
+    this.logger.info(`Paired client "${oneLine(devicetype)}" as user ${oneLine(username)}`);
 
     // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
     this.adapter.pairingEnabled = false;
@@ -211,21 +234,25 @@ export class ApiHandler implements HueApiHandler {
   ): Promise<LightStateResult[]> {
     this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
 
-    const lights = await this.lightService.getAllLights();
-
-    // Apply state to all lights in parallel
+    // Fan out to every configured light using the cheap id list, not
+    // getAllLights() (which rebuilds every light's full state) — a flood of
+    // group writes shouldn't multiply state reads on top of the writes.
+    const lightIds = this.lightService.getLightIds();
     await Promise.all(
-      Object.keys(lights).map(lightId =>
+      lightIds.map(lightId =>
         this.lightService.setLightState(lightId, state).catch((err: unknown) => {
           this.logger.warn(`Group action: failed to set light ${lightId}: ${errText(err)}`);
         }),
       ),
     );
 
-    // Return group-addressed success response (Hue API format)
-    return Object.entries(state).map(([key, value]) => ({
-      success: { [`/groups/${groupId}/action/${key}`]: value },
-    }));
+    // Return a group-addressed success response (Hue API format) built only
+    // from known light-state attributes — don't reflect arbitrary body keys.
+    return Object.entries(state)
+      .filter(([key]) => GROUP_ACTION_KEYS.has(key))
+      .map(([key, value]) => ({
+        success: { [`/groups/${groupId}/action/${key}`]: value },
+      }));
   }
 
   /**
@@ -253,10 +280,10 @@ export class ApiHandler implements HueApiHandler {
       // the 50 s window.
       try {
         await this.userService.addUser(username, "auto-paired", true);
-        this.logger.debug(`Pairing enabled, auto-added user: ${username}`);
+        this.logger.debug(`Pairing enabled, auto-added user: ${oneLine(username)}`);
         return true;
       } catch (err) {
-        this.logger.warn(`Auto-add rejected for ${username}: ${errText(err)}`);
+        this.logger.warn(`Auto-add rejected for ${oneLine(username)}: ${errText(err)}`);
         return false;
       }
     }

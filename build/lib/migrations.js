@@ -42,18 +42,18 @@ function detectLegacyLightType(stateKeys) {
   return "onoff";
 }
 const INSTANCE_OBJECT_MIGRATION_PAIRS = [
-  { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc" },
-  { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc" },
-  { id: "clients", nameKey: "clientsFolder" }
+  { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc", oldName: "Start Pairing" },
+  { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc", oldName: "Disable Authentication" },
+  { id: "clients", nameKey: "clientsFolder", oldName: "Paired Clients" }
 ];
 function buildInstanceObjectMigrationPatch(common, pair) {
-  const nameIsString = typeof (common == null ? void 0 : common.name) === "string";
+  const nameIsOldDefault = typeof (common == null ? void 0 : common.name) === "string" && common.name === pair.oldName;
   const descIsString = pair.descKey !== void 0 && typeof (common == null ? void 0 : common.desc) === "string";
-  if (!nameIsString && !descIsString) {
+  if (!nameIsOldDefault && !descIsString) {
     return null;
   }
   const patch = {};
-  if (nameIsString) {
+  if (nameIsOldDefault) {
     patch.name = (0, import_i18n.tName)(pair.nameKey);
   }
   if (descIsString && pair.descKey) {
@@ -71,7 +71,7 @@ async function runInstanceObjectMigration(adapter) {
     if (!patch) {
       continue;
     }
-    await adapter.extendObjectAsync(pair.id, { common: patch }, { preserve: { common: ["name"] } });
+    await adapter.extendObjectAsync(pair.id, { common: patch });
     adapter.log.debug(`Translated instanceObject names: ${pair.id}`);
   }
 }

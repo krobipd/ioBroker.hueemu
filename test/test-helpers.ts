@@ -43,6 +43,13 @@ export function createMockDeviceBindingAdapter(stateValues: Record<string, unkno
       }
       return null;
     },
+    getForeignObjectAsync: async (id: string) => {
+      // Treat a configured value as "object exists"; unknown ids = missing object.
+      if (id in stateValues) {
+        return { _id: id, type: "state", common: {}, native: {} } as unknown as ioBroker.Object;
+      }
+      return null;
+    },
     setForeignStateAsync: async (id: string, state: ioBroker.SettableState) => {
       writtenStates.set(id, (state as { val: unknown }).val);
     },

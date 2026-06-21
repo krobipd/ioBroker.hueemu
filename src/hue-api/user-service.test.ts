@@ -196,6 +196,16 @@ describe("UserService", () => {
       expect(await service.isUserAuthenticated("foo")).toBe(false);
     });
 
+    it("retries the broker on the next call after a transient load failure (no cache poisoning)", async () => {
+      const { service, adapter } = createService(["foo"]);
+      adapter.getStatesShouldFail = true;
+      // First call fails to load — must NOT cache the empty set
+      expect(await service.isUserAuthenticated("foo")).toBe(false);
+      // Broker recovers; the next call retries instead of staying poisoned
+      adapter.getStatesShouldFail = false;
+      expect(await service.isUserAuthenticated("foo")).toBe(true);
+    });
+
     it("returns false for empty username string", async () => {
       const { service } = createService(["foo"]);
       expect(await service.isUserAuthenticated("")).toBe(false);
@@ -268,6 +278,14 @@ describe("UserService", () => {
       await service.addUser("just-added", "browser");
       // Without cache update, this would still return false from the cache.
       expect(await service.isUserAuthenticated("just-added")).toBe(true);
+    });
+
+    it("warms the cache when addUser is the very first operation (whitelist not left empty)", async () => {
+      const { service } = createService([]);
+      // No prior auth check — the cache is still lazy/null at this point
+      await service.addUser("first-op-client", "browser");
+      // The new client is listed immediately, not only after the next auth check
+      expect(service.listCachedClientIds()).toContain("first-op-client");
     });
 
     it("listCachedClientIds returns sanitized ids currently in the cache", async () => {

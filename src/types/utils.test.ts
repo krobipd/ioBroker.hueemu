@@ -2,7 +2,7 @@
  * Tests for shared utility functions
  */
 
-import { errText, sanitizeId } from "./utils";
+import { errText, oneLine, sanitizeId } from "./utils";
 
 describe("sanitizeId", () => {
   it("should pass through alphanumeric strings unchanged", () => {
@@ -86,5 +86,23 @@ describe("errText", () => {
     const a: Record<string, unknown> = { x: 1 };
     a.self = a;
     expect(errText(a)).toBe("[object Object]");
+  });
+});
+
+describe("oneLine", () => {
+  it("replaces CR, LF and tab with spaces", () => {
+    expect(oneLine("a\r\nb\tc")).toBe("a  b c");
+  });
+
+  it("passes through a normal string unchanged", () => {
+    expect(oneLine("Amazon Echo Dot")).toBe("Amazon Echo Dot");
+  });
+
+  it("neutralises a forged log line in an untrusted value", () => {
+    expect(oneLine("hub\n2026-01-01 info: forged admin line")).toBe("hub 2026-01-01 info: forged admin line");
+  });
+
+  it("handles empty string", () => {
+    expect(oneLine("")).toBe("");
   });
 });

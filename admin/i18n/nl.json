@@ -2,7 +2,7 @@
   "networkSettings": "Netwerk",
   "serverSettings": "Server",
   "host": "Host / IP-adres",
-  "hostTooltip": "Selecteer de netwerkinterface. Dit IP wordt ook via SSDP geadverteerd — clients verbinden via dit adres.",
+  "hostTooltip": "Netwerkinterface om aan te binden. Kies '0.0.0.0' om op alle interfaces te luisteren (blijft bereikbaar als het IP wijzigt).",
   "port": "Poort",
   "portTooltip": "HTTP-poort voor de Hue API (standaard: 8080)",
   "advancedSettings": "Geavanceerd (optioneel)",
@@ -49,5 +49,7 @@
   "startPairingName": "Koppelen starten",
   "startPairingDesc": "Koppelmodus 50 seconden activeren",
   "disableAuthName": "Aanmelding uitschakelen",
-  "disableAuthDesc": "Aanmelding uitschakelen (alle aanvragen toestaan)"
+  "disableAuthDesc": "Aanmelding uitschakelen (alle aanvragen toestaan)",
+  "advertiseHost": "Aangekondigd IP",
+  "advertiseHostTooltip": "Het bereikbare IP dat aan clients (Alexa, Harmony) wordt bekendgemaakt voor detectie. Laat leeg voor automatische detectie. Moet een concreet IP zijn, geen 0.0.0.0."
 }

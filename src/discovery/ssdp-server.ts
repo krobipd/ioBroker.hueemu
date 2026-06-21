@@ -72,8 +72,13 @@ export class HueSsdpServer {
         location,
         sourcePort: this.config.ssdpPort,
         adInterval: 10000, // Advertise every 10 seconds
-        ttl: 4,
-        allowWildcards: true,
+        // allowWildcards stays OFF. Real Hue/UPnP clients search by an exact ST
+        // or `ssdp:all`, never with `*`. With it on, node-ssdp builds a fresh
+        // RegExp from the attacker-controlled M-SEARCH `ST` header on every
+        // packet — a crafted ST causes catastrophic backtracking (unauth DoS).
+        // Off = plain string equality. (`ttl` dropped: it set the M-SEARCH
+        // max-age, not the multicast hop limit, so the node-ssdp default fits.)
+        allowWildcards: false,
         suppressRootDeviceAdvertisements: false,
         headers: {
           "hue-bridgeid": this.config.identity.bridgeId,
@@ -91,22 +96,17 @@ export class HueSsdpServer {
       this.server.addUSN("upnp:rootdevice");
       this.config.logger.debug("SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
 
-      // v1.4.3 (S1): typed cast instead of `as any`. node-ssdp's Server
-      // extends EventEmitter but the upstream typings omit the `error`
-      // event; cast to a narrow EventEmitter-shape so the rest of the
-      // file stays strictly typed.
-      //
-      // v1.4.5 (A): widen the cast to cover `response` + `advertise-bye`
-      // events so we can trace M-SEARCH responses (the diagnostically
-      // useful "device asked, we answered" pulse) and the explicit
-      // unadvertise on stop. `advertise-alive` deliberately NOT hooked —
-      // 10s × 24h = 8640 identical lines/day with zero variation.
+      // v1.4.5 (A): typed cast to a narrow EventEmitter-shape (node-ssdp's
+      // upstream typings omit these events) so we can trace M-SEARCH responses
+      // (the diagnostically useful "device asked, we answered" pulse) and the
+      // explicit unadvertise on stop. `advertise-alive` deliberately NOT hooked
+      // — 10s × 24h = 8640 identical lines/day. The `error` event is not hooked:
+      // node-ssdp's Server never emits a server-level `error` (socket errors are
+      // swallowed internally), so a listener would never fire; start-time
+      // failures surface via the start() promise rejection (caught in main.ts).
       const serverWithEvents = this.server as unknown as {
-        on(event: "error" | "advertise-bye" | "response", listener: (...args: unknown[]) => void): void;
+        on(event: "advertise-bye" | "response", listener: (...args: unknown[]) => void): void;
       };
-      serverWithEvents.on("error", (err: unknown) => {
-        this.config.logger.error(`SSDP error: ${errText(err)}`);
-      });
       serverWithEvents.on("response", (_headers, _statusCode, rinfo) => {
         const peer = (rinfo as { address?: string } | undefined)?.address ?? "?";
         this.config.logger.debug(`SSDP M-SEARCH response → ${peer}`);

@@ -103,6 +103,17 @@ describe("Description XML", () => {
       expect(xml).not.toContain("a<b>");
       expect(xml).toContain("a&lt;b&gt;&amp;&quot;x");
     });
+
+    it("XML-escapes special characters in the identity serialNumber and udn", () => {
+      const xml = generateDescriptionXml({
+        identity: { ...identity, serialNumber: "a<b>&x", udn: "u<d>n" },
+        host: "192.168.1.100",
+        port: 8080,
+      });
+      expect(xml).not.toContain("<serialNumber>a<b>");
+      expect(xml).toContain("a&lt;b&gt;&amp;x");
+      expect(xml).toContain("uuid:u&lt;d&gt;n");
+    });
   });
 
   describe("getDescriptionUrl", () => {

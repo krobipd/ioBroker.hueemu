@@ -17,6 +17,7 @@
           "tooltip": "hostTooltip",
           "onlyIp4": true,
           "noInternal": true,
+          "listenOnAllPorts": true,
           "xs": 12,
           "sm": 12,
           "md": 6,
@@ -30,6 +31,20 @@
           "min": 1,
           "max": 65535,
           "default": 8080,
+          "xs": 12,
+          "sm": 12,
+          "md": 6,
+          "lg": 6,
+          "xl": 6
+        },
+
+        "advertiseHost": {
+          "newLine": true,
+          "type": "ip",
+          "label": "advertiseHost",
+          "tooltip": "advertiseHostTooltip",
+          "onlyIp4": true,
+          "noInternal": true,
           "xs": 12,
           "sm": 12,
           "md": 6,

@@ -24,6 +24,7 @@ import {
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
   BRIDGE_MODEL_ID,
+  detectPrimaryIPv4,
   generateBridgeId,
   generateSerialNumber,
   macFromUdn,
@@ -38,8 +39,7 @@ declare global {
     interface AdapterConfig {
       host: string;
       port: number;
-      discoveryHost: string;
-      discoveryPort: number;
+      advertiseHost: string;
       httpsPort: number | undefined;
       tlsCert?: string;
       tlsKey?: string;
@@ -174,8 +174,8 @@ export class HueEmu extends utils.Adapter {
       // Initialize SSDP discovery server
       this.ssdpServer = this.makeSsdpServer({
         identity: emulatorConfig.identity,
-        host: emulatorConfig.discoveryHost || emulatorConfig.host,
-        port: emulatorConfig.discoveryPort || emulatorConfig.port,
+        host: emulatorConfig.advertiseHost,
+        port: emulatorConfig.port,
         ssdpPort: emulatorConfig.upnpPort,
         logger,
       });
@@ -189,7 +189,7 @@ export class HueEmu extends utils.Adapter {
         adapter: this as unknown as ApiHandlerAdapter,
         configServiceConfig: {
           identity: emulatorConfig.identity,
-          discoveryHost: emulatorConfig.discoveryHost || emulatorConfig.host,
+          advertiseHost: emulatorConfig.advertiseHost,
         },
         devices,
         logger,
@@ -229,7 +229,7 @@ export class HueEmu extends utils.Adapter {
       this.log.debug("Subscribed to own states (pattern: *)");
 
       this.log.info(
-        `Hue Emulator running on ${emulatorConfig.host}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
+        `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
       );
     } catch (error) {
       this.log.error(`Failed to start Hue Emulator: ${errText(error)}`);
@@ -241,16 +241,19 @@ export class HueEmu extends utils.Adapter {
    */
   private async buildConfig(): Promise<HueEmulatorConfig> {
     // Parse configuration values
-    const host = this.config.host?.trim() || "";
+    const host = this.config.host?.trim() || "0.0.0.0";
     const port = this.toPort(this.config.port);
-    const discoveryHost = this.config.discoveryHost?.trim() || host;
-    const discoveryPort = this.toPort(this.config.discoveryPort) || port;
+    // Advertise a concrete, routable IP (SSDP location / description.xml /
+    // config). Prefer the explicit advertiseHost; else the bind host when it is
+    // concrete; else auto-detect the primary IPv4. Never advertise 0.0.0.0.
+    const advertiseHost =
+      this.config.advertiseHost?.trim() || (host && host !== "0.0.0.0" ? host : detectPrimaryIPv4());
     const httpsPort = parsePort(this.config.httpsPort);
-    // v1.4.3 (E2): empty host → SSDP advertises an empty location and Fastify
-    // binds 0.0.0.0; clients can't reach the bridge. v1.4.3 (SV4): an HTTPS
-    // port equal to the HTTP port makes the second listen() throw EADDRINUSE
-    // far from the cause. Both surfaced up-front via validateNetworkConfig.
-    validateNetworkConfig(host, port, httpsPort);
+    // v1.9.0: the bind host may be 0.0.0.0 (listen on all interfaces); what must
+    // resolve is a routable advertiseHost. v1.4.3 (SV4): an HTTPS port equal to
+    // the HTTP port makes the second listen() throw EADDRINUSE far from the
+    // cause. Both surfaced up-front via validateNetworkConfig.
+    validateNetworkConfig(advertiseHost, port, httpsPort);
     const udn = this.config.udn?.trim() || uuid.v4();
     const mac = this.config.mac?.trim() || macFromUdn(udn);
 
@@ -281,14 +284,15 @@ export class HueEmu extends utils.Adapter {
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
     );
-    this.log.debug(`Network: HTTP=${host}:${port}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
+    this.log.debug(
+      `Network: bind=${host}:${port}, advertise=${advertiseHost}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`,
+    );
     this.log.debug(`UDN: ${identity.udn}`);
 
     return {
       host,
       port,
-      discoveryHost,
-      discoveryPort,
+      advertiseHost,
       https,
       upnpPort,
       identity,
@@ -406,8 +410,7 @@ export class HueEmu extends utils.Adapter {
   private async migrateInstanceObjectNames(): Promise<void> {
     await runInstanceObjectMigration({
       getObjectAsync: id => this.getObjectAsync(id),
-      extendObjectAsync: (id, obj) =>
-        this.extendObjectAsync(id, obj as ioBroker.SettableObject, { preserve: { common: ["name"] } }),
+      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj as ioBroker.SettableObject),
       log: { debug: msg => this.log.debug(msg) },
     });
   }
