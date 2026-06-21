@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.8.1",
     "news": {
+      "NEXT": {
+        "en": "Discovery now survives a bridge IP change: bind to all interfaces and set a separate advertised IP, plus colour and reliability fixes.",
+        "de": "Discovery übersteht jetzt einen IP-Wechsel der Bridge: auf alle Interfaces binden und eine separate angekündigte IP setzen, plus Farb- und Zuverlässigkeits-Fixes.",
+        "ru": "Обнаружение теперь переживает смену IP моста: привязка ко всем интерфейсам и отдельный анонсируемый IP, плюс исправления цвета и надёжности.",
+        "pt": "A descoberta agora sobrevive a uma mudança de IP da bridge: vincular a todas as interfaces e definir um IP anunciado separado, mais correções de cor e fiabilidade.",
+        "nl": "Detectie overleeft nu een IP-wijziging van de bridge: bind aan alle interfaces en stel een apart aangekondigd IP in, plus kleur- en betrouwbaarheidsfixes.",
+        "fr": "La découverte survit désormais à un changement d'IP du pont : écoute sur toutes les interfaces et IP annoncée distincte, plus des correctifs de couleur et de fiabilité.",
+        "it": "Il rilevamento ora sopravvive a un cambio di IP del bridge: ascolto su tutte le interfacce e IP annunciato separato, più correzioni di colore e affidabilità.",
+        "es": "La detección ahora sobrevive a un cambio de IP del puente: escucha en todas las interfaces e IP anunciada separada, más correcciones de color y fiabilidad.",
+        "pl": "Wykrywanie przeżywa teraz zmianę IP mostka: nasłuch na wszystkich interfejsach i osobny rozgłaszany IP, plus poprawki koloru i niezawodności.",
+        "uk": "Виявлення тепер переживає зміну IP мосту: прив'язка до всіх інтерфейсів і окремий оголошуваний IP, плюс виправлення кольору та надійності.",
+        "zh-cn": "现在即使桥接 IP 变化，发现也能正常工作：可绑定所有接口并设置单独的对外公布 IP，另有颜色和可靠性修复。"
+      },
       "1.8.1": {
         "en": "Strict number parsing for light state values (garbage suffixes fall back to defaults); faster bridge config responses for second-by-second pollers like Echo devices",
         "de": "Striktes Zahlen-Parsing für Licht-States (ungültige Suffixe fallen auf Defaults zurück); schnellere Bridge-Config-Antworten für sekündlich pollende Clients wie Echo-Geräte",
@@ -80,19 +93,6 @@
         "pl": "Dziennik zmian przepisany w stylu zorientowanym na użytkownika we wszystkich wersjach.",
         "uk": "Журнал змін переписано у стилі орієнтованому на користувача для всіх версій.",
         "zh-cn": "所有版本的更新日志已改写为面向用户的风格。"
-      },
-      "1.5.0": {
-        "en": "User-modified state names are no longer overwritten on adapter restart.",
-        "de": "Vom Benutzer geänderte Datenpunktnamen werden beim Neustart nicht mehr überschrieben.",
-        "ru": "Пользовательские имена состояний больше не перезаписываются при перезапуске адаптера.",
-        "pt": "Nomes de estados modificados pelo utilizador já não são substituídos ao reiniciar o adaptador.",
-        "nl": "Door gebruiker gewijzigde statusnamen worden niet meer overschreven bij herstart van de adapter.",
-        "fr": "Les noms d états modifiés par l utilisateur ne sont plus écrasés au redémarrage de l adaptateur.",
-        "it": "I nomi degli stati modificati dall utente non vengono più sovrascritti al riavvio dell adattatore.",
-        "es": "Los nombres de estados modificados por el usuario ya no se sobrescriben al reiniciar el adaptador.",
-        "pl": "Nazwy stanów zmienione przez użytkownika nie są już nadpisywane przy restarcie adaptera.",
-        "uk": "Змінені користувачем назви станів більше не перезаписуються при перезапуску адаптера.",
-        "zh-cn": "用户修改的状态名称在适配器重启时不再被覆盖。"
       }
     },
     "plugins": {
@@ -126,8 +126,16 @@
       "uk": "Емулює Philips Hue Bridge (v2) для керування станами ioBroker зі старих пристроїв, які підтримують лише Philips Hue",
       "zh-cn": "模拟 Philips Hue Bridge (v2)，让仅支持 Philips Hue 的旧设备控制 ioBroker 状态"
     },
-    "authors": ["Christopher Holomek <holomekc.github@gmail.com>", "krobi <krobi@power-dreams.com>"],
-    "keywords": ["Hue", "Philips", "Bridge", "home automation"],
+    "authors": [
+      "Christopher Holomek <holomekc.github@gmail.com>",
+      "krobi <krobi@power-dreams.com>"
+    ],
+    "keywords": [
+      "Hue",
+      "Philips",
+      "Bridge",
+      "home automation"
+    ],
     "licenseInformation": {
       "license": "MIT",
       "type": "free"
@@ -173,8 +181,12 @@
     "devices": [],
     "trustProxy": false
   },
-  "encryptedNative": ["tlsKey"],
-  "protectedNative": ["tlsKey"],
+  "encryptedNative": [
+    "tlsKey"
+  ],
+  "protectedNative": [
+    "tlsKey"
+  ],
   "objects": [],
   "instanceObjects": [
     {
