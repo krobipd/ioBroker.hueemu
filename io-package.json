@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.8.1",
+    "version": "1.9.0",
     "news": {
-      "NEXT": {
+      "1.9.0": {
         "en": "Discovery now survives a bridge IP change: bind to all interfaces and set a separate advertised IP, plus colour and reliability fixes.",
         "de": "Discovery übersteht jetzt einen IP-Wechsel der Bridge: auf alle Interfaces binden und eine separate angekündigte IP setzen, plus Farb- und Zuverlässigkeits-Fixes.",
         "ru": "Обнаружение теперь переживает смену IP моста: привязка ко всем интерфейсам и отдельный анонсируемый IP, плюс исправления цвета и надёжности.",

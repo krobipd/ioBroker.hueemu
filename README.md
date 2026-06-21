@@ -160,7 +160,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 1.9.0 (2026-06-21)
 
 - You can now listen on all network interfaces (`0.0.0.0`) and set a separate advertised IP, so discovery keeps working even if the bridge's IP address changes
 - Color lights mapped with only hue or only saturation now report the correct colour instead of falling back to a default white
@@ -183,10 +183,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.6.0 (2026-05-31)
 
 - Brightness and saturation read from source states with unusual scales now stay within the valid Hue range, so edge-case values (such as 0% or negative) no longer produce out-of-range light state.
-
-### 1.5.2 (2026-05-30)
-
-- Internal refactoring. No user-facing changes.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
