@@ -160,7 +160,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 1.9.0 (2026-06-21)
+### 1.9.0 (2026-06-21) — stable
 
 - You can now listen on all network interfaces (`0.0.0.0`) and set a separate advertised IP, so discovery keeps working even if the bridge's IP address changes
 - Color lights mapped with only hue or only saturation now report the correct colour instead of falling back to a default white
