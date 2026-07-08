@@ -130,6 +130,7 @@ Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von 
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
 npm run test:ts          # Unit-Tests via vitest (320)
+npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
 npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
 npm run test:integration # Standard Integration-Tests (1, CI only)
