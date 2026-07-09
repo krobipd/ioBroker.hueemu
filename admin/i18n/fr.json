@@ -15,7 +15,7 @@
   "trustProxyTooltip": "À activer uniquement si l'adaptateur est derrière un proxy inverse DE CONFIANCE (Traefik, nginx) qui nettoie les en-têtes client. Par défaut l'IP réelle du socket est utilisée.",
   "deviceConfiguration": "Appareils",
   "configuredDevices": "Appareils configurés",
-  "deviceConfigHelp": "Ajoutez des appareils et associez des états ioBroker aux propriétés Hue.",
+  "deviceConfigHelp": "Ajoutez une lumière avec « Ajouter une lumière » ou utilisez « Rechercher des lumières » pour détecter automatiquement les appareils ioBroker compatibles.",
   "deviceName": "Nom",
   "lightType": "Type",
   "lightTypeOnOff": "Allumé/Éteint",
@@ -58,5 +58,15 @@
   "scaleCtTooltip": "Comment la valeur source de température de couleur est interprétée. 'Native' = 153..500 mired (Hue). 'Kelvin' = degrés Kelvin (p. ex. 2700..6500).",
   "scaleNative": "Native (sans conversion)",
   "scaleDegrees": "Degrés (0..360)",
-  "scaleKelvin": "Kelvin"
+  "scaleKelvin": "Kelvin",
+  "dmAddLight": "Ajouter une lumière",
+  "dmSearchLights": "Rechercher des lumières",
+  "dmEdit": "Modifier",
+  "dmDelete": "Supprimer",
+  "dmEditTitle": "Modifier la lumière",
+  "dmDeleteConfirm": "Supprimer « %s » ?",
+  "dmSearching": "Recherche de lumières…",
+  "dmScanResult": "%s lumière(s) ajoutée(s).",
+  "dmScanResultRgb": "%s lumière(s) ajoutée(s). %s appareil(s) ressemblent à du RGB et nécessitent un mappage manuel.",
+  "dmScanFailed": "Échec de la recherche : %s"
 }

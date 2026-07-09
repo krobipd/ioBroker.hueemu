@@ -15,7 +15,7 @@
   "trustProxyTooltip": "Schakel alleen in als de adapter achter een VERTROUWDE reverse-proxy (Traefik, nginx) staat die client-headers verwijdert. Standaard wordt het echte socket-IP gebruikt.",
   "deviceConfiguration": "Apparaten",
   "configuredDevices": "Geconfigureerde apparaten",
-  "deviceConfigHelp": "Voeg apparaten toe en koppel ioBroker-statussen aan Hue-eigenschappen.",
+  "deviceConfigHelp": "Voeg een lamp toe met \"Lamp toevoegen\" of gebruik \"Lampen zoeken\" om geschikte ioBroker-apparaten automatisch te detecteren.",
   "deviceName": "Naam",
   "lightType": "Type",
   "lightTypeOnOff": "Aan/Uit",
@@ -58,5 +58,15 @@
   "scaleCtTooltip": "Hoe de bron-kleurtemperatuurwaarde wordt geïnterpreteerd. 'Native' = 153..500 mired (Hue). 'Kelvin' = graden Kelvin (bijv. 2700..6500).",
   "scaleNative": "Native (geen conversie)",
   "scaleDegrees": "Graden (0..360)",
-  "scaleKelvin": "Kelvin"
+  "scaleKelvin": "Kelvin",
+  "dmAddLight": "Lamp toevoegen",
+  "dmSearchLights": "Lampen zoeken",
+  "dmEdit": "Bewerken",
+  "dmDelete": "Verwijderen",
+  "dmEditTitle": "Lamp bewerken",
+  "dmDeleteConfirm": "\"%s\" verwijderen?",
+  "dmSearching": "Lampen zoeken…",
+  "dmScanResult": "%s lamp(en) toegevoegd.",
+  "dmScanResultRgb": "%s lamp(en) toegevoegd. %s apparaat/apparaten lijken op RGB en vereisen handmatige toewijzing.",
+  "dmScanFailed": "Zoeken mislukt: %s"
 }

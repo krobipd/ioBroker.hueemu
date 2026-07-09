@@ -25,6 +25,7 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 - **Hue API v1** — Bridge model BSB002 (Hue Bridge v2)
 - **UPnP/SSDP Discovery** — Automatic detection by any Hue-compatible client
 - **Direct state mapping** — Point to any ioBroker state, no bridge scripts
+- **Device assistant** — scan ioBroker for mappable lights and add them automatically, or add and edit each light by hand
 - **Light types** — On/Off, Dimmable, Color Temperature, RGB
 - **Per-device value scale** — pick how brightness and saturation are stored in your source state
 - **Persistent TLS certificate** — clients only trust the bridge once, restarts keep the same identity
@@ -73,11 +74,13 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ### Adding Devices
 
-1. Open the **Device Configuration** tab
-2. Click the `+` button
-3. Enter a **Name** (e.g. "Living Room Light")
-4. Select a **Light Type**
-5. Map **States** via the object browser (`...`)
+Open the **Device Configuration** tab. There are two ways to add lights:
+
+**Manually** — click **Add light**, enter a name, choose a light type, and map the ioBroker states with the object browser.
+
+**Automatically** — click **Search lights**. The adapter scans your objects for things that look like lights (on/off, dimmers, colour-temperature and colour lights) and adds the ones it can map. Anything it detects but cannot map (for example RGB-channel devices) is reported so you can add it by hand.
+
+Each light shows as a card — use **Edit** to change its mapping or **Delete** to remove it.
 
 ### Supported Light Types
 
@@ -160,6 +163,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.11.0 (2026-07-09)
+
+- The devices tab can now scan ioBroker for dimmer, colour-temperature and colour lights and add the mappable ones. Manual add still works.
+
 ### 1.10.0 (2026-07-09)
 
 - Fixed the adapter looking like it was running but ignoring all light changes when UDP port 1900 was already in use (common on Windows); it now recovers cleanly and stays reachable
@@ -185,10 +192,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.8.0 (2026-06-09)
 
 - Color lights mapped via hue and saturation (without an XY state) now report the correct color mode, so apps that honor it show the actual color instead of a default white.
-
-### 1.7.0 (2026-06-07)
-
-- Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

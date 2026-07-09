@@ -40,6 +40,7 @@ var import_node_crypto = require("node:crypto");
 var import_server = require("./server");
 var import_discovery = require("./discovery");
 var import_hue_api = require("./hue-api");
+var import_device_management = require("./device-management");
 var import_coerce = require("./lib/coerce");
 var import_i18n = require("./lib/i18n");
 var import_migrations = require("./lib/migrations");
@@ -57,6 +58,11 @@ class HueEmu extends utils.Adapter {
   hueServer = null;
   ssdpServer = null;
   apiHandler = null;
+  // v1.11.0: official ioBroker device-manager backend for the devices tab
+  // (manual add/edit/delete + a "search lights" assistant). Instantiated in the
+  // constructor as required by dm-utils; it owns no state, it reads/writes
+  // native.devices via this adapter.
+  deviceManagement;
   /**
    * Factories for the server/discovery/API collaborators — default to the
    * real constructors. Test seams (fleet pattern, see
@@ -82,6 +88,7 @@ class HueEmu extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
+    this.deviceManagement = new import_device_management.HueEmuDeviceManagement(this);
   }
   /** Whether pairing mode is active */
   get pairingEnabled() {

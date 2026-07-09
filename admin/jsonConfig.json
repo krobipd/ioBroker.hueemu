@@ -37,7 +37,6 @@
           "lg": 6,
           "xl": 6
         },
-
         "advertiseHost": {
           "newLine": true,
           "type": "ip",
@@ -51,7 +50,6 @@
           "lg": 6,
           "xl": 6
         },
-
         "advancedHeader": {
           "newLine": true,
           "type": "header",
@@ -105,7 +103,6 @@
           "lg": 12,
           "xl": 12
         },
-
         "_supportHeader": {
           "newLine": true,
           "type": "header",
@@ -153,7 +150,6 @@
         }
       }
     },
-
     "devicesTab": {
       "type": "panel",
       "label": "deviceConfiguration",
@@ -171,198 +167,13 @@
             "marginBottom": 16
           }
         },
-        "devicesHeader": {
-          "type": "header",
-          "text": "configuredDevices",
-          "size": 4
-        },
-        "devices": {
-          "type": "accordion",
+        "deviceManager": {
+          "type": "deviceManager",
           "xs": 12,
           "sm": 12,
           "md": 12,
           "lg": 12,
-          "xl": 12,
-          "titleAttr": "name",
-          "items": [
-            {
-              "attr": "name",
-              "type": "text",
-              "label": "deviceName",
-              "xs": 12,
-              "sm": 12,
-              "md": 6,
-              "lg": 6,
-              "xl": 6,
-              "default": "New Light"
-            },
-            {
-              "attr": "lightType",
-              "type": "select",
-              "label": "lightType",
-              "xs": 12,
-              "sm": 12,
-              "md": 6,
-              "lg": 6,
-              "xl": 6,
-              "default": "dimmable",
-              "options": [
-                { "label": "lightTypeOnOff", "value": "onoff" },
-                { "label": "lightTypeDimmable", "value": "dimmable" },
-                { "label": "lightTypeCT", "value": "ct" },
-                { "label": "lightTypeColor", "value": "color" }
-              ]
-            },
-            {
-              "attr": "onState",
-              "type": "objectId",
-              "label": "stateOn",
-              "tooltip": "stateOnTooltip",
-              "types": "state",
-              "xs": 12,
-              "sm": 12,
-              "md": 6,
-              "lg": 6,
-              "xl": 6
-            },
-            {
-              "attr": "briState",
-              "type": "objectId",
-              "label": "stateBri",
-              "tooltip": "stateBriTooltip",
-              "types": "state",
-              "xs": 12,
-              "sm": 12,
-              "md": 4,
-              "lg": 4,
-              "xl": 4,
-              "hidden": "data.lightType === 'onoff'"
-            },
-            {
-              "attr": "briScale",
-              "type": "select",
-              "label": "scaleBri",
-              "tooltip": "scaleTooltip",
-              "default": "auto",
-              "options": [
-                { "label": "scaleAuto", "value": "auto" },
-                { "label": "scalePercent", "value": "percent" },
-                { "label": "scaleNormalized", "value": "normalized" },
-                { "label": "scaleRaw", "value": "raw" }
-              ],
-              "xs": 12,
-              "sm": 12,
-              "md": 2,
-              "lg": 2,
-              "xl": 2,
-              "hidden": "data.lightType === 'onoff'"
-            },
-            {
-              "attr": "ctState",
-              "type": "objectId",
-              "label": "stateCt",
-              "tooltip": "stateCtTooltip",
-              "types": "state",
-              "xs": 12,
-              "sm": 12,
-              "md": 4,
-              "lg": 4,
-              "xl": 4,
-              "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
-            },
-            {
-              "attr": "ctScale",
-              "type": "select",
-              "label": "scaleCt",
-              "tooltip": "scaleCtTooltip",
-              "default": "raw",
-              "options": [
-                { "label": "scaleNative", "value": "raw" },
-                { "label": "scaleKelvin", "value": "kelvin" }
-              ],
-              "xs": 12,
-              "sm": 12,
-              "md": 2,
-              "lg": 2,
-              "xl": 2,
-              "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
-            },
-            {
-              "attr": "hueState",
-              "type": "objectId",
-              "label": "stateHue",
-              "tooltip": "stateHueTooltip",
-              "types": "state",
-              "xs": 12,
-              "sm": 12,
-              "md": 4,
-              "lg": 4,
-              "xl": 4,
-              "hidden": "data.lightType !== 'color'"
-            },
-            {
-              "attr": "hueScale",
-              "type": "select",
-              "label": "scaleHue",
-              "tooltip": "scaleHueTooltip",
-              "default": "raw",
-              "options": [
-                { "label": "scaleNative", "value": "raw" },
-                { "label": "scaleDegrees", "value": "degrees" }
-              ],
-              "xs": 12,
-              "sm": 12,
-              "md": 2,
-              "lg": 2,
-              "xl": 2,
-              "hidden": "data.lightType !== 'color'"
-            },
-            {
-              "attr": "satState",
-              "type": "objectId",
-              "label": "stateSat",
-              "tooltip": "stateSatTooltip",
-              "types": "state",
-              "xs": 12,
-              "sm": 12,
-              "md": 4,
-              "lg": 4,
-              "xl": 4,
-              "hidden": "data.lightType !== 'color'"
-            },
-            {
-              "attr": "satScale",
-              "type": "select",
-              "label": "scaleSat",
-              "tooltip": "scaleTooltip",
-              "default": "auto",
-              "options": [
-                { "label": "scaleAuto", "value": "auto" },
-                { "label": "scalePercent", "value": "percent" },
-                { "label": "scaleNormalized", "value": "normalized" },
-                { "label": "scaleRaw", "value": "raw" }
-              ],
-              "xs": 12,
-              "sm": 12,
-              "md": 2,
-              "lg": 2,
-              "xl": 2,
-              "hidden": "data.lightType !== 'color'"
-            },
-            {
-              "attr": "xyState",
-              "type": "objectId",
-              "label": "stateXy",
-              "tooltip": "stateXyTooltip",
-              "types": "state",
-              "xs": 12,
-              "sm": 12,
-              "md": 6,
-              "lg": 6,
-              "xl": 6,
-              "hidden": "data.lightType !== 'color'"
-            }
-          ]
+          "xl": 12
         }
       }
     }

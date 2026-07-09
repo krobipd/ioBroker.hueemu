@@ -15,7 +15,7 @@
   "trustProxyTooltip": "Attiva solo se l'adapter è dietro un reverse proxy AFFIDABILE (Traefik, nginx) che rimuove le intestazioni inviate dal client. Per impostazione predefinita viene usato l'IP reale del socket.",
   "deviceConfiguration": "Dispositivi",
   "configuredDevices": "Dispositivi configurati",
-  "deviceConfigHelp": "Aggiungi dispositivi e mappa gli stati ioBroker alle proprietà Hue.",
+  "deviceConfigHelp": "Aggiungi una luce con \"Aggiungi luce\" oppure usa \"Cerca luci\" per rilevare automaticamente i dispositivi ioBroker compatibili.",
   "deviceName": "Nome",
   "lightType": "Tipo",
   "lightTypeOnOff": "Acceso/Spento",
@@ -58,5 +58,15 @@
   "scaleCtTooltip": "Come viene interpretato il valore sorgente della temperatura del colore. 'Nativo' = 153..500 mired (Hue). 'Kelvin' = gradi Kelvin (es. 2700..6500).",
   "scaleNative": "Nativo (nessuna conversione)",
   "scaleDegrees": "Gradi (0..360)",
-  "scaleKelvin": "Kelvin"
+  "scaleKelvin": "Kelvin",
+  "dmAddLight": "Aggiungi luce",
+  "dmSearchLights": "Cerca luci",
+  "dmEdit": "Modifica",
+  "dmDelete": "Elimina",
+  "dmEditTitle": "Modifica luce",
+  "dmDeleteConfirm": "Eliminare \"%s\"?",
+  "dmSearching": "Ricerca luci…",
+  "dmScanResult": "Aggiunte %s luce/luci.",
+  "dmScanResultRgb": "Aggiunte %s luce/luci. %s dispositivo/i sembrano RGB e richiedono mappatura manuale.",
+  "dmScanFailed": "Ricerca non riuscita: %s"
 }

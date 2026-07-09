@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import { HueServer } from "./server";
 import { HueSsdpServer, SSDP_PORT } from "./discovery";
 import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
+import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName } from "./lib/i18n";
 import {
@@ -69,6 +70,12 @@ export class HueEmu extends utils.Adapter {
   private ssdpServer: HueSsdpServer | null = null;
   private apiHandler: ApiHandler | null = null;
 
+  // v1.11.0: official ioBroker device-manager backend for the devices tab
+  // (manual add/edit/delete + a "search lights" assistant). Instantiated in the
+  // constructor as required by dm-utils; it owns no state, it reads/writes
+  // native.devices via this adapter.
+  private readonly deviceManagement: HueEmuDeviceManagement;
+
   /**
    * Factories for the server/discovery/API collaborators — default to the
    * real constructors. Test seams (fleet pattern, see
@@ -99,6 +106,8 @@ export class HueEmu extends utils.Adapter {
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
+
+    this.deviceManagement = new HueEmuDeviceManagement(this);
   }
 
   /** Whether pairing mode is active */

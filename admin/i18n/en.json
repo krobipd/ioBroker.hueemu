@@ -15,7 +15,7 @@
   "trustProxyTooltip": "Only enable if this adapter sits behind a TRUSTED reverse proxy (e.g. Traefik, nginx) that strips client-supplied forwarding headers. With this off, the adapter uses the real socket IP.",
   "deviceConfiguration": "Devices",
   "configuredDevices": "Configured Devices",
-  "deviceConfigHelp": "Add devices and map ioBroker states to Hue properties.",
+  "deviceConfigHelp": "Add a light with \"Add light\", or use \"Search lights\" to auto-detect mappable ioBroker devices.",
   "deviceName": "Name",
   "lightType": "Type",
   "lightTypeOnOff": "On/Off",
@@ -58,5 +58,15 @@
   "scaleCtTooltip": "How the color temperature source value is interpreted. 'Native' = 153..500 mired (Hue). 'Kelvin' = degrees Kelvin (e.g. 2700..6500).",
   "scaleNative": "Native (no conversion)",
   "scaleDegrees": "Degrees (0..360)",
-  "scaleKelvin": "Kelvin"
+  "scaleKelvin": "Kelvin",
+  "dmAddLight": "Add light",
+  "dmSearchLights": "Search lights",
+  "dmEdit": "Edit",
+  "dmDelete": "Delete",
+  "dmEditTitle": "Edit light",
+  "dmDeleteConfirm": "Delete \"%s\"?",
+  "dmSearching": "Searching for lights…",
+  "dmScanResult": "Added %s light(s).",
+  "dmScanResultRgb": "Added %s light(s). %s device(s) look like RGB and need manual mapping.",
+  "dmScanFailed": "Scan failed: %s"
 }

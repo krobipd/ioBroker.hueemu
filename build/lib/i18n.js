@@ -18,6 +18,7 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var i18n_exports = {};
 __export(i18n_exports, {
+  t: () => t,
   tName: () => tName
 });
 module.exports = __toCommonJS(i18n_exports);
@@ -25,8 +26,12 @@ var import_adapter_core = require("@iobroker/adapter-core");
 function tName(key) {
   return import_adapter_core.I18n.getTranslatedObject(key);
 }
+function t(key, ...args) {
+  return import_adapter_core.I18n.getTranslatedObject(key, ...args);
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  t,
   tName
 });
 //# sourceMappingURL=i18n.js.map

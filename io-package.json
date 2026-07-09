@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.10.0",
+    "version": "1.11.0",
     "news": {
+      "1.11.0": {
+        "en": "The devices tab can now scan ioBroker for dimmer, colour-temperature and colour lights and add the mappable ones. Manual add still works.",
+        "de": "Der Geräte-Tab kann jetzt ioBroker nach Dimmern, Farbtemperatur- und Farblichtern durchsuchen und die passenden hinzufügen. Manuelles Anlegen geht weiterhin.",
+        "ru": "Вкладка устройств теперь может сканировать ioBroker на диммеры, устройства цветовой температуры и цветные лампы и добавлять подходящие. Ручное добавление работает.",
+        "pt": "A aba de dispositivos agora verifica o ioBroker em busca de dimmers, temperatura de cor e luzes coloridas e adiciona os compatíveis. Adição manual continua funcionando.",
+        "nl": "Het apparaten-tabblad kan nu ioBroker doorzoeken op dimmers, kleurtemperatuur- en kleurlampen en de bruikbare toevoegen. Handmatig toevoegen werkt nog.",
+        "fr": "L’onglet appareils peut analyser ioBroker à la recherche de variateurs, de température de couleur et de lumières colorées et ajouter les compatibles. L’ajout manuel fonctionne toujours.",
+        "it": "La scheda dispositivi ora può analizzare ioBroker per dimmer, temperatura di colore e luci a colori e aggiungere quelli compatibili. L’aggiunta manuale funziona ancora.",
+        "es": "La pestaña de dispositivos ahora puede buscar en ioBroker reguladores, temperatura de color y luces de color y añadir los compatibles. Añadir a mano sigue funcionando.",
+        "pl": "Karta urządzeń może teraz przeszukać ioBroker pod kątem ściemniaczy, temperatury barwowej i świateł kolorowych i dodać pasujące. Ręczne dodawanie nadal działa.",
+        "uk": "Вкладка пристроїв тепер може сканувати ioBroker на диммери, колірну температуру та кольорові лампи й додавати сумісні. Ручне додавання працює.",
+        "zh-cn": "设备选项卡现在可以扫描 ioBroker 中的调光器、色温和彩色灯具并添加可映射的设备。手动添加仍然有效。"
+      },
       "1.10.0": {
         "en": "SSDP discovery no longer freezes the adapter when port 1900 is busy, so lights keep responding — plus new degrees/Kelvin scales for hue and colour-temperature sources.",
         "de": "Die SSDP-Erkennung friert den Adapter nicht mehr ein, wenn Port 1900 belegt ist — Lichter reagieren weiter. Neu: Grad-/Kelvin-Skalen für Farbton- und Farbtemperatur-Quellen.",
@@ -80,19 +93,6 @@
         "pl": "Jasność i nasycenie ze stanów źródłowych o nietypowych skalach pozostają teraz w prawidłowym zakresie Hue (wartości graniczne jak 0% lub ujemne nie wychodzą poza zakres).",
         "uk": "Яскравість і насиченість із джерельних станів з незвичними шкалами тепер залишаються в допустимому діапазоні Hue (граничні значення 0% або від'ємні не виходять за межі).",
         "zh-cn": "来自非常规刻度源状态的亮度和饱和度现在保持在有效的 Hue 范围内（0% 或负值等边界值不再超出范围）。"
-      },
-      "1.5.2": {
-        "en": "Internal refactoring. No user-facing changes.",
-        "de": "Interne Überarbeitung. Keine nutzersichtbaren Änderungen.",
-        "ru": "Внутренняя переработка. Видимых изменений нет.",
-        "pt": "Refatoração interna. Sem alterações visíveis ao utilizador.",
-        "nl": "Interne herstructurering. Geen zichtbare wijzigingen voor de gebruiker.",
-        "fr": "Refactorisation interne. Aucun changement visible pour l'utilisateur.",
-        "it": "Ristrutturazione interna. Nessuna modifica visibile all'utente.",
-        "es": "Refactorización interna. Sin cambios visibles para el usuario.",
-        "pl": "Wewnętrzna przebudowa. Brak zmian widocznych dla użytkownika.",
-        "uk": "Внутрішня переробка. Жодних змін для користувача.",
-        "zh-cn": "内部重构。无用户可见更改。"
       }
     },
     "plugins": {
@@ -156,7 +156,8 @@
     "dataSource": "push",
     "tier": 3,
     "supportedMessages": {
-      "stopInstance": true
+      "stopInstance": true,
+      "deviceManager": true
     },
     "dependencies": [
       {

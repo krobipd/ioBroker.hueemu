@@ -1,0 +1,415 @@
+/**
+ * v1.11.0: ioBroker Device-Manager backend for the hueemu devices tab.
+ *
+ * Replaces the jsonConfig accordion with the sanctioned device-manager UI so
+ * that manual add/edit/delete and an "assistant" (scan for lights via
+ * `@iobroker/type-detector`) live side by side in ONE tab. The device list is
+ * the adapter's own `native.devices` config array — unchanged in shape and still
+ * the only thing the runtime reads. Every mutating action writes `native.devices`
+ * back, which restarts the adapter (like a jsonConfig save) so the new mappings
+ * take effect; the manager reloads the list afterwards.
+ *
+ * The edit/add form reuses the exact same fields as the old accordion (object
+ * pickers, light type, scales), rendered natively by admin. All user-facing
+ * text (form labels, action titles, confirmations, messages) is resolved to a
+ * full 11-language translation object via `t()` so it renders correctly in every
+ * admin language regardless of how the device-manager frontend resolves strings.
+ */
+
+import {
+  DeviceManagement,
+  type DeviceInfo,
+  type DeviceLoadContext,
+  type ActionContext,
+  type JsonFormSchema,
+} from "@iobroker/dm-utils";
+import type { DeviceConfig } from "./hue-api";
+import { scanForLightDevices } from "./lib/device-scan";
+import { t } from "./lib/i18n";
+
+/** Manager directive returned by an instance action — reload the whole view. */
+type InstanceResult = { refresh: boolean };
+/** Manager directive returned by a per-device action — reload the device list. */
+type DeviceResult = { refresh: "instance" };
+
+/** Which DeviceConfig fields are relevant per light type — used to prune the form result. */
+const FIELDS_BY_TYPE: Record<string, readonly string[]> = {
+  onoff: ["name", "lightType", "onState"],
+  dimmable: ["name", "lightType", "onState", "briState", "briScale"],
+  ct: ["name", "lightType", "onState", "briState", "briScale", "ctState", "ctScale"],
+  color: [
+    "name",
+    "lightType",
+    "onState",
+    "briState",
+    "briScale",
+    "ctState",
+    "ctScale",
+    "hueState",
+    "hueScale",
+    "satState",
+    "satScale",
+    "xyState",
+  ],
+};
+
+/**
+ * Build the per-device edit form. Mirrors the admin/jsonConfig.json device
+ * fields; every label/tooltip/option is a resolved translation object so the
+ * embedded form is language-correct without depending on the frontend's i18n
+ * namespace. Built at call time (not module load) because `t()` needs
+ * `I18n.init()`, which has run by the time a device-manager action fires.
+ *
+ * @returns The jsonConfig panel schema describing one light.
+ */
+export function buildDeviceForm(): JsonFormSchema {
+  return {
+    type: "panel",
+    items: {
+      name: { type: "text", label: t("deviceName"), default: "New Light", sm: 12, md: 6 },
+      lightType: {
+        type: "select",
+        label: t("lightType"),
+        default: "dimmable",
+        options: [
+          { label: t("lightTypeOnOff"), value: "onoff" },
+          { label: t("lightTypeDimmable"), value: "dimmable" },
+          { label: t("lightTypeCT"), value: "ct" },
+          { label: t("lightTypeColor"), value: "color" },
+        ],
+        sm: 12,
+        md: 6,
+      },
+      onState: { type: "objectId", label: t("stateOn"), tooltip: t("stateOnTooltip"), sm: 12, md: 6 },
+      briState: {
+        type: "objectId",
+        label: t("stateBri"),
+        tooltip: t("stateBriTooltip"),
+        sm: 12,
+        md: 4,
+        hidden: "data.lightType === 'onoff'",
+      },
+      briScale: {
+        type: "select",
+        label: t("scaleBri"),
+        tooltip: t("scaleTooltip"),
+        default: "auto",
+        options: [
+          { label: t("scaleAuto"), value: "auto" },
+          { label: t("scalePercent"), value: "percent" },
+          { label: t("scaleNormalized"), value: "normalized" },
+          { label: t("scaleRaw"), value: "raw" },
+        ],
+        sm: 12,
+        md: 2,
+        hidden: "data.lightType === 'onoff'",
+      },
+      ctState: {
+        type: "objectId",
+        label: t("stateCt"),
+        tooltip: t("stateCtTooltip"),
+        sm: 12,
+        md: 4,
+        hidden: "data.lightType !== 'ct' && data.lightType !== 'color'",
+      },
+      ctScale: {
+        type: "select",
+        label: t("scaleCt"),
+        tooltip: t("scaleCtTooltip"),
+        default: "raw",
+        options: [
+          { label: t("scaleNative"), value: "raw" },
+          { label: t("scaleKelvin"), value: "kelvin" },
+        ],
+        sm: 12,
+        md: 2,
+        hidden: "data.lightType !== 'ct' && data.lightType !== 'color'",
+      },
+      hueState: {
+        type: "objectId",
+        label: t("stateHue"),
+        tooltip: t("stateHueTooltip"),
+        sm: 12,
+        md: 4,
+        hidden: "data.lightType !== 'color'",
+      },
+      hueScale: {
+        type: "select",
+        label: t("scaleHue"),
+        tooltip: t("scaleHueTooltip"),
+        default: "raw",
+        options: [
+          { label: t("scaleNative"), value: "raw" },
+          { label: t("scaleDegrees"), value: "degrees" },
+        ],
+        sm: 12,
+        md: 2,
+        hidden: "data.lightType !== 'color'",
+      },
+      satState: {
+        type: "objectId",
+        label: t("stateSat"),
+        tooltip: t("stateSatTooltip"),
+        sm: 12,
+        md: 4,
+        hidden: "data.lightType !== 'color'",
+      },
+      satScale: {
+        type: "select",
+        label: t("scaleSat"),
+        tooltip: t("scaleTooltip"),
+        default: "auto",
+        options: [
+          { label: t("scaleAuto"), value: "auto" },
+          { label: t("scalePercent"), value: "percent" },
+          { label: t("scaleNormalized"), value: "normalized" },
+          { label: t("scaleRaw"), value: "raw" },
+        ],
+        sm: 12,
+        md: 2,
+        hidden: "data.lightType !== 'color'",
+      },
+      xyState: {
+        type: "objectId",
+        label: t("stateXy"),
+        tooltip: t("stateXyTooltip"),
+        sm: 12,
+        md: 6,
+        hidden: "data.lightType !== 'color'",
+      },
+    },
+  };
+}
+
+/**
+ * Turn raw form data into a clean DeviceConfig: drop empty pickers and any
+ * field not relevant to the chosen light type (e.g. a stale hueState left over
+ * when a colour light is switched to on/off), so `native.devices` stays tidy.
+ *
+ * @param raw The submitted form values.
+ * @returns The pruned device mapping.
+ */
+export function cleanDevice(raw: Record<string, unknown>): DeviceConfig {
+  const type = typeof raw.lightType === "string" ? raw.lightType : "";
+  const allowed = FIELDS_BY_TYPE[type];
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === "" || value === undefined || value === null) {
+      continue;
+    }
+    if (allowed && !allowed.includes(key)) {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out as unknown as DeviceConfig;
+}
+
+/**
+ * ioBroker device-manager backend: exposes `native.devices` as device cards with
+ * add/edit/delete actions plus a "search lights" assistant. Owns no state of its
+ * own — it reads and writes the adapter's config object.
+ */
+export class HueEmuDeviceManagement extends DeviceManagement {
+  /** The `system.adapter.*` object id whose `native.devices` holds the mapping list. */
+  private get objId(): string {
+    return `system.adapter.${this.adapter.namespace}`;
+  }
+
+  /**
+   * Read the device list fresh from the live config object (so it reflects a
+   * write that is still triggering a restart).
+   *
+   * @returns The configured devices, or an empty list if none.
+   */
+  private async readDevices(): Promise<DeviceConfig[]> {
+    const obj = await this.adapter.getForeignObjectAsync(this.objId);
+    const devices = (obj?.native as { devices?: unknown } | undefined)?.devices;
+    return Array.isArray(devices) ? (devices as DeviceConfig[]) : [];
+  }
+
+  /**
+   * Persist the device list. Writing `native.*` restarts the adapter, which
+   * re-binds the lights with the new mappings.
+   *
+   * @param devices The full device list to store.
+   */
+  private async writeDevices(devices: DeviceConfig[]): Promise<void> {
+    await this.adapter.extendForeignObjectAsync(this.objId, { native: { devices } });
+  }
+
+  /**
+   * Populate the device-manager list from `native.devices`.
+   *
+   * @param context The load context to add one card per device to.
+   */
+  protected async loadDevices(context: DeviceLoadContext<string>): Promise<void> {
+    const devices = await this.readDevices();
+    devices.forEach((device, index) => context.addDevice(this.toDeviceInfo(device, index)));
+  }
+
+  /**
+   * Build one device card with edit/delete actions.
+   *
+   * @param device The stored mapping.
+   * @param index Its position in the list — used as the (per-session stable) card id.
+   * @returns The device-manager card descriptor.
+   */
+  private toDeviceInfo(device: DeviceConfig, index: number): DeviceInfo<string> {
+    return {
+      id: String(index),
+      name: device.name || `Light ${index + 1}`,
+      actions: [
+        {
+          id: "edit",
+          icon: "edit",
+          description: t("dmEdit"),
+          handler: async (id: string, context: ActionContext) => this.editDevice(Number(id), context),
+        },
+        {
+          id: "delete",
+          icon: "delete",
+          description: t("dmDelete"),
+          handler: async (id: string, context: ActionContext) => this.deleteDevice(Number(id), context),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Instance-level actions shown above the device list: manual add + the search
+   * assistant.
+   *
+   * @returns The instance action descriptor.
+   */
+  protected getInstanceInfo(): ReturnType<DeviceManagement["getInstanceInfo"]> {
+    return {
+      apiVersion: "v3",
+      actions: [
+        {
+          id: "add",
+          icon: "add",
+          title: t("dmAddLight"),
+          handler: async context => this.addDevice(context),
+        },
+        {
+          id: "search",
+          icon: "search",
+          title: t("dmSearchLights"),
+          handler: async context => this.searchDevices(context),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Manual add: show the empty form and append a valid result.
+   *
+   * @param context The action context.
+   * @returns A directive to reload the manager.
+   */
+  private async addDevice(context: ActionContext): Promise<InstanceResult> {
+    const data = await context.showForm(buildDeviceForm(), {
+      title: t("dmAddLight"),
+      data: { lightType: "dimmable" },
+    });
+    if (data && typeof data.name === "string" && data.name) {
+      const devices = await this.readDevices();
+      devices.push(cleanDevice(data));
+      await this.writeDevices(devices);
+    }
+    return { refresh: true };
+  }
+
+  /**
+   * Edit a device via the form, replacing it in place.
+   *
+   * @param index The device's list position.
+   * @param context The action context.
+   * @returns A directive to reload the list.
+   */
+  private async editDevice(index: number, context: ActionContext): Promise<DeviceResult> {
+    const devices = await this.readDevices();
+    const current = devices[index];
+    if (!current) {
+      return { refresh: "instance" };
+    }
+    const data = await context.showForm(buildDeviceForm(), {
+      title: t("dmEditTitle"),
+      data: { ...current },
+    });
+    if (data && typeof data.name === "string" && data.name) {
+      devices[index] = cleanDevice(data);
+      await this.writeDevices(devices);
+    }
+    return { refresh: "instance" };
+  }
+
+  /**
+   * Delete a device after confirmation.
+   *
+   * @param index The device's list position.
+   * @param context The action context.
+   * @returns A directive to reload the list.
+   */
+  private async deleteDevice(index: number, context: ActionContext): Promise<DeviceResult> {
+    const devices = await this.readDevices();
+    const target = devices[index];
+    if (!target) {
+      return { refresh: "instance" };
+    }
+    const confirmed = await context.showConfirmation(t("dmDeleteConfirm", target.name || ""));
+    if (confirmed) {
+      devices.splice(index, 1);
+      await this.writeDevices(devices);
+    }
+    return { refresh: "instance" };
+  }
+
+  /**
+   * Assistant: scan the object tree for light devices and append the ones that
+   * are not mapped yet. hueemu's own namespace is excluded (its emulated lights
+   * would otherwise be re-detected as sources), and the append is keyed by the
+   * mapped on/off state id so an existing entry is never overwritten — manual
+   * edits and repeated scans stay non-destructive.
+   *
+   * @param context The action context.
+   * @returns A directive to reload the manager.
+   */
+  private async searchDevices(context: ActionContext): Promise<InstanceResult> {
+    const progress = await context.openProgress(t("dmSearching"), { indeterminate: true });
+    try {
+      const all = await this.adapter.getForeignObjectsAsync("*");
+      const ownPrefix = `${this.adapter.namespace}.`;
+      const foreign: Record<string, ioBroker.Object> = {};
+      for (const [id, obj] of Object.entries(all)) {
+        if (!id.startsWith(ownPrefix)) {
+          foreign[id] = obj;
+        }
+      }
+
+      const { devices: found, unmapped } = scanForLightDevices(foreign, (id, obj) => {
+        const name = obj.common?.name;
+        return (typeof name === "string" && name) || id;
+      });
+
+      const existing = await this.readDevices();
+      const mappedIds = new Set(
+        existing.flatMap(d => [d.onState, d.briState, d.ctState, d.hueState, d.satState, d.xyState].filter(Boolean)),
+      );
+      const fresh = found.filter(d => !d.onState || !mappedIds.has(d.onState));
+
+      if (fresh.length) {
+        await this.writeDevices([...existing, ...fresh]);
+      }
+      await progress.close();
+      await context.showMessage(
+        unmapped.length ? t("dmScanResultRgb", fresh.length, unmapped.length) : t("dmScanResult", fresh.length),
+      );
+    } catch (e) {
+      await progress.close();
+      await context.showMessage(t("dmScanFailed", e instanceof Error ? e.message : String(e)));
+    }
+    return { refresh: true };
+  }
+}

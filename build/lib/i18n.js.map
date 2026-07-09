@@ -1,7 +1,7 @@
 {
   "version": 3,
   "sources": ["../../src/lib/i18n.ts"],
-  "sourcesContent": ["import { I18n } from \"@iobroker/adapter-core\";\nimport type translations from \"../../admin/i18n/en.json\";\n\ntype I18nKey = keyof typeof translations;\n\n/**\n * Translation object for the given i18n key.\n *\n * @param key Translation key from admin/i18n/en.json\n */\nexport function tName(key: I18nKey): ioBroker.StringOrTranslated {\n  return I18n.getTranslatedObject(key);\n}\n"],
-  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA,0BAAqB;AAUd,SAAS,MAAM,KAA2C;AAC/D,SAAO,yBAAK,oBAAoB,GAAG;AACrC;",
+  "sourcesContent": ["import { I18n } from \"@iobroker/adapter-core\";\nimport type translations from \"../../admin/i18n/en.json\";\n\ntype I18nKey = keyof typeof translations;\n\n/**\n * Translation object for the given i18n key.\n *\n * @param key Translation key from admin/i18n/en.json\n */\nexport function tName(key: I18nKey): ioBroker.StringOrTranslated {\n  return I18n.getTranslatedObject(key);\n}\n\n/**\n * Translation object for a user-facing string, with optional `%s` interpolation.\n * Returns all 11 languages (via adapter-core `getTranslatedObject`) so\n * Device-Manager titles, confirmations and messages render correctly in every\n * admin language regardless of how the frontend resolves the text.\n *\n * @param key Translation key from admin/i18n/en.json\n * @param args Optional values substituted into the key's `%s` placeholders\n */\nexport function t(key: I18nKey, ...args: (string | number | boolean | null)[]): ioBroker.StringOrTranslated {\n  return I18n.getTranslatedObject(key, ...args);\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA,0BAAqB;AAUd,SAAS,MAAM,KAA2C;AAC/D,SAAO,yBAAK,oBAAoB,GAAG;AACrC;AAWO,SAAS,EAAE,QAAiB,MAAyE;AAC1G,SAAO,yBAAK,oBAAoB,KAAK,GAAG,IAAI;AAC9C;",
   "names": []
 }
