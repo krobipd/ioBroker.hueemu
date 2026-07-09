@@ -118,10 +118,10 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Create a new user
    *
-   * @param req - Incoming HTTP request
+   * @param _req - Incoming HTTP request (unused; username now read from the typed body)
    * @param body - User creation request body
    */
-  public async createUser(req: HueRequest, body: CreateUserRequest): Promise<string> {
+  public async createUser(_req: HueRequest, body: CreateUserRequest): Promise<string> {
     // Sanitize devicetype at the boundary — routes already require string,
     // but belt-and-braces in case createUser is called from another path.
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
@@ -134,8 +134,10 @@ export class ApiHandler implements HueApiHandler {
       throw HueApiError.linkButtonNotPressed("/api");
     }
 
-    // Use provided username only if it's a non-empty string; otherwise generate
-    const rawUsername = (req.body as Record<string, unknown> | undefined)?.username;
+    // Use provided username only if it's a non-empty string; otherwise generate.
+    // body === req.body in every route path (api-v1-routes.ts), and
+    // CreateUserRequest.username is already typed string | undefined.
+    const rawUsername = body.username;
     const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : undefined;
 
     if (providedUsername) {
@@ -158,7 +160,7 @@ export class ApiHandler implements HueApiHandler {
    * @param username - Authenticated username
    */
   public async getFullState(_req: HueRequest, username: string): Promise<FullState> {
-    this.logger.debug(`Get full state for user: ${username}`);
+    this.logger.debug(`Get full state for user: ${oneLine(username)}`);
 
     const lights = await this.lightService.getAllLights();
     const state = this.configService.buildFullState(lights);
@@ -196,7 +198,7 @@ export class ApiHandler implements HueApiHandler {
    * @param lightId - Light identifier
    */
   public async getLightById(_req: HueRequest, _username: string, lightId: string): Promise<Light> {
-    this.logger.debug(`Get light: ${lightId}`);
+    this.logger.debug(`Get light: ${oneLine(lightId)}`);
     return this.lightService.getLightById(lightId);
   }
 
@@ -214,7 +216,7 @@ export class ApiHandler implements HueApiHandler {
     lightId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
-    this.logger.debug(`Set light ${lightId} state: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set light ${oneLine(lightId)} state: ${JSON.stringify(state)}`);
     return this.lightService.setLightState(lightId, state);
   }
 
@@ -232,7 +234,7 @@ export class ApiHandler implements HueApiHandler {
     groupId: string,
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
-    this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set group ${oneLine(groupId)} action: ${JSON.stringify(state)}`);
 
     // Fan out to every configured light using the cheap id list, not
     // getAllLights() (which rebuilds every light's full state) — a flood of

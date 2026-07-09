@@ -1,4 +1,8 @@
 # Older Changes
+## 1.6.0 (2026-05-31)
+
+- Brightness and saturation read from source states with unusual scales now stay within the valid Hue range, so edge-case values (such as 0% or negative) no longer produce out-of-range light state.
+
 ## 1.5.2 (2026-05-30)
 
 - Internal refactoring. No user-facing changes.

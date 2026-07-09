@@ -62,13 +62,11 @@ const ERROR_DESCRIPTIONS = {
 class HueApiError extends Error {
   type;
   address;
-  params;
   constructor(type, address, params = []) {
     const description = HueApiError.formatDescription(type, params);
     super(description);
     this.type = type;
     this.address = address;
-    this.params = params;
     this.name = "HueApiError";
   }
   /**
@@ -80,7 +78,7 @@ class HueApiError extends Error {
   static formatDescription(type, params) {
     let desc = ERROR_DESCRIPTIONS[type] || "unknown error";
     params.forEach((param, index) => {
-      desc = desc.replace(`{${index}}`, param);
+      desc = desc.replace(`{${index}}`, () => param);
     });
     return desc;
   }

@@ -51,5 +51,12 @@
   "disableAuthName": "禁用身份验证",
   "disableAuthDesc": "禁用身份验证（允许所有请求）",
   "advertiseHost": "对外公布的 IP",
-  "advertiseHostTooltip": "向客户端（Alexa、Harmony）公布用于发现的可达 IP。留空则自动检测。必须是具体 IP，而非 0.0.0.0。"
+  "advertiseHostTooltip": "向客户端（Alexa、Harmony）公布用于发现的可达 IP。留空则自动检测。必须是具体 IP，而非 0.0.0.0。",
+  "scaleHue": "色相刻度",
+  "scaleCt": "色温刻度",
+  "scaleHueTooltip": "如何解释色相源值。“原生”= 0..65535（Hue）。“度数”= 0..360（例如 HSV/HSL 源）。",
+  "scaleCtTooltip": "如何解释色温源值。“原生”= 153..500 迈尔德（Hue）。“开尔文”= 开尔文度（例如 2700..6500）。",
+  "scaleNative": "原生（不转换）",
+  "scaleDegrees": "度数 (0..360)",
+  "scaleKelvin": "开尔文"
 }

@@ -93,7 +93,7 @@ class UserService {
       this.autoAddedThisWindow += 1;
     }
     const safeUsername = (0, import_utils.sanitizeId)(username);
-    this.logger.debug(`Creating client: ${safeUsername} (${devicetype})`);
+    this.logger.debug(`Creating client: ${safeUsername} (${(0, import_utils.oneLine)(devicetype)})`);
     await this.ensureClientsFolder();
     try {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
@@ -155,7 +155,7 @@ class UserService {
     const cache = await this.ensureCache();
     const found = cache.has(safeUsername);
     if (found) {
-      this.logger.debug(`Client authenticated: ${username}`);
+      this.logger.debug(`Client authenticated: ${(0, import_utils.oneLine)(username)}`);
     }
     return found;
   }

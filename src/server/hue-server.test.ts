@@ -71,7 +71,6 @@ function makeConfig(overrides: Partial<HueEmulatorConfig> = {}): HueEmulatorConf
     host: "127.0.0.1",
     port: 0, // ephemeral — only used by the listen tests
     advertiseHost: "127.0.0.1",
-    upnpPort: 1900,
     identity: createTestIdentity(),
     trustProxy: false,
     ...overrides,
@@ -229,5 +228,24 @@ describe("HueServer lifecycle (real listen)", () => {
   it("stop() before start() resolves without error", async () => {
     const server = new HueServer({ config: makeConfig(), handler: makeHandler(), logger: createMockLogger() });
     await expect(server.stop()).resolves.toBeUndefined();
+  });
+
+  it("tears down the HTTP listener when the HTTPS listen fails (L3: atomic start)", async () => {
+    const net = await import("node:net");
+    // Occupy a port so the HTTPS listen below collides (EADDRINUSE).
+    const blocker = net.createServer();
+    await new Promise<void>((resolve) => blocker.listen(0, "127.0.0.1", () => resolve()));
+    const busyPort = (blocker.address() as { port: number }).port;
+
+    const config = makeConfig({ https: { port: busyPort, cert: TEST_CERT_PEM, key: TEST_KEY_PEM } });
+    const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger() });
+    try {
+      await expect(server.start()).rejects.toBeDefined();
+      // L3: the already-listening HTTP server must be torn down, not left half-serving.
+      expect((server as unknown as { httpServer: FastifyInstance | null }).httpServer).toBeNull();
+    } finally {
+      await server.stop().catch(() => {});
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    }
   });
 });

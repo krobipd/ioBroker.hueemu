@@ -30,6 +30,15 @@ describe("HueApiError", () => {
       expect(err.address).toBe("/lights/42");
     });
 
+    it("does not honour $-replacement patterns in substituted params (L8)", () => {
+      // A plain-string replacement would interpret $&, $', $`, $$ in the param;
+      // the function replacer keeps them literal and never leaks the {0} template.
+      expect(HueApiError.resourceNotAvailable("$&", "/x").message).toBe("resource, $&, not available");
+      expect(HueApiError.resourceNotAvailable("$'", "/x").message).toBe("resource, $', not available");
+      expect(HueApiError.resourceNotAvailable("$`", "/x").message).toBe("resource, $`, not available");
+      expect(HueApiError.resourceNotAvailable("a$$b", "/x").message).toBe("resource, a$$b, not available");
+    });
+
     it("should create missingParameters error", () => {
       const err = HueApiError.missingParameters("/api");
       expect(err.type).toBe(HueErrorType.MISSING_PARAMETERS);

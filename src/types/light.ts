@@ -2,6 +2,8 @@
  * Light types for the Hue API
  */
 
+import type { HueErrorResponse } from "./errors";
+
 /**
  * Hue light types (only types used by the emulator)
  */
@@ -132,6 +134,4 @@ export interface LightStateSuccessResponse {
 /**
  * Result of setting light state (success or error)
  */
-export type LightStateResult =
-  | LightStateSuccessResponse
-  | { error: { type: number; address: string; description: string } };
+export type LightStateResult = LightStateSuccessResponse | HueErrorResponse;

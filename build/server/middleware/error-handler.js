@@ -24,11 +24,14 @@ __export(error_handler_exports, {
 });
 module.exports = __toCommonJS(error_handler_exports);
 var import_errors = require("../../types/errors");
+function isInvalidJsonError(error) {
+  return "validation" in error && Boolean(error.validation) || error.code === "FST_ERR_CTP_INVALID_JSON_BODY";
+}
 function hueErrorHandler(error, request, reply) {
   const address = request.url || "/";
   if (error instanceof import_errors.HueApiError) {
     reply.status(200).send([error.toResponse()]);
-  } else if ("validation" in error && error.validation) {
+  } else if (isInvalidJsonError(error)) {
     const hueError = import_errors.HueApiError.invalidJson(address);
     reply.status(200).send([hueError.toResponse()]);
   } else {
@@ -41,7 +44,7 @@ function createHueErrorHandler(logger) {
     return hueErrorHandler;
   }
   return function loggedHueErrorHandler(error, request, reply) {
-    const errorType = error instanceof import_errors.HueApiError ? String(error.type) : "validation" in error && error.validation ? "invalid_json" : "internal_error";
+    const errorType = error instanceof import_errors.HueApiError ? String(error.type) : isInvalidJsonError(error) ? "invalid_json" : "internal_error";
     const message = error.message || "Unknown error";
     logger.debug(`Hue error-handler: ${request.method} ${request.url} \u2192 ${errorType} (${message})`);
     hueErrorHandler(error, request, reply);

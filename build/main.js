@@ -48,6 +48,9 @@ var import_utils = require("./types/utils");
 class HueEmu extends utils.Adapter {
   /** Pairing window duration in milliseconds (50 seconds) */
   static PAIRING_TIMEOUT_MS = 5e4;
+  // v1.10.0 (H1): bound the awaited SSDP start — node-ssdp can hang forever on a
+  // swallowed 1900 bind error (see ssdp-server.ts). 5s is far above a local bind.
+  static SSDP_START_TIMEOUT_MS = 5e3;
   pairingTimeoutId = void 0;
   _pairingEnabled = false;
   _disableAuth = false;
@@ -140,7 +143,6 @@ class HueEmu extends utils.Adapter {
         identity: emulatorConfig.identity,
         host: emulatorConfig.advertiseHost,
         port: emulatorConfig.port,
-        ssdpPort: emulatorConfig.upnpPort,
         logger
       });
       this.apiHandler = this.makeApiHandler({
@@ -158,15 +160,15 @@ class HueEmu extends utils.Adapter {
         handler: this.apiHandler,
         logger
       });
+      await this.initializeAdapterStates();
       await this.hueServer.start();
       try {
-        await this.ssdpServer.start();
+        await this.startSsdpWithTimeout();
       } catch (err) {
         this.log.warn(
           `SSDP discovery disabled \u2014 port 1900 unavailable (${(0, import_utils.errText)(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`
         );
       }
-      await this.initializeAdapterStates();
       await this.cleanupObsoleteStates();
       this.subscribeStates("*");
       this.log.debug("Subscribed to own states (pattern: *)");
@@ -184,7 +186,7 @@ class HueEmu extends utils.Adapter {
     var _a, _b, _c, _d, _e, _f;
     const host = ((_a = this.config.host) == null ? void 0 : _a.trim()) || "0.0.0.0";
     const port = this.toPort(this.config.port);
-    const advertiseHost = ((_b = this.config.advertiseHost) == null ? void 0 : _b.trim()) || (host && host !== "0.0.0.0" ? host : (0, import_config.detectPrimaryIPv4)());
+    const advertiseHost = ((_b = this.config.advertiseHost) == null ? void 0 : _b.trim()) || (host !== "0.0.0.0" ? host : (0, import_config.detectPrimaryIPv4)());
     const httpsPort = (0, import_coerce.parsePort)(this.config.httpsPort);
     (0, import_config.validateNetworkConfig)(advertiseHost, port, httpsPort);
     const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
@@ -194,7 +196,6 @@ class HueEmu extends utils.Adapter {
         native: { udn, mac }
       });
     }
-    const upnpPort = 1900;
     const identity = {
       udn,
       mac,
@@ -211,7 +212,7 @@ class HueEmu extends utils.Adapter {
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`
     );
     this.log.debug(
-      `Network: bind=${host}:${port}, advertise=${advertiseHost}, SSDP=:${upnpPort}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`
+      `Network: bind=${host}:${port}, advertise=${advertiseHost}, SSDP=:${import_discovery.SSDP_PORT}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`
     );
     this.log.debug(`UDN: ${identity.udn}`);
     return {
@@ -219,7 +220,6 @@ class HueEmu extends utils.Adapter {
       port,
       advertiseHost,
       https,
-      upnpPort,
       identity,
       trustProxy: this.config.trustProxy === true
     };
@@ -297,6 +297,53 @@ class HueEmu extends utils.Adapter {
     this.pairingEnabled = false;
     const disableAuthState = await this.getStateAsync("disableAuth");
     this._disableAuth = (0, import_coerce.coerceBool)(disableAuthState == null ? void 0 : disableAuthState.val);
+  }
+  /**
+   * Start the SSDP server bounded by a managed timeout. node-ssdp swallows a
+   * socket bind error and never settles its start() promise (H1, see
+   * ssdp-server.ts), so a busy UDP port 1900 would otherwise hang onReady forever
+   * — leaving the adapter serving HTTP but never subscribing to states. The
+   * this.setTimeout (auto-cleared on unload) rejects the race so onReady degrades
+   * to "SSDP disabled, HTTP stays up" (S2). On a timeout the SSDP server's
+   * isRunning stays false, so onUnload's stop() is a safe no-op.
+   */
+  async startSsdpWithTimeout() {
+    const ssdp = this.ssdpServer;
+    if (!ssdp) {
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = this.setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        reject(
+          new Error(
+            `SSDP start timed out after ${HueEmu.SSDP_START_TIMEOUT_MS}ms \u2014 port 1900 is likely held by another process`
+          )
+        );
+      }, HueEmu.SSDP_START_TIMEOUT_MS);
+      void ssdp.start().then(
+        () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          this.clearTimeout(timer);
+          resolve();
+        },
+        (err) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          this.clearTimeout(timer);
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
+      );
+    });
   }
   /**
    * Migrate v1.3.x instanceObject names/descriptions from plain English strings
@@ -504,10 +551,6 @@ class HueEmu extends utils.Adapter {
           this.delObjectAsync(`${deviceId}.name`).catch(() => {
           }),
           this.delObjectAsync(`${deviceId}.data`).catch(() => {
-          }),
-          this.delObjectAsync(`${deviceId}.state`).catch(() => {
-          }),
-          this.delObjectAsync(deviceId).catch(() => {
           })
         ]);
       } catch (error) {

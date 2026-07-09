@@ -44,8 +44,6 @@ export interface HueEmulatorConfig {
   advertiseHost: string;
   /** Optional HTTPS configuration */
   https?: TlsConfig;
-  /** UPnP/SSDP port (default: 1900) */
-  upnpPort: number;
   /** Bridge identity */
   identity: BridgeIdentity;
   /**

@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "news": {
+      "1.10.0": {
+        "en": "SSDP discovery no longer freezes the adapter when port 1900 is busy, so lights keep responding — plus new degrees/Kelvin scales for hue and colour-temperature sources.",
+        "de": "Die SSDP-Erkennung friert den Adapter nicht mehr ein, wenn Port 1900 belegt ist — Lichter reagieren weiter. Neu: Grad-/Kelvin-Skalen für Farbton- und Farbtemperatur-Quellen.",
+        "ru": "Обнаружение SSDP больше не подвешивает адаптер, когда порт 1900 занят — лампы продолжают отвечать. Новое: шкалы в градусах/Кельвинах для оттенка и цветовой температуры.",
+        "pt": "A descoberta SSDP já não bloqueia o adaptador quando a porta 1900 está ocupada — as luzes continuam a responder. Novo: escalas em graus/Kelvin para matiz e temperatura de cor.",
+        "nl": "SSDP-detectie laat de adapter niet meer vastlopen als poort 1900 bezet is, zodat lampen blijven reageren. Nieuw: graden/Kelvin-schalen voor tint en kleurtemperatuur.",
+        "fr": "La découverte SSDP ne bloque plus l'adaptateur lorsque le port 1900 est occupé — les lumières continuent de répondre. Nouveau : échelles en degrés/Kelvin pour teinte et température.",
+        "it": "Il rilevamento SSDP non blocca più l'adattatore quando la porta 1900 è occupata — le luci continuano a rispondere. Novità: scale in gradi/Kelvin per tonalità e temperatura.",
+        "es": "El descubrimiento SSDP ya no bloquea el adaptador cuando el puerto 1900 está ocupado — las luces siguen respondiendo. Nuevo: escalas en grados/Kelvin para tono y temperatura.",
+        "pl": "Wykrywanie SSDP nie zawiesza już adaptera, gdy port 1900 jest zajęty — światła nadal reagują. Nowość: skale w stopniach/Kelwinach dla barwy i temperatury barwowej.",
+        "uk": "Виявлення SSDP більше не підвішує адаптер, коли порт 1900 зайнятий — світло продовжує реагувати. Нове: шкали в градусах/Кельвінах для відтінку та колірної температури.",
+        "zh-cn": "当端口 1900 被占用时，SSDP 发现不再使适配器卡死，灯光可继续响应。新增：色相和色温源的度数/开尔文刻度。"
+      },
       "1.9.0": {
         "en": "Discovery now survives a bridge IP change: bind to all interfaces and set a separate advertised IP, plus colour and reliability fixes.",
         "de": "Discovery übersteht jetzt einen IP-Wechsel der Bridge: auf alle Interfaces binden und eine separate angekündigte IP setzen, plus Farb- und Zuverlässigkeits-Fixes.",
@@ -80,19 +93,6 @@
         "pl": "Wewnętrzna przebudowa. Brak zmian widocznych dla użytkownika.",
         "uk": "Внутрішня переробка. Жодних змін для користувача.",
         "zh-cn": "内部重构。无用户可见更改。"
-      },
-      "1.5.1": {
-        "en": "Changelog rewritten in user-centric style across all versions.",
-        "de": "Changelog in benutzerfreundlichem Stil über alle Versionen umgeschrieben.",
-        "ru": "Журнал изменений переписан в пользовательском стиле для всех версий.",
-        "pt": "Changelog reescrito em estilo orientado ao utilizador em todas as versões.",
-        "nl": "Changelog herschreven in gebruikersgerichte stijl voor alle versies.",
-        "fr": "Journal des modifications réécrit dans un style orienté utilisateur pour toutes les versions.",
-        "it": "Changelog riscritto in stile orientato all utente per tutte le versioni.",
-        "es": "Registro de cambios reescrito en estilo orientado al usuario en todas las versiones.",
-        "pl": "Dziennik zmian przepisany w stylu zorientowanym na użytkownika we wszystkich wersjach.",
-        "uk": "Журнал змін переписано у стилі орієнтованому на користувача для всіх версій.",
-        "zh-cn": "所有版本的更新日志已改写为面向用户的风格。"
       }
     },
     "plugins": {

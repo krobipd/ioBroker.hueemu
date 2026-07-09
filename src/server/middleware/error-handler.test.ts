@@ -61,6 +61,16 @@ describe("hueErrorHandler", () => {
     expect(firstError(sent.body).type).toBe(HueErrorType.INVALID_JSON);
   });
 
+  it("maps a Fastify body-parse error (FST_ERR_CTP_INVALID_JSON_BODY) to INVALID_JSON (2), not 901 (L4)", () => {
+    const { reply, sent } = mockReply();
+    const parseErr = Object.assign(new Error("Unexpected token n in JSON"), {
+      code: "FST_ERR_CTP_INVALID_JSON_BODY",
+      statusCode: 400,
+    }) as unknown as FastifyError;
+    hueErrorHandler(parseErr, req(), reply);
+    expect(firstError(sent.body).type).toBe(HueErrorType.INVALID_JSON);
+  });
+
   it("falls back to 'Unknown error' when the generic error has no message", () => {
     const { reply, sent } = mockReply();
     hueErrorHandler(new Error(""), req(), reply);
@@ -92,6 +102,18 @@ describe("createHueErrorHandler", () => {
     expect(debug).toHaveBeenCalledWith(expect.stringContaining("internal_error"));
     // delegates: response still produced
     expect(firstError(sent.body).type).toBe(HueErrorType.INTERNAL_ERROR);
+  });
+
+  it("logs 'invalid_json' for a Fastify body-parse error (L4)", () => {
+    const debug = vi.fn();
+    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
+    const handler = createHueErrorHandler(logger);
+    const { reply } = mockReply();
+    const parseErr = Object.assign(new Error("bad json"), {
+      code: "FST_ERR_CTP_INVALID_JSON_BODY",
+    }) as unknown as FastifyError;
+    handler(parseErr, req("/api", "POST"), reply);
+    expect(debug).toHaveBeenCalledWith(expect.stringContaining("invalid_json"));
   });
 
   it("logs the numeric type for a HueApiError", () => {

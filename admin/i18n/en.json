@@ -51,5 +51,12 @@
   "disableAuthName": "Disable Authentication",
   "disableAuthDesc": "Disable authentication (allow all requests)",
   "advertiseHost": "Advertised IP",
-  "advertiseHostTooltip": "The reachable IP announced to clients (Alexa, Harmony) for discovery. Leave empty to auto-detect. Must be a concrete IP, not 0.0.0.0."
+  "advertiseHostTooltip": "The reachable IP announced to clients (Alexa, Harmony) for discovery. Leave empty to auto-detect. Must be a concrete IP, not 0.0.0.0.",
+  "scaleHue": "Hue scale",
+  "scaleCt": "Color temperature scale",
+  "scaleHueTooltip": "How the hue source value is interpreted. 'Native' = 0..65535 (Hue). 'Degrees' = 0..360 (e.g. HSV/HSL sources).",
+  "scaleCtTooltip": "How the color temperature source value is interpreted. 'Native' = 153..500 mired (Hue). 'Kelvin' = degrees Kelvin (e.g. 2700..6500).",
+  "scaleNative": "Native (no conversion)",
+  "scaleDegrees": "Degrees (0..360)",
+  "scaleKelvin": "Kelvin"
 }

@@ -35,6 +35,24 @@ const HUE_XY_DEFAULT = [0.5, 0.5];
 function clampRound(v, min, max) {
   return Math.min(max, Math.max(min, Math.round(v)));
 }
+function hueFromState(n, scale) {
+  const hueValue = scale === "degrees" ? n / 360 * HUE_HUE_MAX : n;
+  return clampRound(hueValue, 0, HUE_HUE_MAX);
+}
+function hueForState(n, scale) {
+  const hueValue = clampRound(n, 0, HUE_HUE_MAX);
+  return scale === "degrees" ? Math.round(hueValue / HUE_HUE_MAX * 360) : hueValue;
+}
+function ctFromState(n, scale) {
+  if (scale === "kelvin") {
+    return n > 0 ? clampRound(1e6 / n, HUE_CT_MIN, HUE_CT_MAX) : HUE_CT_DEFAULT;
+  }
+  return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+}
+function ctForState(n, scale) {
+  const mired = clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+  return scale === "kelvin" ? Math.round(1e6 / mired) : mired;
+}
 const LIGHT_TYPES = {
   onoff: {
     name: "Dimmable light",
@@ -362,6 +380,7 @@ class DeviceBindingService {
         this.stateCache.set(stateId, state.val);
         return this.convertValueFromState(stateName, state.val, device);
       }
+      this.stateCache.set(stateId, null);
     } catch (error) {
       this.logger.debug(`Could not get state ${stateId}: ${(0, import_utils.errText)(error)}`);
     }
@@ -375,6 +394,11 @@ class DeviceBindingService {
    * which collapsed 1-percent (`n=1` from a 0..100 scale) to bri 254.
    * The "auto" scale keeps that legacy behaviour for backwards compat.
    *
+   * bri/sat/hue/ct each carry a per-device scale (D3 + I2): bri/sat map percent/
+   * normalized/raw sources; hue maps raw (0..65535) vs degrees (0..360); ct maps
+   * raw (153..500 mired) vs Kelvin. Default 'raw' is the Hue-native unit, i.e. the
+   * pre-I2 behaviour — existing devices need no re-config.
+   *
    * @param stateName Hue API state key (`on`, `bri`, `hue`, `sat`, `ct`, `xy`)
    * @param value Raw value from the foreign state
    * @param device Device config (for the per-state scale settings)
@@ -385,10 +409,7 @@ class DeviceBindingService {
     }
     switch (stateName) {
       case "on":
-        if (typeof value === "string") {
-          return value !== "false" && value !== "0" && value !== "";
-        }
-        return Boolean(value);
+        return (0, import_coerce.coerceBool)(value);
       case "bri":
         return this.scaleValueFromState(value, device == null ? void 0 : device.briScale, HUE_BRI_MIN, HUE_BRI_MAX, device, "bri");
       case "hue": {
@@ -397,7 +418,7 @@ class DeviceBindingService {
           this.logger.debug(`Default fallback for hue (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
           return 0;
         }
-        return clampRound(n, 0, HUE_HUE_MAX);
+        return hueFromState(n, device == null ? void 0 : device.hueScale);
       }
       case "sat":
         return this.scaleValueFromState(value, device == null ? void 0 : device.satScale, 0, HUE_SAT_MAX, device, "sat");
@@ -407,7 +428,7 @@ class DeviceBindingService {
           this.logger.debug(`Default fallback for ct (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
           return HUE_CT_DEFAULT;
         }
-        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        return ctFromState(n, device == null ? void 0 : device.ctScale);
       }
       case "xy": {
         if (Array.isArray(value) && value.length >= 2) {
@@ -434,8 +455,8 @@ class DeviceBindingService {
           }
           const parts = trimmed.split(",");
           if (parts.length >= 2) {
-            const x = (0, import_coerce.coerceFiniteNumber)(parts[0]);
-            const y = (0, import_coerce.coerceFiniteNumber)(parts[1]);
+            const x = (0, import_coerce.coerceFiniteNumber)(parts[0].trim());
+            const y = (0, import_coerce.coerceFiniteNumber)(parts[1].trim());
             if (x !== null && y !== null) {
               return [x, y];
             }
@@ -467,10 +488,7 @@ class DeviceBindingService {
   convertValueForState(stateName, value, device) {
     switch (stateName) {
       case "on":
-        if (typeof value === "string") {
-          return value !== "false" && value !== "0" && value !== "";
-        }
-        return Boolean(value);
+        return (0, import_coerce.coerceBool)(value);
       case "bri":
         return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device == null ? void 0 : device.briScale, device, "bri");
       case "hue": {
@@ -479,7 +497,7 @@ class DeviceBindingService {
           this.logger.debug(`Default fallback for hue (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
           return 0;
         }
-        return clampRound(n, 0, HUE_HUE_MAX);
+        return hueForState(n, device == null ? void 0 : device.hueScale);
       }
       case "sat":
         return this.clampScaleForState(value, 0, HUE_SAT_MAX, device == null ? void 0 : device.satScale, device, "sat");
@@ -489,7 +507,7 @@ class DeviceBindingService {
           this.logger.debug(`Default fallback for ct (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
           return HUE_CT_DEFAULT;
         }
-        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        return ctForState(n, device == null ? void 0 : device.ctScale);
       }
       case "xy": {
         if (Array.isArray(value) && value.length >= 2) {

@@ -59,11 +59,22 @@ export class HueServer {
 
     // Start HTTPS server if configured
     if (this.config.https) {
-      this.httpsServer = await this.createServer(true);
-      await this.httpsServer.listen({
-        port: this.config.https.port,
-        host: this.config.host || "0.0.0.0",
-      });
+      try {
+        this.httpsServer = await this.createServer(true);
+        await this.httpsServer.listen({
+          port: this.config.https.port,
+          host: this.config.host || "0.0.0.0",
+        });
+      } catch (err) {
+        // v1.10.0 (L3): keep start() atomic — if the HTTPS listen fails (e.g. its
+        // port is taken), tear down the already-listening HTTP server (and the
+        // half-built HTTPS instance) so a failed start leaves nothing half-serving.
+        await this.httpsServer?.close().catch(() => {});
+        await this.httpServer?.close().catch(() => {});
+        this.httpServer = null;
+        this.httpsServer = null;
+        throw err;
+      }
 
       this.logger.debug(`HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
     }
@@ -109,8 +120,12 @@ export class HueServer {
       logger: false as const,
       trustProxy: this.config.trustProxy === true,
       bodyLimit: 65536,
-      caseSensitive: false,
-      ignoreTrailingSlash: true,
+      // v1.10.0 (M2): router options moved under `routerOptions` (Fastify 5.9+);
+      // the top-level form is deprecated (FSTDEP022) and removed in fastify@6.
+      routerOptions: {
+        caseSensitive: false,
+        ignoreTrailingSlash: true,
+      },
       forceCloseConnections: true as const,
     };
 

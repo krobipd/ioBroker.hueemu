@@ -18,12 +18,14 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var ssdp_server_exports = {};
 __export(ssdp_server_exports, {
-  HueSsdpServer: () => HueSsdpServer
+  HueSsdpServer: () => HueSsdpServer,
+  SSDP_PORT: () => SSDP_PORT
 });
 module.exports = __toCommonJS(ssdp_server_exports);
 var import_node_ssdp = require("node-ssdp");
 var import_utils = require("../types/utils");
 var import_description_xml = require("./description-xml");
+const SSDP_PORT = 1900;
 class HueSsdpServer {
   server = null;
   config;
@@ -37,7 +39,7 @@ class HueSsdpServer {
     var _a;
     this.config = {
       ...config,
-      ssdpPort: (_a = config.ssdpPort) != null ? _a : 1900
+      ssdpPort: (_a = config.ssdpPort) != null ? _a : SSDP_PORT
     };
   }
   /**
@@ -116,6 +118,7 @@ class HueSsdpServer {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  HueSsdpServer
+  HueSsdpServer,
+  SSDP_PORT
 });
 //# sourceMappingURL=ssdp-server.js.map

@@ -331,6 +331,37 @@ describe("HueEmu onReady", () => {
     await i.onReady();
     expect(ssdps[0].start).toHaveBeenCalled();
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("SSDP discovery disabled"));
+    // H1: state handling must still be wired after an SSDP failure — the adapter
+    // must not be left HTTP-alive-but-state-dead.
+    expect(i.subscribeStates).toHaveBeenCalledWith("*");
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Hue Emulator running"));
+  });
+
+  it("times out a hung SSDP start so onReady still wires state handling (H1)", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    const internal = adapter as unknown as {
+      makeSsdpServer: (o: unknown) => FakeSsdp;
+      setTimeout: (cb: () => void, ms: number) => unknown;
+    };
+    const orig = internal.makeSsdpServer.bind(adapter);
+    internal.makeSsdpServer = (o: unknown) => {
+      const s = orig(o);
+      // node-ssdp swallows a bind error and never settles — start() hangs forever.
+      s.start.mockReturnValue(new Promise<void>(() => {}));
+      return s;
+    };
+    // Fire the start-timeout synchronously so the hung start() loses the race.
+    // onReady is the only this.setTimeout caller during boot (the pairing timer is
+    // armed later, in onStateChange), so overriding it here is safe.
+    internal.setTimeout = (cb: () => void) => {
+      cb();
+      return {};
+    };
+    await i.onReady();
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("SSDP discovery disabled"));
+    // The timed-out SSDP start must NOT stall onReady — state handling stays wired.
+    expect(i.subscribeStates).toHaveBeenCalledWith("*");
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Hue Emulator running"));
   });
 
@@ -375,6 +406,24 @@ describe("HueEmu onReady", () => {
     internalOf(on.adapter).getStateAsync.mockResolvedValue({ val: true, ack: true });
     await internalOf(on.adapter).onReady();
     expect(on.adapter.disableAuth).toBe(true);
+  });
+
+  it("restores disableAuth BEFORE the HTTP listener opens (L1: no boot-window auth gap)", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getStateAsync.mockResolvedValue({ val: true, ack: true }); // persisted disableAuth = true
+    let disableAuthAtHttpStart: boolean | undefined;
+    (adapter as unknown as { makeHueServer: (o: unknown) => unknown }).makeHueServer = (options: unknown) => ({
+      start: vi.fn(async () => {
+        disableAuthAtHttpStart = adapter.disableAuth;
+      }),
+      stop: vi.fn(async () => {}),
+      options,
+    });
+    await i.onReady();
+    // initializeAdapterStates() ran before hueServer.start(), so the persisted flag
+    // was already live when the listener opened (old order captured the default false).
+    expect(disableAuthAtHttpStart).toBe(true);
   });
 });
 
@@ -546,5 +595,22 @@ describe("HueEmu migrateLegacyDevices", () => {
     expect(device.onState).toBe("hueemu.0.colorlamp.state.on");
     expect(device.hueState).toBe("hueemu.0.colorlamp.state.hue");
     expect(device.xyState).toBeUndefined(); // xy not present in legacy states
+  });
+
+  it("keeps the device + channel container objects, deleting only the obsolete .name/.data wrappers (L2)", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.legacylamp", common: { name: "Legacy" } }]);
+    i.getStatesOfAsync.mockResolvedValue([{ _id: "hueemu.0.legacylamp.state.on" }]);
+
+    expect(await i.migrateLegacyDevices()).toBe(true);
+
+    const deleted = i.delObjectAsync.mock.calls.map((c) => c[0]);
+    // Obsolete metadata wrappers are removed...
+    expect(deleted).toContain("legacylamp.name");
+    expect(deleted).toContain("legacylamp.data");
+    // ...but the parents of the retained leaf states must NOT be orphaned.
+    expect(deleted).not.toContain("legacylamp.state");
+    expect(deleted).not.toContain("legacylamp");
   });
 });

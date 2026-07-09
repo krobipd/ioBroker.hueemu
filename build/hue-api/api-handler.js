@@ -91,11 +91,10 @@ class ApiHandler {
   /**
    * Create a new user
    *
-   * @param req - Incoming HTTP request
+   * @param _req - Incoming HTTP request (unused; username now read from the typed body)
    * @param body - User creation request body
    */
-  async createUser(req, body) {
-    var _a;
+  async createUser(_req, body) {
     const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
     this.logger.debug(
       `Pairing request: devicetype=${(0, import_utils.oneLine)(devicetype)}, generateclientkey=${(0, import_utils.oneLine)(String(body.generateclientkey))}`
@@ -103,7 +102,7 @@ class ApiHandler {
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
       throw import_errors.HueApiError.linkButtonNotPressed("/api");
     }
-    const rawUsername = (_a = req.body) == null ? void 0 : _a.username;
+    const rawUsername = body.username;
     const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : void 0;
     if (providedUsername) {
       this.logger.debug(`Using provided username: ${(0, import_utils.oneLine)(providedUsername)}`);
@@ -120,7 +119,7 @@ class ApiHandler {
    * @param username - Authenticated username
    */
   async getFullState(_req, username) {
-    this.logger.debug(`Get full state for user: ${username}`);
+    this.logger.debug(`Get full state for user: ${(0, import_utils.oneLine)(username)}`);
     const lights = await this.lightService.getAllLights();
     const state = this.configService.buildFullState(lights);
     state.config.linkbutton = this.adapter.pairingEnabled;
@@ -154,7 +153,7 @@ class ApiHandler {
    * @param lightId - Light identifier
    */
   async getLightById(_req, _username, lightId) {
-    this.logger.debug(`Get light: ${lightId}`);
+    this.logger.debug(`Get light: ${(0, import_utils.oneLine)(lightId)}`);
     return this.lightService.getLightById(lightId);
   }
   /**
@@ -166,7 +165,7 @@ class ApiHandler {
    * @param state - State update to apply
    */
   async setLightState(_req, _username, lightId, state) {
-    this.logger.debug(`Set light ${lightId} state: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set light ${(0, import_utils.oneLine)(lightId)} state: ${JSON.stringify(state)}`);
     return this.lightService.setLightState(lightId, state);
   }
   /**
@@ -178,7 +177,7 @@ class ApiHandler {
    * @param state - State update to apply to all lights
    */
   async setGroupAction(_req, _username, groupId, state) {
-    this.logger.debug(`Set group ${groupId} action: ${JSON.stringify(state)}`);
+    this.logger.debug(`Set group ${(0, import_utils.oneLine)(groupId)} action: ${JSON.stringify(state)}`);
     const lightIds = this.lightService.getLightIds();
     await Promise.all(
       lightIds.map(

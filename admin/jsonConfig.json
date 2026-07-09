@@ -25,7 +25,7 @@
           "xl": 6
         },
         "port": {
-          "type": "number",
+          "type": "port",
           "label": "port",
           "tooltip": "portTooltip",
           "min": 1,
@@ -72,7 +72,7 @@
           }
         },
         "httpsPort": {
-          "type": "number",
+          "type": "port",
           "label": "httpsPort",
           "tooltip": "httpsPortTooltip",
           "min": 1,
@@ -265,9 +265,26 @@
               "types": "state",
               "xs": 12,
               "sm": 12,
-              "md": 6,
-              "lg": 6,
-              "xl": 6,
+              "md": 4,
+              "lg": 4,
+              "xl": 4,
+              "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
+            },
+            {
+              "attr": "ctScale",
+              "type": "select",
+              "label": "scaleCt",
+              "tooltip": "scaleCtTooltip",
+              "default": "raw",
+              "options": [
+                { "label": "scaleNative", "value": "raw" },
+                { "label": "scaleKelvin", "value": "kelvin" }
+              ],
+              "xs": 12,
+              "sm": 12,
+              "md": 2,
+              "lg": 2,
+              "xl": 2,
               "hidden": "data.lightType !== 'ct' && data.lightType !== 'color'"
             },
             {
@@ -278,9 +295,26 @@
               "types": "state",
               "xs": 12,
               "sm": 12,
-              "md": 6,
-              "lg": 6,
-              "xl": 6,
+              "md": 4,
+              "lg": 4,
+              "xl": 4,
+              "hidden": "data.lightType !== 'color'"
+            },
+            {
+              "attr": "hueScale",
+              "type": "select",
+              "label": "scaleHue",
+              "tooltip": "scaleHueTooltip",
+              "default": "raw",
+              "options": [
+                { "label": "scaleNative", "value": "raw" },
+                { "label": "scaleDegrees", "value": "degrees" }
+              ],
+              "xs": 12,
+              "sm": 12,
+              "md": 2,
+              "lg": 2,
+              "xl": 2,
               "hidden": "data.lightType !== 'color'"
             },
             {

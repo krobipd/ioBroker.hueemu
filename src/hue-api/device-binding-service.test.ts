@@ -383,6 +383,27 @@ describe("DeviceBindingService", () => {
         expect(light.state.on).toBe(true);
       });
 
+      // v1.10.0 (M1): shared coerceBool (allowlist) fixes the old blocklist that
+      // read every string except "false"/"0"/"" as ON — these FAIL on the old code.
+      it.each(["off", "OFF", "no", "disabled", "FALSE", "False"])(
+        "reads the off-ish string '%s' as false (M1)",
+        async (raw) => {
+          const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
+            "test.on": raw,
+          });
+          const light = await service.getLightById("1");
+          expect(light.state.on).toBe(false);
+        },
+      );
+
+      it.each(["on", "yes", "TRUE", "On"])("reads the on-ish string '%s' as true (M1)", async (raw) => {
+        const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
+          "test.on": raw,
+        });
+        const light = await service.getLightById("1");
+        expect(light.state.on).toBe(true);
+      });
+
       it("should handle null as default (false)", async () => {
         const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
           "test.on": null,
@@ -530,6 +551,25 @@ describe("DeviceBindingService", () => {
         const light = await service.getLightById("1");
         expect(light.state.hue).toBe(0);
       });
+
+      // v1.10.0 (I2): per-device hue scale.
+      it("hueScale=degrees reads a 0..360 source as Hue 0..65535", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", hueState: "test.hue", hueScale: "degrees" }],
+          { "test.hue": 180 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.hue).toBe(32768); // 180 / 360 × 65535
+      });
+
+      it("hueScale=raw (default) passes the value through unchanged", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "color", hueState: "test.hue", hueScale: "raw" }],
+          { "test.hue": 30000 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.hue).toBe(30000);
+      });
     });
 
     describe("sat state (saturation)", () => {
@@ -609,6 +649,25 @@ describe("DeviceBindingService", () => {
         const light = await service.getLightById("1");
         expect(light.state.ct).toBe(250);
       });
+
+      // v1.10.0 (I2): per-device ct scale.
+      it("ctScale=kelvin reads a Kelvin source as Hue mired", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" }],
+          { "test.ct": 3000 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.ct).toBe(333); // 1e6 / 3000
+      });
+
+      it("ctScale=kelvin falls back to the default for a non-positive Kelvin", async () => {
+        const { service } = createService(
+          [{ name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" }],
+          { "test.ct": 0 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state.ct).toBe(250); // HUE_CT_DEFAULT
+      });
     });
 
     describe("xy state", () => {
@@ -623,6 +682,14 @@ describe("DeviceBindingService", () => {
       it("should parse comma-separated string", async () => {
         const { service } = createService([{ name: "Test", lightType: "color", xyState: "test.xy" }], {
           "test.xy": "0.3127,0.3290",
+        });
+        const light = await service.getLightById("1");
+        expect(light.state.xy).toEqual([0.3127, 0.329]);
+      });
+
+      it("should parse a space-padded comma-separated string (L7)", async () => {
+        const { service } = createService([{ name: "Test", lightType: "color", xyState: "test.xy" }], {
+          "test.xy": "0.3127, 0.3290",
         });
         const light = await service.getLightById("1");
         expect(light.state.xy).toEqual([0.3127, 0.329]);
@@ -852,6 +919,23 @@ describe("DeviceBindingService", () => {
       expect(adapter.writtenStates.get("test.ct")).toBe(153);
     });
 
+    // v1.10.0 (I2): per-device scale on the write path (inverse of read).
+    it("hueScale=degrees writes Hue 0..65535 back as 0..360", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "color", hueState: "test.hue", hueScale: "degrees" },
+      ]);
+      await service.setLightState("1", { hue: 32768 });
+      expect(adapter.writtenStates.get("test.hue")).toBe(180); // 32768 / 65535 × 360
+    });
+
+    it("ctScale=kelvin writes Hue mired back as Kelvin", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" },
+      ]);
+      await service.setLightState("1", { ct: 333 });
+      expect(adapter.writtenStates.get("test.ct")).toBe(3003); // 1e6 / 333
+    });
+
     it("should serialize xy array as JSON string", async () => {
       const { service, adapter } = createService([{ name: "Test", lightType: "color", xyState: "test.xy" }]);
       await service.setLightState("1", { xy: [0.3, 0.4] });
@@ -939,6 +1023,19 @@ describe("DeviceBindingService", () => {
           hue: { foo: 1 },
         } as unknown as Record<string, unknown>);
         expect(adapter.writtenStates.get("test.hue")).toBe(0);
+      });
+
+      // v1.10.0 (M1): write path symmetric with read — coerceBool allowlist.
+      it.each(["off", "OFF", "no", "false"])("on string '%s' writes boolean false (M1)", async (raw) => {
+        const { service, adapter } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
+        await service.setLightState("1", { on: raw } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.on")).toBe(false);
+      });
+
+      it.each(["on", "yes", "true", "1"])("on string '%s' writes boolean true (M1)", async (raw) => {
+        const { service, adapter } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
+        await service.setLightState("1", { on: raw } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.get("test.on")).toBe(true);
       });
 
       it("sat Infinity clamps to 254", async () => {
@@ -1039,6 +1136,18 @@ describe("DeviceBindingService", () => {
       // Cache should be updated with the converted value
       const light = await service.getLightById("1");
       expect(light.state.on).toBe(true);
+    });
+
+    it("negatively caches a missing state so it is fetched only once (I1)", async () => {
+      const { service, adapter } = createService(
+        [{ name: "Test", lightType: "onoff", onState: "test.missing" }],
+        {}, // no states configured → getForeignStateAsync returns null (missing)
+      );
+      const fetchSpy = vi.spyOn(adapter, "getForeignStateAsync");
+      await service.getLightById("1"); // first read → fetch + negative-cache sentinel
+      await service.getLightById("1"); // second read → served from the sentinel, no re-fetch
+      const missingFetches = fetchSpy.mock.calls.filter(([id]) => id === "test.missing");
+      expect(missingFetches).toHaveLength(1);
     });
   });
 

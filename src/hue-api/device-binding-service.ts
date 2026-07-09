@@ -14,7 +14,7 @@ import type {
 } from "../types/light";
 import { HueApiError } from "../types/errors";
 import { errText } from "../types/utils";
-import { coerceFiniteNumber, parseLightIndex } from "../lib/coerce";
+import { coerceBool, coerceFiniteNumber, parseLightIndex } from "../lib/coerce";
 
 /** Hue API value ranges (per Philips Hue API specification) */
 const HUE_BRI_MIN = 1;
@@ -35,6 +35,54 @@ const HUE_XY_DEFAULT: [number, number] = [0.5, 0.5];
  */
 function clampRound(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(v)));
+}
+
+/**
+ * v1.10.0 (I2): scale a hue source value into the Hue 0..65535 range.
+ * 'degrees' maps 0..360 → 0..65535; 'raw' (default) is already Hue-native.
+ *
+ * @param n Raw finite source value
+ * @param scale Per-device hue scale ('raw' | 'degrees')
+ */
+function hueFromState(n: number, scale: HueScale | undefined): number {
+  const hueValue = scale === "degrees" ? (n / 360) * HUE_HUE_MAX : n;
+  return clampRound(hueValue, 0, HUE_HUE_MAX);
+}
+
+/**
+ * Inverse of {@link hueFromState}: a Hue 0..65535 value back into the source scale.
+ *
+ * @param n Incoming Hue value (0..65535 from the client)
+ * @param scale Per-device hue scale ('raw' | 'degrees')
+ */
+function hueForState(n: number, scale: HueScale | undefined): number {
+  const hueValue = clampRound(n, 0, HUE_HUE_MAX);
+  return scale === "degrees" ? Math.round((hueValue / HUE_HUE_MAX) * 360) : hueValue;
+}
+
+/**
+ * v1.10.0 (I2): scale a colour-temperature source value into Hue mired (153..500).
+ * 'kelvin' maps Kelvin → mired (1e6/K); 'raw' (default) is already Hue-native mired.
+ *
+ * @param n Raw finite source value
+ * @param scale Per-device ct scale ('raw' | 'kelvin')
+ */
+function ctFromState(n: number, scale: CtScale | undefined): number {
+  if (scale === "kelvin") {
+    return n > 0 ? clampRound(1_000_000 / n, HUE_CT_MIN, HUE_CT_MAX) : HUE_CT_DEFAULT;
+  }
+  return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+}
+
+/**
+ * Inverse of {@link ctFromState}: a Hue mired (153..500) value back into the source scale.
+ *
+ * @param n Incoming Hue mired value (153..500 from the client)
+ * @param scale Per-device ct scale ('raw' | 'kelvin')
+ */
+function ctForState(n: number, scale: CtScale | undefined): number {
+  const mired = clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+  return scale === "kelvin" ? Math.round(1_000_000 / mired) : mired;
 }
 
 /**
@@ -80,6 +128,10 @@ const LIGHT_TYPES = {
  * `raw` = 1..254 (Hue native), value passed through with clamp
  */
 export type LightStateScale = "auto" | "percent" | "normalized" | "raw";
+/** Scale for the hue source state: 'raw' = 0..65535 (Hue native), 'degrees' = 0..360. */
+export type HueScale = "raw" | "degrees";
+/** Scale for the ct source state: 'raw' = 153..500 mired (Hue native), 'kelvin' = Kelvin. */
+export type CtScale = "raw" | "kelvin";
 
 /**
  * Device configuration from admin UI (jsonConfig format)
@@ -98,8 +150,12 @@ export interface DeviceConfig {
   briScale?: LightStateScale;
   /** ioBroker state ID for color temperature */
   ctState?: string;
+  /** Scale of the color-temperature source state */
+  ctScale?: CtScale;
   /** ioBroker state ID for hue */
   hueState?: string;
+  /** Scale of the hue source state */
+  hueScale?: HueScale;
   /** ioBroker state ID for saturation */
   satState?: string;
   /** Scale of the saturation source state */
@@ -495,6 +551,11 @@ export class DeviceBindingService {
         this.stateCache.set(stateId, state.val);
         return this.convertValueFromState(stateName, state.val, device);
       }
+      // v1.10.0 (I1): negatively cache a missing mapped state so repeated
+      // full-state polls don't re-hit the broker on every read. The foreign-state
+      // subscription calls updateStateCache() if the state later appears, so this
+      // self-heals (a real state with val=null caches identically).
+      this.stateCache.set(stateId, null);
     } catch (error) {
       this.logger.debug(`Could not get state ${stateId}: ${errText(error)}`);
     }
@@ -510,6 +571,11 @@ export class DeviceBindingService {
    * which collapsed 1-percent (`n=1` from a 0..100 scale) to bri 254.
    * The "auto" scale keeps that legacy behaviour for backwards compat.
    *
+   * bri/sat/hue/ct each carry a per-device scale (D3 + I2): bri/sat map percent/
+   * normalized/raw sources; hue maps raw (0..65535) vs degrees (0..360); ct maps
+   * raw (153..500 mired) vs Kelvin. Default 'raw' is the Hue-native unit, i.e. the
+   * pre-I2 behaviour — existing devices need no re-config.
+   *
    * @param stateName Hue API state key (`on`, `bri`, `hue`, `sat`, `ct`, `xy`)
    * @param value Raw value from the foreign state
    * @param device Device config (for the per-state scale settings)
@@ -521,11 +587,12 @@ export class DeviceBindingService {
 
     switch (stateName) {
       case "on":
-        // Handle string "false"/"0" explicitly — Boolean("false") would be true
-        if (typeof value === "string") {
-          return value !== "false" && value !== "0" && value !== "";
-        }
-        return Boolean(value);
+        // v1.10.0 (M1): shared boundary bool coercion (allowlist true/1/yes/on,
+        // case-insensitive) — the same helper main.ts uses for disableAuth. Reads
+        // "off"/"no"/"disabled"/"FALSE" as off, unlike the old "false"/"0"/""
+        // blocklist (which let every other string, incl. "off", read as ON) or a
+        // bare Boolean() cast (Boolean("false") === true).
+        return coerceBool(value);
       case "bri":
         return this.scaleValueFromState(value, device?.briScale, HUE_BRI_MIN, HUE_BRI_MAX, device, "bri");
       case "hue": {
@@ -534,7 +601,7 @@ export class DeviceBindingService {
           this.logger.debug(`Default fallback for hue (device="${device?.name}"): raw=${JSON.stringify(value)}`);
           return 0;
         }
-        return clampRound(n, 0, HUE_HUE_MAX);
+        return hueFromState(n, device?.hueScale);
       }
       case "sat":
         return this.scaleValueFromState(value, device?.satScale, 0, HUE_SAT_MAX, device, "sat");
@@ -544,7 +611,7 @@ export class DeviceBindingService {
           this.logger.debug(`Default fallback for ct (device="${device?.name}"): raw=${JSON.stringify(value)}`);
           return HUE_CT_DEFAULT;
         }
-        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        return ctFromState(n, device?.ctScale);
       }
       case "xy": {
         // XY as array [x, y] — both entries must be finite numbers
@@ -578,8 +645,11 @@ export class DeviceBindingService {
           }
           const parts = trimmed.split(",");
           if (parts.length >= 2) {
-            const x = coerceFiniteNumber(parts[0]);
-            const y = coerceFiniteNumber(parts[1]);
+            // v1.10.0 (L7): trim each part — coerceFiniteNumber is strict (rejects
+            // surrounding whitespace), so a spaced CSV like "0.3, 0.4" would
+            // otherwise fall through to the [0.5, 0.5] white default.
+            const x = coerceFiniteNumber(parts[0].trim());
+            const y = coerceFiniteNumber(parts[1].trim());
             if (x !== null && y !== null) {
               return [x, y] as [number, number];
             }
@@ -616,13 +686,10 @@ export class DeviceBindingService {
   ): ioBroker.StateValue | undefined {
     switch (stateName) {
       case "on":
-        // Symmetric with the read path: string "false"/"0"/"" is falsey
-        // (Boolean("false") would be true). Hue clients send JSON booleans,
-        // but a malformed string body shouldn't flip a light on.
-        if (typeof value === "string") {
-          return value !== "false" && value !== "0" && value !== "";
-        }
-        return Boolean(value);
+        // v1.10.0 (M1): symmetric with the read path — shared coerceBool
+        // (allowlist true/1/yes/on). Hue clients send JSON booleans; a malformed
+        // string body ("off", "no", …) must not flip a light on.
+        return coerceBool(value);
       case "bri":
         return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device?.briScale, device, "bri");
       case "hue": {
@@ -631,7 +698,7 @@ export class DeviceBindingService {
           this.logger.debug(`Default fallback for hue (write, device="${device?.name}"): raw=${JSON.stringify(value)}`);
           return 0;
         }
-        return clampRound(n, 0, HUE_HUE_MAX);
+        return hueForState(n, device?.hueScale);
       }
       case "sat":
         return this.clampScaleForState(value, 0, HUE_SAT_MAX, device?.satScale, device, "sat");
@@ -641,7 +708,7 @@ export class DeviceBindingService {
           this.logger.debug(`Default fallback for ct (write, device="${device?.name}"): raw=${JSON.stringify(value)}`);
           return HUE_CT_DEFAULT;
         }
-        return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
+        return ctForState(n, device?.ctScale);
       }
       case "xy": {
         // Only a 2-element finite-number array (or its JSON round-trip) is a

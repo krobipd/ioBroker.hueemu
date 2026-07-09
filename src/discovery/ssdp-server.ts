@@ -8,12 +8,14 @@ import type { BridgeIdentity, Logger } from "../types/config";
 import { errText } from "../types/utils";
 import { getDescriptionUrl } from "./description-xml";
 
+/** SSDP UPnP port — fixed at 1900 by the UPnP standard (design decision #2). */
+export const SSDP_PORT = 1900;
+
 // Extended server options including sourcePort
 interface ExtendedServerOptions {
   location: string;
   sourcePort?: number;
   adInterval?: number;
-  ttl?: number;
   allowWildcards?: boolean;
   suppressRootDeviceAdvertisements?: boolean;
   headers?: Record<string, string>;
@@ -52,7 +54,7 @@ export class HueSsdpServer {
   constructor(config: SsdpServerConfig) {
     this.config = {
       ...config,
-      ssdpPort: config.ssdpPort ?? 1900,
+      ssdpPort: config.ssdpPort ?? SSDP_PORT,
     };
   }
 
@@ -102,8 +104,12 @@ export class HueSsdpServer {
       // explicit unadvertise on stop. `advertise-alive` deliberately NOT hooked
       // — 10s × 24h = 8640 identical lines/day. The `error` event is not hooked:
       // node-ssdp's Server never emits a server-level `error` (socket errors are
-      // swallowed internally), so a listener would never fire; start-time
-      // failures surface via the start() promise rejection (caught in main.ts).
+      // swallowed internally, logged only), so a listener would never fire. v1.10.0
+      // (H1): that swallowing means a failed 1900 bind never invokes start()'s
+      // callback either, so start() below never settles and hangs. The caller
+      // (main.ts onReady) therefore bounds the await with a managed this.setTimeout,
+      // degrading a busy port to "SSDP disabled, HTTP stays up" (S2) instead of a
+      // live-but-state-dead adapter.
       const serverWithEvents = this.server as unknown as {
         on(event: "advertise-bye" | "response", listener: (...args: unknown[]) => void): void;
       };
@@ -122,6 +128,9 @@ export class HueSsdpServer {
           return;
         }
 
+        // NOTE (H1): on a failed bind node-ssdp swallows the socket error and never
+        // invokes this callback, so this Promise can hang. The caller (main.ts
+        // onReady) bounds the await with a managed timeout — see the class comment.
         void this.server.start((err?: Error) => {
           if (err) {
             reject(err);

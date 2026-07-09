@@ -7,6 +7,22 @@ import type { Logger } from "../../types/config";
 import { HueApiError } from "../../types/errors";
 
 /**
+ * True for a Fastify body-parse / schema-validation failure that should map to
+ * the Hue "invalid JSON" error (type 2) rather than a generic internal error.
+ * v1.10.0 (L4): covers both ajv schema validation (`.validation`) and the body
+ * parser's FST_ERR_CTP_INVALID_JSON_BODY (which carries no `.validation`, so the
+ * old `.validation`-only check misrouted a malformed body to internal_error/901).
+ *
+ * @param error - Error thrown during request handling
+ */
+function isInvalidJsonError(error: FastifyError | HueApiError | Error): boolean {
+  return (
+    ("validation" in error && Boolean(error.validation)) ||
+    (error as FastifyError).code === "FST_ERR_CTP_INVALID_JSON_BODY"
+  );
+}
+
+/**
  * Fastify error handler that converts errors to Hue API format (no logging).
  *
  * @param error - Error thrown during request handling
@@ -24,8 +40,8 @@ export function hueErrorHandler(
   if (error instanceof HueApiError) {
     // Return the Hue-formatted error
     reply.status(200).send([error.toResponse()]);
-  } else if ("validation" in error && error.validation) {
-    // Fastify validation error - convert to Hue format
+  } else if (isInvalidJsonError(error)) {
+    // Fastify body-parse / validation error → Hue "invalid JSON" (type 2)
     const hueError = HueApiError.invalidJson(address);
     reply.status(200).send([hueError.toResponse()]);
   } else {
@@ -48,11 +64,7 @@ export function createHueErrorHandler(
   }
   return function loggedHueErrorHandler(error, request, reply): void {
     const errorType =
-      error instanceof HueApiError
-        ? String(error.type)
-        : "validation" in error && error.validation
-          ? "invalid_json"
-          : "internal_error";
+      error instanceof HueApiError ? String(error.type) : isInvalidJsonError(error) ? "invalid_json" : "internal_error";
     const message = error.message || "Unknown error";
     logger.debug(`Hue error-handler: ${request.method} ${request.url} → ${errorType} (${message})`);
     hueErrorHandler(error, request, reply);

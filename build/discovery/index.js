@@ -19,6 +19,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var discovery_exports = {};
 __export(discovery_exports, {
   HueSsdpServer: () => import_ssdp_server.HueSsdpServer,
+  SSDP_PORT: () => import_ssdp_server.SSDP_PORT,
   generateDescriptionXml: () => import_description_xml.generateDescriptionXml,
   getDescriptionUrl: () => import_description_xml.getDescriptionUrl
 });
@@ -28,6 +29,7 @@ var import_description_xml = require("./description-xml");
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   HueSsdpServer,
+  SSDP_PORT,
   generateDescriptionXml,
   getDescriptionUrl
 });

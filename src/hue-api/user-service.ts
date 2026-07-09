@@ -5,7 +5,7 @@
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
 import { tName } from "../lib/i18n";
-import { errText, sanitizeId } from "../types/utils";
+import { errText, oneLine, sanitizeId } from "../types/utils";
 
 /**
  * Adapter interface for user service
@@ -111,7 +111,7 @@ export class UserService {
     }
 
     const safeUsername = sanitizeId(username);
-    this.logger.debug(`Creating client: ${safeUsername} (${devicetype})`);
+    this.logger.debug(`Creating client: ${safeUsername} (${oneLine(devicetype)})`);
 
     // Ensure clients folder exists
     await this.ensureClientsFolder();
@@ -186,7 +186,7 @@ export class UserService {
     const cache = await this.ensureCache();
     const found = cache.has(safeUsername);
     if (found) {
-      this.logger.debug(`Client authenticated: ${username}`);
+      this.logger.debug(`Client authenticated: ${oneLine(username)}`);
     }
     return found;
   }

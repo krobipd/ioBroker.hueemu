@@ -51,5 +51,12 @@
   "disableAuthName": "Desactivar autenticación",
   "disableAuthDesc": "Desactivar autenticación (permitir todas las solicitudes)",
   "advertiseHost": "IP anunciada",
-  "advertiseHostTooltip": "La IP accesible anunciada a los clientes (Alexa, Harmony) para la detección. Déjalo vacío para autodetección. Debe ser una IP concreta, no 0.0.0.0."
+  "advertiseHostTooltip": "La IP accesible anunciada a los clientes (Alexa, Harmony) para la detección. Déjalo vacío para autodetección. Debe ser una IP concreta, no 0.0.0.0.",
+  "scaleHue": "Escala de tono",
+  "scaleCt": "Escala de temperatura de color",
+  "scaleHueTooltip": "Cómo se interpreta el valor de origen del tono. 'Nativo' = 0..65535 (Hue). 'Grados' = 0..360 (p. ej. fuentes HSV/HSL).",
+  "scaleCtTooltip": "Cómo se interpreta el valor de origen de la temperatura de color. 'Nativo' = 153..500 mired (Hue). 'Kelvin' = grados Kelvin (p. ej. 2700..6500).",
+  "scaleNative": "Nativo (sin conversión)",
+  "scaleDegrees": "Grados (0..360)",
+  "scaleKelvin": "Kelvin"
 }

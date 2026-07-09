@@ -55,6 +55,7 @@ class HueServer {
    * Start the HTTP server (and HTTPS if configured)
    */
   async start() {
+    var _a, _b;
     this.httpServer = await this.createServer(false);
     await this.httpServer.listen({
       port: this.config.port,
@@ -62,11 +63,21 @@ class HueServer {
     });
     this.logger.debug(`HTTP server listening on ${this.config.host}:${this.config.port}`);
     if (this.config.https) {
-      this.httpsServer = await this.createServer(true);
-      await this.httpsServer.listen({
-        port: this.config.https.port,
-        host: this.config.host || "0.0.0.0"
-      });
+      try {
+        this.httpsServer = await this.createServer(true);
+        await this.httpsServer.listen({
+          port: this.config.https.port,
+          host: this.config.host || "0.0.0.0"
+        });
+      } catch (err) {
+        await ((_a = this.httpsServer) == null ? void 0 : _a.close().catch(() => {
+        }));
+        await ((_b = this.httpServer) == null ? void 0 : _b.close().catch(() => {
+        }));
+        this.httpServer = null;
+        this.httpsServer = null;
+        throw err;
+      }
       this.logger.debug(`HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
     }
   }
@@ -94,8 +105,12 @@ class HueServer {
       logger: false,
       trustProxy: this.config.trustProxy === true,
       bodyLimit: 65536,
-      caseSensitive: false,
-      ignoreTrailingSlash: true,
+      // v1.10.0 (M2): router options moved under `routerOptions` (Fastify 5.9+);
+      // the top-level form is deprecated (FSTDEP022) and removed in fastify@6.
+      routerOptions: {
+        caseSensitive: false,
+        ignoreTrailingSlash: true
+      },
       forceCloseConnections: true
     };
     let server;

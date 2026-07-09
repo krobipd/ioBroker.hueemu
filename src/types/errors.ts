@@ -66,14 +66,12 @@ export interface HueErrorResponse {
 export class HueApiError extends Error {
   public readonly type: HueErrorType;
   public readonly address: string;
-  public readonly params: string[];
 
   private constructor(type: HueErrorType, address: string, params: string[] = []) {
     const description = HueApiError.formatDescription(type, params);
     super(description);
     this.type = type;
     this.address = address;
-    this.params = params;
     this.name = "HueApiError";
   }
 
@@ -86,7 +84,10 @@ export class HueApiError extends Error {
   private static formatDescription(type: HueErrorType, params: string[]): string {
     let desc = ERROR_DESCRIPTIONS[type] || "unknown error";
     params.forEach((param, index) => {
-      desc = desc.replace(`{${index}}`, param);
+      // Function replacer: a plain-string replacement honours $&, $', $` and $$
+      // patterns inside `param`, which would corrupt the output (and can leak the
+      // raw {index} template back to the client). A replacer function is immune.
+      desc = desc.replace(`{${index}}`, () => param);
     });
     return desc;
   }

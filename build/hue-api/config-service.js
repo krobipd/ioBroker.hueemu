@@ -141,6 +141,9 @@ class ConfigService {
         outgoing: true,
         communication: "disconnected"
       },
+      // I4: placeholder — the orchestrator (api-handler.getFullState → buildFullState)
+      // overwrites this unconditionally with the live pairingEnabled flag, so the
+      // value set here is never actually served.
       linkbutton: false,
       touchlink: false,
       zigbeechannel: 20,

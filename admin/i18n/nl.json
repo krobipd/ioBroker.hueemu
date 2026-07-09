@@ -51,5 +51,12 @@
   "disableAuthName": "Aanmelding uitschakelen",
   "disableAuthDesc": "Aanmelding uitschakelen (alle aanvragen toestaan)",
   "advertiseHost": "Aangekondigd IP",
-  "advertiseHostTooltip": "Het bereikbare IP dat aan clients (Alexa, Harmony) wordt bekendgemaakt voor detectie. Laat leeg voor automatische detectie. Moet een concreet IP zijn, geen 0.0.0.0."
+  "advertiseHostTooltip": "Het bereikbare IP dat aan clients (Alexa, Harmony) wordt bekendgemaakt voor detectie. Laat leeg voor automatische detectie. Moet een concreet IP zijn, geen 0.0.0.0.",
+  "scaleHue": "Tint-schaal",
+  "scaleCt": "Kleurtemperatuur-schaal",
+  "scaleHueTooltip": "Hoe de bron-tintwaarde wordt geïnterpreteerd. 'Native' = 0..65535 (Hue). 'Graden' = 0..360 (bijv. HSV/HSL-bronnen).",
+  "scaleCtTooltip": "Hoe de bron-kleurtemperatuurwaarde wordt geïnterpreteerd. 'Native' = 153..500 mired (Hue). 'Kelvin' = graden Kelvin (bijv. 2700..6500).",
+  "scaleNative": "Native (geen conversie)",
+  "scaleDegrees": "Graden (0..360)",
+  "scaleKelvin": "Kelvin"
 }
