@@ -10,6 +10,7 @@ import {
   INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS,
   runInstanceObjectMigration,
+  runLegacyDeviceMigration,
   runObsoleteStateCleanup,
 } from "./migrations";
 
@@ -254,6 +255,72 @@ describe("migrations", () => {
     it("clients pair has no descKey (folder has no desc)", () => {
       const clients = INSTANCE_OBJECT_MIGRATION_PAIRS.find(p => p.id === "clients");
       expect(clients!.descKey).toBeUndefined();
+    });
+  });
+
+  // C1: migrateLegacyDevices extracted from main.ts into this pure helper.
+  describe("runLegacyDeviceMigration", () => {
+    function mkAdapter(over: Record<string, unknown> = {}): any {
+      return {
+        namespace: "hueemu.0",
+        configuredDevices: [],
+        getDevicesAsync: async () => [],
+        getStateAsync: async () => null,
+        getStatesOfAsync: async () => [],
+        extendForeignObjectAsync: async () => null,
+        delObjectAsync: async () => null,
+        log: { info: () => {}, warn: () => {} },
+        ...over,
+      };
+    }
+
+    it("skips when devices are already configured", async () => {
+      const done = await runLegacyDeviceMigration(mkAdapter({ configuredDevices: [{ name: "X", lightType: "onoff" }] }));
+      expect(done).toBe(false);
+    });
+
+    it("skips when there are no legacy device objects", async () => {
+      expect(await runLegacyDeviceMigration(mkAdapter())).toBe(false);
+    });
+
+    it("maps legacy state children to the right type/state ids and persists (restart)", async () => {
+      let written: any;
+      const adapter = mkAdapter({
+        getDevicesAsync: async () => [{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }],
+        getStatesOfAsync: async () => [
+          { _id: "hueemu.0.lamp.state.on" },
+          { _id: "hueemu.0.lamp.state.bri" },
+          { _id: "hueemu.0.lamp.state.ct" },
+        ],
+        extendForeignObjectAsync: async (_id: string, obj: any) => {
+          written = obj;
+          return null;
+        },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(true);
+      expect(written.native.devices[0]).toMatchObject({
+        lightType: "ct",
+        onState: "hueemu.0.lamp.state.on",
+        briState: "hueemu.0.lamp.state.bri",
+        ctState: "hueemu.0.lamp.state.ct",
+      });
+    });
+
+    it("deletes only the obsolete .name/.data wrappers, keeps the containers (L2)", async () => {
+      const deleted: string[] = [];
+      const adapter = mkAdapter({
+        getDevicesAsync: async () => [{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }],
+        getStatesOfAsync: async () => [{ _id: "hueemu.0.lamp.state.on" }],
+        delObjectAsync: async (id: string) => {
+          deleted.push(id);
+          return null;
+        },
+      });
+      await runLegacyDeviceMigration(adapter);
+      expect(deleted).toContain("lamp.name");
+      expect(deleted).toContain("lamp.data");
+      expect(deleted).not.toContain("lamp.state");
+      expect(deleted).not.toContain("lamp");
     });
   });
 });

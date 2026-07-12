@@ -136,6 +136,19 @@ class ApiHandler {
     return this.configService.getConfig();
   }
   /**
+   * Get the full bridge configuration for an authenticated user. Mirrors the
+   * live pairing state into `linkbutton`, exactly like the full-state response.
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   */
+  getFullConfig(_req, _username) {
+    this.logger.debug("Get full config");
+    const config = this.configService.getFullConfig();
+    config.linkbutton = this.adapter.pairingEnabled;
+    return config;
+  }
+  /**
    * Get all lights
    *
    * @param _req - Incoming HTTP request (unused)

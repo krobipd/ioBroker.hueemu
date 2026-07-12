@@ -388,6 +388,20 @@ describe("HueEmu onReady", () => {
     expect(servers).toHaveLength(0);
   });
 
+  it("short-circuits onReady after persisting a generated identity (restart imminent)", async () => {
+    const { adapter, servers } = setup({ udn: "", mac: "" });
+    const i = internalOf(adapter);
+    await i.onReady();
+    // Identity was generated + persisted…
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
+      "system.adapter.hueemu.0",
+      expect.objectContaining({ native: expect.objectContaining({ udn: expect.any(String) }) }),
+    );
+    // …and no server was built — the native write restarts the instance, which
+    // re-runs onReady with the stored identity.
+    expect(servers).toHaveLength(0);
+  });
+
   it("catches a failing boot (e.g. invalid config) instead of crashing", async () => {
     const { adapter } = setup({ httpsPort: 8080 }); // httpsPort === port → buildConfig throws
     const i = internalOf(adapter);

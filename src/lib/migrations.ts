@@ -8,6 +8,8 @@
  */
 
 import { tName } from "./i18n";
+import { errText } from "../types/utils";
+import type { DeviceConfig } from "../hue-api";
 
 /**
  * Upper bound for `getObjectList`/`getObjectView` range queries over an id
@@ -190,4 +192,109 @@ export async function runObsoleteStateCleanup(adapter: ObsoleteStateCleanupAdapt
       adapter.log.debug(`Removed empty parent: ${parentId}`);
     }
   }
+}
+
+/** Adapter surface required by {@link runLegacyDeviceMigration}. */
+export interface LegacyDeviceMigrationAdapter {
+  /** Adapter namespace (e.g. hueemu.0) */
+  namespace: string;
+  /** Already-configured devices (this.config.devices) — migration is skipped if non-empty. */
+  configuredDevices: DeviceConfig[] | undefined;
+  /** List legacy device objects in the adapter namespace */
+  getDevicesAsync(): Promise<ioBroker.DeviceObject[]>;
+  /** Read a state by (namespace-relative) id */
+  getStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
+  /** List the state objects of a device's channel */
+  getStatesOfAsync(parentDevice: string, parentChannel: string): Promise<ioBroker.StateObject[]>;
+  /** Persist the migrated device list into native (triggers a restart) */
+  extendForeignObjectAsync(id: string, obj: { native: { devices: DeviceConfig[] } }): Promise<unknown>;
+  /** Delete an object by (namespace-relative) id */
+  delObjectAsync(id: string): Promise<unknown>;
+  /** Logger with info + warn */
+  log: { info(message: string): void; warn(message: string): void };
+}
+
+/**
+ * Migrate legacy devices (created via the old `createLight` JSON) into the admin
+ * DeviceConfig format. Pure helper — like {@link runInstanceObjectMigration} and
+ * {@link runObsoleteStateCleanup} — so it is unit-testable without standing up the
+ * full adapter lifecycle. Returns `true` when a migration was written; the caller
+ * then lets the resulting native write restart the instance.
+ *
+ * @param adapter Minimal adapter surface (see {@link LegacyDeviceMigrationAdapter}).
+ * @returns true if a migration was performed (adapter will restart with the new config)
+ */
+export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAdapter): Promise<boolean> {
+  // Skip if devices are already configured in admin.
+  if (adapter.configuredDevices && adapter.configuredDevices.length > 0) {
+    return false;
+  }
+
+  const devices = await adapter.getDevicesAsync();
+  if (devices.length === 0) {
+    return false;
+  }
+
+  adapter.log.info(`Found ${devices.length} legacy device(s) — migrating to new configuration`);
+
+  const migratedDevices: DeviceConfig[] = [];
+  for (const device of devices) {
+    const deviceId = device._id.substring(adapter.namespace.length + 1);
+    try {
+      // Read the display name from the name state or the device common.name
+      // (type-guarded: state.val may be number/bool, common.name a translation object).
+      const nameState = await adapter.getStateAsync(`${deviceId}.name`);
+      const nameVal = typeof nameState?.val === "string" ? nameState.val : undefined;
+      const commonName = typeof device.common?.name === "string" ? device.common.name : undefined;
+      const name = nameVal || commonName || deviceId;
+
+      const stateObjects = await adapter.getStatesOfAsync(deviceId, "state");
+      const stateKeys = new Set((stateObjects || []).map(s => s._id.substring(s._id.lastIndexOf(".") + 1)));
+      const lightType = detectLegacyLightType(stateKeys);
+
+      const config: DeviceConfig = { name, lightType };
+      if (stateKeys.has("on")) {
+        config.onState = `${adapter.namespace}.${deviceId}.state.on`;
+      }
+      if (stateKeys.has("bri")) {
+        config.briState = `${adapter.namespace}.${deviceId}.state.bri`;
+      }
+      if (stateKeys.has("ct")) {
+        config.ctState = `${adapter.namespace}.${deviceId}.state.ct`;
+      }
+      if (stateKeys.has("hue")) {
+        config.hueState = `${adapter.namespace}.${deviceId}.state.hue`;
+      }
+      if (stateKeys.has("sat")) {
+        config.satState = `${adapter.namespace}.${deviceId}.state.sat`;
+      }
+      if (stateKeys.has("xy")) {
+        config.xyState = `${adapter.namespace}.${deviceId}.state.xy`;
+      }
+
+      migratedDevices.push(config);
+      adapter.log.info(`Migrated legacy device "${name}" as ${lightType}`);
+
+      // v1.4.3 (M6) / v1.10.0 (L2): remove only the obsolete metadata wrappers.
+      // The device (`${deviceId}`) + channel (`${deviceId}.state`) containers and
+      // their state.* leaves are kept — DeviceBindingService binds to the leaves
+      // and delObject is non-recursive, so deleting the parents would orphan them.
+      await Promise.all([
+        adapter.delObjectAsync(`${deviceId}.name`).catch(() => {}),
+        adapter.delObjectAsync(`${deviceId}.data`).catch(() => {}),
+      ]);
+    } catch (error) {
+      adapter.log.warn(`Could not migrate legacy device ${deviceId}: ${errText(error)}`);
+    }
+  }
+
+  if (migratedDevices.length === 0) {
+    return false;
+  }
+
+  await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
+    native: { devices: migratedDevices },
+  });
+  adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
+  return true;
 }

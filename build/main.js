@@ -55,6 +55,11 @@ class HueEmu extends utils.Adapter {
   pairingTimeoutId = void 0;
   _pairingEnabled = false;
   _disableAuth = false;
+  // v1.12.0: set when buildConfig / getOrCreateTlsMaterial persist generated
+  // identity or TLS material into native — that write triggers an instance
+  // restart (jsonConfig semantics), so onReady short-circuits instead of binding
+  // servers the imminent restart would tear down.
+  nativePersistPending = false;
   hueServer = null;
   ssdpServer = null;
   apiHandler = null;
@@ -144,6 +149,10 @@ class HueEmu extends utils.Adapter {
       }
       await this.migrateInstanceObjectNames();
       const emulatorConfig = await this.buildConfig();
+      if (this.nativePersistPending) {
+        this.log.info("Persisted generated bridge identity/TLS \u2014 restarting with the stored configuration.");
+        return;
+      }
       const logger = this.createLogger();
       const devices = this.config.devices || [];
       this.ssdpServer = this.makeSsdpServer({
@@ -190,18 +199,20 @@ class HueEmu extends utils.Adapter {
    * Build emulator configuration from adapter config
    */
   async buildConfig() {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e;
     const host = ((_a = this.config.host) == null ? void 0 : _a.trim()) || "0.0.0.0";
     const port = this.toPort(this.config.port);
-    const advertiseHost = ((_b = this.config.advertiseHost) == null ? void 0 : _b.trim()) || (host !== "0.0.0.0" ? host : (0, import_config.detectPrimaryIPv4)());
+    const legacyAdvertise = typeof this.config.advertiseHost === "string" ? this.config.advertiseHost.trim() : "";
+    const advertiseHost = host !== "0.0.0.0" ? host : legacyAdvertise && legacyAdvertise !== "0.0.0.0" ? legacyAdvertise : (0, import_config.detectPrimaryIPv4)();
     const httpsPort = (0, import_coerce.parsePort)(this.config.httpsPort);
     (0, import_config.validateNetworkConfig)(advertiseHost, port, httpsPort);
-    const udn = ((_c = this.config.udn) == null ? void 0 : _c.trim()) || uuid.v4();
-    const mac = ((_d = this.config.mac) == null ? void 0 : _d.trim()) || (0, import_config.macFromUdn)(udn);
-    if (!((_e = this.config.udn) == null ? void 0 : _e.trim()) || !((_f = this.config.mac) == null ? void 0 : _f.trim())) {
+    const udn = ((_b = this.config.udn) == null ? void 0 : _b.trim()) || uuid.v4();
+    const mac = ((_c = this.config.mac) == null ? void 0 : _c.trim()) || (0, import_config.macFromUdn)(udn);
+    if (!((_d = this.config.udn) == null ? void 0 : _d.trim()) || !((_e = this.config.mac) == null ? void 0 : _e.trim())) {
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
         native: { udn, mac }
       });
+      this.nativePersistPending = true;
     }
     const identity = {
       udn,
@@ -263,6 +274,7 @@ class HueEmu extends utils.Adapter {
         native: { tlsCert: generated.certificate, tlsKey: generated.privateKey }
       });
       this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+      this.nativePersistPending = true;
     } catch (err) {
       this.log.warn(`TLS cert generated but failed to persist: ${(0, import_utils.errText)(err)} \u2014 will regenerate next restart`);
     }
@@ -506,72 +518,24 @@ class HueEmu extends utils.Adapter {
     }
   }
   /**
-   * Migrate legacy devices (created via createLight JSON) to admin-configured DeviceConfig format.
-   * Legacy devices are ioBroker device objects in the adapter namespace with state/name/data children.
-   * After migration, DeviceBindingService uses the existing state objects as foreign states.
+   * Migrate legacy devices (created via createLight JSON) to admin-configured
+   * DeviceConfig format. Thin wrapper over the pure {@link runLegacyDeviceMigration}
+   * helper (extracted to `lib/migrations.ts` for direct unit-testing, like the
+   * other two migrations).
    *
    * @returns true if migration was performed (adapter will restart with new config)
    */
   async migrateLegacyDevices() {
-    var _a;
-    if (this.config.devices && this.config.devices.length > 0) {
-      return false;
-    }
-    const devices = await this.getDevicesAsync();
-    if (devices.length === 0) {
-      return false;
-    }
-    this.log.info(`Found ${devices.length} legacy device(s) \u2014 migrating to new configuration`);
-    const migratedDevices = [];
-    for (const device of devices) {
-      const deviceId = device._id.substring(this.namespace.length + 1);
-      try {
-        const nameState = await this.getStateAsync(`${deviceId}.name`);
-        const nameVal = typeof (nameState == null ? void 0 : nameState.val) === "string" ? nameState.val : void 0;
-        const commonName = typeof ((_a = device.common) == null ? void 0 : _a.name) === "string" ? device.common.name : void 0;
-        const name = nameVal || commonName || deviceId;
-        const stateObjects = await this.getStatesOfAsync(deviceId, "state");
-        const stateKeys = new Set((stateObjects || []).map((s) => s._id.substring(s._id.lastIndexOf(".") + 1)));
-        const lightType = (0, import_migrations.detectLegacyLightType)(stateKeys);
-        const config = { name, lightType };
-        if (stateKeys.has("on")) {
-          config.onState = `${this.namespace}.${deviceId}.state.on`;
-        }
-        if (stateKeys.has("bri")) {
-          config.briState = `${this.namespace}.${deviceId}.state.bri`;
-        }
-        if (stateKeys.has("ct")) {
-          config.ctState = `${this.namespace}.${deviceId}.state.ct`;
-        }
-        if (stateKeys.has("hue")) {
-          config.hueState = `${this.namespace}.${deviceId}.state.hue`;
-        }
-        if (stateKeys.has("sat")) {
-          config.satState = `${this.namespace}.${deviceId}.state.sat`;
-        }
-        if (stateKeys.has("xy")) {
-          config.xyState = `${this.namespace}.${deviceId}.state.xy`;
-        }
-        migratedDevices.push(config);
-        this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
-        await Promise.all([
-          this.delObjectAsync(`${deviceId}.name`).catch(() => {
-          }),
-          this.delObjectAsync(`${deviceId}.data`).catch(() => {
-          })
-        ]);
-      } catch (error) {
-        this.log.warn(`Could not migrate legacy device ${deviceId}: ${(0, import_utils.errText)(error)}`);
-      }
-    }
-    if (migratedDevices.length === 0) {
-      return false;
-    }
-    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { devices: migratedDevices }
+    return (0, import_migrations.runLegacyDeviceMigration)({
+      namespace: this.namespace,
+      configuredDevices: this.config.devices,
+      getDevicesAsync: () => this.getDevicesAsync(),
+      getStateAsync: (id) => this.getStateAsync(id),
+      getStatesOfAsync: (device, channel) => this.getStatesOfAsync(device, channel),
+      extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
+      delObjectAsync: (id) => this.delObjectAsync(id),
+      log: { info: (msg) => this.log.info(msg), warn: (msg) => this.log.warn(msg) }
     });
-    this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
-    return true;
   }
   /**
    * Parse a required port number from admin config (string or number).

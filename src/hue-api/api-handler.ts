@@ -3,7 +3,14 @@
  */
 
 import type { Logger } from "../types/config";
-import type { HueApiHandler, HueRequest, CreateUserRequest, FullState, BridgeConfigPublic } from "../types/hue-api";
+import type {
+  HueApiHandler,
+  HueRequest,
+  CreateUserRequest,
+  FullState,
+  BridgeConfigPublic,
+  BridgeConfigFull,
+} from "../types/hue-api";
 import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
 import { errText, oneLine } from "../types/utils";
@@ -177,6 +184,20 @@ export class ApiHandler implements HueApiHandler {
   public getConfig(_req: HueRequest, _username: string): BridgeConfigPublic {
     this.logger.debug("Get config");
     return this.configService.getConfig();
+  }
+
+  /**
+   * Get the full bridge configuration for an authenticated user. Mirrors the
+   * live pairing state into `linkbutton`, exactly like the full-state response.
+   *
+   * @param _req - Incoming HTTP request (unused)
+   * @param _username - Authenticated username (unused)
+   */
+  public getFullConfig(_req: HueRequest, _username: string): BridgeConfigFull {
+    this.logger.debug("Get full config");
+    const config = this.configService.getFullConfig();
+    config.linkbutton = this.adapter.pairingEnabled;
+    return config;
   }
 
   /**

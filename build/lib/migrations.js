@@ -24,10 +24,12 @@ __export(migrations_exports, {
   buildInstanceObjectMigrationPatch: () => buildInstanceObjectMigrationPatch,
   detectLegacyLightType: () => detectLegacyLightType,
   runInstanceObjectMigration: () => runInstanceObjectMigration,
+  runLegacyDeviceMigration: () => runLegacyDeviceMigration,
   runObsoleteStateCleanup: () => runObsoleteStateCleanup
 });
 module.exports = __toCommonJS(migrations_exports);
 var import_i18n = require("./i18n");
+var import_utils = require("../types/utils");
 const ID_RANGE_END = "\uFFFF";
 function detectLegacyLightType(stateKeys) {
   if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
@@ -104,6 +106,67 @@ async function runObsoleteStateCleanup(adapter) {
     }
   }
 }
+async function runLegacyDeviceMigration(adapter) {
+  var _a;
+  if (adapter.configuredDevices && adapter.configuredDevices.length > 0) {
+    return false;
+  }
+  const devices = await adapter.getDevicesAsync();
+  if (devices.length === 0) {
+    return false;
+  }
+  adapter.log.info(`Found ${devices.length} legacy device(s) \u2014 migrating to new configuration`);
+  const migratedDevices = [];
+  for (const device of devices) {
+    const deviceId = device._id.substring(adapter.namespace.length + 1);
+    try {
+      const nameState = await adapter.getStateAsync(`${deviceId}.name`);
+      const nameVal = typeof (nameState == null ? void 0 : nameState.val) === "string" ? nameState.val : void 0;
+      const commonName = typeof ((_a = device.common) == null ? void 0 : _a.name) === "string" ? device.common.name : void 0;
+      const name = nameVal || commonName || deviceId;
+      const stateObjects = await adapter.getStatesOfAsync(deviceId, "state");
+      const stateKeys = new Set((stateObjects || []).map((s) => s._id.substring(s._id.lastIndexOf(".") + 1)));
+      const lightType = detectLegacyLightType(stateKeys);
+      const config = { name, lightType };
+      if (stateKeys.has("on")) {
+        config.onState = `${adapter.namespace}.${deviceId}.state.on`;
+      }
+      if (stateKeys.has("bri")) {
+        config.briState = `${adapter.namespace}.${deviceId}.state.bri`;
+      }
+      if (stateKeys.has("ct")) {
+        config.ctState = `${adapter.namespace}.${deviceId}.state.ct`;
+      }
+      if (stateKeys.has("hue")) {
+        config.hueState = `${adapter.namespace}.${deviceId}.state.hue`;
+      }
+      if (stateKeys.has("sat")) {
+        config.satState = `${adapter.namespace}.${deviceId}.state.sat`;
+      }
+      if (stateKeys.has("xy")) {
+        config.xyState = `${adapter.namespace}.${deviceId}.state.xy`;
+      }
+      migratedDevices.push(config);
+      adapter.log.info(`Migrated legacy device "${name}" as ${lightType}`);
+      await Promise.all([
+        adapter.delObjectAsync(`${deviceId}.name`).catch(() => {
+        }),
+        adapter.delObjectAsync(`${deviceId}.data`).catch(() => {
+        })
+      ]);
+    } catch (error) {
+      adapter.log.warn(`Could not migrate legacy device ${deviceId}: ${(0, import_utils.errText)(error)}`);
+    }
+  }
+  if (migratedDevices.length === 0) {
+    return false;
+  }
+  await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
+    native: { devices: migratedDevices }
+  });
+  adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
+  return true;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ID_RANGE_END,
@@ -112,6 +175,7 @@ async function runObsoleteStateCleanup(adapter) {
   buildInstanceObjectMigrationPatch,
   detectLegacyLightType,
   runInstanceObjectMigration,
+  runLegacyDeviceMigration,
   runObsoleteStateCleanup
 });
 //# sourceMappingURL=migrations.js.map

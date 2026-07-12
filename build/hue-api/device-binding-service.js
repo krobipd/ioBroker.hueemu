@@ -274,6 +274,8 @@ class DeviceBindingService {
     if (colormode) {
       state.colormode = colormode;
     }
+    state.effect = "none";
+    state.alert = "none";
     const light = {
       state,
       name: device.name,
@@ -546,10 +548,6 @@ class DeviceBindingService {
         return HUE_CT_DEFAULT;
       case "xy":
         return HUE_XY_DEFAULT;
-      case "effect":
-        return "none";
-      case "alert":
-        return "none";
       default:
         return null;
     }

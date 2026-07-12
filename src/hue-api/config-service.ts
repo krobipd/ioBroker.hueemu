@@ -19,10 +19,9 @@ export interface ConfigServiceConfig {
   advertiseHost: string;
   /**
    * v1.4.3 (C6): paired client ids — used to populate the `whitelist` field
-   * so spec-conformant Hue clients see who's currently paired. Synchronous
-   * on purpose: keeps the rendering path non-async so callers (and the
-   * mocha+ts-node loader, which trips on cross-cutting async chains) stay
-   * simple. Caller can return whatever's cached at the moment.
+   * so spec-conformant Hue clients see who's currently paired. Synchronous on
+   * purpose: keeps the rendering path non-async, so the caller can return
+   * whatever's cached at the moment without the config build going async.
    */
   whitelistProvider?: () => readonly string[];
 }

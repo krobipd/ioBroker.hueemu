@@ -13,7 +13,7 @@ vi.mock("./lib/i18n", () => ({
   tName: (key: string) => key,
 }));
 
-import { HueEmuDeviceManagement, cleanDevice, buildDeviceForm } from "./device-management";
+import { HueEmuDeviceManagement, cleanDevice, buildDeviceForm, buildSelectionForm } from "./device-management";
 import type { DeviceConfig } from "./hue-api";
 
 /** A running-config mock adapter backed by an in-memory native.devices array. */
@@ -29,12 +29,19 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
       stored = patch.native.devices;
     }),
     getForeignObjectsAsync: vi.fn(async () => allObjects),
+    // A1: searchDevices now loads via getObjectView per type. Return the objects
+    // of the requested design ("device" | "channel" | "state"), like js-controller.
+    getObjectViewAsync: vi.fn(async (_system: string, design: string) => ({
+      rows: Object.entries(allObjects)
+        .filter(([, o]) => (o as ioBroker.Object).type === design)
+        .map(([id, value]) => ({ id, value })),
+    })),
     _stored: () => stored,
   };
 }
 
 /** A mock ActionContext with configurable form/confirmation results. */
-function mockContext(opts: { form?: unknown; confirm?: boolean } = {}): any {
+function mockContext(opts: { form?: unknown; confirm?: boolean } = {}) {
   return {
     showForm: vi.fn(async () => opts.form),
     showConfirmation: vi.fn(async () => opts.confirm ?? true),
@@ -42,6 +49,21 @@ function mockContext(opts: { form?: unknown; confirm?: boolean } = {}): any {
     openProgress: vi.fn(async () => ({ update: vi.fn(), close: vi.fn(async () => undefined) })),
   };
 }
+
+type MockCtx = ReturnType<typeof mockContext>;
+
+/**
+ * Typed access to the private DeviceManagement methods the tests drive — mirrors
+ * the internalOf() seam in main.test.ts and replaces the previous `(dm as any)`.
+ */
+interface DmInternals {
+  loadDevices(ctx: { addDevice: (info: unknown) => void }): Promise<void>;
+  addDevice(ctx: MockCtx): Promise<{ refresh: boolean }>;
+  editDevice(index: number, ctx: MockCtx): Promise<{ refresh: "instance" }>;
+  deleteDevice(index: number, ctx: MockCtx): Promise<{ refresh: "instance" }>;
+  searchDevices(ctx: MockCtx): Promise<{ refresh: boolean }>;
+}
+const internalOf = (dm: HueEmuDeviceManagement): DmInternals => dm as unknown as DmInternals;
 
 /** Build a channel device with `[suffix, role, type?]` state children (detector-friendly). */
 function channel(prefix: string, states: [string, string, ioBroker.CommonType?][]): Record<string, ioBroker.Object> {
@@ -93,6 +115,20 @@ describe("buildDeviceForm", () => {
   });
 });
 
+describe("buildSelectionForm", () => {
+  it("makes one unticked checkbox per detected light, labelled with name/type/state", () => {
+    const form = buildSelectionForm([
+      { name: "A", lightType: "onoff", onState: "x.on" },
+      { name: "B", lightType: "ct", onState: "y.on" },
+    ]) as { type: string; items: Record<string, { type?: string; default?: boolean; label?: string }> };
+    expect(form.type).toBe("panel");
+    expect(form.items.sel_0.type).toBe("checkbox");
+    expect(form.items.sel_0.default).toBe(false);
+    expect(form.items.sel_0.label).toContain("A");
+    expect(form.items.sel_1.label).toContain("B");
+  });
+});
+
 describe("HueEmuDeviceManagement", () => {
   let dm: HueEmuDeviceManagement;
 
@@ -109,7 +145,7 @@ describe("HueEmuDeviceManagement", () => {
         { name: "Hall", lightType: "dimmable", onState: "b.on", briState: "b.bri" },
       ]);
       const ctx = { addDevice: vi.fn() };
-      await (dm as any).loadDevices(ctx);
+      await internalOf(dm).loadDevices(ctx);
       expect(ctx.addDevice).toHaveBeenCalledTimes(2);
       expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "0", name: "Kitchen" });
       expect(ctx.addDevice.mock.calls[1][0]).toMatchObject({ id: "1", name: "Hall" });
@@ -119,7 +155,7 @@ describe("HueEmuDeviceManagement", () => {
       const adapter = make();
       adapter.getForeignObjectAsync.mockResolvedValueOnce({ native: {} });
       const ctx = { addDevice: vi.fn() };
-      await (dm as any).loadDevices(ctx);
+      await internalOf(dm).loadDevices(ctx);
       expect(ctx.addDevice).not.toHaveBeenCalled();
     });
   });
@@ -128,27 +164,27 @@ describe("HueEmuDeviceManagement", () => {
     it("appends a valid form result", async () => {
       const adapter = make([]);
       const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "x.on" } });
-      const res = await (dm as any).addDevice(ctx);
+      const res = await internalOf(dm).addDevice(ctx);
       expect(res).toEqual({ refresh: true });
       expect(adapter._stored()).toEqual([{ name: "New", lightType: "onoff", onState: "x.on" }]);
     });
 
     it("does not write when the add form is cancelled", async () => {
       const adapter = make([]);
-      await (dm as any).addDevice(mockContext({ form: undefined }));
+      await internalOf(dm).addDevice(mockContext({ form: undefined }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
     it("does not write when the add form has no name", async () => {
       const adapter = make([]);
-      await (dm as any).addDevice(mockContext({ form: { name: "", lightType: "onoff" } }));
+      await internalOf(dm).addDevice(mockContext({ form: { name: "", lightType: "onoff" } }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
     it("replaces the edited device in place", async () => {
       const adapter = make([{ name: "Old", lightType: "onoff", onState: "a.on" }]);
       const ctx = mockContext({ form: { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" } });
-      await (dm as any).editDevice(0, ctx);
+      await internalOf(dm).editDevice(0, ctx);
       expect(adapter._stored()).toEqual([{ name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" }]);
     });
 
@@ -157,28 +193,30 @@ describe("HueEmuDeviceManagement", () => {
         { name: "A", lightType: "onoff", onState: "a" },
         { name: "B", lightType: "onoff", onState: "b" },
       ]);
-      await (dm as any).deleteDevice(0, mockContext({ confirm: true }));
+      await internalOf(dm).deleteDevice(0, mockContext({ confirm: true }));
       expect(adapter._stored()).toEqual([{ name: "B", lightType: "onoff", onState: "b" }]);
     });
 
     it("does not delete when the confirmation is declined", async () => {
       const adapter = make([{ name: "A", lightType: "onoff", onState: "a" }]);
-      await (dm as any).deleteDevice(0, mockContext({ confirm: false }));
+      await internalOf(dm).deleteDevice(0, mockContext({ confirm: false }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
   });
 
-  describe("searchDevices (real detector)", () => {
-    it("adds foreign lights but excludes hueemu's own namespace", async () => {
+  describe("searchDevices (real detector + selection)", () => {
+    it("detects foreign lights, excludes own namespace, and adds only the ticked ones", async () => {
       const objs = {
         ...channel("lampe.0.wohnzimmer", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]),
         // hueemu's own emulated light — must NOT be re-detected as a source:
         ...channel("hueemu.0.1.state", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]),
       };
       const adapter = make([], objs);
-      const ctx = mockContext();
-      const res = await (dm as any).searchDevices(ctx);
+      // Tick the single detected light in the selection form.
+      const ctx = mockContext({ form: { sel_0: true } });
+      const res = await internalOf(dm).searchDevices(ctx);
       expect(res).toEqual({ refresh: true });
+      expect(ctx.showForm).toHaveBeenCalled();
       const stored = adapter._stored();
       expect(stored).toHaveLength(1);
       expect(stored[0].onState).toBe("lampe.0.wohnzimmer.on");
@@ -186,12 +224,43 @@ describe("HueEmuDeviceManagement", () => {
       expect(ctx.showMessage).toHaveBeenCalled();
     });
 
-    it("does not re-add a light already mapped (append-only dedup)", async () => {
-      const objs = channel("lampe.0.flur", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
-      const adapter = make([{ name: "Flur", lightType: "dimmable", onState: "lampe.0.flur.on", briState: "lampe.0.flur.bri" }], objs);
-      await (dm as any).searchDevices(mockContext());
-      // nothing new to persist → no write
+    it("adds nothing when the user unticks everything", async () => {
+      const objs = channel("lampe.0.kueche", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
+      const adapter = make([], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: {} })); // form returns, nothing ticked
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+    });
+
+    it("adds nothing when the selection form is cancelled", async () => {
+      const objs = channel("lampe.0.bad", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
+      const adapter = make([], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: undefined }));
+      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+    });
+
+    it("does not offer an already-mapped light (append-only dedup) — no form shown", async () => {
+      const objs = channel("lampe.0.flur", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
+      const adapter = make(
+        [{ name: "Flur", lightType: "dimmable", onState: "lampe.0.flur.on", briState: "lampe.0.flur.bri" }],
+        objs,
+      );
+      const ctx = mockContext();
+      await internalOf(dm).searchDevices(ctx);
+      expect(ctx.showForm).not.toHaveBeenCalled(); // nothing fresh → no picker
+      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+    });
+
+    // C8: the scan-failure branch (object loading throws) reports via showMessage.
+    it("reports a scan failure when object loading throws", async () => {
+      const adapter = make([], {});
+      adapter.getObjectViewAsync = vi.fn(async () => {
+        throw new Error("db down");
+      });
+      const ctx = mockContext();
+      const res = await internalOf(dm).searchDevices(ctx);
+      expect(res).toEqual({ refresh: true });
+      // t() is mocked: t("dmScanFailed", "db down") → { key, args }
+      expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmScanFailed", args: ["db down"] });
     });
   });
 });

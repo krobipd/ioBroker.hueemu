@@ -18,9 +18,9 @@ import { coerceBool, parsePort } from "./lib/coerce";
 import { tName } from "./lib/i18n";
 import {
   ID_RANGE_END,
-  detectLegacyLightType,
   runInstanceObjectMigration,
   runObsoleteStateCleanup,
+  runLegacyDeviceMigration,
 } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
@@ -40,7 +40,10 @@ declare global {
     interface AdapterConfig {
       host: string;
       port: number;
-      advertiseHost: string;
+      // Legacy (v1.11 and earlier): a separate "advertised IP" field. The single
+      // Host/IP selector is now bind + advertise; this is still read for
+      // back-compat so existing configs keep their announced IP.
+      advertiseHost?: string;
       httpsPort: number | undefined;
       tlsCert?: string;
       tlsKey?: string;
@@ -65,6 +68,11 @@ export class HueEmu extends utils.Adapter {
   private pairingTimeoutId: ioBroker.Timeout | undefined = undefined;
   private _pairingEnabled = false;
   private _disableAuth = false;
+  // v1.12.0: set when buildConfig / getOrCreateTlsMaterial persist generated
+  // identity or TLS material into native — that write triggers an instance
+  // restart (jsonConfig semantics), so onReady short-circuits instead of binding
+  // servers the imminent restart would tear down.
+  private nativePersistPending = false;
 
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
@@ -177,6 +185,15 @@ export class HueEmu extends utils.Adapter {
       // Parse and validate configuration
       const emulatorConfig = await this.buildConfig();
 
+      // v1.12.0: buildConfig / getOrCreateTlsMaterial may persist generated
+      // identity or TLS material into native, which triggers an instance restart
+      // (jsonConfig semantics). Short-circuit like the legacy migration so we
+      // don't bind servers the imminent restart would immediately tear down.
+      if (this.nativePersistPending) {
+        this.log.info("Persisted generated bridge identity/TLS — restarting with the stored configuration.");
+        return;
+      }
+
       // Create logger adapter
       const logger = this.createLogger();
 
@@ -257,10 +274,18 @@ export class HueEmu extends utils.Adapter {
     // Parse configuration values
     const host = this.config.host?.trim() || "0.0.0.0";
     const port = this.toPort(this.config.port);
-    // Advertise a concrete, routable IP (SSDP location / description.xml /
-    // config). Prefer the explicit advertiseHost; else the bind host when it is
-    // concrete; else auto-detect the primary IPv4. Never advertise 0.0.0.0.
-    const advertiseHost = this.config.advertiseHost?.trim() || (host !== "0.0.0.0" ? host : detectPrimaryIPv4());
+    // v1.12.0: one Host/IP selector is bind AND advertise. A concrete host is
+    // announced as-is (SSDP location / description.xml / config); "0.0.0.0"
+    // (listen on all interfaces) auto-detects a routable IP to announce, never
+    // advertising 0.0.0.0. Legacy configs that still carry a separate
+    // advertiseHost keep working — honoured only when the host is 0.0.0.0.
+    const legacyAdvertise = typeof this.config.advertiseHost === "string" ? this.config.advertiseHost.trim() : "";
+    const advertiseHost =
+      host !== "0.0.0.0"
+        ? host
+        : legacyAdvertise && legacyAdvertise !== "0.0.0.0"
+          ? legacyAdvertise
+          : detectPrimaryIPv4();
     const httpsPort = parsePort(this.config.httpsPort);
     // v1.9.0: the bind host may be 0.0.0.0 (listen on all interfaces); what must
     // resolve is a routable advertiseHost. v1.4.3 (SV4): an HTTPS port equal to
@@ -275,6 +300,7 @@ export class HueEmu extends utils.Adapter {
       await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
         native: { udn, mac },
       });
+      this.nativePersistPending = true;
     }
 
     // Build bridge identity
@@ -353,6 +379,7 @@ export class HueEmu extends utils.Adapter {
         native: { tlsCert: generated.certificate, tlsKey: generated.privateKey },
       });
       this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
+      this.nativePersistPending = true;
     } catch (err) {
       this.log.warn(`TLS cert generated but failed to persist: ${errText(err)} — will regenerate next restart`);
     }
@@ -653,97 +680,24 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Migrate legacy devices (created via createLight JSON) to admin-configured DeviceConfig format.
-   * Legacy devices are ioBroker device objects in the adapter namespace with state/name/data children.
-   * After migration, DeviceBindingService uses the existing state objects as foreign states.
+   * Migrate legacy devices (created via createLight JSON) to admin-configured
+   * DeviceConfig format. Thin wrapper over the pure {@link runLegacyDeviceMigration}
+   * helper (extracted to `lib/migrations.ts` for direct unit-testing, like the
+   * other two migrations).
    *
    * @returns true if migration was performed (adapter will restart with new config)
    */
   private async migrateLegacyDevices(): Promise<boolean> {
-    // Skip if devices are already configured in admin
-    if (this.config.devices && this.config.devices.length > 0) {
-      return false;
-    }
-
-    // Check for legacy device objects in our namespace
-    const devices = await this.getDevicesAsync();
-    if (devices.length === 0) {
-      return false;
-    }
-
-    this.log.info(`Found ${devices.length} legacy device(s) — migrating to new configuration`);
-
-    const migratedDevices: DeviceConfig[] = [];
-
-    for (const device of devices) {
-      const deviceId = device._id.substring(this.namespace.length + 1);
-
-      try {
-        // Read device name from name state or device common.name (type-guarded:
-        // state.val can be number/bool, common.name can be a translation object)
-        const nameState = await this.getStateAsync(`${deviceId}.name`);
-        const nameVal = typeof nameState?.val === "string" ? nameState.val : undefined;
-        const commonName = typeof device.common?.name === "string" ? device.common.name : undefined;
-        const name = nameVal || commonName || deviceId;
-
-        // Read state channel to find available state keys
-        const stateObjects = await this.getStatesOfAsync(deviceId, "state");
-        const stateKeys = new Set((stateObjects || []).map(s => s._id.substring(s._id.lastIndexOf(".") + 1)));
-
-        // Determine light type from available states
-        const lightType = detectLegacyLightType(stateKeys);
-
-        // Build DeviceConfig with state IDs pointing to existing internal states
-        const config: DeviceConfig = { name, lightType };
-
-        if (stateKeys.has("on")) {
-          config.onState = `${this.namespace}.${deviceId}.state.on`;
-        }
-        if (stateKeys.has("bri")) {
-          config.briState = `${this.namespace}.${deviceId}.state.bri`;
-        }
-        if (stateKeys.has("ct")) {
-          config.ctState = `${this.namespace}.${deviceId}.state.ct`;
-        }
-        if (stateKeys.has("hue")) {
-          config.hueState = `${this.namespace}.${deviceId}.state.hue`;
-        }
-        if (stateKeys.has("sat")) {
-          config.satState = `${this.namespace}.${deviceId}.state.sat`;
-        }
-        if (stateKeys.has("xy")) {
-          config.xyState = `${this.namespace}.${deviceId}.state.xy`;
-        }
-
-        migratedDevices.push(config);
-        this.log.info(`Migrated legacy device "${name}" as ${lightType}`);
-
-        // v1.4.3 (M6): remove the obsolete metadata wrapper objects. The state.*
-        // leaf objects are kept — DeviceBindingService binds to them.
-        // v1.10.0 (L2): the device (`${deviceId}`) and channel (`${deviceId}.state`)
-        // objects are kept as containers too — delObjectAsync is non-recursive, so
-        // deleting them would orphan the retained leaves (Intermediate-Objects rule).
-        await Promise.all([
-          this.delObjectAsync(`${deviceId}.name`).catch(() => {}),
-          this.delObjectAsync(`${deviceId}.data`).catch(() => {}),
-        ]);
-      } catch (error) {
-        this.log.warn(`Could not migrate legacy device ${deviceId}: ${errText(error)}`);
-      }
-    }
-
-    if (migratedDevices.length === 0) {
-      return false;
-    }
-
-    // Save migrated devices to adapter config (triggers automatic restart)
-    await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-      native: { devices: migratedDevices },
+    return runLegacyDeviceMigration({
+      namespace: this.namespace,
+      configuredDevices: this.config.devices,
+      getDevicesAsync: () => this.getDevicesAsync(),
+      getStateAsync: id => this.getStateAsync(id),
+      getStatesOfAsync: (device, channel) => this.getStatesOfAsync(device, channel),
+      extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
+      delObjectAsync: id => this.delObjectAsync(id),
+      log: { info: msg => this.log.info(msg), warn: msg => this.log.warn(msg) },
     });
-
-    this.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
-
-    return true;
   }
 
   /**

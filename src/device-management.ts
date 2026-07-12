@@ -206,6 +206,32 @@ export function cleanDevice(raw: Record<string, unknown>): DeviceConfig {
 }
 
 /**
+ * Build the "which lights to add" form: one checkbox per freshly detected light,
+ * labelled with its name, detected Hue type and mapped on/off state so that
+ * near-identical devices stay distinguishable. All unticked by default — the
+ * user opts in per light, so a system with 30 lights never dumps all 30 into
+ * the bridge.
+ *
+ * @param devices The freshly detected, not-yet-mapped light suggestions.
+ * @returns A jsonConfig panel with one checkbox per device.
+ */
+export function buildSelectionForm(devices: DeviceConfig[]): JsonFormSchema {
+  const items: Record<string, unknown> = {
+    _hint: { type: "staticText", text: t("dmSelectHint"), sm: 12 },
+  };
+  devices.forEach((device, index) => {
+    const suffix = device.onState ? ` · ${device.onState}` : "";
+    items[`sel_${index}`] = {
+      type: "checkbox",
+      label: `${device.name} · ${device.lightType}${suffix}`,
+      default: false,
+      sm: 12,
+    };
+  });
+  return { type: "panel", items } as unknown as JsonFormSchema;
+}
+
+/**
  * ioBroker device-manager backend: exposes `native.devices` as device cards with
  * add/edit/delete actions plus a "search lights" assistant. Owns no state of its
  * own — it reads and writes the adapter's config object.
@@ -378,17 +404,16 @@ export class HueEmuDeviceManagement extends DeviceManagement {
    */
   private async searchDevices(context: ActionContext): Promise<InstanceResult> {
     const progress = await context.openProgress(t("dmSearching"), { indeterminate: true });
-    try {
-      const all = await this.adapter.getForeignObjectsAsync("*");
-      const ownPrefix = `${this.adapter.namespace}.`;
-      const foreign: Record<string, ioBroker.Object> = {};
-      for (const [id, obj] of Object.entries(all)) {
-        if (!id.startsWith(ownPrefix)) {
-          foreign[id] = obj;
-        }
+    let progressClosed = false;
+    const closeProgress = async (): Promise<void> => {
+      if (!progressClosed) {
+        progressClosed = true;
+        await progress.close();
       }
-
-      const { devices: found, unmapped } = scanForLightDevices(foreign, (id, obj) => {
+    };
+    try {
+      const objects = await this.loadAllObjects();
+      const { devices: found, unmapped } = scanForLightDevices(objects, (id, obj) => {
         const name = obj.common?.name;
         return (typeof name === "string" && name) || id;
       });
@@ -398,18 +423,56 @@ export class HueEmuDeviceManagement extends DeviceManagement {
         existing.flatMap(d => [d.onState, d.briState, d.ctState, d.hueState, d.satState, d.xyState].filter(Boolean)),
       );
       const fresh = found.filter(d => !d.onState || !mappedIds.has(d.onState));
+      await closeProgress();
 
-      if (fresh.length) {
-        await this.writeDevices([...existing, ...fresh]);
+      if (!fresh.length) {
+        await context.showMessage(unmapped.length ? t("dmScanNoneRgb", unmapped.length) : t("dmScanNone"));
+        return { refresh: true };
       }
-      await progress.close();
-      await context.showMessage(
-        unmapped.length ? t("dmScanResultRgb", fresh.length, unmapped.length) : t("dmScanResult", fresh.length),
-      );
+
+      // Let the user pick which detected lights to add — pre-unticked, so nothing
+      // lands in the bridge by accident (30 detected lights ≠ 30 wanted Hue slots).
+      const selection = await context.showForm(buildSelectionForm(fresh), { title: t("dmSelectTitle"), data: {} });
+      if (selection) {
+        const chosen = fresh.filter((_, index) => selection[`sel_${index}`] === true);
+        if (chosen.length) {
+          await this.writeDevices([...existing, ...chosen]);
+        }
+        await context.showMessage(
+          unmapped.length ? t("dmScanAddedRgb", chosen.length, unmapped.length) : t("dmScanAdded", chosen.length),
+        );
+      }
     } catch (e) {
-      await progress.close();
+      await closeProgress();
       await context.showMessage(t("dmScanFailed", e instanceof Error ? e.message : String(e)));
     }
     return { refresh: true };
+  }
+
+  /**
+   * Load every object the type-detector needs — device + channel + state — from
+   * the whole system, minus hueemu's own namespace.
+   *
+   * `getForeignObjectsAsync("*")` without a type argument defaults to the
+   * js-controller 'state' object view (`getObjectView('system', type || 'state')`,
+   * verified in js-controller v7.2.2), so it returns ONLY states and NEVER the
+   * device/channel containers the detector keys off — which made every scan come
+   * up empty. Fetching each type explicitly via getObjectView (govee pattern)
+   * hands the detector the full tree.
+   *
+   * @returns Map of object id → object for all foreign device/channel/state objects.
+   */
+  private async loadAllObjects(): Promise<Record<string, ioBroker.Object>> {
+    const ownPrefix = `${this.adapter.namespace}.`;
+    const objects: Record<string, ioBroker.Object> = {};
+    for (const design of ["device", "channel", "state"] as const) {
+      const view = await this.adapter.getObjectViewAsync("system", design, {});
+      for (const row of view?.rows ?? []) {
+        if (row.value && !row.id.startsWith(ownPrefix)) {
+          objects[row.id] = row.value;
+        }
+      }
+    }
+    return objects;
   }
 }

@@ -157,9 +157,14 @@ export interface HueApiHandler {
   getFullState(req: HueRequest, username: string): Promise<FullState>;
 
   /**
-   * Get bridge configuration (GET /api/:username/config)
+   * Get bridge configuration (GET /api/:username/config, unauthenticated / reduced)
    */
   getConfig(req: HueRequest, username: string): BridgeConfigPublic;
+
+  /**
+   * Get the full bridge configuration (GET /api/:username/config with a valid user)
+   */
+  getFullConfig(req: HueRequest, username: string): BridgeConfigFull;
 
   /**
    * Get all lights (GET /api/:username/lights)

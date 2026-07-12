@@ -5,7 +5,14 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { apiV1Routes } from "./api-v1-routes";
 import { hueErrorHandler } from "../middleware/error-handler";
-import type { HueApiHandler, HueRequest, CreateUserRequest, FullState, BridgeConfigPublic } from "../../types/hue-api";
+import type {
+  HueApiHandler,
+  HueRequest,
+  CreateUserRequest,
+  FullState,
+  BridgeConfigPublic,
+  BridgeConfigFull,
+} from "../../types/hue-api";
 import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../../types/light";
 
 interface MockHandlerCalls {
@@ -46,6 +53,14 @@ function createMockHandler(
         bridgeid: "TESTBRIDGE",
         mac: "aa:bb:cc:dd:ee:ff",
       }) as BridgeConfigPublic,
+    getFullConfig: () =>
+      ({
+        name: "Philips hue",
+        bridgeid: "TESTBRIDGE",
+        mac: "aa:bb:cc:dd:ee:ff",
+        ipaddress: "192.168.1.100",
+        whitelist: {},
+      }) as unknown as BridgeConfigFull,
     getAllLights: async () => {
       calls.getAllLights++;
       return {} as LightsCollection;
@@ -205,6 +220,25 @@ describe("apiV1Routes — GET auth-required routes", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toHaveProperty("bridgeid");
+  });
+
+  // D1: authenticated /config → full config; unauthenticated → reduced public config.
+  it("authenticated config returns the full config (ipaddress + whitelist)", async () => {
+    const handler = createMockHandler({ isAuthenticated: true });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api/valid-user/config" });
+    const parsed = JSON.parse(res.body);
+    expect(parsed).toHaveProperty("ipaddress", "192.168.1.100");
+    expect(parsed).toHaveProperty("whitelist");
+  });
+
+  it("unauthenticated config stays reduced (no ipaddress)", async () => {
+    const handler = createMockHandler({ isAuthenticated: false });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api/stranger/config" });
+    const parsed = JSON.parse(res.body);
+    expect(parsed).toHaveProperty("bridgeid");
+    expect(parsed).not.toHaveProperty("ipaddress");
   });
 });
 

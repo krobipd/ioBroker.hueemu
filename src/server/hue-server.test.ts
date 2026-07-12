@@ -82,6 +82,7 @@ function makeHandler(): HueApiHandler {
     createUser: async () => "test-user",
     getFullState: async () => ({ lights: {}, groups: {}, config: {} }) as never,
     getConfig: () => ({ name: "Philips hue", bridgeid: "TEST" }) as never,
+    getFullConfig: () => ({ name: "Philips hue", bridgeid: "TEST", ipaddress: "127.0.0.1" }) as never,
     getAllLights: async () => ({}),
     getLightById: async () => ({ state: { on: true } }) as never,
     setLightState: async () => [],

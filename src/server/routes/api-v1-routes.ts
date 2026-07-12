@@ -54,10 +54,10 @@ function toHueRequest(request: FastifyRequest): HueRequest {
 /**
  * Error handler wrapper for async route handlers.
  *
- * v1.4.5 (D + E): optional `logger`-Parameter emits a debug-trace for every
- * converged error — `requireAuth`-Throws, route-handler-Throws, body-validation.
- * Without this, the route-level error-Convergenz war komplett silent. Logger
- * ist optional (Tests passieren handler ohne).
+ * v1.4.5 (D + E): the optional `logger` parameter emits a debug trace for every
+ * converged error — requireAuth throws, route-handler throws, body validation.
+ * Without it the route-level error convergence was completely silent. The logger
+ * is optional (tests pass a handler without one).
  *
  * @param request - Fastify request object
  * @param reply - Fastify reply object
@@ -154,14 +154,15 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
     });
   });
 
-  // GET /api/:username/config - Get config
+  // GET /api/:username/config - Get config. Real Hue returns the FULL config
+  // (whitelist, ipaddress, timezone…) to an authenticated user and the reduced
+  // public config to an unknown one — never a 401, /config stays reachable.
   fastify.get<{ Params: UsernameParams }>("/api/:username/config", async (request, reply) => {
-    await runWithLog(request, reply, () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
-
-      // Config endpoint doesn't require auth for basic info
-      return handler.getConfig(hueReq, username);
+      const authed = handler.isAuthDisabled() || (await handler.isUserAuthenticated(username));
+      return authed ? handler.getFullConfig(hueReq, username) : handler.getConfig(hueReq, username);
     });
   });
 

@@ -53,7 +53,7 @@ function detectPrimaryIPv4() {
 function validateNetworkConfig(advertiseHost, port, httpsPort) {
   if (!advertiseHost || advertiseHost === "0.0.0.0") {
     throw new Error(
-      "Could not determine a routable IP to advertise \u2014 set the advertised IP in admin config to the address clients should reach"
+      "Could not determine a routable IP to advertise \u2014 set the Host/IP in admin config to the concrete address clients should reach"
     );
   }
   if (httpsPort !== void 0 && httpsPort === port) {

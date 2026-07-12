@@ -1,4 +1,8 @@
 # Older Changes
+## 1.8.0 (2026-06-09)
+
+- Color lights mapped via hue and saturation (without an XY state) now report the correct color mode, so apps that honor it show the actual color instead of a default white.
+
 ## 1.7.0 (2026-06-07)
 
 - Added optional Sentry error reporting: crashes are sent to the developer so issues get fixed faster. Active only with ioBroker diagnostics enabled; anonymous.

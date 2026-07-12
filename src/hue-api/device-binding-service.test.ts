@@ -315,6 +315,15 @@ describe("DeviceBindingService", () => {
         expect(light.state.mode).toBe("homeautomation");
       });
     });
+
+    describe("effect and alert (Hue spec parity)", () => {
+      it("reports effect and alert as 'none'", async () => {
+        const { service } = createService([{ name: "Test", lightType: "color" }]);
+        const light = await service.getLightById("1");
+        expect(light.state.effect).toBe("none");
+        expect(light.state.alert).toBe("none");
+      });
+    });
   });
 
   // =====================================================================

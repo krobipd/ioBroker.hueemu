@@ -277,6 +277,16 @@ describe("ApiHandler", () => {
     });
   });
 
+  describe("getFullConfig", () => {
+    it("returns the full config and mirrors the live pairing state into linkbutton", () => {
+      const { handler } = createHandler([], { pairingEnabled: true });
+      const config = handler.getFullConfig(makeRequest(undefined), "user");
+      expect(config).toHaveProperty("ipaddress");
+      expect(config).toHaveProperty("whitelist");
+      expect(config.linkbutton).toBe(true);
+    });
+  });
+
   // v1.8.1 — orchestration/delegation methods (previously only the
   // auth/pairing gates were covered).
   describe("light orchestration (v1.8.1)", () => {

@@ -20,6 +20,7 @@ var device_management_exports = {};
 __export(device_management_exports, {
   HueEmuDeviceManagement: () => HueEmuDeviceManagement,
   buildDeviceForm: () => buildDeviceForm,
+  buildSelectionForm: () => buildSelectionForm,
   cleanDevice: () => cleanDevice
 });
 module.exports = __toCommonJS(device_management_exports);
@@ -177,6 +178,21 @@ function cleanDevice(raw) {
     out[key] = value;
   }
   return out;
+}
+function buildSelectionForm(devices) {
+  const items = {
+    _hint: { type: "staticText", text: (0, import_i18n.t)("dmSelectHint"), sm: 12 }
+  };
+  devices.forEach((device, index) => {
+    const suffix = device.onState ? ` \xB7 ${device.onState}` : "";
+    items[`sel_${index}`] = {
+      type: "checkbox",
+      label: `${device.name} \xB7 ${device.lightType}${suffix}`,
+      default: false,
+      sm: 12
+    };
+  });
+  return { type: "panel", items };
 }
 class HueEmuDeviceManagement extends import_dm_utils.DeviceManagement {
   /** The `system.adapter.*` object id whose `native.devices` holds the mapping list. */
@@ -338,16 +354,16 @@ class HueEmuDeviceManagement extends import_dm_utils.DeviceManagement {
    */
   async searchDevices(context) {
     const progress = await context.openProgress((0, import_i18n.t)("dmSearching"), { indeterminate: true });
-    try {
-      const all = await this.adapter.getForeignObjectsAsync("*");
-      const ownPrefix = `${this.adapter.namespace}.`;
-      const foreign = {};
-      for (const [id, obj] of Object.entries(all)) {
-        if (!id.startsWith(ownPrefix)) {
-          foreign[id] = obj;
-        }
+    let progressClosed = false;
+    const closeProgress = async () => {
+      if (!progressClosed) {
+        progressClosed = true;
+        await progress.close();
       }
-      const { devices: found, unmapped } = (0, import_device_scan.scanForLightDevices)(foreign, (id, obj) => {
+    };
+    try {
+      const objects = await this.loadAllObjects();
+      const { devices: found, unmapped } = (0, import_device_scan.scanForLightDevices)(objects, (id, obj) => {
         var _a;
         const name = (_a = obj.common) == null ? void 0 : _a.name;
         return typeof name === "string" && name || id;
@@ -357,24 +373,60 @@ class HueEmuDeviceManagement extends import_dm_utils.DeviceManagement {
         existing.flatMap((d) => [d.onState, d.briState, d.ctState, d.hueState, d.satState, d.xyState].filter(Boolean))
       );
       const fresh = found.filter((d) => !d.onState || !mappedIds.has(d.onState));
-      if (fresh.length) {
-        await this.writeDevices([...existing, ...fresh]);
+      await closeProgress();
+      if (!fresh.length) {
+        await context.showMessage(unmapped.length ? (0, import_i18n.t)("dmScanNoneRgb", unmapped.length) : (0, import_i18n.t)("dmScanNone"));
+        return { refresh: true };
       }
-      await progress.close();
-      await context.showMessage(
-        unmapped.length ? (0, import_i18n.t)("dmScanResultRgb", fresh.length, unmapped.length) : (0, import_i18n.t)("dmScanResult", fresh.length)
-      );
+      const selection = await context.showForm(buildSelectionForm(fresh), { title: (0, import_i18n.t)("dmSelectTitle"), data: {} });
+      if (selection) {
+        const chosen = fresh.filter((_, index) => selection[`sel_${index}`] === true);
+        if (chosen.length) {
+          await this.writeDevices([...existing, ...chosen]);
+        }
+        await context.showMessage(
+          unmapped.length ? (0, import_i18n.t)("dmScanAddedRgb", chosen.length, unmapped.length) : (0, import_i18n.t)("dmScanAdded", chosen.length)
+        );
+      }
     } catch (e) {
-      await progress.close();
+      await closeProgress();
       await context.showMessage((0, import_i18n.t)("dmScanFailed", e instanceof Error ? e.message : String(e)));
     }
     return { refresh: true };
+  }
+  /**
+   * Load every object the type-detector needs — device + channel + state — from
+   * the whole system, minus hueemu's own namespace.
+   *
+   * `getForeignObjectsAsync("*")` without a type argument defaults to the
+   * js-controller 'state' object view (`getObjectView('system', type || 'state')`,
+   * verified in js-controller v7.2.2), so it returns ONLY states and NEVER the
+   * device/channel containers the detector keys off — which made every scan come
+   * up empty. Fetching each type explicitly via getObjectView (govee pattern)
+   * hands the detector the full tree.
+   *
+   * @returns Map of object id → object for all foreign device/channel/state objects.
+   */
+  async loadAllObjects() {
+    var _a;
+    const ownPrefix = `${this.adapter.namespace}.`;
+    const objects = {};
+    for (const design of ["device", "channel", "state"]) {
+      const view = await this.adapter.getObjectViewAsync("system", design, {});
+      for (const row of (_a = view == null ? void 0 : view.rows) != null ? _a : []) {
+        if (row.value && !row.id.startsWith(ownPrefix)) {
+          objects[row.id] = row.value;
+        }
+      }
+    }
+    return objects;
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   HueEmuDeviceManagement,
   buildDeviceForm,
+  buildSelectionForm,
   cleanDevice
 });
 //# sourceMappingURL=device-management.js.map

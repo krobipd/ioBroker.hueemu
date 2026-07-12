@@ -86,10 +86,11 @@ function apiV1Routes(fastify, options) {
     });
   });
   fastify.get("/api/:username/config", async (request, reply) => {
-    await runWithLog(request, reply, () => {
+    await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
-      return handler.getConfig(hueReq, username);
+      const authed = handler.isAuthDisabled() || await handler.isUserAuthenticated(username);
+      return authed ? handler.getFullConfig(hueReq, username) : handler.getConfig(hueReq, username);
     });
   });
   fastify.get("/api/:username/lights", async (request, reply) => {

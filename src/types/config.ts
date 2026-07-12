@@ -140,7 +140,7 @@ export function detectPrimaryIPv4(): string {
 export function validateNetworkConfig(advertiseHost: string, port: number, httpsPort: number | undefined): void {
   if (!advertiseHost || advertiseHost === "0.0.0.0") {
     throw new Error(
-      "Could not determine a routable IP to advertise — set the advertised IP in admin config to the address clients should reach",
+      "Could not determine a routable IP to advertise — set the Host/IP in admin config to the concrete address clients should reach",
     );
   }
   if (httpsPort !== undefined && httpsPort === port) {

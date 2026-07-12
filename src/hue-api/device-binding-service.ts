@@ -427,6 +427,11 @@ export class DeviceBindingService {
       state.colormode = colormode;
     }
 
+    // Real Hue lights always carry effect/alert. hueemu has no effect or alert
+    // engine, so they are constant "none" — surfaced here for client spec-parity.
+    state.effect = "none";
+    state.alert = "none";
+
     const light: Light = {
       state: state as LightState,
       name: device.name,
@@ -752,10 +757,6 @@ export class DeviceBindingService {
         return HUE_CT_DEFAULT;
       case "xy":
         return HUE_XY_DEFAULT;
-      case "effect":
-        return "none";
-      case "alert":
-        return "none";
       default:
         return null;
     }

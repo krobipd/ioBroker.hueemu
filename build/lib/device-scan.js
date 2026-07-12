@@ -71,7 +71,7 @@ function mapControlToDevice(type, states, name) {
       return null;
   }
 }
-const LIGHT_TYPES = /* @__PURE__ */ new Set([
+const DETECTABLE_LIGHT_TYPES = /* @__PURE__ */ new Set([
   import_type_detector.Types.light,
   import_type_detector.Types.dimmer,
   import_type_detector.Types.ct,
@@ -102,7 +102,7 @@ function scanForLightDevices(objects, nameOf) {
       continue;
     }
     for (const control of controls) {
-      if (!LIGHT_TYPES.has(control.type)) {
+      if (!DETECTABLE_LIGHT_TYPES.has(control.type)) {
         continue;
       }
       const device = mapControlToDevice(control.type, control.states || [], nameOf(id, obj));

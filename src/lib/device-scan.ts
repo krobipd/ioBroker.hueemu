@@ -101,7 +101,7 @@ export function mapControlToDevice(type: string, states: DetectedState[], name: 
 }
 
 /** The detector control types hueemu can map (plus rgb*, reported as unmapped). */
-const LIGHT_TYPES: ReadonlySet<string> = new Set([
+const DETECTABLE_LIGHT_TYPES: ReadonlySet<string> = new Set([
   Types.light,
   Types.dimmer,
   Types.ct,
@@ -143,7 +143,7 @@ export function scanForLightDevices(
       continue;
     }
     for (const control of controls) {
-      if (!LIGHT_TYPES.has(control.type)) {
+      if (!DETECTABLE_LIGHT_TYPES.has(control.type)) {
         continue;
       }
       const device = mapControlToDevice(control.type, control.states || [], nameOf(id, obj));
