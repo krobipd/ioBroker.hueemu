@@ -198,9 +198,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 ## Credits
 
-**Original Author:** Christopher Holomek ([@holomekc](https://github.com/holomekc))
-
-**Modernization:** krobi
+This adapter would not exist without [Christopher Holomek](https://github.com/holomekc), who built the original Hue bridge emulator on GitHub back in 2020. The code has since been rewritten from the ground up — but the idea, and the proof that it works, are his.
 
 ---
 
@@ -222,7 +220,7 @@ This adapter is free and open source. If you find it useful, consider buying me 
 
 MIT License
 
-Copyright (c) 2020-2024 Christopher Holomek <holomekc.github@gmail.com>  
+Copyright (c) 2020-2021 Christopher Holomek <holomekc.github@gmail.com>  
 Copyright (c) 2026 krobi <krobi@power-dreams.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

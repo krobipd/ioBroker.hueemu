@@ -127,7 +127,6 @@
       "zh-cn": "模拟 Philips Hue Bridge (v2)，让仅支持 Philips Hue 的旧设备控制 ioBroker 状态"
     },
     "authors": [
-      "Christopher Holomek <holomekc.github@gmail.com>",
       "krobi <krobi@power-dreams.com>"
     ],
     "keywords": [

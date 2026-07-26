@@ -3,13 +3,14 @@
   "version": "1.12.0",
   "description": "ioBroker adapter that emulates a Philips Hue Bridge (v2)",
   "author": {
-    "name": "Christopher Holomek",
-    "email": "holomekc.github@gmail.com"
+    "name": "krobi",
+    "email": "krobi@power-dreams.com"
   },
   "contributors": [
     {
-      "name": "krobi",
-      "role": "Modernization & Optimization"
+      "name": "Christopher Holomek",
+      "email": "holomekc.github@gmail.com",
+      "role": "Original author"
     },
     {
       "name": "Claude (Anthropic)",
