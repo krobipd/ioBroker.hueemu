@@ -1,4 +1,9 @@
 # Older Changes
+## 1.8.1 (2026-06-12) — stable
+
+- Number values read from light states are now parsed strictly: text with extra characters after the number falls back to the default instead of being half-parsed
+- Faster bridge config responses for clients that poll every second (such as Echo devices) by reusing the timestamp formatter instead of rebuilding it on every request
+
 ## 1.8.0 (2026-06-09)
 
 - Color lights mapped via hue and saturation (without an XY state) now report the correct color mode, so apps that honor it show the actual color instead of a default white.
