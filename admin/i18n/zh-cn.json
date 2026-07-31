@@ -9,6 +9,7 @@
   "advancedInfo": "这些设置是可选的。留空时使用默认值。",
   "httpsPort": "HTTPS端口",
   "httpsPortTooltip": "HTTPS端口（空 = 无HTTPS）",
+  "httpsPortError": "端口必须介于 1 和 65535 之间，留空则禁用 HTTPS",
   "mac": "MAC地址",
   "macTooltip": "Bridge-ID的可选MAC（为空时自动生成）",
   "trustProxy": "信任 X-Forwarded-* 头",

@@ -9,6 +9,7 @@
   "advancedInfo": "Deze instellingen zijn optioneel. Standaardwaarden worden gebruikt als ze leeg worden gelaten.",
   "httpsPort": "HTTPS-poort",
   "httpsPortTooltip": "HTTPS-poort (leeg = geen HTTPS)",
+  "httpsPortError": "Poort moet tussen 1 en 65535 liggen, of leeg om HTTPS uit te schakelen",
   "mac": "MAC-adres",
   "macTooltip": "Optioneel MAC voor Bridge-ID (automatisch gegenereerd als leeg)",
   "trustProxy": "X-Forwarded-* headers vertrouwen",

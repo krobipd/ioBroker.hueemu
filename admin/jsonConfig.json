@@ -57,11 +57,11 @@
           }
         },
         "httpsPort": {
-          "type": "port",
+          "type": "text",
           "label": "httpsPort",
           "tooltip": "httpsPortTooltip",
-          "min": 1,
-          "max": 65535,
+          "validator": "!data.httpsPort || (parseInt(data.httpsPort, 10) >= 1 && parseInt(data.httpsPort, 10) <= 65535)",
+          "validatorErrorText": "httpsPortError",
           "xs": 12,
           "sm": 12,
           "md": 4,

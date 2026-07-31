@@ -37,7 +37,10 @@ function generateSerialNumber(mac) {
 }
 function macFromUdn(udn) {
   const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
-  return hex.match(/.{2}/g).join(":");
+  const bytes = hex.match(/.{2}/g);
+  const first = parseInt(bytes[0], 16) & 254 | 2;
+  bytes[0] = first.toString(16).padStart(2, "0");
+  return bytes.join(":");
 }
 function detectPrimaryIPv4() {
   for (const addrs of Object.values((0, import_node_os.networkInterfaces)())) {

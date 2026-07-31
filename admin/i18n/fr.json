@@ -9,6 +9,7 @@
   "advancedInfo": "Ces paramètres sont optionnels. Les valeurs par défaut sont utilisées si laissées vides.",
   "httpsPort": "Port HTTPS",
   "httpsPortTooltip": "Port HTTPS (vide = pas de HTTPS)",
+  "httpsPortError": "Le port doit être compris entre 1 et 65535, ou vide pour désactiver HTTPS",
   "mac": "Adresse MAC",
   "macTooltip": "MAC optionnel pour Bridge-ID (généré automatiquement si vide)",
   "trustProxy": "Faire confiance aux en-têtes X-Forwarded-*",

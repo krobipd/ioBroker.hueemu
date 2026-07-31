@@ -102,7 +102,15 @@ export function generateSerialNumber(mac: string): string {
  */
 export function macFromUdn(udn: string): string {
   const hex = udn.replace(/-/g, "").slice(0, 12).padEnd(12, "0");
-  return hex.match(/.{2}/g)!.join(":");
+  const bytes = hex.match(/.{2}/g)!;
+  // Force a locally-administered unicast MAC. A raw UUID slice lands on a
+  // multicast first byte (I/G bit set) or a globally-administered one roughly
+  // half the time — e.g. 0x65, which surfaced in the admin as 65:30:f5:41:ec:2e.
+  // Clear the I/G bit (bit 0) so it is unicast, set the U/L bit (bit 1) so it is
+  // marked locally administered.
+  const first = (parseInt(bytes[0], 16) & 0xfe) | 0x02;
+  bytes[0] = first.toString(16).padStart(2, "0");
+  return bytes.join(":");
 }
 
 /**

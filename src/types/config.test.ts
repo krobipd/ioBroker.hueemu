@@ -13,12 +13,32 @@ describe("Config utilities", () => {
     });
 
     it("zero-pads a short UDN to 12 hex chars", () => {
-      expect(macFromUdn("ab-cd")).toBe("ab:cd:00:00:00:00");
+      // First byte 0xab is masked to 0xaa (I/G bit cleared for unicast); the
+      // remaining bytes are zero-padded to reach 12 hex chars.
+      expect(macFromUdn("ab-cd")).toBe("aa:cd:00:00:00:00");
     });
 
     it("is deterministic — same UDN yields the same MAC", () => {
       const udn = "12345678-1234-1234-1234-123456789abc";
       expect(macFromUdn(udn)).toBe(macFromUdn(udn));
+    });
+
+    it("always yields a locally-administered unicast MAC (I/G bit clear, U/L bit set)", () => {
+      // A raw UUID slice can land on a multicast first byte (odd low bit) or a
+      // globally-administered one — neither is valid for a device MAC. Cover
+      // UUIDs whose first byte would otherwise be multicast, incl. 0x65 (the
+      // value that surfaced in krobi's admin as 65:30:f5:41:ec:2e).
+      const udns = [
+        "6530f541-ec2e-4c1a-9b2d-001122334455", // 0x65 → multicast in the old code
+        "ab-cd", // 0xab → multicast
+        "ff112233-4455-6677-8899-aabbccddeeff", // 0xff → multicast + global
+        "01020304-0506-0708-090a-0b0c0d0e0f10", // 0x01 → multicast
+      ];
+      for (const udn of udns) {
+        const firstByte = parseInt(macFromUdn(udn).split(":")[0], 16);
+        expect(firstByte & 0x01).toBe(0); // unicast: I/G bit clear
+        expect(firstByte & 0x02).toBe(0x02); // locally administered: U/L bit set
+      }
     });
   });
 
