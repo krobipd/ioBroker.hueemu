@@ -162,7 +162,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 1.12.1 (2026-07-31)
+### 1.12.1 (2026-07-31) — stable
 
 - Leaving the HTTPS port empty in the settings no longer shows an error — an empty value simply means that no HTTPS server is started for the bridge
 - The bridge MAC address that is generated automatically is now always a valid device address; some of the values generated before were not valid MAC addresses
