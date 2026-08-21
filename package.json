@@ -35,7 +35,7 @@
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.3",
     "@iobroker/dm-utils": "^3.2.0",
-    "@iobroker/type-detector": "^5.0.15",
+    "@iobroker/type-detector": "^6.0.0",
     "fastify": "^5.11.2",
     "node-forge": "^1.4.0",
     "node-ssdp": "^4.0.1",
