@@ -162,6 +162,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.12.2 (2026-08-22)
+
+- Changed: Internal cleanup. No user-facing changes.
+
 ### 1.12.1 (2026-07-31) — stable
 
 - Leaving the HTTPS port empty in the settings no longer shows an error — an empty value simply means that no HTTPS server is started for the bridge
@@ -186,13 +190,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Colour coordinates written as a spaced list such as "0.3, 0.4" are now parsed correctly instead of falling back to white
 - The port fields in the settings now warn you if the chosen port is already in use by another adapter instance
 - Hue and colour-temperature source states can now be given a scale: hue in degrees (0–360) and colour temperature in Kelvin are converted correctly, alongside the native Hue units
-
-### 1.9.0 (2026-06-21) — stable
-
-- You can now listen on all network interfaces (`0.0.0.0`) and set a separate advertised IP, so discovery keeps working even if the bridge's IP address changes
-- Color lights mapped with only hue or only saturation now report the correct colour instead of falling back to a default white
-- Fixed already-paired clients being wrongly rejected until a restart after a transient error while loading clients at startup
-- A configured source state that no longer exists now produces a one-time warning in the log instead of a silently dead light
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

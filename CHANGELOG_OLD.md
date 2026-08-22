@@ -1,4 +1,11 @@
 # Older Changes
+## 1.9.0 (2026-06-21) — stable
+
+- You can now listen on all network interfaces (`0.0.0.0`) and set a separate advertised IP, so discovery keeps working even if the bridge's IP address changes
+- Color lights mapped with only hue or only saturation now report the correct colour instead of falling back to a default white
+- Fixed already-paired clients being wrongly rejected until a restart after a transient error while loading clients at startup
+- A configured source state that no longer exists now produces a one-time warning in the log instead of a silently dead light
+
 ## 1.8.1 (2026-06-12) — stable
 
 - Number values read from light states are now parsed strictly: text with extra characters after the number falls back to the default instead of being half-parsed

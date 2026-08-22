@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.12.1",
+    "version": "1.12.2",
     "news": {
+      "1.12.2": {
+        "en": "Internal cleanup. No user-facing changes.",
+        "de": "Interne Aufräumarbeiten. Keine Änderungen für Nutzer.",
+        "ru": "Внутренняя очистка. Изменений для пользователей нет.",
+        "pt": "Limpeza interna. Sem alterações para o utilizador.",
+        "nl": "Interne opschoning. Geen wijzigingen voor gebruikers.",
+        "fr": "Nettoyage interne. Aucun changement pour l'utilisateur.",
+        "it": "Pulizia interna. Nessuna modifica per gli utenti.",
+        "es": "Limpieza interna. Sin cambios para el usuario.",
+        "pl": "Porządki wewnętrzne. Bez zmian dla użytkownika.",
+        "uk": "Внутрішнє прибирання. Без змін для користувачів.",
+        "zh-cn": "内部清理。用户无可见变化。"
+      },
       "1.12.1": {
         "en": "Leaving the HTTPS port empty no longer shows an error in the settings. The bridge MAC address generated automatically is now always a valid address.",
         "de": "Ein leeres HTTPS-Port-Feld zeigt in den Einstellungen keinen Fehler mehr. Die automatisch erzeugte Bridge-MAC-Adresse ist jetzt immer eine gültige Adresse.",
@@ -80,19 +93,6 @@
         "pl": "Ścisłe parsowanie liczb dla stanów świateł (nieprawidłowe sufiksy wracają do wartości domyślnych); szybsze odpowiedzi konfiguracji mostka dla klientów odpytujących co sekundę, jak urządzenia Echo",
         "uk": "Суворий розбір чисел для станів світла (некоректні суфікси повертаються до типових значень); швидші відповіді конфігурації моста для клієнтів, що опитують щосекунди, як-от пристрої Echo",
         "zh-cn": "灯光状态数值采用严格解析（带无效后缀的文本回退到默认值）；为每秒轮询的客户端（如 Echo 设备）提供更快的桥接配置响应"
-      },
-      "1.8.0": {
-        "en": "Color lights mapped via hue and saturation (without an XY state) now report the correct color mode, so apps that honor it show the actual color instead of a default white.",
-        "de": "Farblichter, die über Farbton und Sättigung (ohne XY-State) gemappt sind, melden jetzt den korrekten Farbmodus — Apps zeigen so die echte Farbe statt einem Standard-Weiß.",
-        "ru": "Цветные лампы, привязанные через тон и насыщенность (без XY-состояния), теперь сообщают правильный цветовой режим — приложения показывают реальный цвет вместо белого по умолчанию.",
-        "pt": "Luzes coloridas mapeadas por tonalidade e saturação (sem estado XY) agora informam o modo de cor correto, então os apps mostram a cor real em vez de um branco padrão.",
-        "nl": "Kleurlampen die via tint en verzadiging (zonder XY-state) zijn gekoppeld, melden nu de juiste kleurmodus, zodat apps de echte kleur tonen in plaats van een standaardwit.",
-        "fr": "Les lampes couleur mappées via teinte et saturation (sans état XY) signalent désormais le bon mode colorimétrique, donc les apps affichent la vraie couleur au lieu d'un blanc par défaut.",
-        "it": "Le luci a colori mappate tramite tonalità e saturazione (senza stato XY) ora segnalano la modalità colore corretta, così le app mostrano il colore reale invece di un bianco predefinito.",
-        "es": "Las luces de color mapeadas por tono y saturación (sin estado XY) ahora informan el modo de color correcto, así las apps muestran el color real en lugar de un blanco predeterminado.",
-        "pl": "Lampy kolorowe mapowane przez barwę i nasycenie (bez stanu XY) zgłaszają teraz poprawny tryb koloru, więc aplikacje pokazują rzeczywisty kolor zamiast domyślnej bieli.",
-        "uk": "Кольорові лампи, прив'язані через відтінок і насиченість (без XY-стану), тепер повідомляють правильний колірний режим — застосунки показують справжній колір замість білого за умовчанням.",
-        "zh-cn": "通过色调和饱和度（无 XY 状态）映射的彩色灯现在报告正确的颜色模式，因此支持的应用会显示真实颜色而非默认白色。"
       }
     },
     "plugins": {
