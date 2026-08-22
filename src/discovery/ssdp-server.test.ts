@@ -119,6 +119,24 @@ describe("HueSsdpServer", () => {
     expect(h.instances[0].stopCalls).toBe(1);
   });
 
+  it("stop() is idempotent — a second call does not stop an already-stopped server", async () => {
+    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
+    await server.start();
+    server.stop();
+    server.stop();
+    // node-ssdp's stop() walks the sockets it believes it owns; calling it on an
+    // already-stopped instance is where a teardown throws during onUnload.
+    expect(h.instances[0].stopCalls).toBe(1);
+  });
+
+  it("stop() before start() does nothing at all", () => {
+    const logger = spyLogger();
+    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
+    server.stop();
+    expect(h.instances).toHaveLength(0);
+    expect(logger.debug).not.toHaveBeenCalledWith("SSDP server stopped");
+  });
+
   it("is idempotent — a second start() does not create a second server", async () => {
     const logger = spyLogger();
     const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });

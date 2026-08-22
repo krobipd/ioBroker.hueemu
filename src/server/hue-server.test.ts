@@ -178,6 +178,33 @@ describe("HueServer wiring (inject)", () => {
     expect(parsed[0]).toHaveProperty("error");
   });
 
+  it("does not trust proxy headers unless the admin config opts in (SV1)", async () => {
+    // With trustProxy on, ANY client can set X-Forwarded-For and appear to come
+    // from another address — every log line and every IP-based decision then
+    // shows what the caller claims, not where the request came from.
+    app = await buildInstance(makeConfig({ trustProxy: false }));
+    let seenIp = "";
+    app.get("/whoami", async req => {
+      seenIp = req.ip;
+      return { ip: req.ip };
+    });
+    await app.ready();
+    await app.inject({ method: "GET", url: "/whoami", headers: { "x-forwarded-for": "9.9.9.9" } });
+    expect(seenIp).to.not.equal("9.9.9.9");
+
+    // Opting in is what makes the header authoritative (reverse-proxy setups).
+    const trusting = await buildInstance(makeConfig({ trustProxy: true }));
+    let trustedIp = "";
+    trusting.get("/whoami", async req => {
+      trustedIp = req.ip;
+      return { ip: req.ip };
+    });
+    await trusting.ready();
+    await trusting.inject({ method: "GET", url: "/whoami", headers: { "x-forwarded-for": "9.9.9.9" } });
+    await trusting.close();
+    expect(trustedIp).to.equal("9.9.9.9");
+  });
+
   it("rejects bodies above the 64 KiB bodyLimit (SV3)", async () => {
     app = await buildInstance();
     const res = await app.inject({

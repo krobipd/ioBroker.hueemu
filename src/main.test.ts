@@ -474,9 +474,12 @@ describe("HueEmu onStateChange", () => {
     const { adapter } = await ready();
     const i = internalOf(adapter);
     i.onStateChange("hueemu.0.startPairing", { val: true, ack: false } as ioBroker.State);
+    // onReady itself arms and clears timers — without this the assertion below
+    // is already satisfied before the pairing timer is even armed.
+    i.clearTimeout.mockClear();
     i.onStateChange("hueemu.0.startPairing", { val: false, ack: false } as ioBroker.State);
     expect(adapter.pairingEnabled).toBe(false);
-    expect(i.clearTimeout).toHaveBeenCalled();
+    expect(i.clearTimeout).toHaveBeenCalledTimes(1);
   });
 
   it("disableAuth routes through strict bool coercion and acks", async () => {
@@ -502,6 +505,37 @@ describe("HueEmu onStateChange", () => {
     expect(handlers[0].onStateChange).toHaveBeenCalledWith("hue.0.light.bri", 80);
     // Acked changes never trigger the command paths.
     expect(adapter.pairingEnabled).toBe(false);
+  });
+
+  it("does NOT feed an unacked write into the handler's state cache", async () => {
+    const { adapter, handlers } = await ready();
+    const i = internalOf(adapter);
+    // An unacked value is a COMMAND, not the device's answer. Caching it would
+    // make the Hue client read back the wish instead of the fact: the lamp
+    // shows as on while it never reacted.
+    i.onStateChange("hue.0.light.bri", { val: 80, ack: false } as ioBroker.State);
+    expect(handlers[0].onStateChange).not.toHaveBeenCalled();
+  });
+
+  it("does not ack an already-acked own state (no write feedback loop)", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.setState.mockClear();
+    // Our own ack triggers onStateChange again — acking it once more is an
+    // endless ping-pong between adapter and broker.
+    i.onStateChange("hueemu.0.something.else", { val: 42, ack: true } as ioBroker.State);
+    expect(i.setState).not.toHaveBeenCalled();
+  });
+
+  it("clears no timer when pairing was never armed", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.clearTimeout.mockClear();
+    i.onStateChange("hueemu.0.startPairing", { val: false, ack: false } as ioBroker.State);
+    // clearTimeout(undefined) is a no-op today, but adapter-core logs a warning
+    // for an unknown handle — and the guard is what says "there is nothing to
+    // clear" instead of relying on that.
+    expect(i.clearTimeout).not.toHaveBeenCalled();
   });
 
   it("handles a deleted state without throwing", async () => {

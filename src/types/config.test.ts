@@ -2,6 +2,16 @@
  * Tests for config utilities and ConfigService
  */
 
+import { vi } from "vitest";
+
+/** node:os passes through except for a swappable interface list. */
+const osMock = vi.hoisted(() => ({ interfaces: null as Record<string, unknown[]> | null }));
+vi.mock("node:os", async importOriginal => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  const networkInterfaces = (): unknown => osMock.interfaces ?? actual.networkInterfaces();
+  return { ...actual, default: { ...actual, networkInterfaces }, networkInterfaces };
+});
+
 import { detectPrimaryIPv4, generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { createTestIdentity } from "../../test/test-helpers";
@@ -85,6 +95,30 @@ describe("Config utilities", () => {
   });
 
   describe("detectPrimaryIPv4", () => {
+    afterEach(() => {
+      osMock.interfaces = null;
+    });
+
+    it("never announces a loopback address, even when it comes first", () => {
+      // The result goes into the SSDP location and the description XML. A
+      // loopback there means every client on the LAN discovers a bridge it
+      // cannot reach — and the emulator looks simply dead.
+      osMock.interfaces = {
+        lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
+        eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
+      };
+      expect(detectPrimaryIPv4()).toBe("192.168.1.20");
+
+      // Loopback only → nothing to announce, and "" is the honest answer.
+      osMock.interfaces = { lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }] };
+      expect(detectPrimaryIPv4()).toBe("");
+    });
+
+    it("accepts the numeric family value modern Node reports", () => {
+      osMock.interfaces = { eth0: [{ family: 4, address: "10.0.0.5", internal: false }] };
+      expect(detectPrimaryIPv4()).toBe("10.0.0.5");
+    });
+
     it("returns an empty string or a dotted-quad IPv4 (best-effort host IP)", () => {
       const ip = detectPrimaryIPv4();
       expect(ip === "" || /^(\d{1,3}\.){3}\d{1,3}$/.test(ip)).toBe(true);

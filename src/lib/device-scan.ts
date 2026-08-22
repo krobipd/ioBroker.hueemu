@@ -143,6 +143,11 @@ export function scanForLightDevices(
       continue;
     }
     for (const control of controls) {
+      // Shortcut, deliberately without its own test: mapControlToDevice's
+      // default branch returns null for every non-light type anyway, and only
+      // rgb* (which IS in this set) reaches the unmapped list — so removing the
+      // filter changes nothing observable (equivalent mutant, 2026-08-22 test
+      // audit). It stays because it says which types this scan is about.
       if (!DETECTABLE_LIGHT_TYPES.has(control.type)) {
         continue;
       }

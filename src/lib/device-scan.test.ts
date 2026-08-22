@@ -95,6 +95,16 @@ describe("scanForLightDevices", () => {
     expect(scanForLightDevices(objs, nameOf)).toEqual({ devices: [], unmapped: [] });
   });
 
+  it("does not turn a socket into a light", () => {
+    // A socket is detected as its own control type but carries an on/off state,
+    // so without the light-type filter every power plug in the system would show
+    // up as a Hue light — and the pairing list would be unusable.
+    const objs = channel("x.0.plug", [["state", "switch", "boolean"]]);
+    objs["x.0.plug"].common.role = "socket";
+    const { devices } = scanForLightDevices(objs, nameOf);
+    expect(devices).toEqual([]);
+  });
+
   it("uses the device display name from the object", () => {
     const objs = channel("x.0.lamp", [["on", "switch.light", "boolean"]]);
     objs["x.0.lamp"].common.name = "Living Room";
@@ -109,5 +119,22 @@ describe("mapControlToDevice", () => {
 
   it("returns null for an rgb control type", () => {
     expect(mapControlToDevice("rgb", [{ name: "RED", id: "x.r" }], "x")).toBeNull();
+  });
+
+  it("binds the FIRST state of a pattern — the detector lists the primary one first", () => {
+    // A control can carry the same pattern twice (a writable setpoint plus a
+    // read-only actual). Taking the last one would bind the emulator to the
+    // read-back value: the Hue client shows a light that never switches.
+    const device = mapControlToDevice(
+      "dimmer",
+      [
+        { name: "ON_SET", id: "x.on" },
+        { name: "ON_SET", id: "x.on_actual" },
+        { name: "DIMMER", id: "x.bri" },
+        { name: "DIMMER", id: "x.bri_actual" },
+      ],
+      "x",
+    );
+    expect(device).toEqual({ name: "x", lightType: "dimmable", onState: "x.on", briState: "x.bri" });
   });
 });

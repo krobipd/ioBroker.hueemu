@@ -274,13 +274,39 @@ describe("migrations", () => {
       };
     }
 
-    it("skips when devices are already configured", async () => {
-      const done = await runLegacyDeviceMigration(mkAdapter({ configuredDevices: [{ name: "X", lightType: "onoff" }] }));
-      expect(done).toBe(false);
+    it("skips when devices are already configured — even with legacy objects still present", async () => {
+      // An install that was already migrated (or configured by hand) keeps its
+      // legacy objects until they are cleaned up. Running the migration again
+      // would OVERWRITE the admin configuration with the old mapping.
+      let written: any = null;
+      const adapter = mkAdapter({
+        configuredDevices: [{ name: "X", lightType: "onoff", onState: "x.on" }],
+        getDevicesAsync: async () => [{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }],
+        getStatesOfAsync: async () => [{ _id: "hueemu.0.lamp.state.on" }],
+        extendForeignObjectAsync: async (_id: string, obj: any) => {
+          written = obj;
+          return null;
+        },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(false);
+      expect(written, "configured devices must not be overwritten").toBeNull();
     });
 
     it("skips when there are no legacy device objects", async () => {
-      expect(await runLegacyDeviceMigration(mkAdapter())).toBe(false);
+      let written: any = null;
+      const infos: string[] = [];
+      const adapter = mkAdapter({
+        extendForeignObjectAsync: async (_id: string, obj: any) => {
+          written = obj;
+          return null;
+        },
+        log: { info: (m: string) => infos.push(m), warn: () => {} },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(false);
+      // Nothing found → nothing written and nothing announced. Writing an empty
+      // device list here would wipe the config on every start of a fresh install.
+      expect(written).toBeNull();
+      expect(infos.filter(m => m.includes("legacy device"))).toHaveLength(0);
     });
 
     it("maps legacy state children to the right type/state ids and persists (restart)", async () => {

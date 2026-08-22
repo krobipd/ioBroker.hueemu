@@ -197,6 +197,24 @@ describe("HueEmuDeviceManagement", () => {
       expect(adapter._stored()).toEqual([{ name: "B", lightType: "onoff", onState: "b" }]);
     });
 
+    it("edit / delete on a stale index do nothing (list changed under the dialog)", async () => {
+      // The Device-Manager list is a snapshot: the user can open the edit or
+      // delete action on a row that another admin session (or the add-flow)
+      // has meanwhile removed. Acting on that index would rewrite or drop the
+      // WRONG device — or write an `undefined` hole into native.devices.
+      const adapterEdit = make([{ name: "A", lightType: "onoff", onState: "a" }]);
+      const editCtx = mockContext({ form: { name: "Ghost", lightType: "onoff", onState: "g" } });
+      await internalOf(dm).editDevice(5, editCtx);
+      expect(editCtx.showForm).not.toHaveBeenCalled();
+      expect(adapterEdit.extendForeignObjectAsync).not.toHaveBeenCalled();
+
+      const adapterDel = make([{ name: "A", lightType: "onoff", onState: "a" }]);
+      const delCtx = mockContext({ confirm: true });
+      await internalOf(dm).deleteDevice(5, delCtx);
+      expect(delCtx.showConfirmation).not.toHaveBeenCalled();
+      expect(adapterDel.extendForeignObjectAsync).not.toHaveBeenCalled();
+    });
+
     it("does not delete when the confirmation is declined", async () => {
       const adapter = make([{ name: "A", lightType: "onoff", onState: "a" }]);
       await internalOf(dm).deleteDevice(0, mockContext({ confirm: false }));
