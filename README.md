@@ -162,6 +162,11 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+- Bridge discovery no longer depends on the abandoned node-ssdp package — the SSDP announcements are now built in and byte-identical on the network, so already-paired devices (Alexa, Harmony, Hue apps) are not affected; this also removes a permanent security warning from the dependency tree
+- When the adapter stops, the bridge now says goodbye on the network (SSDP byebye) so controllers notice the shutdown instead of waiting for a cache timeout
+
 ### 1.12.2 (2026-08-22)
 
 - Changed: Internal cleanup. No user-facing changes.

@@ -49,10 +49,16 @@ var import_utils = require("./types/utils");
 class HueEmu extends utils.Adapter {
   /** Pairing window duration in milliseconds (50 seconds) */
   static PAIRING_TIMEOUT_MS = 5e4;
-  // v1.10.0 (H1): bound the awaited SSDP start — node-ssdp can hang forever on a
-  // swallowed 1900 bind error (see ssdp-server.ts). 5s is far above a local bind.
+  // v1.10.0 (H1): bound the awaited SSDP start. Originally a hard requirement —
+  // node-ssdp could hang forever on a swallowed 1900 bind error; the hand-built
+  // server (v1.13.0) settles deterministically, so this is now defense in depth
+  // (fakeroku keeps the same belt-and-braces bound). 5s is far above a local bind.
   static SSDP_START_TIMEOUT_MS = 5e3;
+  // The ssdp:alive pulse cadence — node-ssdp's adInterval option, now an
+  // adapter-managed interval (fleet timer rule).
+  static SSDP_AD_INTERVAL_MS = 1e4;
   pairingTimeoutId = void 0;
+  ssdpAnnounceInterval = void 0;
   _pairingEnabled = false;
   _disableAuth = false;
   // v1.12.0: set when buildConfig / getOrCreateTlsMaterial persist generated
@@ -139,7 +145,7 @@ class HueEmu extends utils.Adapter {
    * Called when databases are connected and adapter received configuration
    */
   async onReady() {
-    var _a, _b;
+    var _a, _b, _c;
     try {
       await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
       this.log.debug(`onReady: starting (devices in config: ${(_b = (_a = this.config.devices) == null ? void 0 : _a.length) != null ? _b : 0})`);
@@ -159,7 +165,10 @@ class HueEmu extends utils.Adapter {
         identity: emulatorConfig.identity,
         host: emulatorConfig.advertiseHost,
         port: emulatorConfig.port,
-        logger
+        logger,
+        // A socket death after a good start kills discovery for good — stop the
+        // announce pulse instead of multicasting into a closed socket every 10s.
+        onFatalError: () => this.stopSsdpAnnounce()
       });
       this.apiHandler = this.makeApiHandler({
         adapter: this,
@@ -180,6 +189,11 @@ class HueEmu extends utils.Adapter {
       await this.hueServer.start();
       try {
         await this.startSsdpWithTimeout();
+        (_c = this.ssdpServer) == null ? void 0 : _c.announce();
+        this.ssdpAnnounceInterval = this.setInterval(() => {
+          var _a2;
+          return (_a2 = this.ssdpServer) == null ? void 0 : _a2.announce();
+        }, HueEmu.SSDP_AD_INTERVAL_MS);
       } catch (err) {
         this.log.warn(
           `SSDP discovery disabled \u2014 port 1900 unavailable (${(0, import_utils.errText)(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`
@@ -318,14 +332,22 @@ class HueEmu extends utils.Adapter {
     this._disableAuth = (0, import_coerce.coerceBool)(disableAuthState == null ? void 0 : disableAuthState.val);
   }
   /**
-   * Start the SSDP server bounded by a managed timeout. node-ssdp swallows a
-   * socket bind error and never settles its start() promise (H1, see
-   * ssdp-server.ts), so a busy UDP port 1900 would otherwise hang onReady forever
-   * — leaving the adapter serving HTTP but never subscribing to states. The
-   * this.setTimeout (auto-cleared on unload) rejects the race so onReady degrades
-   * to "SSDP disabled, HTTP stays up" (S2). On a timeout the SSDP server's
-   * isRunning stays false, so onUnload's stop() is a safe no-op.
+   * Start the SSDP server bounded by a managed timeout. Historically a hard
+   * requirement (H1): node-ssdp swallowed a socket bind error and never settled
+   * its start() promise, hanging onReady forever. The hand-built server settles
+   * deterministically on every bind outcome, so the bound is defense in depth
+   * now (fakeroku keeps the same belt-and-braces). The this.setTimeout
+   * (auto-cleared on unload) rejects the race so onReady degrades to "SSDP
+   * disabled, HTTP stays up" (S2); after a timeout the server holds no socket,
+   * so onUnload's stop() is a safe no-op.
    */
+  /** Stop the ssdp:alive pulse — on unload and when the SSDP socket dies. */
+  stopSsdpAnnounce() {
+    if (this.ssdpAnnounceInterval !== void 0) {
+      this.clearInterval(this.ssdpAnnounceInterval);
+      this.ssdpAnnounceInterval = void 0;
+    }
+  }
   async startSsdpWithTimeout() {
     const ssdp = this.ssdpServer;
     if (!ssdp) {
@@ -452,6 +474,7 @@ class HueEmu extends utils.Adapter {
   onUnload(callback) {
     try {
       this.clearPairingTimeout();
+      this.stopSsdpAnnounce();
       if (this.ssdpServer) {
         this.ssdpServer.stop();
       }

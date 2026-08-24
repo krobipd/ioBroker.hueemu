@@ -1,26 +1,38 @@
 /**
- * SSDP Server wrapper for Hue Bridge Discovery
- * Uses node-ssdp for UPnP/SSDP communication
+ * SSDP server for Hue bridge discovery — hand-built on node:dgram (fakeroku's
+ * responder pattern), replacing node-ssdp (unmaintained since 2020, permanent
+ * `ip`-advisory noise, swallowed bind errors). The datagrams are byte-identical
+ * to what node-ssdp 4.0.1 produced here (wire-captured 2026-08-24); the pure
+ * builders live in ssdp-messages.ts.
+ *
+ * Owns no timers: the adapter drives {@link HueSsdpServer.announce} on a
+ * managed interval and bounds {@link HueSsdpServer.start} with a managed
+ * timeout (defense in depth — start() itself settles on every bind outcome,
+ * which node-ssdp did not: its swallowed bind error was the old H1 hang).
  */
 
-import { Server as SsdpServer } from "node-ssdp";
+import * as dgram from "node:dgram";
+import * as os from "node:os";
 import type { BridgeIdentity, Logger } from "../types/config";
 import { errText } from "../types/utils";
 import { getDescriptionUrl } from "./description-xml";
+import {
+  SSDP_MULTICAST_ADDR,
+  buildAliveNotify,
+  buildByeNotify,
+  buildSearchResponse,
+  buildUsnTable,
+  matchSearch,
+  parseMSearchTarget,
+  type SsdpAdvertisedBridge,
+  type SsdpTarget,
+} from "./ssdp-messages";
 
 /** SSDP UPnP port — fixed at 1900 by the UPnP standard (design decision #2). */
 export const SSDP_PORT = 1900;
 
-// Extended server options including sourcePort
-interface ExtendedServerOptions {
-  location: string;
-  sourcePort?: number;
-  adInterval?: number;
-  allowWildcards?: boolean;
-  suppressRootDeviceAdvertisements?: boolean;
-  headers?: Record<string, string>;
-  udn?: string;
-}
+/** Multicast hop limit node-ssdp used (its ssdpTtl default). */
+const MULTICAST_TTL = 4;
 
 /**
  * Configuration for the SSDP discovery server
@@ -36,15 +48,24 @@ export interface SsdpServerConfig {
   ssdpPort?: number;
   /** Logger */
   logger: Logger;
+  /**
+   * Called at most once if the socket dies AFTER a successful start — lets the
+   * adapter stop its announce interval instead of pulsing into a dead socket.
+   */
+  onFatalError?: () => void;
 }
 
 /**
- * SSDP Discovery Server for Hue Bridge emulation
+ * SSDP Discovery Server for Hue Bridge emulation: answers M-SEARCH for the
+ * bridge's targets and multicasts the periodic ssdp:alive pulse.
  */
 export class HueSsdpServer {
-  private server: SsdpServer | null = null;
-  private readonly config: Required<SsdpServerConfig>;
-  private isRunning = false;
+  private socket: dgram.Socket | null = null;
+  private readonly config: SsdpServerConfig;
+  private readonly ssdpPort: number;
+  private readonly bridge: SsdpAdvertisedBridge;
+  private readonly targets: SsdpTarget[];
+  private fatalReported = false;
 
   /**
    * Create a new SSDP discovery server
@@ -52,110 +73,208 @@ export class HueSsdpServer {
    * @param config - SSDP server configuration
    */
   constructor(config: SsdpServerConfig) {
-    this.config = {
-      ...config,
-      ssdpPort: config.ssdpPort ?? SSDP_PORT,
+    this.config = config;
+    this.ssdpPort = config.ssdpPort ?? SSDP_PORT;
+    this.bridge = {
+      bridgeId: config.identity.bridgeId,
+      location: getDescriptionUrl(config.host, config.port),
     };
+    this.targets = buildUsnTable(config.identity.udn);
   }
 
   /**
-   * Start the SSDP server and begin advertising
+   * Bind the SSDP port, join the multicast group on every routable IPv4
+   * interface (node-ssdp's default), and start answering searches. Rejects on
+   * a bind error — deterministically, unlike node-ssdp.
    */
   public async start(): Promise<void> {
-    if (this.isRunning) {
+    if (this.socket) {
       this.config.logger.debug("SSDP server already running");
       return;
     }
 
     try {
-      const location = getDescriptionUrl(this.config.host, this.config.port);
+      const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+      this.socket = socket;
 
-      const serverOptions: ExtendedServerOptions = {
-        location,
-        sourcePort: this.config.ssdpPort,
-        adInterval: 10000, // Advertise every 10 seconds
-        // allowWildcards stays OFF. Real Hue/UPnP clients search by an exact ST
-        // or `ssdp:all`, never with `*`. With it on, node-ssdp builds a fresh
-        // RegExp from the attacker-controlled M-SEARCH `ST` header on every
-        // packet — a crafted ST causes catastrophic backtracking (unauth DoS).
-        // Off = plain string equality. (`ttl` dropped: it set the M-SEARCH
-        // max-age, not the multicast hop limit, so the node-ssdp default fits.)
-        allowWildcards: false,
-        suppressRootDeviceAdvertisements: false,
-        headers: {
-          "hue-bridgeid": this.config.identity.bridgeId,
-          SERVER: "Linux/3.14.0 UPnP/1.0 IpBridge/1.41.0",
-        },
-        udn: `uuid:${this.config.identity.udn}`,
-      };
-
-      this.server = new SsdpServer(serverOptions);
-
-      // Add the Basic device type that Hue apps search for
-      // Register both cases since some clients (e.g. Harmony Hub) use lowercase
-      this.server.addUSN("urn:schemas-upnp-org:device:Basic:1");
-      this.server.addUSN("urn:schemas-upnp-org:device:basic:1");
-      this.server.addUSN("upnp:rootdevice");
-      this.config.logger.debug("SSDP USNs registered: Basic:1, basic:1, upnp:rootdevice");
-
-      // v1.4.5 (A): typed cast to a narrow EventEmitter-shape (node-ssdp's
-      // upstream typings omit these events) so we can trace M-SEARCH responses
-      // (the diagnostically useful "device asked, we answered" pulse) and the
-      // explicit unadvertise on stop. `advertise-alive` deliberately NOT hooked
-      // — 10s × 24h = 8640 identical lines/day. The `error` event is not hooked:
-      // node-ssdp's Server never emits a server-level `error` (socket errors are
-      // swallowed internally, logged only), so a listener would never fire. v1.10.0
-      // (H1): that swallowing means a failed 1900 bind never invokes start()'s
-      // callback either, so start() below never settles and hangs. The caller
-      // (main.ts onReady) therefore bounds the await with a managed this.setTimeout,
-      // degrading a busy port to "SSDP disabled, HTTP stays up" (S2) instead of a
-      // live-but-state-dead adapter.
-      const serverWithEvents = this.server as unknown as {
-        on(event: "advertise-bye" | "response", listener: (...args: unknown[]) => void): void;
-      };
-      serverWithEvents.on("response", (_headers, _statusCode, rinfo) => {
-        const peer = (rinfo as { address?: string } | undefined)?.address ?? "?";
-        this.config.logger.debug(`SSDP M-SEARCH response → ${peer}`);
-      });
-      serverWithEvents.on("advertise-bye", () => {
-        this.config.logger.debug("SSDP advertise-bye sent (server stopping)");
-      });
-
-      // Start the server
       await new Promise<void>((resolve, reject) => {
-        if (!this.server) {
-          reject(new Error("Server not initialized"));
-          return;
-        }
-
-        // NOTE (H1): on a failed bind node-ssdp swallows the socket error and never
-        // invokes this callback, so this Promise can hang. The caller (main.ts
-        // onReady) bounds the await with a managed timeout — see the class comment.
-        void this.server.start((err?: Error) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
+        const onBindError = (err: Error): void => reject(err);
+        socket.once("error", onBindError);
+        socket.bind(this.ssdpPort, () => {
+          socket.removeListener("error", onBindError);
+          this.joinMulticast(socket);
+          try {
+            socket.setMulticastTTL(MULTICAST_TTL);
+          } catch (e) {
+            this.config.logger.warn(`SSDP: could not set multicast TTL: ${errText(e)}`);
           }
+          // Like node-ssdp: discovery must not keep an otherwise-done process alive.
+          socket.unref();
+          socket.on("error", (err: Error) => this.onSocketError(err));
+          socket.on("message", (msg, rinfo) => this.onMessage(msg.toString("utf8"), rinfo.address, rinfo.port));
+          resolve();
         });
       });
 
-      this.isRunning = true;
-      this.config.logger.debug(`SSDP server started on port ${this.config.ssdpPort}, advertising at ${location}`);
+      this.config.logger.debug(`SSDP server started on port ${this.ssdpPort}, advertising at ${this.bridge.location}`);
     } catch (error) {
+      this.socket = null;
       this.config.logger.error(`Failed to start SSDP server: ${errText(error)}`);
-      throw error;
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 
   /**
-   * Stop the SSDP server
+   * Join the multicast group on each routable IPv4 interface, or on the OS
+   * default when none is known. A failure warns but does not throw, so one bad
+   * interface cannot stop the responder (fakeroku pattern).
+   *
+   * @param socket - The bound SSDP socket
+   */
+  private joinMulticast(socket: dgram.Socket): void {
+    const addresses: string[] = [];
+    const interfaces = os.networkInterfaces();
+    for (const infos of Object.values(interfaces)) {
+      for (const info of infos ?? []) {
+        if (!info.internal && info.family === "IPv4") {
+          addresses.push(info.address);
+        }
+      }
+    }
+    if (addresses.length === 0) {
+      this.tryJoin(socket, undefined);
+      return;
+    }
+    for (const address of addresses) {
+      this.tryJoin(socket, address);
+    }
+  }
+
+  /**
+   * Join the group on one interface, warning instead of throwing on failure.
+   *
+   * @param socket - The bound SSDP socket
+   * @param iface - The interface IP to join on, or undefined for the OS default
+   */
+  private tryJoin(socket: dgram.Socket, iface: string | undefined): void {
+    try {
+      socket.addMembership(SSDP_MULTICAST_ADDR, iface);
+    } catch (e) {
+      this.config.logger.warn(
+        `SSDP multicast join failed on ${iface ?? "default interface"}: ${errText(e)} — discovery may be incomplete`,
+      );
+    }
+  }
+
+  /**
+   * Answer an incoming datagram when it is an M-SEARCH for one of our targets.
+   *
+   * @param text - The datagram text
+   * @param address - Sender address (responses go back here, unicast)
+   * @param port - Sender port
+   */
+  private onMessage(text: string, address: string, port: number): void {
+    const st = parseMSearchTarget(text);
+    if (st === undefined) {
+      return;
+    }
+    const answers = matchSearch(st, this.targets);
+    if (answers.length === 0) {
+      return;
+    }
+    const dateUtc = new Date().toUTCString();
+    for (const answer of answers) {
+      const response = Buffer.from(buildSearchResponse(answer, this.bridge, dateUtc), "ascii");
+      this.socket?.send(response, port, address, err => {
+        if (err) {
+          this.config.logger.warn(`SSDP response send failed: ${err.message}`);
+        }
+      });
+    }
+    // The diagnostically useful "device asked, we answered" pulse.
+    this.config.logger.debug(`SSDP M-SEARCH response → ${address}`);
+  }
+
+  /**
+   * Multicast one ssdp:alive NOTIFY per target. The adapter calls this right
+   * after start and then on a managed interval (node-ssdp's adInterval role).
+   */
+  public announce(): void {
+    const socket = this.socket;
+    if (!socket) {
+      return;
+    }
+    for (const target of this.targets) {
+      const notify = Buffer.from(buildAliveNotify(target, this.bridge), "ascii");
+      socket.send(notify, this.ssdpPort, SSDP_MULTICAST_ADDR, err => {
+        if (err) {
+          this.config.logger.debug(`SSDP NOTIFY send failed: ${err.message}`);
+        }
+      });
+    }
+  }
+
+  /**
+   * A socket error after a good start — discovery is dead. Close the socket and
+   * tell the adapter once so it can stop the announce interval.
+   *
+   * @param err - The socket error
+   */
+  private onSocketError(err: Error): void {
+    this.config.logger.error(`SSDP socket error: ${err.message}`);
+    const socket = this.socket;
+    this.socket = null;
+    if (socket) {
+      try {
+        socket.close();
+      } catch {
+        // socket already closed
+      }
+    }
+    if (!this.fatalReported) {
+      this.fatalReported = true;
+      this.config.onFatalError?.();
+    }
+  }
+
+  /**
+   * Stop the SSDP server: multicast the ssdp:byebye NOTIFYs, then close the
+   * socket once the last send has called back (node-ssdp closed in the same
+   * tick, so its byebye never reached the wire). Synchronous to call — safe
+   * from onUnload; the unref'd socket cannot keep the process alive.
    */
   public stop(): void {
-    if (this.server && this.isRunning) {
-      this.server.stop();
-      this.isRunning = false;
-      this.config.logger.debug("SSDP server stopped");
+    const socket = this.socket;
+    if (!socket) {
+      return;
     }
+    this.socket = null;
+
+    let pending = this.targets.length;
+    const closeSocket = (): void => {
+      try {
+        socket.close();
+      } catch {
+        // socket already closed
+      }
+    };
+    for (const target of this.targets) {
+      const notify = Buffer.from(buildByeNotify(target, this.bridge.bridgeId), "ascii");
+      try {
+        socket.send(notify, this.ssdpPort, SSDP_MULTICAST_ADDR, () => {
+          pending--;
+          if (pending === 0) {
+            closeSocket();
+          }
+        });
+      } catch {
+        pending--;
+      }
+    }
+    if (pending === 0) {
+      // Every send failed synchronously — nothing will call back.
+      closeSocket();
+    }
+    this.config.logger.debug("SSDP server stopped");
   }
 }

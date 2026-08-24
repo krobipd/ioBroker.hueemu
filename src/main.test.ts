@@ -30,6 +30,8 @@ vi.mock("@iobroker/adapter-core", () => {
     public subscribeStates = vi.fn();
     public setTimeout = vi.fn(() => ({}) as unknown);
     public clearTimeout = vi.fn();
+    public setInterval = vi.fn(() => ({}) as unknown);
+    public clearInterval = vi.fn();
     constructor(_opts: unknown) {}
   }
   return {
@@ -83,6 +85,7 @@ interface FakeHueServer {
 interface FakeSsdp {
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  announce: ReturnType<typeof vi.fn>;
   options: unknown;
 }
 
@@ -105,6 +108,8 @@ function internalOf(adapter: HueEmu): {
   setState: ReturnType<typeof vi.fn>;
   setTimeout: ReturnType<typeof vi.fn>;
   clearTimeout: ReturnType<typeof vi.fn>;
+  setInterval: ReturnType<typeof vi.fn>;
+  clearInterval: ReturnType<typeof vi.fn>;
   subscribeStates: ReturnType<typeof vi.fn>;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
   getStateAsync: ReturnType<typeof vi.fn>;
@@ -168,7 +173,7 @@ function setup(configOverrides: Record<string, unknown> = {}): {
     return s;
   };
   internal.makeSsdpServer = options => {
-    const s: FakeSsdp = { start: vi.fn(async () => {}), stop: vi.fn(), options };
+    const s: FakeSsdp = { start: vi.fn(async () => {}), stop: vi.fn(), announce: vi.fn(), options };
     ssdps.push(s);
     return s;
   };
@@ -347,7 +352,8 @@ describe("HueEmu onReady", () => {
     const orig = internal.makeSsdpServer.bind(adapter);
     internal.makeSsdpServer = (o: unknown) => {
       const s = orig(o);
-      // node-ssdp swallows a bind error and never settles — start() hangs forever.
+      // A start() that never settles — the old node-ssdp H1 hang, kept as the
+      // worst case the defense-in-depth timeout bound must still win against.
       s.start.mockReturnValue(new Promise<void>(() => {}));
       return s;
     };
@@ -363,6 +369,48 @@ describe("HueEmu onReady", () => {
     // The timed-out SSDP start must NOT stall onReady — state handling stays wired.
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Hue Emulator running"));
+  });
+
+  it("announces right after SSDP start and pulses every 10 s on a managed interval", async () => {
+    const { adapter, ssdps } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+
+    // Immediate announce (node-ssdp's wake-up advertise) …
+    expect(ssdps[0].announce).toHaveBeenCalledTimes(1);
+    // … then the managed 10 s pulse (node-ssdp's adInterval, now adapter-owned).
+    expect(i.setInterval).toHaveBeenCalledTimes(1);
+    const [pulse, intervalMs] = i.setInterval.mock.calls[0] as [() => void, number];
+    expect(intervalMs).toBe(10000);
+    pulse();
+    expect(ssdps[0].announce).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not announce or arm the pulse when SSDP failed to start", async () => {
+    const { adapter, ssdps } = setup();
+    const i = internalOf(adapter);
+    const internal = adapter as unknown as { makeSsdpServer: (o: unknown) => FakeSsdp };
+    const origFactory = internal.makeSsdpServer.bind(adapter);
+    internal.makeSsdpServer = (o: unknown) => {
+      const s = origFactory(o);
+      s.start.mockRejectedValue(new Error("EADDRINUSE 1900"));
+      return s;
+    };
+    await i.onReady();
+    expect(ssdps[0].announce).not.toHaveBeenCalled();
+    expect(i.setInterval).not.toHaveBeenCalled();
+  });
+
+  it("stops the announce pulse when the SSDP socket dies at runtime (onFatalError)", async () => {
+    const { adapter, ssdps } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+
+    const options = ssdps[0].options as { onFatalError?: () => void };
+    expect(typeof options.onFatalError).toBe("function");
+    options.onFatalError?.();
+
+    expect(i.clearInterval).toHaveBeenCalledWith(i.setInterval.mock.results[0].value);
   });
 
   it("short-circuits after a legacy-device migration (adapter restarts on config write)", async () => {
@@ -555,6 +603,8 @@ describe("HueEmu onUnload", () => {
     i.onUnload(callback);
 
     expect(i.clearTimeout).toHaveBeenCalled();
+    // The announce pulse must not outlive the server (sync clear in onUnload).
+    expect(i.clearInterval).toHaveBeenCalledWith(i.setInterval.mock.results[0].value);
     expect(ssdps[0].stop).toHaveBeenCalled();
     expect(servers[0].stop).toHaveBeenCalled();
     expect(callback).toHaveBeenCalledTimes(1);

@@ -1,161 +1,367 @@
 /**
- * Tests for HueSsdpServer — server-option wiring, USN registration, lifecycle
- * and the diagnostic event hooks. node-ssdp itself is mocked: we own the
- * wiring (options built from identity/host/port, the three USNs, start/stop
- * state, the M-SEARCH "response" log), the protocol is the library's job.
+ * Tests for HueSsdpServer — the dgram socket wiring around the pure message
+ * helpers: bind/membership lifecycle, M-SEARCH answering, the announce pulse,
+ * byebye-then-close on stop, and the runtime socket-death path. dgram and os
+ * are mocked (fakeroku's responder-test pattern) so no real port is touched.
  */
 
-import { HueSsdpServer } from "./ssdp-server";
+import { HueSsdpServer, SSDP_PORT } from "./ssdp-server";
+import { buildAliveNotify, buildByeNotify, buildSearchResponse, buildUsnTable } from "./ssdp-messages";
 import { createTestIdentity } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
 
-interface FakeInstance {
-  opts: Record<string, unknown>;
-  usns: string[];
-  handlers: Record<string, (...args: unknown[]) => void>;
-  stopCalls: number;
-}
-
-const h = vi.hoisted(() => ({
-  instances: [] as FakeInstance[],
-  control: { failNext: false },
-}));
-
-vi.mock("node-ssdp", () => {
-  class FakeServer {
-    public usns: string[] = [];
-    public handlers: Record<string, (...args: unknown[]) => void> = {};
-    public stopCalls = 0;
-    constructor(public opts: Record<string, unknown>) {
-      h.instances.push(this);
-    }
-    addUSN(usn: string): void {
-      this.usns.push(usn);
-    }
-    on(event: string, cb: (...args: unknown[]) => void): void {
-      this.handlers[event] = cb;
-    }
-    start(cb?: (err?: Error) => void): void {
-      cb?.(h.control.failNext ? new Error("EADDRINUSE: port 1900 busy") : undefined);
-    }
-    stop(): void {
-      this.stopCalls++;
-    }
+const h = vi.hoisted(() => {
+  interface FakeSocket {
+    bound: number[];
+    membership: string[];
+    ttl: number[];
+    closed: boolean;
+    unrefed: boolean;
+    sent: Array<{ text: string; port: number; address: string }>;
+    handlers: Record<string, Array<(...a: unknown[]) => void>>;
+    once: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
+    on: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
+    removeListener: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
+    bind: (port: number, cb?: () => void) => FakeSocket;
+    addMembership: (addr: string, iface?: string) => void;
+    setMulticastTTL: (ttl: number) => void;
+    send: (...args: unknown[]) => void;
+    close: () => void;
+    unref: () => void;
+    emit: (ev: string, ...args: unknown[]) => void;
   }
-  return { Server: FakeServer };
+  const sockets: FakeSocket[] = [];
+  const fail = { bind: false, join: false, ttl: false, send: false, holdSendCallbacks: false };
+  const heldSendCallbacks: Array<() => void> = [];
+  const make = (): FakeSocket => {
+    const s: FakeSocket = {
+      bound: [],
+      membership: [],
+      ttl: [],
+      sent: [],
+      closed: false,
+      unrefed: false,
+      handlers: {},
+      once: (ev, cb) => s.on(ev, cb),
+      on: (ev, cb) => {
+        (s.handlers[ev] ??= []).push(cb);
+        return s;
+      },
+      removeListener: (ev, cb) => {
+        s.handlers[ev] = (s.handlers[ev] ?? []).filter(x => x !== cb);
+        return s;
+      },
+      bind: (port, cb) => {
+        s.bound.push(port);
+        if (fail.bind) {
+          s.emit("error", new Error("EADDRINUSE: port 1900 busy"));
+        } else {
+          cb?.();
+        }
+        return s;
+      },
+      addMembership: (_addr, iface) => {
+        if (fail.join) {
+          throw new Error("ENODEV");
+        }
+        s.membership.push(iface ?? "default");
+      },
+      setMulticastTTL: ttl => {
+        if (fail.ttl) {
+          throw new Error("EBADF");
+        }
+        s.ttl.push(ttl);
+      },
+      send: (...args) => {
+        const cb = args[args.length - 1];
+        if (!fail.send) {
+          s.sent.push({ text: String(args[0]), port: args[1] as number, address: args[2] as string });
+        }
+        if (typeof cb === "function") {
+          const invoke = (): void => (cb as (e?: Error) => void)(fail.send ? new Error("ENETUNREACH") : undefined);
+          if (fail.holdSendCallbacks) {
+            heldSendCallbacks.push(invoke);
+          } else {
+            invoke();
+          }
+        }
+      },
+      close: () => {
+        s.closed = true;
+      },
+      unref: () => {
+        s.unrefed = true;
+      },
+      emit: (ev, ...args) => {
+        (s.handlers[ev] ?? []).forEach(x => x(...args));
+      },
+    };
+    sockets.push(s);
+    return s;
+  };
+  const interfaces: Record<string, Array<{ address: string; family: string; internal: boolean }>> = {};
+  return { sockets, make, fail, heldSendCallbacks, interfaces };
 });
 
-function spyLogger(): Logger & { debug: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } {
-  return {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  } as unknown as Logger & { debug: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+vi.mock("node:dgram", () => ({ createSocket: () => h.make() }));
+vi.mock("node:os", () => ({ networkInterfaces: () => h.interfaces }));
+
+function spyLogger(): Logger & Record<"debug" | "warn" | "error", ReturnType<typeof vi.fn>> {
+  return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger &
+    Record<"debug" | "warn" | "error", ReturnType<typeof vi.fn>>;
+}
+
+const identity = createTestIdentity();
+const BRIDGE = { bridgeId: identity.bridgeId, location: "http://192.168.1.100:8080/description.xml" };
+const TABLE = buildUsnTable(identity.udn);
+const MSEARCH_BASIC = [
+  "M-SEARCH * HTTP/1.1",
+  "HOST: 239.255.255.250:1900",
+  'MAN: "ssdp:discover"',
+  "MX: 3",
+  "ST: urn:schemas-upnp-org:device:Basic:1",
+  "",
+  "",
+].join("\r\n");
+
+function makeServer(logger = spyLogger(), onFatalError?: () => void): HueSsdpServer {
+  return new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger, onFatalError });
 }
 
 describe("HueSsdpServer", () => {
-  const identity = createTestIdentity();
-
   beforeEach(() => {
-    h.instances.length = 0;
-    h.control.failNext = false;
+    h.sockets.length = 0;
+    h.heldSendCallbacks.length = 0;
+    Object.keys(h.fail).forEach(k => ((h.fail as Record<string, boolean>)[k] = false));
+    Object.keys(h.interfaces).forEach(k => delete h.interfaces[k]);
+    h.interfaces.lo0 = [{ address: "127.0.0.1", family: "IPv4", internal: true }];
+    h.interfaces.en0 = [
+      { address: "192.168.1.100", family: "IPv4", internal: false },
+      { address: "fe80::1", family: "IPv6", internal: false },
+    ];
+    h.interfaces.en1 = [{ address: "10.0.0.5", family: "IPv4", internal: false }];
+    vi.clearAllMocks();
   });
 
-  it("builds server options from identity/host/port and registers the three USNs", async () => {
-    const logger = spyLogger();
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
-    await server.start();
+  describe("start", () => {
+    it("binds UDP port 1900 by default and honours a custom ssdpPort", async () => {
+      await makeServer().start();
+      expect(h.sockets[0].bound).toEqual([SSDP_PORT]);
 
-    expect(h.instances).toHaveLength(1);
-    const opts = h.instances[0].opts;
-    expect(opts.location).toBe("http://192.168.1.100:8080/description.xml");
-    expect(opts.sourcePort).toBe(1900); // default
-    expect(opts.udn).toBe(`uuid:${identity.udn}`);
-    expect((opts.headers as Record<string, string>)["hue-bridgeid"]).toBe(identity.bridgeId);
-    expect(h.instances[0].usns).toEqual([
-      "urn:schemas-upnp-org:device:Basic:1",
-      "urn:schemas-upnp-org:device:basic:1",
-      "upnp:rootdevice",
-    ]);
+      const custom = new HueSsdpServer({ identity, host: "10.0.0.1", port: 80, ssdpPort: 1901, logger: spyLogger() });
+      await custom.start();
+      expect(h.sockets[1].bound).toEqual([1901]);
+    });
+
+    it("joins the multicast group on every routable IPv4 interface (node-ssdp behavior)", async () => {
+      await makeServer().start();
+      expect(h.sockets[0].membership).toEqual(["192.168.1.100", "10.0.0.5"]);
+    });
+
+    it("sets the multicast TTL to 4 and unrefs the socket like node-ssdp did", async () => {
+      await makeServer().start();
+      expect(h.sockets[0].ttl).toEqual([4]);
+      expect(h.sockets[0].unrefed).toBe(true);
+    });
+
+    it("rejects and logs when the bind fails (port busy) — no hang, the H1 fix", async () => {
+      h.fail.bind = true;
+      const logger = spyLogger();
+      await expect(makeServer(logger).start()).rejects.toThrow(/EADDRINUSE/);
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to start SSDP server"));
+    });
+
+    it("survives a membership join failure with a warning — one bad interface must not kill discovery", async () => {
+      h.fail.join = true;
+      const logger = spyLogger();
+      await makeServer(logger).start();
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("multicast join failed"));
+    });
+
+    it("falls back to the OS default membership when no routable IPv4 interface exists", async () => {
+      Object.keys(h.interfaces).forEach(k => delete h.interfaces[k]);
+      await makeServer().start();
+      expect(h.sockets[0].membership).toEqual(["default"]);
+    });
+
+    it("is idempotent — a second start() does not create a second socket", async () => {
+      const logger = spyLogger();
+      const server = makeServer(logger);
+      await server.start();
+      await server.start();
+      expect(h.sockets).toHaveLength(1);
+      expect(logger.debug).toHaveBeenCalledWith("SSDP server already running");
+    });
   });
 
-  it("disables wildcard M-SEARCH matching (ReDoS hardening) and drops the ttl option", async () => {
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
-    await server.start();
-    const opts = h.instances[0].opts;
-    expect(opts.allowWildcards).toBe(false);
-    expect(opts.ttl).toBeUndefined();
+  describe("M-SEARCH answering", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ now: new Date("2026-08-24T20:13:28Z") });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("answers a Basic:1 search with the captured node-ssdp response, unicast to the asker", async () => {
+      const logger = spyLogger();
+      const server = makeServer(logger);
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51000 });
+
+      expect(socket.sent).toEqual([
+        {
+          text: buildSearchResponse(
+            { st: "urn:schemas-upnp-org:device:Basic:1", usn: TABLE[0].usn },
+            BRIDGE,
+            new Date().toUTCString(),
+          ),
+          port: 51000,
+          address: "10.0.0.7",
+        },
+      ]);
+      expect(logger.debug).toHaveBeenCalledWith("SSDP M-SEARCH response → 10.0.0.7");
+    });
+
+    it("answers ssdp:all with all four targets", async () => {
+      const server = makeServer();
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC.replace("ST: urn:schemas-upnp-org:device:Basic:1", "ST: ssdp:all"), "ascii"), {
+        address: "10.0.0.7",
+        port: 51000,
+      });
+
+      expect(socket.sent.map(x => x.text)).toEqual(
+        TABLE.map(entry => buildSearchResponse({ st: entry.nt, usn: entry.usn }, BRIDGE, new Date().toUTCString())),
+      );
+    });
+
+    it("stays silent on an unknown search target and on non-M-SEARCH datagrams", async () => {
+      const server = makeServer();
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC.replace("ST: urn:schemas-upnp-org:device:Basic:1", "ST: urn:other:device:X:1"), "ascii"), {
+        address: "10.0.0.7",
+        port: 51000,
+      });
+      socket.emit("message", Buffer.from("NOTIFY * HTTP/1.1\r\nNTS: ssdp:alive\r\n\r\n", "ascii"), { address: "10.0.0.8", port: 1900 });
+
+      expect(socket.sent).toEqual([]);
+    });
+
+    it("logs but survives a failed response send", async () => {
+      h.fail.send = true;
+      const logger = spyLogger();
+      const server = makeServer(logger);
+      await server.start();
+
+      h.sockets[0].emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51000 });
+
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("response send failed"));
+    });
   });
 
-  it("honours a custom ssdpPort", async () => {
-    const server = new HueSsdpServer({ identity, host: "10.0.0.1", port: 80, ssdpPort: 1901, logger: spyLogger() });
-    await server.start();
-    expect(h.instances[0].opts.sourcePort).toBe(1901);
+  describe("announce", () => {
+    it("sends one alive NOTIFY per target to the multicast group", async () => {
+      const server = makeServer();
+      await server.start();
+
+      server.announce();
+
+      expect(h.sockets[0].sent).toEqual(
+        TABLE.map(entry => ({
+          text: buildAliveNotify(entry, BRIDGE),
+          port: SSDP_PORT,
+          address: "239.255.255.250",
+        })),
+      );
+    });
+
+    it("is a no-op before start and after stop", async () => {
+      const server = makeServer();
+      server.announce();
+      expect(h.sockets).toHaveLength(0);
+
+      await server.start();
+      server.stop();
+      const sentAfterStop = h.sockets[0].sent.length;
+      server.announce();
+      expect(h.sockets[0].sent).toHaveLength(sentAfterStop);
+    });
   });
 
-  it("logs the peer address on an M-SEARCH response", async () => {
-    const logger = spyLogger();
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
-    await server.start();
+  describe("stop", () => {
+    it("sends the byebye NOTIFYs node-ssdp always lost, then closes the socket", async () => {
+      const server = makeServer();
+      await server.start();
 
-    h.instances[0].handlers["response"]({}, 200, { address: "10.0.0.5" });
-    expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("10.0.0.5"));
+      server.stop();
+
+      const socket = h.sockets[0];
+      expect(socket.sent).toEqual(
+        TABLE.map(entry => ({
+          text: buildByeNotify(entry, identity.bridgeId),
+          port: SSDP_PORT,
+          address: "239.255.255.250",
+        })),
+      );
+      expect(socket.closed).toBe(true);
+    });
+
+    it("closes only after the last byebye send has called back — the datagram must not lose the race", async () => {
+      h.fail.holdSendCallbacks = true;
+      const server = makeServer();
+      await server.start();
+
+      server.stop();
+      const socket = h.sockets[0];
+      expect(socket.closed).toBe(false);
+
+      h.heldSendCallbacks.forEach(invoke => invoke());
+      expect(socket.closed).toBe(true);
+    });
+
+    it("is idempotent and safe before start", async () => {
+      const server = makeServer();
+      expect(() => server.stop()).not.toThrow();
+
+      await server.start();
+      server.stop();
+      const sent = h.sockets[0].sent.length;
+      server.stop();
+      expect(h.sockets[0].sent).toHaveLength(sent);
+    });
   });
 
-  it("falls back to '?' when the response peer has no address", async () => {
-    const logger = spyLogger();
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
-    await server.start();
+  describe("runtime socket death", () => {
+    it("logs, closes and notifies onFatalError exactly once", async () => {
+      const logger = spyLogger();
+      const onFatal = vi.fn();
+      const server = makeServer(logger, onFatal);
+      await server.start();
+      const socket = h.sockets[0];
 
-    h.instances[0].handlers["response"]({}, 200, undefined);
-    expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("→ ?"));
-  });
+      socket.emit("error", new Error("EBADF"));
+      socket.emit("error", new Error("EBADF"));
 
-  it("stop() stops the underlying server", async () => {
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
-    await server.start();
-    server.stop();
-    expect(h.instances[0].stopCalls).toBe(1);
-  });
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("SSDP socket error"));
+      expect(socket.closed).toBe(true);
+      expect(onFatal).toHaveBeenCalledTimes(1);
+    });
 
-  it("stop() is idempotent — a second call does not stop an already-stopped server", async () => {
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
-    await server.start();
-    server.stop();
-    server.stop();
-    // node-ssdp's stop() walks the sockets it believes it owns; calling it on an
-    // already-stopped instance is where a teardown throws during onUnload.
-    expect(h.instances[0].stopCalls).toBe(1);
-  });
+    it("announce() after a socket death is a no-op", async () => {
+      const server = makeServer(spyLogger(), vi.fn());
+      await server.start();
+      const socket = h.sockets[0];
 
-  it("stop() before start() does nothing at all", () => {
-    const logger = spyLogger();
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
-    server.stop();
-    expect(h.instances).toHaveLength(0);
-    expect(logger.debug).not.toHaveBeenCalledWith("SSDP server stopped");
-  });
+      socket.emit("error", new Error("EBADF"));
+      server.announce();
 
-  it("is idempotent — a second start() does not create a second server", async () => {
-    const logger = spyLogger();
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
-    await server.start();
-    await server.start();
-    expect(h.instances).toHaveLength(1);
-    expect(logger.debug).toHaveBeenCalledWith("SSDP server already running");
-  });
-
-  it("rejects and logs when the underlying start fails (port busy)", async () => {
-    h.control.failNext = true;
-    const logger = spyLogger();
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger });
-    await expect(server.start()).rejects.toThrow(/EADDRINUSE/);
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to start SSDP server"));
-  });
-
-  it("stop() before start() is a no-op", () => {
-    const server = new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger: spyLogger() });
-    expect(() => server.stop()).not.toThrow();
+      expect(socket.sent).toEqual([]);
+    });
   });
 });
