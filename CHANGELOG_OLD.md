@@ -1,4 +1,14 @@
 # Older Changes
+## 1.10.0 (2026-07-09)
+
+- Fixed the adapter looking like it was running but ignoring all light changes when UDP port 1900 was already in use (common on Windows); it now recovers cleanly and stays reachable
+- A light's on/off source state holding text such as "off", "no" or "disabled" is now correctly read as off instead of on
+- Closed a brief moment during startup where requests could still be challenged for a password even though authentication was turned off in the configuration
+- Upgrading from the old light setup no longer leaves stray leftover entries behind in the object tree
+- Colour coordinates written as a spaced list such as "0.3, 0.4" are now parsed correctly instead of falling back to white
+- The port fields in the settings now warn you if the chosen port is already in use by another adapter instance
+- Hue and colour-temperature source states can now be given a scale: hue in degrees (0–360) and colour temperature in Kelvin are converted correctly, alongside the native Hue units
+
 ## 1.9.0 (2026-06-21) — stable
 
 - You can now listen on all network interfaces (`0.0.0.0`) and set a separate advertised IP, so discovery keeps working even if the bridge's IP address changes

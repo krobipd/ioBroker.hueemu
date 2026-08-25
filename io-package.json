@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.12.2",
+    "version": "1.13.0",
     "news": {
+      "1.13.0": {
+        "en": "Changed: The discovery service was rebuilt — the old security warning is gone, devices find the bridge as before, and the bridge now reports its shutdown on the network.",
+        "de": "Der Erkennungsdienst wurde neu gebaut — die alte Sicherheitswarnung ist weg, Geräte finden die Bridge wie zuvor, und die Bridge meldet ihr Abschalten jetzt im Netzwerk.",
+        "ru": "Служба обнаружения переработана — старое предупреждение безопасности исчезло, устройства находят мост как прежде, и мост теперь сообщает в сеть о своём выключении.",
+        "pt": "O serviço de descoberta foi reconstruído — o antigo aviso de segurança desapareceu, os dispositivos encontram a bridge como antes, e a bridge agora comunica o seu encerramento na rede.",
+        "nl": "De detectiedienst is opnieuw opgebouwd — de oude beveiligingswaarschuwing is weg, apparaten vinden de bridge zoals voorheen, en de bridge meldt nu het afsluiten op het netwerk.",
+        "fr": "Le service de découverte a été reconstruit — l'ancien avertissement de sécurité a disparu, les appareils trouvent le pont comme avant, et le pont signale désormais son arrêt sur le réseau.",
+        "it": "Il servizio di rilevamento è stato ricostruito — il vecchio avviso di sicurezza è sparito, i dispositivi trovano il bridge come prima, e il bridge ora segnala in rete il suo spegnimento.",
+        "es": "El servicio de detección se ha reconstruido — el antiguo aviso de seguridad desapareció, los dispositivos encuentran el bridge como antes, y el bridge ahora informa su apagado en la red.",
+        "pl": "Usługa wykrywania została przebudowana — stare ostrzeżenie bezpieczeństwa zniknęło, urządzenia znajdują mostek jak dotąd, a mostek zgłasza teraz w sieci swoje wyłączenie.",
+        "uk": "Службу виявлення перебудовано — старе попередження безпеки зникло, пристрої знаходять міст як і раніше, і міст тепер повідомляє мережу про своє вимкнення.",
+        "zh-cn": "发现服务已重建——旧的安全警告已消除，设备照常找到桥接器，并且适配器停止时桥接器会在网络上通告下线。"
+      },
       "1.12.2": {
         "en": "Internal cleanup. No user-facing changes.",
         "de": "Interne Aufräumarbeiten. Keine Änderungen für Nutzer.",
@@ -80,19 +93,6 @@
         "pl": "Wykrywanie przeżywa teraz zmianę IP mostka: nasłuch na wszystkich interfejsach i osobny rozgłaszany IP, plus poprawki koloru i niezawodności.",
         "uk": "Виявлення тепер переживає зміну IP мосту: прив'язка до всіх інтерфейсів і окремий оголошуваний IP, плюс виправлення кольору та надійності.",
         "zh-cn": "现在即使桥接 IP 变化，发现也能正常工作：可绑定所有接口并设置单独的对外公布 IP，另有颜色和可靠性修复。"
-      },
-      "1.8.1": {
-        "en": "Strict number parsing for light state values (garbage suffixes fall back to defaults); faster bridge config responses for second-by-second pollers like Echo devices",
-        "de": "Striktes Zahlen-Parsing für Licht-States (ungültige Suffixe fallen auf Defaults zurück); schnellere Bridge-Config-Antworten für sekündlich pollende Clients wie Echo-Geräte",
-        "ru": "Строгий разбор чисел для состояний ламп (мусорные суффиксы заменяются значениями по умолчанию); более быстрые ответы конфигурации моста для опрашивающих каждую секунду клиентов, например Echo",
-        "pt": "Análise estrita de números para estados de luz (sufixos inválidos voltam aos padrões); respostas de configuração da bridge mais rápidas para clientes que consultam a cada segundo, como Echo",
-        "nl": "Strikte getalverwerking voor lichtstatussen (ongeldige suffixen vallen terug op standaardwaarden); snellere bridge-configuratie-antwoorden voor clients die elke seconde pollen, zoals Echo-apparaten",
-        "fr": "Analyse stricte des nombres pour les états des lampes (suffixes invalides ramenés aux défauts) ; config du pont renvoyée plus vite aux clients comme Echo qui interrogent chaque seconde",
-        "it": "Analisi rigorosa dei numeri per gli stati luce (suffissi non validi tornano ai predefiniti); risposte di configurazione del bridge più rapide per client come Echo che interrogano ogni secondo",
-        "es": "Análisis estricto de números para estados de luz (sufijos no válidos vuelven a los predeterminados); config del bridge entregada más rápido a clientes como Echo que consultan cada segundo",
-        "pl": "Ścisłe parsowanie liczb dla stanów świateł (nieprawidłowe sufiksy wracają do wartości domyślnych); szybsze odpowiedzi konfiguracji mostka dla klientów odpytujących co sekundę, jak urządzenia Echo",
-        "uk": "Суворий розбір чисел для станів світла (некоректні суфікси повертаються до типових значень); швидші відповіді конфігурації моста для клієнтів, що опитують щосекунди, як-от пристрої Echo",
-        "zh-cn": "灯光状态数值采用严格解析（带无效后缀的文本回退到默认值）；为每秒轮询的客户端（如 Echo 设备）提供更快的桥接配置响应"
       }
     },
     "plugins": {
