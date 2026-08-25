@@ -91,9 +91,7 @@ class HueSsdpServer {
           resolve();
         });
       });
-      this.config.logger.debug(
-        `SSDP server started on port ${this.ssdpPort}, advertising at ${this.bridge.location}`
-      );
+      this.config.logger.debug(`SSDP server started on port ${this.ssdpPort}, advertising at ${this.bridge.location}`);
     } catch (error) {
       this.socket = null;
       this.config.logger.error(`Failed to start SSDP server: ${(0, import_utils.errText)(error)}`);
