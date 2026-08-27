@@ -5,6 +5,8 @@
  * makeApiHandler seams, without binding real ports or generating real keys.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { vi } from "vitest";
 
 // Stub the adapter-core base so HueEmu can be instantiated without the
@@ -26,6 +28,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public getDevicesAsync = vi.fn(async () => []);
     public getStatesOfAsync = vi.fn(async () => []);
     public extendForeignObjectAsync = vi.fn(async () => {});
+    public getForeignObjectAsync = vi.fn(async (): Promise<unknown> => null);
     public extendObjectAsync = vi.fn(async () => {});
     public subscribeStates = vi.fn();
     public setTimeout = vi.fn(() => ({}) as unknown);
@@ -125,6 +128,7 @@ function internalOf(adapter: HueEmu): {
   _disableAuth: boolean;
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
+  getForeignObjectAsync: ReturnType<typeof vi.fn>;
   onStateChange: (id: string, state: ioBroker.State | null | undefined) => void;
   buildConfig: () => Promise<{
     host: string;
@@ -601,13 +605,13 @@ describe("HueEmu onUnload", () => {
 
     const callback = vi.fn();
     i.onUnload(callback);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
 
     expect(i.clearTimeout).toHaveBeenCalled();
     // The announce pulse must not outlive the server (sync clear in onUnload).
     expect(i.clearInterval).toHaveBeenCalledWith(i.setInterval.mock.results[0].value);
     expect(ssdps[0].stop).toHaveBeenCalled();
     expect(servers[0].stop).toHaveBeenCalled();
-    expect(callback).toHaveBeenCalledTimes(1);
   });
 
   it("still calls back when a stop throws", async () => {
@@ -619,15 +623,86 @@ describe("HueEmu onUnload", () => {
     });
     const callback = vi.fn();
     i.onUnload(callback);
-    expect(callback).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
     expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("Error during shutdown"));
   });
 
-  it("is safe before onReady (no servers constructed yet)", () => {
+  it("is safe before onReady (no servers constructed yet)", async () => {
     const { adapter } = setup();
     const callback = vi.fn();
     internalOf(adapter).onUnload(callback);
-    expect(callback).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+  });
+
+  it("says goodbye on the network BEFORE telling the controller we are done", async () => {
+    // The bye-bye datagrams are what tell Alexa & friends the bridge is gone. Reporting
+    // "done" first loses them — the host tears the process down as soon as it is told.
+    const { adapter, servers, ssdps } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    const order: string[] = [];
+    ssdps[0].stop.mockImplementation(
+      () =>
+        new Promise<void>(resolve =>
+          setTimeout(() => {
+            order.push("byebye");
+            resolve();
+          }, 0),
+        ),
+    );
+    servers[0].stop.mockImplementation(
+      () =>
+        new Promise<void>(resolve =>
+          setTimeout(() => {
+            order.push("http-closed");
+            resolve();
+          }, 0),
+        ),
+    );
+    const callback = vi.fn(() => order.push("callback"));
+
+    i.onUnload(callback);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+
+    expect(order).toEqual(["byebye", "http-closed", "callback"]);
+  });
+
+  it("the manifest must not declare stopInstance, or none of this runs at all", () => {
+    // With the entry the host kills the process one second after asking it to stop — the
+    // bye-bye datagrams never leave. `deviceManager` must stay, the device view needs it.
+    const manifest = JSON.parse(readFileSync(join(__dirname, "..", "io-package.json"), "utf8")) as {
+      common: { supportedMessages?: Record<string, unknown> };
+    };
+    expect(manifest.common.supportedMessages?.stopInstance).toBeUndefined();
+    expect(manifest.common.supportedMessages?.deviceManager).toBe(true);
+  });
+
+  it("switches off a leftover stopInstance flag and stops the start there", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockResolvedValue({
+      common: { supportedMessages: { stopInstance: true, deviceManager: true } },
+    });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      common: { supportedMessages: { stopInstance: false } },
+    });
+    expect(servers).toHaveLength(0);
+  });
+
+  it("starts normally when the flag is already off", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockResolvedValue({
+      common: { supportedMessages: { stopInstance: false, deviceManager: true } },
+    });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith("system.adapter.hueemu.0", expect.anything());
+    expect(servers).toHaveLength(1);
   });
 });
 

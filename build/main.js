@@ -144,9 +144,45 @@ class HueEmu extends utils.Adapter {
   /**
    * Called when databases are connected and adapter received configuration
    */
+  /**
+   * Switch off `supportedMessages.stopInstance` on this instance's own object.
+   *
+   * The entry was dropped from the manifest, which only helps a FRESH install: an upgrade
+   * merges the manifest into the existing instance object and never removes a key, so the old
+   * `true` survives in the database — and that is what the host reads. With it the host kills
+   * the process one second after asking it to stop, `onUnload` never runs, and the bye-bye
+   * datagrams that tell Alexa & friends the bridge is gone never leave (measured on a live
+   * js-controller 7.2.2). `deviceManager` stays untouched — the device view needs it.
+   *
+   * Only written when it is actually still on: every instance-object change restarts the
+   * instance, so doing it unconditionally would be a restart loop.
+   *
+   * @returns true when the correction was written and the restart is coming — the caller has
+   *   to stop right there instead of binding ports in a process that is going down.
+   */
+  async clearStopInstanceFlag() {
+    var _a;
+    const id = `system.adapter.${this.namespace}`;
+    try {
+      const obj = await this.getForeignObjectAsync(id);
+      const supported = (_a = obj == null ? void 0 : obj.common) == null ? void 0 : _a.supportedMessages;
+      if (!(supported == null ? void 0 : supported.stopInstance)) {
+        return false;
+      }
+      this.log.info("Correcting a leftover setting from an earlier version \u2014 this instance restarts once");
+      await this.extendForeignObjectAsync(id, { common: { supportedMessages: { stopInstance: false } } });
+      return true;
+    } catch (error) {
+      this.log.debug(`Could not check the instance object ${id}: ${(0, import_utils.errText)(error)}`);
+      return false;
+    }
+  }
   async onReady() {
     var _a, _b, _c;
     try {
+      if (await this.clearStopInstanceFlag()) {
+        return;
+      }
       await import_adapter_core.I18n.init((0, import_node_path.join)(this.adapterDir, "admin"), this);
       this.log.debug(`onReady: starting (devices in config: ${(_b = (_a = this.config.devices) == null ? void 0 : _a.length) != null ? _b : 0})`);
       const migrated = await this.migrateLegacyDevices();
@@ -475,17 +511,18 @@ class HueEmu extends utils.Adapter {
     try {
       this.clearPairingTimeout();
       this.stopSsdpAnnounce();
-      if (this.ssdpServer) {
-        this.ssdpServer.stop();
-      }
-      if (this.hueServer) {
-        this.hueServer.stop().catch((err) => this.log.error(`Server stop error: ${(0, import_utils.errText)(err)}`));
-      }
+      void (async () => {
+        var _a, _b;
+        await ((_a = this.ssdpServer) == null ? void 0 : _a.stop());
+        await ((_b = this.hueServer) == null ? void 0 : _b.stop());
+      })().catch((error) => {
+        this.log.error(`Error during shutdown: ${(0, import_utils.errText)(error)}`);
+      }).finally(callback);
+      return;
     } catch (error) {
       this.log.error(`Error during shutdown: ${(0, import_utils.errText)(error)}`);
-    } finally {
-      callback();
     }
+    callback();
   }
   /**
    * Called if a subscribed state changes

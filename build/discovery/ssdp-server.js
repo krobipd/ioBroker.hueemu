@@ -215,33 +215,35 @@ class HueSsdpServer {
   stop() {
     const socket = this.socket;
     if (!socket) {
-      return;
+      return Promise.resolve();
     }
     this.socket = null;
-    let pending = this.targets.length;
-    const closeSocket = () => {
-      try {
-        socket.close();
-      } catch {
-      }
-    };
-    for (const target of this.targets) {
-      const notify = Buffer.from((0, import_ssdp_messages.buildByeNotify)(target, this.bridge.bridgeId), "ascii");
-      try {
-        socket.send(notify, this.ssdpPort, import_ssdp_messages.SSDP_MULTICAST_ADDR, () => {
+    return new Promise((resolve) => {
+      let pending = this.targets.length;
+      const closeSocket = () => {
+        try {
+          socket.close();
+        } catch {
+        }
+        resolve();
+      };
+      for (const target of this.targets) {
+        const notify = Buffer.from((0, import_ssdp_messages.buildByeNotify)(target, this.bridge.bridgeId), "ascii");
+        try {
+          socket.send(notify, this.ssdpPort, import_ssdp_messages.SSDP_MULTICAST_ADDR, () => {
+            pending--;
+            if (pending === 0) {
+              closeSocket();
+            }
+          });
+        } catch {
           pending--;
-          if (pending === 0) {
-            closeSocket();
-          }
-        });
-      } catch {
-        pending--;
+        }
       }
-    }
-    if (pending === 0) {
-      closeSocket();
-    }
-    this.config.logger.debug("SSDP server stopped");
+      if (pending === 0) {
+        closeSocket();
+      }
+    });
   }
 }
 // Annotate the CommonJS export names for ESM import in node:

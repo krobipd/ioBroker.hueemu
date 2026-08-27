@@ -243,38 +243,44 @@ export class HueSsdpServer {
    * tick, so its byebye never reached the wire). Synchronous to call — safe
    * from onUnload; the unref'd socket cannot keep the process alive.
    */
-  public stop(): void {
+  public stop(): Promise<void> {
     const socket = this.socket;
     if (!socket) {
-      return;
+      return Promise.resolve();
     }
     this.socket = null;
 
-    let pending = this.targets.length;
-    const closeSocket = (): void => {
-      try {
-        socket.close();
-      } catch {
-        // socket already closed
-      }
-    };
-    for (const target of this.targets) {
-      const notify = Buffer.from(buildByeNotify(target, this.bridge.bridgeId), "ascii");
-      try {
-        socket.send(notify, this.ssdpPort, SSDP_MULTICAST_ADDR, () => {
+    // Resolves once every bye-bye datagram has left and the socket is closed. The caller
+    // (onUnload) awaits this before telling the controller it is done: report first and the
+    // host tears the process down mid-send, so the clients never learn the bridge is gone
+    // — exactly the case this whole goodbye exists for.
+    return new Promise<void>(resolve => {
+      let pending = this.targets.length;
+      const closeSocket = (): void => {
+        try {
+          socket.close();
+        } catch {
+          // socket already closed
+        }
+        resolve();
+      };
+      for (const target of this.targets) {
+        const notify = Buffer.from(buildByeNotify(target, this.bridge.bridgeId), "ascii");
+        try {
+          socket.send(notify, this.ssdpPort, SSDP_MULTICAST_ADDR, () => {
+            pending--;
+            if (pending === 0) {
+              closeSocket();
+            }
+          });
+        } catch {
           pending--;
-          if (pending === 0) {
-            closeSocket();
-          }
-        });
-      } catch {
-        pending--;
+        }
       }
-    }
-    if (pending === 0) {
-      // Every send failed synchronously — nothing will call back.
-      closeSocket();
-    }
-    this.config.logger.debug("SSDP server stopped");
+      if (pending === 0) {
+        // Every send failed synchronously — nothing will call back.
+        closeSocket();
+      }
+    });
   }
 }

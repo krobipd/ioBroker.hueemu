@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.13.0",
+    "version": "1.13.1",
     "news": {
+      "1.13.1": {
+        "en": "Stopping the adapter now really tells the connected apps that the bridge is gone, instead of leaving them to run into their own timeout.",
+        "de": "Beim Stoppen erfahren die verbundenen Apps jetzt wirklich, dass die Bridge weg ist, statt in ihre eigene Zeitüberschreitung zu laufen.",
+        "ru": "При остановке подключённые приложения теперь действительно узнают, что мост исчез, вместо ожидания собственного тайм-аута.",
+        "pt": "Ao parar, as aplicações ligadas passam realmente a saber que a bridge desapareceu, em vez de esperarem pelo seu próprio tempo-limite.",
+        "nl": "Bij het stoppen weten de verbonden apps nu echt dat de bridge weg is, in plaats van in hun eigen time-out te lopen.",
+        "fr": "À l'arrêt, les applications connectées apprennent enfin que le pont a disparu, au lieu d'attendre leur propre délai d'expiration.",
+        "it": "All'arresto le app collegate vengono davvero informate che il bridge non c'è più, invece di attendere il proprio timeout.",
+        "es": "Al detenerse, las aplicaciones conectadas se enteran realmente de que el puente ya no está, en vez de esperar su propio tiempo de espera.",
+        "pl": "Przy zatrzymaniu połączone aplikacje naprawdę dowiadują się, że mostek zniknął, zamiast czekać na własny limit czasu.",
+        "uk": "Під час зупинки під'єднані застосунки тепер справді дізнаються, що міст зник, замість чекати власного тайм-ауту.",
+        "zh-cn": "停止适配器时，已连接的应用现在确实会得知网桥已消失，而不必等到自身超时。"
+      },
       "1.13.0": {
         "en": "Changed: The discovery service was rebuilt — the old security warning is gone, devices find the bridge as before, and the bridge now reports its shutdown on the network.",
         "de": "Der Erkennungsdienst wurde neu gebaut — die alte Sicherheitswarnung ist weg, Geräte finden die Bridge wie zuvor, und die Bridge meldet ihr Abschalten jetzt im Netzwerk.",
@@ -80,19 +93,6 @@
         "pl": "Wykrywanie SSDP nie zawiesza już adaptera, gdy port 1900 jest zajęty — światła nadal reagują. Nowość: skale w stopniach/Kelwinach dla barwy i temperatury barwowej.",
         "uk": "Виявлення SSDP більше не підвішує адаптер, коли порт 1900 зайнятий — світло продовжує реагувати. Нове: шкали в градусах/Кельвінах для відтінку та колірної температури.",
         "zh-cn": "当端口 1900 被占用时，SSDP 发现不再使适配器卡死，灯光可继续响应。新增：色相和色温源的度数/开尔文刻度。"
-      },
-      "1.9.0": {
-        "en": "Discovery now survives a bridge IP change: bind to all interfaces and set a separate advertised IP, plus colour and reliability fixes.",
-        "de": "Discovery übersteht jetzt einen IP-Wechsel der Bridge: auf alle Interfaces binden und eine separate angekündigte IP setzen, plus Farb- und Zuverlässigkeits-Fixes.",
-        "ru": "Обнаружение теперь переживает смену IP моста: привязка ко всем интерфейсам и отдельный анонсируемый IP, плюс исправления цвета и надёжности.",
-        "pt": "A descoberta agora sobrevive a uma mudança de IP da bridge: vincular a todas as interfaces e definir um IP anunciado separado, mais correções de cor e fiabilidade.",
-        "nl": "Detectie overleeft nu een IP-wijziging van de bridge: bind aan alle interfaces en stel een apart aangekondigd IP in, plus kleur- en betrouwbaarheidsfixes.",
-        "fr": "La découverte survit désormais à un changement d'IP du pont : écoute sur toutes les interfaces et IP annoncée distincte, plus des correctifs de couleur et de fiabilité.",
-        "it": "Il rilevamento ora sopravvive a un cambio di IP del bridge: ascolto su tutte le interfacce e IP annunciato separato, più correzioni di colore e affidabilità.",
-        "es": "La detección ahora sobrevive a un cambio de IP del puente: escucha en todas las interfaces e IP anunciada separada, más correcciones de color y fiabilidad.",
-        "pl": "Wykrywanie przeżywa teraz zmianę IP mostka: nasłuch na wszystkich interfejsach i osobny rozgłaszany IP, plus poprawki koloru i niezawodności.",
-        "uk": "Виявлення тепер переживає зміну IP мосту: прив'язка до всіх інтерфейсів і окремий оголошуваний IP, плюс виправлення кольору та надійності.",
-        "zh-cn": "现在即使桥接 IP 变化，发现也能正常工作：可绑定所有接口并设置单独的对外公布 IP，另有颜色和可靠性修复。"
       }
     },
     "plugins": {
@@ -155,7 +155,6 @@
     "dataSource": "push",
     "tier": 3,
     "supportedMessages": {
-      "stopInstance": true,
       "deviceManager": true
     },
     "dependencies": [

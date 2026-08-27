@@ -1,4 +1,8 @@
 # Older Changes
+## 1.11.0 (2026-07-09)
+
+- The devices tab can now scan ioBroker for dimmer, colour-temperature and colour lights and add the mappable ones. Manual add still works.
+
 ## 1.10.0 (2026-07-09)
 
 - Fixed the adapter looking like it was running but ignoring all light changes when UDP port 1900 was already in use (common on Windows); it now recovers cleanly and stays reachable

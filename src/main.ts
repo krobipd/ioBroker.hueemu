@@ -173,8 +173,47 @@ export class HueEmu extends utils.Adapter {
   /**
    * Called when databases are connected and adapter received configuration
    */
+  /**
+   * Switch off `supportedMessages.stopInstance` on this instance's own object.
+   *
+   * The entry was dropped from the manifest, which only helps a FRESH install: an upgrade
+   * merges the manifest into the existing instance object and never removes a key, so the old
+   * `true` survives in the database — and that is what the host reads. With it the host kills
+   * the process one second after asking it to stop, `onUnload` never runs, and the bye-bye
+   * datagrams that tell Alexa & friends the bridge is gone never leave (measured on a live
+   * js-controller 7.2.2). `deviceManager` stays untouched — the device view needs it.
+   *
+   * Only written when it is actually still on: every instance-object change restarts the
+   * instance, so doing it unconditionally would be a restart loop.
+   *
+   * @returns true when the correction was written and the restart is coming — the caller has
+   *   to stop right there instead of binding ports in a process that is going down.
+   */
+  private async clearStopInstanceFlag(): Promise<boolean> {
+    const id = `system.adapter.${this.namespace}`;
+    try {
+      const obj = await this.getForeignObjectAsync(id);
+      const supported = obj?.common?.supportedMessages as { stopInstance?: unknown } | undefined;
+      if (!supported?.stopInstance) {
+        return false;
+      }
+      this.log.info("Correcting a leftover setting from an earlier version — this instance restarts once");
+      await this.extendForeignObjectAsync(id, { common: { supportedMessages: { stopInstance: false } } });
+      return true;
+    } catch (error) {
+      // Objects DB unreachable — not worth failing the start over; the next start retries.
+      this.log.debug(`Could not check the instance object ${id}: ${errText(error)}`);
+      return false;
+    }
+  }
+
   private async onReady(): Promise<void> {
     try {
+      // First: without this the whole shutdown path stays dead on an updated install.
+      // A correction means the host is restarting us — no point binding anything.
+      if (await this.clearStopInstanceFlag()) {
+        return;
+      }
       await I18n.init(join(this.adapterDir, "admin"), this);
       this.log.debug(`onReady: starting (devices in config: ${this.config.devices?.length ?? 0})`);
 
@@ -619,22 +658,27 @@ export class HueEmu extends utils.Adapter {
     try {
       // Clear pairing timeout
       this.clearPairingTimeout();
-
-      // Stop SSDP server (announce pulse first, then byebye + socket close)
+      // The announce pulse must not outlive the server.
       this.stopSsdpAnnounce();
-      if (this.ssdpServer) {
-        this.ssdpServer.stop();
-      }
 
-      // Stop HTTP server (fire-and-forget — onUnload must be sync)
-      if (this.hueServer) {
-        this.hueServer.stop().catch((err: Error) => this.log.error(`Server stop error: ${errText(err)}`));
-      }
+      // Say goodbye on the network, THEN report done. The bye-bye datagrams are what tell
+      // Alexa & friends the bridge is gone; calling back first means the host tears the
+      // process down while they are still in the socket and the clients keep the bridge
+      // until their own timeout. No own deadline needed — the host already has one
+      // (`common.stopTimeout`), and `this.setTimeout` refuses during shutdown anyway.
+      void (async (): Promise<void> => {
+        await this.ssdpServer?.stop();
+        await this.hueServer?.stop();
+      })()
+        .catch((error: unknown) => {
+          this.log.error(`Error during shutdown: ${errText(error)}`);
+        })
+        .finally(callback);
+      return;
     } catch (error) {
       this.log.error(`Error during shutdown: ${errText(error)}`);
-    } finally {
-      callback();
     }
+    callback();
   }
 
   /**

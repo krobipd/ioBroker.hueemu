@@ -162,6 +162,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.13.1 (2026-08-27)
+
+- Fixed: when the adapter is stopped it now really tells the connected apps that the bridge is gone — until now they kept it in their list until they ran into their own timeout.
+
 ### 1.13.0 (2026-08-25)
 
 - Changed: The discovery service was rebuilt — the long-standing security warning is gone and devices find the bridge exactly as before
@@ -181,10 +185,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - The "Search lights" assistant now actually finds your lights (it scanned the wrong objects before) and lets you pick which ones to add instead of adding them all
 - The two IP fields in the settings are now one Host/IP selector — pick your IP, or "all interfaces" to auto-detect the announced address
 - A logged-in client reading the bridge configuration now receives the full config, matching a real Hue bridge
-
-### 1.11.0 (2026-07-09)
-
-- The devices tab can now scan ioBroker for dimmer, colour-temperature and colour lights and add the mappable ones. Manual add still works.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
