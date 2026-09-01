@@ -162,7 +162,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### 1.13.1 (2026-08-27)
+### 1.13.1 (2026-08-27) — stable
 
 - Fixed: when the adapter is stopped it now really tells the connected apps that the bridge is gone — until now they kept it in their list until they ran into their own timeout.
 
