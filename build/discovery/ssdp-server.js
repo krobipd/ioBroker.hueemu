@@ -71,8 +71,10 @@ class HueSsdpServer {
       this.config.logger.debug("SSDP server already running");
       return;
     }
+    let created = null;
     try {
       const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+      created = socket;
       this.socket = socket;
       await new Promise((resolve, reject) => {
         const onBindError = (err) => reject(err);
@@ -94,6 +96,10 @@ class HueSsdpServer {
       this.config.logger.debug(`SSDP server started on port ${this.ssdpPort}, advertising at ${this.bridge.location}`);
     } catch (error) {
       this.socket = null;
+      try {
+        created == null ? void 0 : created.close();
+      } catch {
+      }
       this.config.logger.error(`Failed to start SSDP server: ${(0, import_utils.errText)(error)}`);
       throw error instanceof Error ? error : new Error(String(error));
     }

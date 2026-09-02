@@ -89,6 +89,7 @@ function makeHandler(): HueApiHandler {
     setGroupAction: () => Promise.resolve([]),
     fallback: () => ({}),
     isUserAuthenticated: () => Promise.resolve(true),
+    isKnownUser: () => Promise.resolve(true),
     isAuthDisabled: () => false,
   };
 }

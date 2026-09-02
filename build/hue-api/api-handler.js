@@ -95,7 +95,8 @@ class ApiHandler {
    * @param body - User creation request body
    */
   async createUser(_req, body) {
-    const devicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
+    const rawDevicetype = typeof body.devicetype === "string" && body.devicetype.length > 0 ? body.devicetype : "unknown";
+    const devicetype = rawDevicetype.slice(0, import_user_service.MAX_DEVICETYPE_LENGTH);
     this.logger.debug(
       `Pairing request: devicetype=${(0, import_utils.oneLine)(devicetype)}, generateclientkey=${(0, import_utils.oneLine)(String(body.generateclientkey))}`
     );
@@ -103,11 +104,21 @@ class ApiHandler {
       throw import_errors.HueApiError.linkButtonNotPressed("/api");
     }
     const rawUsername = body.username;
-    const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 ? rawUsername : void 0;
+    const providedUsername = typeof rawUsername === "string" && rawUsername.length > 0 && rawUsername.length <= import_user_service.MAX_USERNAME_LENGTH ? rawUsername : void 0;
     if (providedUsername) {
       this.logger.debug(`Using provided username: ${(0, import_utils.oneLine)(providedUsername)}`);
+    } else if (typeof rawUsername === "string" && rawUsername.length > import_user_service.MAX_USERNAME_LENGTH) {
+      this.logger.debug(
+        `Ignoring provided username (${rawUsername.length} chars, max ${import_user_service.MAX_USERNAME_LENGTH}) \u2014 generating one`
+      );
     }
-    const username = await this.userService.createUser(providedUsername, devicetype);
+    let username;
+    try {
+      username = await this.userService.createUser(providedUsername, devicetype);
+    } catch (err) {
+      this.logger.debug(`Pairing rejected for "${(0, import_utils.oneLine)(devicetype)}": ${(0, import_utils.errText)(err)}`);
+      throw import_errors.HueApiError.linkButtonNotPressed("/api");
+    }
     this.logger.info(`Paired client "${(0, import_utils.oneLine)(devicetype)}" as user ${(0, import_utils.oneLine)(username)}`);
     this.adapter.pairingEnabled = false;
     return username;
@@ -204,12 +215,14 @@ class ApiHandler {
     }));
   }
   /**
-   * Fallback for unhandled routes
+   * Fallback for unhandled routes. Logged at debug: the route needs no
+   * authentication, so a warning here would be a log line anyone on the LAN
+   * can produce at will.
    *
    * @param req - Incoming HTTP request
    */
   fallback(req) {
-    this.logger.warn(`Unhandled request: ${req.method} ${req.url}`);
+    this.logger.debug(`Unhandled request: ${req.method} ${req.url}`);
     return {};
   }
   /**
@@ -220,6 +233,12 @@ class ApiHandler {
   async isUserAuthenticated(username) {
     const isAuth = await this.userService.isUserAuthenticated(username);
     if (!isAuth && this.adapter.pairingEnabled) {
+      if (username.length > import_user_service.MAX_USERNAME_LENGTH) {
+        this.logger.debug(
+          `Auto-add skipped for an over-long username (${username.length} chars, max ${import_user_service.MAX_USERNAME_LENGTH})`
+        );
+        return false;
+      }
       try {
         await this.userService.addUser(username, "auto-paired", true);
         this.logger.debug(`Pairing enabled, auto-added user: ${(0, import_utils.oneLine)(username)}`);
@@ -234,6 +253,16 @@ class ApiHandler {
   /** Reset the per-pairing-window auto-add budget (called on pairing-on). */
   resetAutoAddBudget() {
     this.userService.resetAutoAddBudget();
+  }
+  /**
+   * Pure paired-client lookup — no auto-add. For routes a client may poll
+   * before it is paired (/config), where the auto-add would turn a probe name
+   * like "nouser" into a valid key.
+   *
+   * @param username - Username to look up
+   */
+  async isKnownUser(username) {
+    return this.userService.isUserAuthenticated(username);
   }
   /**
    * Check if auth is disabled

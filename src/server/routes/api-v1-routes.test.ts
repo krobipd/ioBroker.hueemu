@@ -22,6 +22,8 @@ interface MockHandlerCalls {
   getAllLights: number;
   getLightById: string[];
   fallback: HueRequest[];
+  isUserAuthenticated: number;
+  isKnownUser: number;
 }
 
 function createMockHandler(
@@ -38,6 +40,8 @@ function createMockHandler(
     getAllLights: 0,
     getLightById: [],
     fallback: [],
+    isUserAuthenticated: 0,
+    isKnownUser: 0,
   };
 
   const handler: HueApiHandler & { calls: MockHandlerCalls } = {
@@ -81,7 +85,14 @@ function createMockHandler(
       calls.fallback.push(req);
       return {};
     },
-    isUserAuthenticated: () => Promise.resolve(opts.isAuthenticated ?? true),
+    isUserAuthenticated: () => {
+      calls.isUserAuthenticated++;
+      return Promise.resolve(opts.isAuthenticated ?? true);
+    },
+    isKnownUser: () => {
+      calls.isKnownUser++;
+      return Promise.resolve(opts.isAuthenticated ?? true);
+    },
     isAuthDisabled: () => opts.authDisabled ?? false,
   };
 
@@ -188,6 +199,29 @@ describe("apiV1Routes — POST /api", () => {
 });
 
 describe("apiV1Routes — GET auth-required routes", () => {
+  it("GET /api/config (no username) returns the public config — the discovery probe real bridges answer", async () => {
+    const handler = createMockHandler({ isAuthenticated: false });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api/config" });
+    expect(res.statusCode).toBe(200);
+    const parsed = JSON.parse(res.body);
+    expect(parsed).toHaveProperty("bridgeid");
+    expect(parsed).not.toHaveProperty("ipaddress");
+    // Never routed through the auth/auto-add path as a username called "config".
+    expect(handler.calls.isUserAuthenticated).toBe(0);
+    expect(handler.calls.isKnownUser).toBe(0);
+  });
+
+  it("/api/:username/config uses the pure lookup — never the auto-adding auth path", async () => {
+    // A discovery app polls /api/nouser/config while waiting for the link button;
+    // going through isUserAuthenticated would pair the probe name for good.
+    const handler = createMockHandler({ isAuthenticated: false });
+    const app = await buildApp(handler);
+    await app.inject({ method: "GET", url: "/api/nouser/config" });
+    expect(handler.calls.isKnownUser).toBe(1);
+    expect(handler.calls.isUserAuthenticated).toBe(0);
+  });
+
   it("returns unauthorized for getAllLights without auth", async () => {
     const handler = createMockHandler({ isAuthenticated: false });
     const app = await buildApp(handler);

@@ -77,6 +77,9 @@ function apiV1Routes(fastify, options) {
       return (0, import_error_handler.createSuccessResponse)({ username });
     });
   });
+  fastify.get("/api/config", async (request, reply) => {
+    await runWithLog(request, reply, () => handler.getConfig(toHueRequest(request), ""));
+  });
   fastify.get("/api/:username", async (request, reply) => {
     await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
@@ -89,7 +92,7 @@ function apiV1Routes(fastify, options) {
     await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
-      const authed = handler.isAuthDisabled() || await handler.isUserAuthenticated(username);
+      const authed = handler.isAuthDisabled() || await handler.isKnownUser(username);
       return authed ? handler.getFullConfig(hueReq, username) : handler.getConfig(hueReq, username);
     });
   });

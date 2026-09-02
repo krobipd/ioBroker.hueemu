@@ -8,7 +8,13 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
-import { UserService, type UserServiceAdapter } from "./user-service";
+import type { Mock } from "vitest";
+import {
+  CLIENT_CREATE_CEILING_PER_HOUR,
+  MAX_DEVICETYPE_LENGTH,
+  UserService,
+  type UserServiceAdapter,
+} from "./user-service";
 import { createMockLogger } from "../../test/test-helpers";
 
 interface MockUserAdapter extends UserServiceAdapter {
@@ -83,6 +89,12 @@ function createService(existingClients: string[] = []): { service: UserService; 
 
 describe("UserService", () => {
   describe("addUser", () => {
+    it("stores at most 100 chars of the devicetype as the object name", async () => {
+      const { service, adapter } = createService();
+      await service.addUser("long-name-client", "x".repeat(300));
+      expect(adapter.writtenObjects.get("clients.long-name-client")?.common?.name).toHaveLength(MAX_DEVICETYPE_LENGTH);
+    });
+
     it("creates client state object with sanitized id", async () => {
       const { service, adapter } = createService();
       await service.addUser("alexa-echo-1", "Amazon Echo");
@@ -252,6 +264,62 @@ describe("UserService", () => {
       // ...until the window resets, after which auto-add works again.
       service.resetAutoAddBudget();
       await service.addUser("fresh-1", "echo", true);
+    });
+  });
+
+  describe("hourly ceiling on persistent client creations (any path)", () => {
+    type LogFn = (message: string) => void;
+    function serviceWithWarnSpy(): { service: UserService; adapter: MockUserAdapter; warn: Mock<LogFn> } {
+      const adapter = createMockAdapter();
+      const warn = vi.fn<LogFn>();
+      const service = new UserService({
+        adapter,
+        logger: { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn, error: vi.fn<LogFn>() },
+      });
+      return { service, adapter, warn };
+    }
+
+    async function fillTheHour(service: UserService, prefix: string): Promise<void> {
+      for (let i = 0; i < CLIENT_CREATE_CEILING_PER_HOUR; i++) {
+        await service.createUser(`${prefix}-${i}`, "flood");
+      }
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-02T10:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("rejects the 101st creation within one hour and warns exactly once", async () => {
+      const { service, adapter, warn } = serviceWithWarnSpy();
+      await fillTheHour(service, "c");
+      await expect(service.createUser("c-100", "flood")).rejects.toThrow(/ceiling/i);
+      await expect(service.createUser("c-101", "flood")).rejects.toThrow(/ceiling/i);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Client creation ceiling reached"));
+      expect(adapter.writtenObjects.has("clients.c-100")).toBe(false);
+    });
+
+    it("auto-adds count against the same ceiling", async () => {
+      const { service } = serviceWithWarnSpy();
+      await fillTheHour(service, "c");
+      service.resetAutoAddBudget();
+      await expect(service.addUser("auto-1", "echo", true)).rejects.toThrow(/ceiling/i);
+    });
+
+    it("opens a fresh window after the hour — a whole chain passes again and the warning re-arms", async () => {
+      const { service, warn } = serviceWithWarnSpy();
+      await fillTheHour(service, "c");
+      await expect(service.createUser("over", "flood")).rejects.toThrow(/ceiling/i);
+      vi.setSystemTime(new Date("2026-09-02T11:00:01Z"));
+      // Not just one — the counter must be zeroed, or the second creation trips again.
+      await fillTheHour(service, "later");
+      await expect(service.createUser("later-over", "ok")).rejects.toThrow(/ceiling/i);
+      expect(warn).toHaveBeenCalledTimes(2);
     });
   });
 

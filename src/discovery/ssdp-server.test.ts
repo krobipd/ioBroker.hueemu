@@ -166,6 +166,12 @@ describe("HueSsdpServer", () => {
       expect(h.sockets[0].unrefed).toBe(true);
     });
 
+    it("closes the socket whose bind failed — no open handle left behind", async () => {
+      h.fail.bind = true;
+      await expect(makeServer().start()).rejects.toThrow(/EADDRINUSE/);
+      expect(h.sockets[0].closed).toBe(true);
+    });
+
     it("rejects and logs when the bind fails (port busy) — no hang, the H1 fix", async () => {
       h.fail.bind = true;
       const logger = spyLogger();

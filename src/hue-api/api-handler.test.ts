@@ -249,6 +249,92 @@ describe("ApiHandler", () => {
     });
   });
 
+  describe("isKnownUser (pure lookup for /config)", () => {
+    it("does NOT auto-add an unknown client during the pairing window", async () => {
+      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      // A discovery app polls /api/nouser/config while waiting for the link
+      // button — that probe name must never become a valid key.
+      expect(await handler.isKnownUser("nouser")).toBe(false);
+      expect(adapter.existingClients.has("nouser")).toBe(false);
+      expect([...adapter.writtenObjects.keys()].some(id => id.startsWith("clients."))).toBe(false);
+      // The auto-add path itself is untouched for the routes that need it.
+      expect(await handler.isUserAuthenticated("nouser")).toBe(true);
+      expect(await handler.isKnownUser("nouser")).toBe(true);
+    });
+
+    it("recognises a paired client", async () => {
+      const { handler } = createHandler(["alexa"]);
+      expect(await handler.isKnownUser("alexa")).toBe(true);
+    });
+  });
+
+  describe("client-supplied lengths (persistent object ids and names)", () => {
+    it("ignores a provided username over 64 chars and generates one instead", async () => {
+      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const tooLong = "x".repeat(65);
+      const body: CreateUserRequest = { devicetype: "t", username: tooLong };
+      const username = await handler.createUser(makeRequest(body), body);
+      expect(username).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      expect(adapter.existingClients.has(tooLong)).toBe(false);
+    });
+
+    it("still accepts a provided username of exactly 64 chars", async () => {
+      const { handler } = createHandler([], { pairingEnabled: true });
+      const max = "y".repeat(64);
+      const body: CreateUserRequest = { devicetype: "t", username: max };
+      expect(await handler.createUser(makeRequest(body), body)).toBe(max);
+    });
+
+    it("stores at most 100 chars of the devicetype as the client name", async () => {
+      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const devicetype = "d".repeat(500);
+      await handler.createUser(makeRequest({ devicetype }), { devicetype });
+      const [, obj] = [...adapter.writtenObjects.entries()].find(
+        ([id]) => id.startsWith("clients.") && id !== "clients",
+      )!;
+      expect(obj.common?.name).toHaveLength(100);
+    });
+
+    it("keeps the pairing log line short even for a huge devicetype (cap applies before logging)", async () => {
+      type LogFn = (message: string) => void;
+      const logger = { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
+      const handler = new ApiHandler({
+        adapter: createMockAdapter([], { pairingEnabled: true }),
+        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        devices: [],
+        logger,
+      });
+      const devicetype = "d".repeat(5000);
+      await handler.createUser(makeRequest({ devicetype }), { devicetype });
+      const paired = logger.info.mock.calls.map(c => c[0]).find(m => m.startsWith("Paired client"));
+      expect(paired).toBeDefined();
+      expect(paired!.length).toBeLessThan(200);
+    });
+
+    it("never auto-pairs an over-long username taken from the URL during the pairing window", async () => {
+      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const tooLong = "z".repeat(65);
+      expect(await handler.isUserAuthenticated(tooLong)).toBe(false);
+      expect(adapter.existingClients.has(tooLong)).toBe(false);
+    });
+  });
+
+  describe("hourly ceiling on new clients (any path)", () => {
+    it("answers 'link button not pressed' once 100 clients were created within the hour", async () => {
+      // disableAuth removes the link-button gate from POST /api — the ceiling is
+      // the only bound left on persistent client objects.
+      const { handler } = createHandler([], { disableAuth: true });
+      for (let i = 0; i < 100; i++) {
+        const body: CreateUserRequest = { devicetype: "flood", username: `flood-${i}` };
+        await handler.createUser(makeRequest(body), body);
+      }
+      const over: CreateUserRequest = { devicetype: "flood", username: "flood-100" };
+      await expect(handler.createUser(makeRequest(over), over)).rejects.toMatchObject({
+        type: HueErrorType.LINK_BUTTON_NOT_PRESSED,
+      });
+    });
+  });
+
   describe("isAuthDisabled", () => {
     it("reflects adapter.disableAuth", () => {
       const { handler } = createHandler([], { disableAuth: true });
@@ -257,6 +343,27 @@ describe("ApiHandler", () => {
   });
 
   describe("fallback", () => {
+    it("logs an unhandled route at debug only — the route is unauthenticated, a warning would be LAN-triggerable", () => {
+      type LogFn = (message: string) => void;
+      const logger = { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
+      const handler = new ApiHandler({
+        adapter: createMockAdapter(),
+        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        devices: [],
+        logger,
+      });
+      handler.fallback({
+        method: "GET",
+        url: "/api/x/capabilities",
+        params: {},
+        body: undefined,
+        headers: {},
+        ip: "1.2.3.4",
+      });
+      expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("Unhandled request: GET /api/x/capabilities"));
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
     it("returns empty object for unknown routes", async () => {
       const { handler } = createHandler();
       const result = await handler.fallback({

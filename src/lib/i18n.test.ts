@@ -7,12 +7,21 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
-import { tName } from "./i18n";
+import { I18n } from "@iobroker/adapter-core";
+import { t, tName } from "./i18n";
 
 describe("tName", () => {
   it("delegates to I18n.getTranslatedObject", () => {
     const result = tName("clientsFolder");
     expect(result).toEqual({ en: "clientsFolder", de: "clientsFolder_de" });
+  });
+});
+
+describe("t", () => {
+  it("forwards the key and the %s arguments to I18n.getTranslatedObject", () => {
+    const result = t("dmScanAddedRgb", 3, 1);
+    expect(vi.mocked(I18n.getTranslatedObject)).toHaveBeenCalledWith("dmScanAddedRgb", 3, 1);
+    expect(result).toEqual({ en: "dmScanAddedRgb", de: "dmScanAddedRgb_de" });
   });
 });
 

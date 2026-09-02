@@ -144,6 +144,14 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
     });
   });
 
+  // GET /api/config - Public bridge config without a username. Real bridges
+  // answer this unauthenticated (discovery clients call it before pairing);
+  // the static route wins over /api/:username, so "config" is never taken
+  // for a username.
+  fastify.get("/api/config", async (request: FastifyRequest, reply: FastifyReply) => {
+    await runWithLog(request, reply, () => handler.getConfig(toHueRequest(request), ""));
+  });
+
   // GET /api/:username - Get full state
   fastify.get<{ Params: UsernameParams }>("/api/:username", async (request, reply) => {
     await runWithLog(request, reply, async () => {
@@ -157,11 +165,14 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   // GET /api/:username/config - Get config. Real Hue returns the FULL config
   // (whitelist, ipaddress, timezone…) to an authenticated user and the reduced
   // public config to an unknown one — never a 401, /config stays reachable.
+  // Pure lookup on purpose: this route must never auto-add a client during the
+  // pairing window — discovery apps poll /api/nouser/config while waiting, and
+  // the well-known probe name would become a valid key.
   fastify.get<{ Params: UsernameParams }>("/api/:username/config", async (request, reply) => {
     await runWithLog(request, reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
-      const authed = handler.isAuthDisabled() || (await handler.isUserAuthenticated(username));
+      const authed = handler.isAuthDisabled() || (await handler.isKnownUser(username));
       return authed ? handler.getFullConfig(hueReq, username) : handler.getConfig(hueReq, username);
     });
   });

@@ -458,6 +458,19 @@ describe("HueEmu onReady", () => {
     expect(servers).toHaveLength(0);
   });
 
+  it("keeps booting when the cleanup of earlier-version objects fails (state handling stays wired)", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    // A leftover "user" folder makes the cleanup run its migration — and the list query blows up.
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockRejectedValue(new Error("objects db timeout"));
+    await i.onReady();
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("Cleanup of objects from earlier versions failed"));
+    expect(i.subscribeStates).toHaveBeenCalledWith("*");
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Hue Emulator running"));
+    expect(i.log.error).not.toHaveBeenCalled();
+  });
+
   it("catches a failing boot (e.g. invalid config) instead of crashing", async () => {
     const { adapter } = setup({ httpsPort: 8080 }); // httpsPort === port → buildConfig throws
     const i = internalOf(adapter);
@@ -595,6 +608,26 @@ describe("HueEmu onStateChange", () => {
     expect(i.clearTimeout).not.toHaveBeenCalled();
   });
 
+  it("logs (and survives) a failing ack write instead of leaving an unhandled rejection", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.setState.mockRejectedValueOnce(new Error("broker down"));
+    i.onStateChange("hueemu.0.startPairing", { val: true, ack: false } as ioBroker.State);
+    await vi.waitFor(() =>
+      expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("setState startPairing failed")),
+    );
+  });
+
+  it("logs a throwing handler instead of propagating (no crash on a bad state event)", async () => {
+    const { adapter, handlers } = await ready();
+    const i = internalOf(adapter);
+    handlers[0].onStateChange.mockImplementation(() => {
+      throw new Error("cache exploded");
+    });
+    expect(() => i.onStateChange("hue.0.light.bri", { val: 1, ack: true } as ioBroker.State)).not.toThrow();
+    expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("stateChange failed"));
+  });
+
   it("handles a deleted state without throwing", async () => {
     const { adapter } = await ready();
     expect(() => internalOf(adapter).onStateChange("hueemu.0.startPairing", null)).not.toThrow();
@@ -695,6 +728,16 @@ describe("HueEmu onUnload", () => {
       common: { supportedMessages: { stopInstance: false } },
     });
     expect(servers).toHaveLength(0);
+  });
+
+  it("starts normally when the instance object cannot be read (checks again next start)", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockRejectedValue(new Error("objects db unreachable"));
+    await i.onReady();
+    expect(servers).toHaveLength(1);
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("Could not check the instance object"));
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith("system.adapter.hueemu.0", expect.anything());
   });
 
   it("starts normally when the flag is already off", async () => {

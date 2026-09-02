@@ -49,7 +49,13 @@ function errText(err) {
   }
 }
 function oneLine(s) {
-  return s.replace(/[\r\n\t]/g, " ");
+  var _a;
+  let out = "";
+  for (const ch of s) {
+    const code = (_a = ch.codePointAt(0)) != null ? _a : 0;
+    out += code < 32 || code === 127 ? " " : ch;
+  }
+  return out;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

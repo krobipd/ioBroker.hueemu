@@ -46,6 +46,22 @@ export interface UserServiceConfig {
 const AUTO_ADD_CAP_PER_WINDOW = 64;
 
 /**
+ * Ceiling on persistent client creations per hour, over every path (manual
+ * POST /api and auto-add). The per-window auto-add cap does not cover
+ * POST /api, and with `disableAuth` on that path has no link-button gate
+ * either — without a ceiling one device could grow the object DB without
+ * bound (one object + one state per request). Legitimate use pairs a handful
+ * of clients over the lifetime of an install; 100 in one hour is only ever a
+ * flood.
+ */
+export const CLIENT_CREATE_CEILING_PER_HOUR = 100;
+const CLIENT_CREATE_WINDOW_MS = 60 * 60 * 1000;
+/** A provided username becomes a persistent object id — real bridges issue 40 chars. */
+export const MAX_USERNAME_LENGTH = 64;
+/** The devicetype is stored as the client object's display name. */
+export const MAX_DEVICETYPE_LENGTH = 100;
+
+/**
  * Service for managing Hue API users
  */
 export class UserService {
@@ -68,6 +84,9 @@ export class UserService {
   private autoAddedThisWindow = 0;
   private autoAddCapWarned = false;
 
+  /** Fixed hourly window for {@link CLIENT_CREATE_CEILING_PER_HOUR}; starts with the first creation. */
+  private createWindow = { startedAt: 0, count: 0, warned: false };
+
   /**
    * Create a new user service
    *
@@ -88,6 +107,29 @@ export class UserService {
   }
 
   /**
+   * Count one persistent client creation against the hourly ceiling; throws
+   * once the ceiling is reached (warns once per window). The window is fixed,
+   * not sliding: it starts with the first creation and the counter is zeroed
+   * when a new one starts — never a counter that only rises.
+   */
+  private enforceCreateCeiling(): void {
+    const now = Date.now();
+    if (now - this.createWindow.startedAt >= CLIENT_CREATE_WINDOW_MS) {
+      this.createWindow = { startedAt: now, count: 0, warned: false };
+    }
+    if (this.createWindow.count >= CLIENT_CREATE_CEILING_PER_HOUR) {
+      if (!this.createWindow.warned) {
+        this.createWindow.warned = true;
+        this.logger.warn(
+          `Client creation ceiling reached (${CLIENT_CREATE_CEILING_PER_HOUR} new clients within one hour) — further pairing requests are rejected until the hour is over (a misbehaving client, or disableAuth on an untrusted network?)`,
+        );
+      }
+      throw new Error("Client creation ceiling reached for this hour");
+    }
+    this.createWindow.count += 1;
+  }
+
+  /**
    * Add a new client (Hue API "user").
    *
    * @param username Raw username (will be sanitized for the state id).
@@ -97,6 +139,9 @@ export class UserService {
    *   `POST /api` createUser calls (unbounded, gated by the link button).
    */
   public async addUser(username: string, devicetype = "unknown", viaAutoAdd = false): Promise<void> {
+    // Every path — the ceiling is what bounds the object DB when nothing else does.
+    this.enforceCreateCeiling();
+
     if (viaAutoAdd) {
       if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
         if (!this.autoAddCapWarned) {
@@ -121,7 +166,7 @@ export class UserService {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
         type: "state",
         common: {
-          name: devicetype,
+          name: devicetype.slice(0, MAX_DEVICETYPE_LENGTH),
           type: "string",
           role: "text",
           read: true,

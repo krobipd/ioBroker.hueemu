@@ -28,6 +28,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var user_service_exports = {};
 __export(user_service_exports, {
+  CLIENT_CREATE_CEILING_PER_HOUR: () => CLIENT_CREATE_CEILING_PER_HOUR,
+  MAX_DEVICETYPE_LENGTH: () => MAX_DEVICETYPE_LENGTH,
+  MAX_USERNAME_LENGTH: () => MAX_USERNAME_LENGTH,
   UserService: () => UserService
 });
 module.exports = __toCommonJS(user_service_exports);
@@ -35,6 +38,10 @@ var uuid = __toESM(require("uuid"));
 var import_i18n = require("../lib/i18n");
 var import_utils = require("../types/utils");
 const AUTO_ADD_CAP_PER_WINDOW = 64;
+const CLIENT_CREATE_CEILING_PER_HOUR = 100;
+const CLIENT_CREATE_WINDOW_MS = 60 * 60 * 1e3;
+const MAX_USERNAME_LENGTH = 64;
+const MAX_DEVICETYPE_LENGTH = 100;
 class UserService {
   adapter;
   logger;
@@ -52,6 +59,8 @@ class UserService {
    */
   autoAddedThisWindow = 0;
   autoAddCapWarned = false;
+  /** Fixed hourly window for {@link CLIENT_CREATE_CEILING_PER_HOUR}; starts with the first creation. */
+  createWindow = { startedAt: 0, count: 0, warned: false };
   /**
    * Create a new user service
    *
@@ -70,6 +79,28 @@ class UserService {
     this.autoAddCapWarned = false;
   }
   /**
+   * Count one persistent client creation against the hourly ceiling; throws
+   * once the ceiling is reached (warns once per window). The window is fixed,
+   * not sliding: it starts with the first creation and the counter is zeroed
+   * when a new one starts — never a counter that only rises.
+   */
+  enforceCreateCeiling() {
+    const now = Date.now();
+    if (now - this.createWindow.startedAt >= CLIENT_CREATE_WINDOW_MS) {
+      this.createWindow = { startedAt: now, count: 0, warned: false };
+    }
+    if (this.createWindow.count >= CLIENT_CREATE_CEILING_PER_HOUR) {
+      if (!this.createWindow.warned) {
+        this.createWindow.warned = true;
+        this.logger.warn(
+          `Client creation ceiling reached (${CLIENT_CREATE_CEILING_PER_HOUR} new clients within one hour) \u2014 further pairing requests are rejected until the hour is over (a misbehaving client, or disableAuth on an untrusted network?)`
+        );
+      }
+      throw new Error("Client creation ceiling reached for this hour");
+    }
+    this.createWindow.count += 1;
+  }
+  /**
    * Add a new client (Hue API "user").
    *
    * @param username Raw username (will be sanitized for the state id).
@@ -80,6 +111,7 @@ class UserService {
    */
   async addUser(username, devicetype = "unknown", viaAutoAdd = false) {
     var _a;
+    this.enforceCreateCeiling();
     if (viaAutoAdd) {
       if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
         if (!this.autoAddCapWarned) {
@@ -99,7 +131,7 @@ class UserService {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
         type: "state",
         common: {
-          name: devicetype,
+          name: devicetype.slice(0, MAX_DEVICETYPE_LENGTH),
           type: "string",
           role: "text",
           read: true,
@@ -204,6 +236,9 @@ class UserService {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  CLIENT_CREATE_CEILING_PER_HOUR,
+  MAX_DEVICETYPE_LENGTH,
+  MAX_USERNAME_LENGTH,
   UserService
 });
 //# sourceMappingURL=user-service.js.map

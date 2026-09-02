@@ -304,8 +304,14 @@ export class HueEmu extends utils.Adapter {
         );
       }
 
-      // Remove obsolete states from previous versions
-      await this.cleanupObsoleteStates();
+      // Remove obsolete states from previous versions. Own fence: this runs after
+      // the servers are up, and a failure here must not skip the state
+      // subscription below (HTTP alive but startPairing/disableAuth dead).
+      try {
+        await this.cleanupObsoleteStates();
+      } catch (error) {
+        this.log.warn(`Cleanup of objects from earlier versions failed — continuing without it: ${errText(error)}`);
+      }
 
       // Subscribe to state changes (own states)
       this.subscribeStates("*");

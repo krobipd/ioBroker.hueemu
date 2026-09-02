@@ -92,6 +92,8 @@ class DeviceBindingService {
   devices;
   logger;
   stateCache = /* @__PURE__ */ new Map();
+  /** Every state id a device maps — the only ids the cache is ever read for. */
+  mappedIds;
   /**
    * Create a new device binding service
    *
@@ -101,6 +103,7 @@ class DeviceBindingService {
     this.adapter = config.adapter;
     this.devices = config.devices || [];
     this.logger = config.logger;
+    this.mappedIds = new Set(this.devices.flatMap((device) => this.getAllStateIds(device)));
   }
   /**
    * Get state ID from device config for a given state name
@@ -160,14 +163,8 @@ class DeviceBindingService {
    * adapter init for several broker round-trips per state.
    */
   async refreshStateCache() {
-    const allIds = /* @__PURE__ */ new Set();
-    for (const device of this.devices) {
-      for (const id of this.getAllStateIds(device)) {
-        allIds.add(id);
-      }
-    }
     await Promise.all(
-      [...allIds].map(async (stateId) => {
+      [...this.mappedIds].map(async (stateId) => {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== void 0) {
@@ -193,6 +190,9 @@ class DeviceBindingService {
    * @param value - New state value
    */
   updateStateCache(id, value) {
+    if (!this.mappedIds.has(id)) {
+      return;
+    }
     this.stateCache.set(id, value);
   }
   /**
@@ -496,8 +496,8 @@ class DeviceBindingService {
       case "hue": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         if (n === null) {
-          this.logger.debug(`Default fallback for hue (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
-          return 0;
+          this.logger.debug(`Ignoring invalid hue write (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+          return void 0;
         }
         return hueForState(n, device == null ? void 0 : device.hueScale);
       }
@@ -506,8 +506,8 @@ class DeviceBindingService {
       case "ct": {
         const n = (0, import_coerce.coerceFiniteNumber)(value);
         if (n === null) {
-          this.logger.debug(`Default fallback for ct (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
-          return HUE_CT_DEFAULT;
+          this.logger.debug(`Ignoring invalid ct write (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`);
+          return void 0;
         }
         return ctForState(n, device == null ? void 0 : device.ctScale);
       }
@@ -636,7 +636,9 @@ class DeviceBindingService {
   /**
    * Write-path helper for bri/sat: coerce + clamp the incoming Hue value into
    * [min,max], then scale it back into the configured foreign-state scale.
-   * Null/non-finite input maps to max (full), matching the per-state default.
+   * Null/non-finite input is not written at all (undefined → the caller skips
+   * the write and still acks, like the xy path) — a default the client never
+   * asked for must not land in the foreign state.
    *
    * @param value - Raw value from the Hue API
    * @param min - Minimum Hue API value (inclusive)
@@ -649,9 +651,9 @@ class DeviceBindingService {
     const n = (0, import_coerce.coerceFiniteNumber)(value);
     if (n === null) {
       this.logger.debug(
-        `Default fallback for ${stateName != null ? stateName : "?"} (write, device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`
+        `Ignoring invalid ${stateName != null ? stateName : "?"} write (device="${device == null ? void 0 : device.name}"): raw=${JSON.stringify(value)}`
       );
-      return this.scaleValueForState(max, scale, max);
+      return void 0;
     }
     return this.scaleValueForState(clampRound(n, min, max), scale, max);
   }

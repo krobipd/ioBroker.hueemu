@@ -235,7 +235,11 @@ class HueEmu extends utils.Adapter {
           `SSDP discovery disabled \u2014 port 1900 unavailable (${(0, import_utils.errText)(err)}). HTTP API still reachable; configure clients with the bridge IP manually.`
         );
       }
-      await this.cleanupObsoleteStates();
+      try {
+        await this.cleanupObsoleteStates();
+      } catch (error) {
+        this.log.warn(`Cleanup of objects from earlier versions failed \u2014 continuing without it: ${(0, import_utils.errText)(error)}`);
+      }
       this.subscribeStates("*");
       this.log.debug("Subscribed to own states (pattern: *)");
       this.log.info(

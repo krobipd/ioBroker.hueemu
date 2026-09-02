@@ -990,20 +990,17 @@ describe("DeviceBindingService", () => {
     // API-drift guards: malformed incoming Hue-client values must not leak
     // NaN / Infinity / non-primitive payloads into ioBroker states.
     describe("malformed incoming Hue values (writing)", () => {
-      it("bri NaN falls back to default 254", async () => {
+      it("bri NaN is not written — no default the client never asked for — but still acked", async () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "dimmable", briState: "test.bri" }]);
-        await service.setLightState("1", {
-          bri: Number.NaN,
-        });
-        expect(adapter.writtenStates.get("test.bri")).toBe(254);
+        const results = await service.setLightState("1", { bri: Number.NaN });
+        expect(adapter.writtenStates.has("test.bri")).toBe(false);
+        expect(results[0]).toHaveProperty("success");
       });
 
-      it("bri Infinity clamps to 254", async () => {
+      it("bri Infinity is not written (JSON cannot even carry it)", async () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "dimmable", briState: "test.bri" }]);
-        await service.setLightState("1", {
-          bri: Number.POSITIVE_INFINITY,
-        });
-        expect(adapter.writtenStates.get("test.bri")).toBe(254);
+        await service.setLightState("1", { bri: Number.POSITIVE_INFINITY });
+        expect(adapter.writtenStates.has("test.bri")).toBe(false);
       });
 
       it("bri fractional value is rounded", async () => {
@@ -1020,20 +1017,17 @@ describe("DeviceBindingService", () => {
         expect(adapter.writtenStates.get("test.bri")).toBe(150);
       });
 
-      it("hue NaN falls back to 0", async () => {
+      it("hue NaN is not written (a default hue of 0 would turn the light red)", async () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "color", hueState: "test.hue" }]);
-        await service.setLightState("1", {
-          hue: Number.NaN,
-        });
-        expect(adapter.writtenStates.get("test.hue")).toBe(0);
+        await service.setLightState("1", { hue: Number.NaN });
+        expect(adapter.writtenStates.has("test.hue")).toBe(false);
       });
 
-      it("hue object falls back to 0", async () => {
+      it("hue object is not written, success still acked", async () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "color", hueState: "test.hue" }]);
-        await service.setLightState("1", {
-          hue: { foo: 1 },
-        } as unknown as Record<string, unknown>);
-        expect(adapter.writtenStates.get("test.hue")).toBe(0);
+        const results = await service.setLightState("1", { hue: { foo: 1 } } as unknown as Record<string, unknown>);
+        expect(adapter.writtenStates.has("test.hue")).toBe(false);
+        expect(results[0]).toHaveProperty("success");
       });
 
       // v1.10.0 (M1): write path symmetric with read — coerceBool allowlist.
@@ -1049,20 +1043,16 @@ describe("DeviceBindingService", () => {
         expect(adapter.writtenStates.get("test.on")).toBe(true);
       });
 
-      it("sat Infinity clamps to 254", async () => {
+      it("sat Infinity is not written", async () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "color", satState: "test.sat" }]);
-        await service.setLightState("1", {
-          sat: Number.POSITIVE_INFINITY,
-        });
-        expect(adapter.writtenStates.get("test.sat")).toBe(254);
+        await service.setLightState("1", { sat: Number.POSITIVE_INFINITY });
+        expect(adapter.writtenStates.has("test.sat")).toBe(false);
       });
 
-      it("ct NaN falls back to default 250", async () => {
+      it("ct NaN is not written (no default 250 the client never asked for)", async () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "ct", ctState: "test.ct" }]);
-        await service.setLightState("1", {
-          ct: Number.NaN,
-        });
-        expect(adapter.writtenStates.get("test.ct")).toBe(250);
+        await service.setLightState("1", { ct: Number.NaN });
+        expect(adapter.writtenStates.has("test.ct")).toBe(false);
       });
 
       it('ct numeric string "200" is coerced', async () => {
@@ -1125,6 +1115,17 @@ describe("DeviceBindingService", () => {
   });
 
   describe("state cache", () => {
+    it("ignores updates for ids no device maps (the adapter forwards its own acked states too)", () => {
+      const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
+      service.updateStateCache("hueemu.0.clients.alexa", "alexa");
+      service.updateStateCache("hueemu.0.startPairing", true);
+      const cache = (service as unknown as { stateCache: Map<string, unknown> }).stateCache;
+      expect(cache.has("hueemu.0.clients.alexa")).toBe(false);
+      expect(cache.has("hueemu.0.startPairing")).toBe(false);
+      service.updateStateCache("test.on", true);
+      expect(cache.get("test.on")).toBe(true);
+    });
+
     it("should use cached values when available", async () => {
       const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
         "test.on": false,

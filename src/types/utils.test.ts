@@ -90,6 +90,14 @@ describe("errText", () => {
 });
 
 describe("oneLine", () => {
+  it("neutralises the rest of the C0 range and DEL too (terminal escapes, NUL)", () => {
+    expect(oneLine("a\u001b[31mred\u0000\u007fb")).toBe("a [31mred  b");
+  });
+
+  it("leaves non-ASCII text alone", () => {
+    expect(oneLine("Küche — Lämpchen ✓")).toBe("Küche — Lämpchen ✓");
+  });
+
   it("replaces CR, LF and tab with spaces", () => {
     expect(oneLine("a\r\nb\tc")).toBe("a  b c");
   });

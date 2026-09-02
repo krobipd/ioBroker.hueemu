@@ -214,6 +214,8 @@ export class DeviceBindingService {
   private readonly devices: DeviceConfig[];
   private readonly logger: Logger;
   private stateCache: Map<string, unknown> = new Map();
+  /** Every state id a device maps — the only ids the cache is ever read for. */
+  private readonly mappedIds: Set<string>;
 
   /**
    * Create a new device binding service
@@ -224,6 +226,7 @@ export class DeviceBindingService {
     this.adapter = config.adapter;
     this.devices = config.devices || [];
     this.logger = config.logger;
+    this.mappedIds = new Set(this.devices.flatMap(device => this.getAllStateIds(device)));
   }
 
   /**
@@ -294,14 +297,8 @@ export class DeviceBindingService {
    * adapter init for several broker round-trips per state.
    */
   private async refreshStateCache(): Promise<void> {
-    const allIds = new Set<string>();
-    for (const device of this.devices) {
-      for (const id of this.getAllStateIds(device)) {
-        allIds.add(id);
-      }
-    }
     await Promise.all(
-      [...allIds].map(async stateId => {
+      [...this.mappedIds].map(async stateId => {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== undefined) {
@@ -331,6 +328,13 @@ export class DeviceBindingService {
    * @param value - New state value
    */
   public updateStateCache(id: string, value: unknown): void {
+    // The adapter forwards every acked change it is subscribed to — its own
+    // startPairing/disableAuth/clients.* included. Only mapped ids are ever
+    // read, so only those are kept; the cache would otherwise grow by one
+    // entry per paired client for nothing.
+    if (!this.mappedIds.has(id)) {
+      return;
+    }
     this.stateCache.set(id, value);
   }
 
@@ -484,8 +488,9 @@ export class DeviceBindingService {
       try {
         const convertedValue = this.convertValueForState(key, value, device);
         if (convertedValue === undefined) {
-          // Invalid payload for this attribute (e.g. a non-array xy). Skip the
-          // write rather than poison the state; still ack like a real bridge.
+          // Invalid payload for this attribute (a non-array xy, a non-numeric
+          // bri/sat/hue/ct). Skip the write rather than poison the state or set a
+          // default the client never asked for; still ack like a real bridge.
           results.push({ success: { [address]: value } });
           continue;
         }
@@ -700,8 +705,8 @@ export class DeviceBindingService {
       case "hue": {
         const n = coerceFiniteNumber(value);
         if (n === null) {
-          this.logger.debug(`Default fallback for hue (write, device="${device?.name}"): raw=${JSON.stringify(value)}`);
-          return 0;
+          this.logger.debug(`Ignoring invalid hue write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          return undefined;
         }
         return hueForState(n, device?.hueScale);
       }
@@ -710,8 +715,8 @@ export class DeviceBindingService {
       case "ct": {
         const n = coerceFiniteNumber(value);
         if (n === null) {
-          this.logger.debug(`Default fallback for ct (write, device="${device?.name}"): raw=${JSON.stringify(value)}`);
-          return HUE_CT_DEFAULT;
+          this.logger.debug(`Ignoring invalid ct write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
+          return undefined;
         }
         return ctForState(n, device?.ctScale);
       }
@@ -855,7 +860,9 @@ export class DeviceBindingService {
   /**
    * Write-path helper for bri/sat: coerce + clamp the incoming Hue value into
    * [min,max], then scale it back into the configured foreign-state scale.
-   * Null/non-finite input maps to max (full), matching the per-state default.
+   * Null/non-finite input is not written at all (undefined → the caller skips
+   * the write and still acks, like the xy path) — a default the client never
+   * asked for must not land in the foreign state.
    *
    * @param value - Raw value from the Hue API
    * @param min - Minimum Hue API value (inclusive)
@@ -871,13 +878,13 @@ export class DeviceBindingService {
     scale: LightStateScale | undefined,
     device?: DeviceConfig,
     stateName?: string,
-  ): number {
+  ): number | undefined {
     const n = coerceFiniteNumber(value);
     if (n === null) {
       this.logger.debug(
-        `Default fallback for ${stateName ?? "?"} (write, device="${device?.name}"): raw=${JSON.stringify(value)}`,
+        `Ignoring invalid ${stateName ?? "?"} write (device="${device?.name}"): raw=${JSON.stringify(value)}`,
       );
-      return this.scaleValueForState(max, scale, max);
+      return undefined;
     }
     return this.scaleValueForState(clampRound(n, min, max), scale, max);
   }

@@ -202,9 +202,14 @@ export interface HueApiHandler {
   fallback(req: HueRequest): unknown;
 
   /**
-   * Check if user is authenticated
+   * Check if user is authenticated (may auto-add the user during the pairing window)
    */
   isUserAuthenticated(username: string): Promise<boolean>;
+
+  /**
+   * Whether the username is a paired client — a pure lookup with no pairing-window side effect
+   */
+  isKnownUser(username: string): Promise<boolean>;
 
   /**
    * Check if auth is disabled

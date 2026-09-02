@@ -93,8 +93,10 @@ export class HueSsdpServer {
       return;
     }
 
+    let created: dgram.Socket | null = null;
     try {
       const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+      created = socket;
       this.socket = socket;
 
       await new Promise<void>((resolve, reject) => {
@@ -119,6 +121,12 @@ export class HueSsdpServer {
       this.config.logger.debug(`SSDP server started on port ${this.ssdpPort}, advertising at ${this.bridge.location}`);
     } catch (error) {
       this.socket = null;
+      // A socket whose bind failed is still an open handle — release it.
+      try {
+        created?.close();
+      } catch {
+        // already closed
+      }
       this.config.logger.error(`Failed to start SSDP server: ${errText(error)}`);
       throw error instanceof Error ? error : new Error(String(error));
     }
@@ -245,6 +253,10 @@ export class HueSsdpServer {
    */
   public stop(): Promise<void> {
     const socket = this.socket;
+    // Shortcut, deliberately without its own test: every step below tolerates a
+    // missing socket on its own (try/catch around send and close), so removing
+    // this guard changes nothing observable (equivalent mutant, 2026-09-02 test
+    // audit). It stays because it says what a stop without a running service is.
     if (!socket) {
       return Promise.resolve();
     }
