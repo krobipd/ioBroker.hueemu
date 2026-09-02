@@ -1,23 +1,39 @@
 /**
  * Tests for the light-device discovery mapping. Uses the REAL
- * @iobroker/type-detector (not a mock) over sample object trees, so the
+ * `@iobroker/type-detector` (not a mock) over sample object trees, so the
  * detector-type → hueemu-DeviceConfig mapping is proven against the library's
  * actual output, and drifts if the detector changes its patterns.
  */
 
 import { scanForLightDevices, mapControlToDevice } from "./device-scan";
 
-/** Build a state object with a role. */
+/**
+ * Build a state object with a role.
+ *
+ * @param id The full state id
+ * @param role The common.role of the state
+ * @param type The common.type of the state (default number)
+ */
 function state(id: string, role: string, type: ioBroker.CommonType = "number"): Record<string, ioBroker.Object> {
   return {
-    [id]: { _id: id, type: "state", common: { role, type, read: true, write: true, name: id }, native: {} } as ioBroker.Object,
+    [id]: {
+      _id: id,
+      type: "state",
+      common: { role, type, read: true, write: true, name: id },
+      native: {},
+    },
   };
 }
 
-/** Build a channel device with the given `[suffix, role]` state children. */
+/**
+ * Build a channel device with the given `[suffix, role]` state children.
+ *
+ * @param prefix The channel id (device prefix of the state ids)
+ * @param states `[suffix, role]` tuples (optional type) for the state children
+ */
 function channel(prefix: string, states: [string, string, ioBroker.CommonType?][]): Record<string, ioBroker.Object> {
   let objs: Record<string, ioBroker.Object> = {
-    [prefix]: { _id: prefix, type: "channel", common: { role: "light", name: prefix }, native: {} } as ioBroker.Object,
+    [prefix]: { _id: prefix, type: "channel", common: { role: "light", name: prefix }, native: {} },
   };
   for (const [suf, role, t] of states) {
     objs = { ...objs, ...state(`${prefix}.${suf}`, role, t) };
@@ -35,18 +51,32 @@ describe("scanForLightDevices", () => {
 
   it("maps a dimmer → dimmable (on + bri)", () => {
     const { devices } = scanForLightDevices(
-      channel("x.0.dim", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]),
+      channel("x.0.dim", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+      ]),
       nameOf,
     );
-    expect(devices).toEqual([{ name: "x.0.dim", lightType: "dimmable", onState: "x.0.dim.on", briState: "x.0.dim.bri" }]);
+    expect(devices).toEqual([
+      { name: "x.0.dim", lightType: "dimmable", onState: "x.0.dim.on", briState: "x.0.dim.bri" },
+    ]);
   });
 
   it("maps a colour-temperature light → ct (on + bri + ct)", () => {
     const { devices } = scanForLightDevices(
-      channel("x.0.ct", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"], ["ct", "level.color.temperature"]]),
+      channel("x.0.ct", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+        ["ct", "level.color.temperature"],
+      ]),
       nameOf,
     );
-    expect(devices[0]).toMatchObject({ lightType: "ct", onState: "x.0.ct.on", briState: "x.0.ct.bri", ctState: "x.0.ct.ct" });
+    expect(devices[0]).toMatchObject({
+      lightType: "ct",
+      onState: "x.0.ct.on",
+      briState: "x.0.ct.bri",
+      ctState: "x.0.ct.ct",
+    });
   });
 
   it("maps a hue/sat colour light → color (on + bri + hue + sat)", () => {
@@ -70,7 +100,11 @@ describe("scanForLightDevices", () => {
 
   it("maps an xy/cie colour light → color (xy)", () => {
     const { devices } = scanForLightDevices(
-      channel("x.0.cie", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"], ["cie", "level.color.cie", "string"]]),
+      channel("x.0.cie", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+        ["cie", "level.color.cie", "string"],
+      ]),
       nameOf,
     );
     expect(devices[0]).toMatchObject({ lightType: "color", onState: "x.0.cie.on", xyState: "x.0.cie.cie" });

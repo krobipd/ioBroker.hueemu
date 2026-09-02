@@ -6,9 +6,13 @@ import { HueApiError, HueErrorType } from "../types/errors";
 import { DeviceBindingService, type DeviceConfig } from "./device-binding-service";
 import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
+import type { Mock } from "vitest";
 
 // Helper to create service with test devices
-function createService(devices: DeviceConfig[], stateValues: Record<string, unknown> = {}) {
+function createService(
+  devices: DeviceConfig[],
+  stateValues: Record<string, unknown> = {},
+): { service: DeviceBindingService; adapter: ReturnType<typeof createMockDeviceBindingAdapter> } {
   const adapter = createMockDeviceBindingAdapter(stateValues);
   const logger = createMockLogger();
   const service = new DeviceBindingService({
@@ -20,10 +24,10 @@ function createService(devices: DeviceConfig[], stateValues: Record<string, unkn
 }
 
 // Logger whose methods are vi spies, for asserting init-time diagnostics.
-function spyLogger(): Logger & { warn: ReturnType<typeof vi.fn> } {
-  return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger & {
-    warn: ReturnType<typeof vi.fn>;
-  };
+type LogFn = (message: string) => void;
+
+function spyLogger(): Logger & { warn: Mock<LogFn> } {
+  return { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
 }
 
 describe("DeviceBindingService", () => {
@@ -396,7 +400,7 @@ describe("DeviceBindingService", () => {
       // read every string except "false"/"0"/"" as ON — these FAIL on the old code.
       it.each(["off", "OFF", "no", "disabled", "FALSE", "False"])(
         "reads the off-ish string '%s' as false (M1)",
-        async (raw) => {
+        async raw => {
           const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
             "test.on": raw,
           });
@@ -405,7 +409,7 @@ describe("DeviceBindingService", () => {
         },
       );
 
-      it.each(["on", "yes", "TRUE", "On"])("reads the on-ish string '%s' as true (M1)", async (raw) => {
+      it.each(["on", "yes", "TRUE", "On"])("reads the on-ish string '%s' as true (M1)", async raw => {
         const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
           "test.on": raw,
         });
@@ -661,19 +665,17 @@ describe("DeviceBindingService", () => {
 
       // v1.10.0 (I2): per-device ct scale.
       it("ctScale=kelvin reads a Kelvin source as Hue mired", async () => {
-        const { service } = createService(
-          [{ name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" }],
-          { "test.ct": 3000 },
-        );
+        const { service } = createService([{ name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" }], {
+          "test.ct": 3000,
+        });
         const light = await service.getLightById("1");
         expect(light.state.ct).toBe(333); // 1e6 / 3000
       });
 
       it("ctScale=kelvin falls back to the default for a non-positive Kelvin", async () => {
-        const { service } = createService(
-          [{ name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" }],
-          { "test.ct": 0 },
-        );
+        const { service } = createService([{ name: "Test", lightType: "ct", ctState: "test.ct", ctScale: "kelvin" }], {
+          "test.ct": 0,
+        });
         const light = await service.getLightById("1");
         expect(light.state.ct).toBe(250); // HUE_CT_DEFAULT
       });
@@ -992,7 +994,7 @@ describe("DeviceBindingService", () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "dimmable", briState: "test.bri" }]);
         await service.setLightState("1", {
           bri: Number.NaN,
-        } as unknown as Record<string, unknown>);
+        });
         expect(adapter.writtenStates.get("test.bri")).toBe(254);
       });
 
@@ -1000,7 +1002,7 @@ describe("DeviceBindingService", () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "dimmable", briState: "test.bri" }]);
         await service.setLightState("1", {
           bri: Number.POSITIVE_INFINITY,
-        } as unknown as Record<string, unknown>);
+        });
         expect(adapter.writtenStates.get("test.bri")).toBe(254);
       });
 
@@ -1022,7 +1024,7 @@ describe("DeviceBindingService", () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "color", hueState: "test.hue" }]);
         await service.setLightState("1", {
           hue: Number.NaN,
-        } as unknown as Record<string, unknown>);
+        });
         expect(adapter.writtenStates.get("test.hue")).toBe(0);
       });
 
@@ -1035,13 +1037,13 @@ describe("DeviceBindingService", () => {
       });
 
       // v1.10.0 (M1): write path symmetric with read — coerceBool allowlist.
-      it.each(["off", "OFF", "no", "false"])("on string '%s' writes boolean false (M1)", async (raw) => {
+      it.each(["off", "OFF", "no", "false"])("on string '%s' writes boolean false (M1)", async raw => {
         const { service, adapter } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
         await service.setLightState("1", { on: raw } as unknown as Record<string, unknown>);
         expect(adapter.writtenStates.get("test.on")).toBe(false);
       });
 
-      it.each(["on", "yes", "true", "1"])("on string '%s' writes boolean true (M1)", async (raw) => {
+      it.each(["on", "yes", "true", "1"])("on string '%s' writes boolean true (M1)", async raw => {
         const { service, adapter } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
         await service.setLightState("1", { on: raw } as unknown as Record<string, unknown>);
         expect(adapter.writtenStates.get("test.on")).toBe(true);
@@ -1051,7 +1053,7 @@ describe("DeviceBindingService", () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "color", satState: "test.sat" }]);
         await service.setLightState("1", {
           sat: Number.POSITIVE_INFINITY,
-        } as unknown as Record<string, unknown>);
+        });
         expect(adapter.writtenStates.get("test.sat")).toBe(254);
       });
 
@@ -1059,7 +1061,7 @@ describe("DeviceBindingService", () => {
         const { service, adapter } = createService([{ name: "Test", lightType: "ct", ctState: "test.ct" }]);
         await service.setLightState("1", {
           ct: Number.NaN,
-        } as unknown as Record<string, unknown>);
+        });
         expect(adapter.writtenStates.get("test.ct")).toBe(250);
       });
 
@@ -1223,7 +1225,10 @@ describe("DeviceBindingService", () => {
 // =====================================================================
 
 describe("Light type integration", () => {
-  function createServiceWithStates(device: DeviceConfig, stateValues: Record<string, unknown>) {
+  function createServiceWithStates(
+    device: DeviceConfig,
+    stateValues: Record<string, unknown>,
+  ): { service: DeviceBindingService; adapter: ReturnType<typeof createMockDeviceBindingAdapter> } {
     const adapter = createMockDeviceBindingAdapter(stateValues);
     const logger = createMockLogger();
     const service = new DeviceBindingService({

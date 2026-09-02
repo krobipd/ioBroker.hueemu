@@ -42,38 +42,40 @@ function createMockAdapter(
     writtenObjects,
     writtenStates,
     existingClients: clients,
-    setObjectNotExistsAsync: async (id, obj) => {
+    setObjectNotExistsAsync: (id, obj) => {
       writtenObjects.set(id, obj);
-      return { id };
+      return Promise.resolve({ id });
     },
-    setStateAsync: async (id, state) => {
-      const stateObj = writtenStates as Map<string, unknown>;
+    setStateAsync: (id, state) => {
+      const stateObj = writtenStates;
       stateObj.set(id, (state as { val?: unknown }).val);
       // Track as existing client after creation
       if (id.startsWith("clients.") && id !== "clients") {
         clients.add(id.substring("clients.".length));
       }
-      return { id };
+      return Promise.resolve({ id });
     },
-    getStatesOfAsync: async () => {
-      return Array.from(clients).map(
-        name =>
-          ({
-            _id: `${namespace}.clients.${name}`,
-            type: "state",
-            common: {
-              name,
-              type: "string",
-              role: "text",
-              read: true,
-              write: false,
-            },
-            native: {},
-          }) as unknown as ioBroker.StateObject,
+    getStatesOfAsync: () => {
+      return Promise.resolve(
+        Array.from(clients).map(
+          name =>
+            ({
+              _id: `${namespace}.clients.${name}`,
+              type: "state",
+              common: {
+                name,
+                type: "string",
+                role: "text",
+                read: true,
+                write: false,
+              },
+              native: {},
+            }) as unknown as ioBroker.StateObject,
+        ),
       );
     },
-    getForeignStateAsync: async () => null,
-    getForeignObjectAsync: async () => null,
+    getForeignStateAsync: () => Promise.resolve(null),
+    getForeignObjectAsync: () => Promise.resolve(null),
     setForeignStateAsync: async () => {},
     subscribeForeignStates: () => {},
   };
@@ -81,7 +83,10 @@ function createMockAdapter(
   return adapter;
 }
 
-function createHandler(existingClients: string[] = [], opts: { pairingEnabled?: boolean; disableAuth?: boolean } = {}) {
+function createHandler(
+  existingClients: string[] = [],
+  opts: { pairingEnabled?: boolean; disableAuth?: boolean } = {},
+): { handler: ApiHandler; adapter: MockApiAdapter } {
   const adapter = createMockAdapter(existingClients, opts);
   const handler = new ApiHandler({
     adapter,
@@ -267,10 +272,10 @@ describe("ApiHandler", () => {
   });
 
   describe("getConfig", () => {
-    it("returns public bridge config without requiring auth", async () => {
+    it("returns public bridge config without requiring auth", () => {
       const { handler } = createHandler();
       const req = makeRequest(undefined);
-      const config = await handler.getConfig(req, "anyone");
+      const config = handler.getConfig(req, "anyone");
       expect(config).toHaveProperty("bridgeid");
       expect(config).toHaveProperty("mac");
       expect(config).toHaveProperty("modelid");
@@ -296,10 +301,11 @@ describe("ApiHandler", () => {
     ): { handler: ApiHandler; adapter: MockApiAdapter; foreignWrites: Map<string, unknown> } {
       const adapter = createMockAdapter([], opts);
       const foreignWrites = new Map<string, unknown>();
-      adapter.getForeignStateAsync = async (id: string) =>
-        id in stateValues ? ({ val: stateValues[id], ack: true } as ioBroker.State) : null;
-      adapter.setForeignStateAsync = async (id: string, state: ioBroker.SettableState) => {
+      adapter.getForeignStateAsync = (id: string) =>
+        Promise.resolve(id in stateValues ? ({ val: stateValues[id], ack: true } as ioBroker.State) : null);
+      adapter.setForeignStateAsync = (id: string, state: ioBroker.SettableState) => {
         foreignWrites.set(id, (state as { val?: unknown }).val);
+        return Promise.resolve();
       };
       const handler = new ApiHandler({
         adapter,

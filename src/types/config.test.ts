@@ -3,11 +3,12 @@
  */
 
 import { vi } from "vitest";
+import type * as os from "node:os";
 
 /** node:os passes through except for a swappable interface list. */
 const osMock = vi.hoisted(() => ({ interfaces: null as Record<string, unknown[]> | null }));
 vi.mock("node:os", async importOriginal => {
-  const actual = await importOriginal<typeof import("node:os")>();
+  const actual = await importOriginal<typeof os>();
   const networkInterfaces = (): unknown => osMock.interfaces ?? actual.networkInterfaces();
   return { ...actual, default: { ...actual, networkInterfaces }, networkInterfaces };
 });

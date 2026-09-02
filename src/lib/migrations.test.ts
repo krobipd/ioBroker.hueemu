@@ -100,10 +100,10 @@ describe("migrations", () => {
       };
       const calls: Array<{ id: string; patch: unknown; options: unknown }> = [];
       await runInstanceObjectMigration({
-        getObjectAsync: async id => objects[id] ?? null,
-        extendObjectAsync: async (id, obj, options) => {
+        getObjectAsync: id => Promise.resolve(objects[id] ?? null),
+        extendObjectAsync: (id, obj, options) => {
           calls.push({ id, patch: obj.common, options });
-          return null;
+          return Promise.resolve(null);
         },
         log: { debug: () => {} },
       });
@@ -121,10 +121,10 @@ describe("migrations", () => {
       };
       const calls: Array<{ id: string; patch: { name?: unknown } }> = [];
       await runInstanceObjectMigration({
-        getObjectAsync: async id => objects[id] ?? null,
-        extendObjectAsync: async (id, obj) => {
+        getObjectAsync: id => Promise.resolve(objects[id] ?? null),
+        extendObjectAsync: (id, obj) => {
           calls.push({ id, patch: obj.common });
-          return null;
+          return Promise.resolve(null);
         },
         log: { debug: () => {} },
       });
@@ -139,10 +139,10 @@ describe("migrations", () => {
     it("skips non-existing objects", async () => {
       let calls = 0;
       await runInstanceObjectMigration({
-        getObjectAsync: async () => null,
-        extendObjectAsync: async () => {
+        getObjectAsync: () => Promise.resolve(null),
+        extendObjectAsync: () => {
           calls++;
-          return null;
+          return Promise.resolve(null);
         },
         log: { debug: () => {} },
       });
@@ -157,10 +157,10 @@ describe("migrations", () => {
       };
       let calls = 0;
       await runInstanceObjectMigration({
-        getObjectAsync: async id => migratedObjects[id] ?? null,
-        extendObjectAsync: async () => {
+        getObjectAsync: id => Promise.resolve(migratedObjects[id] ?? null),
+        extendObjectAsync: () => {
           calls++;
-          return null;
+          return Promise.resolve(null);
         },
         log: { debug: () => {} },
       });
@@ -174,12 +174,12 @@ describe("migrations", () => {
       const deleted: string[] = [];
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
-        getObjectAsync: async id => (existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
-        delObjectAsync: async id => {
-          deleted.push(id as string);
-          return null;
+        getObjectAsync: id => Promise.resolve(existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
+        delObjectAsync: id => {
+          deleted.push(id);
+          return Promise.resolve(null);
         },
-        getObjectListAsync: async () => ({ rows: [{ id: "hueemu.0.info.other" }] }),
+        getObjectListAsync: () => Promise.resolve({ rows: [{ id: "hueemu.0.info.other" }] }),
         log: { debug: () => {} },
       });
       expect(deleted).toContain("info.configuredDevices");
@@ -191,12 +191,12 @@ describe("migrations", () => {
       const deleted: string[] = [];
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
-        getObjectAsync: async id => (existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
-        delObjectAsync: async id => {
-          deleted.push(id as string);
-          return null;
+        getObjectAsync: id => Promise.resolve(existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
+        delObjectAsync: id => {
+          deleted.push(id);
+          return Promise.resolve(null);
         },
-        getObjectListAsync: async () => ({ rows: [] }), // empty parent after delete
+        getObjectListAsync: () => Promise.resolve({ rows: [] }), // empty parent after delete
         log: { debug: () => {} },
       });
       expect(deleted).toContain("info.connection");
@@ -208,12 +208,12 @@ describe("migrations", () => {
       const deleted: string[] = [];
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
-        getObjectAsync: async id => (existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
-        delObjectAsync: async id => {
-          deleted.push(id as string);
-          return null;
+        getObjectAsync: id => Promise.resolve(existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
+        delObjectAsync: id => {
+          deleted.push(id);
+          return Promise.resolve(null);
         },
-        getObjectListAsync: async () => ({ rows: [{ id: "hueemu.0.info.connection" }] }),
+        getObjectListAsync: () => Promise.resolve({ rows: [{ id: "hueemu.0.info.connection" }] }),
         log: { debug: () => {} },
       });
       expect(deleted).toContain("info.configuredDevices");
@@ -224,12 +224,12 @@ describe("migrations", () => {
       let calls = 0;
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
-        getObjectAsync: async () => null,
-        delObjectAsync: async () => {
+        getObjectAsync: () => Promise.resolve(null),
+        delObjectAsync: () => {
           calls++;
-          return null;
+          return Promise.resolve(null);
         },
-        getObjectListAsync: async () => null,
+        getObjectListAsync: () => Promise.resolve(null),
         log: { debug: () => {} },
       });
       expect(calls).toBe(0);
@@ -264,11 +264,11 @@ describe("migrations", () => {
       return {
         namespace: "hueemu.0",
         configuredDevices: [],
-        getDevicesAsync: async () => [],
-        getStateAsync: async () => null,
-        getStatesOfAsync: async () => [],
-        extendForeignObjectAsync: async () => null,
-        delObjectAsync: async () => null,
+        getDevicesAsync: () => Promise.resolve([]),
+        getStateAsync: () => Promise.resolve(null),
+        getStatesOfAsync: () => Promise.resolve([]),
+        extendForeignObjectAsync: () => Promise.resolve(null),
+        delObjectAsync: () => Promise.resolve(null),
         log: { info: () => {}, warn: () => {} },
         ...over,
       };
@@ -281,11 +281,11 @@ describe("migrations", () => {
       let written: any = null;
       const adapter = mkAdapter({
         configuredDevices: [{ name: "X", lightType: "onoff", onState: "x.on" }],
-        getDevicesAsync: async () => [{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }],
-        getStatesOfAsync: async () => [{ _id: "hueemu.0.lamp.state.on" }],
-        extendForeignObjectAsync: async (_id: string, obj: any) => {
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
+        extendForeignObjectAsync: (_id: string, obj: any) => {
           written = obj;
-          return null;
+          return Promise.resolve(null);
         },
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(false);
@@ -296,9 +296,9 @@ describe("migrations", () => {
       let written: any = null;
       const infos: string[] = [];
       const adapter = mkAdapter({
-        extendForeignObjectAsync: async (_id: string, obj: any) => {
+        extendForeignObjectAsync: (_id: string, obj: any) => {
           written = obj;
-          return null;
+          return Promise.resolve(null);
         },
         log: { info: (m: string) => infos.push(m), warn: () => {} },
       });
@@ -312,15 +312,16 @@ describe("migrations", () => {
     it("maps legacy state children to the right type/state ids and persists (restart)", async () => {
       let written: any;
       const adapter = mkAdapter({
-        getDevicesAsync: async () => [{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }],
-        getStatesOfAsync: async () => [
-          { _id: "hueemu.0.lamp.state.on" },
-          { _id: "hueemu.0.lamp.state.bri" },
-          { _id: "hueemu.0.lamp.state.ct" },
-        ],
-        extendForeignObjectAsync: async (_id: string, obj: any) => {
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getStatesOfAsync: () =>
+          Promise.resolve([
+            { _id: "hueemu.0.lamp.state.on" },
+            { _id: "hueemu.0.lamp.state.bri" },
+            { _id: "hueemu.0.lamp.state.ct" },
+          ]),
+        extendForeignObjectAsync: (_id: string, obj: any) => {
           written = obj;
-          return null;
+          return Promise.resolve(null);
         },
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(true);
@@ -335,11 +336,11 @@ describe("migrations", () => {
     it("deletes only the obsolete .name/.data wrappers, keeps the containers (L2)", async () => {
       const deleted: string[] = [];
       const adapter = mkAdapter({
-        getDevicesAsync: async () => [{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }],
-        getStatesOfAsync: async () => [{ _id: "hueemu.0.lamp.state.on" }],
-        delObjectAsync: async (id: string) => {
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
+        delObjectAsync: (id: string) => {
           deleted.push(id);
-          return null;
+          return Promise.resolve(null);
         },
       });
       await runLegacyDeviceMigration(adapter);

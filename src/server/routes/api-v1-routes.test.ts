@@ -13,7 +13,7 @@ import type {
   BridgeConfigPublic,
   BridgeConfigFull,
 } from "../../types/hue-api";
-import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../../types/light";
+import type { Light, LightStateUpdate, LightStateResult } from "../../types/light";
 
 interface MockHandlerCalls {
   createUser: Array<{ req: HueRequest; body: CreateUserRequest }>;
@@ -42,11 +42,11 @@ function createMockHandler(
 
   const handler: HueApiHandler & { calls: MockHandlerCalls } = {
     calls,
-    createUser: async (req, body) => {
+    createUser: (req, body) => {
       calls.createUser.push({ req, body });
-      return opts.username ?? "generated-user-123";
+      return Promise.resolve(opts.username ?? "generated-user-123");
     },
-    getFullState: async () => ({ lights: {}, groups: {}, config: {} }) as unknown as FullState,
+    getFullState: () => Promise.resolve({ lights: {}, groups: {}, config: {} } as unknown as FullState),
     getConfig: () =>
       ({
         name: "Philips hue",
@@ -61,27 +61,27 @@ function createMockHandler(
         ipaddress: "192.168.1.100",
         whitelist: {},
       }) as unknown as BridgeConfigFull,
-    getAllLights: async () => {
+    getAllLights: () => {
       calls.getAllLights++;
-      return {} as LightsCollection;
+      return Promise.resolve({});
     },
-    getLightById: async (_req, _username, lightId) => {
+    getLightById: (_req, _username, lightId) => {
       calls.getLightById.push(lightId);
-      return { state: { on: true } } as unknown as Light;
+      return Promise.resolve({ state: { on: true } } as unknown as Light);
     },
-    setLightState: async (_req, _username, lightId, state) => {
+    setLightState: (_req, _username, lightId, state) => {
       calls.setLightState.push({ lightId, state });
-      return [{ success: { [`/lights/${lightId}/state/on`]: true } }];
+      return Promise.resolve([{ success: { [`/lights/${lightId}/state/on`]: true } }]);
     },
-    setGroupAction: async (_req, _username, groupId, state) => {
+    setGroupAction: (_req, _username, groupId, state) => {
       calls.setGroupAction.push({ groupId, state });
-      return [] as LightStateResult[];
+      return Promise.resolve([] as LightStateResult[]);
     },
     fallback: req => {
       calls.fallback.push(req);
       return {};
     },
-    isUserAuthenticated: async () => opts.isAuthenticated ?? true,
+    isUserAuthenticated: () => Promise.resolve(opts.isAuthenticated ?? true),
     isAuthDisabled: () => opts.authDisabled ?? false,
   };
 

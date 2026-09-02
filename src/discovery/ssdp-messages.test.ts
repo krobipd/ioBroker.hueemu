@@ -27,7 +27,11 @@ function msearch(lines: string[]): string {
   return lines.concat(["", ""]).join("\r\n");
 }
 
-/** A well-formed M-SEARCH for the given search target, as real clients send it. */
+/**
+ * A well-formed M-SEARCH for the given search target, as real clients send it.
+ *
+ * @param st The search target (ST header value)
+ */
 function msearchFor(st: string): string {
   return msearch(["M-SEARCH * HTTP/1.1", "HOST: 239.255.255.250:1900", 'MAN: "ssdp:discover"', "MX: 3", `ST: ${st}`]);
 }
@@ -59,7 +63,12 @@ describe("parseMSearchTarget", () => {
   });
 
   it("ignores a datagram without the MX header (captured: node-ssdp stayed silent)", () => {
-    const msg = msearch(["M-SEARCH * HTTP/1.1", "HOST: 239.255.255.250:1900", 'MAN: "ssdp:discover"', "ST: upnp:rootdevice"]);
+    const msg = msearch([
+      "M-SEARCH * HTTP/1.1",
+      "HOST: 239.255.255.250:1900",
+      'MAN: "ssdp:discover"',
+      "ST: upnp:rootdevice",
+    ]);
     expect(parseMSearchTarget(msg)).toBeUndefined();
   });
 
@@ -83,7 +92,13 @@ describe("parseMSearchTarget", () => {
   });
 
   it("tolerates header names in any case", () => {
-    const msg = msearch(["M-SEARCH * HTTP/1.1", "host: 239.255.255.250:1900", 'man: "ssdp:discover"', "mx: 3", "st: upnp:rootdevice"]);
+    const msg = msearch([
+      "M-SEARCH * HTTP/1.1",
+      "host: 239.255.255.250:1900",
+      'man: "ssdp:discover"',
+      "mx: 3",
+      "st: upnp:rootdevice",
+    ]);
     expect(parseMSearchTarget(msg)).toBe("upnp:rootdevice");
   });
 });
@@ -158,10 +173,7 @@ describe("buildSearchResponse", () => {
 
 describe("buildAliveNotify", () => {
   it("reproduces the captured alive NOTIFY byte for byte", () => {
-    const notify = buildAliveNotify(
-      { nt: "upnp:rootdevice", usn: `uuid:${UDN}::upnp:rootdevice` },
-      BRIDGE,
-    );
+    const notify = buildAliveNotify({ nt: "upnp:rootdevice", usn: `uuid:${UDN}::upnp:rootdevice` }, BRIDGE);
     expect(notify).toBe(
       "NOTIFY * HTTP/1.1\r\n" +
         "HOST: 239.255.255.250:1900\r\n" +

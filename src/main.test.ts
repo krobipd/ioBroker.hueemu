@@ -19,21 +19,21 @@ vi.mock("@iobroker/adapter-core", () => {
     public config: Record<string, unknown> = {};
     public on = vi.fn();
     public setState = vi.fn(async () => {});
-    public setStateAsync = vi.fn(async () => ({ id: "x" }));
-    public getStateAsync = vi.fn(async () => null);
-    public setObjectNotExistsAsync = vi.fn(async () => ({ id: "x" }));
-    public getObjectAsync = vi.fn(async () => null);
+    public setStateAsync = vi.fn(() => Promise.resolve({ id: "x" }));
+    public getStateAsync = vi.fn(() => Promise.resolve(null));
+    public setObjectNotExistsAsync = vi.fn(() => Promise.resolve({ id: "x" }));
+    public getObjectAsync = vi.fn(() => Promise.resolve(null));
     public delObjectAsync = vi.fn(async () => {});
-    public getObjectListAsync = vi.fn(async () => ({ rows: [] }));
-    public getDevicesAsync = vi.fn(async () => []);
-    public getStatesOfAsync = vi.fn(async () => []);
+    public getObjectListAsync = vi.fn(() => Promise.resolve({ rows: [] }));
+    public getDevicesAsync = vi.fn(() => Promise.resolve([]));
+    public getStatesOfAsync = vi.fn(() => Promise.resolve([]));
     public extendForeignObjectAsync = vi.fn(async () => {});
-    public getForeignObjectAsync = vi.fn(async (): Promise<unknown> => null);
+    public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
     public extendObjectAsync = vi.fn(async () => {});
     public subscribeStates = vi.fn();
-    public setTimeout = vi.fn(() => ({}) as unknown);
+    public setTimeout = vi.fn(() => ({}));
     public clearTimeout = vi.fn();
-    public setInterval = vi.fn(() => ({}) as unknown);
+    public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
     constructor(_opts: unknown) {}
   }
@@ -99,7 +99,11 @@ interface FakeApiHandler {
   options: unknown;
 }
 
-/** Typed access to the private members the orchestration tests drive. */
+/**
+ * Typed access to the private members the orchestration tests drive.
+ *
+ * @param adapter The adapter under test (its private members are exposed as-is)
+ */
 function internalOf(adapter: HueEmu): {
   config: Record<string, unknown>;
   log: {
@@ -480,8 +484,9 @@ describe("HueEmu onReady", () => {
     i.getStateAsync.mockResolvedValue({ val: true, ack: true }); // persisted disableAuth = true
     let disableAuthAtHttpStart: boolean | undefined;
     (adapter as unknown as { makeHueServer: (o: unknown) => unknown }).makeHueServer = (options: unknown) => ({
-      start: vi.fn(async () => {
+      start: vi.fn(() => {
         disableAuthAtHttpStart = adapter.disableAuth;
+        return Promise.resolve();
       }),
       stop: vi.fn(async () => {}),
       options,
@@ -710,7 +715,7 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
   it("moves user.* states to clients.* (sanitized) and removes the old folder", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation(async (id: string) => (id === "user" ? { type: "meta" } : null));
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
     i.getObjectListAsync.mockResolvedValue({
       rows: [
         {
@@ -778,7 +783,7 @@ describe("HueEmu migrateLegacyDevices", () => {
 
     expect(await i.migrateLegacyDevices()).toBe(true);
 
-    const deleted = i.delObjectAsync.mock.calls.map((c) => c[0]);
+    const deleted = i.delObjectAsync.mock.calls.map(c => c[0]);
     // Obsolete metadata wrappers are removed...
     expect(deleted).toContain("legacylamp.name");
     expect(deleted).toContain("legacylamp.data");

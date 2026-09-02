@@ -9,6 +9,7 @@ import { HueSsdpServer, SSDP_PORT } from "./ssdp-server";
 import { buildAliveNotify, buildByeNotify, buildSearchResponse, buildUsnTable } from "./ssdp-messages";
 import { createTestIdentity } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
+import type { Mock } from "vitest";
 
 const h = vi.hoisted(() => {
   interface FakeSocket {
@@ -106,9 +107,10 @@ const h = vi.hoisted(() => {
 vi.mock("node:dgram", () => ({ createSocket: () => h.make() }));
 vi.mock("node:os", () => ({ networkInterfaces: () => h.interfaces }));
 
-function spyLogger(): Logger & Record<"debug" | "warn" | "error", ReturnType<typeof vi.fn>> {
-  return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger &
-    Record<"debug" | "warn" | "error", ReturnType<typeof vi.fn>>;
+type LogFn = (message: string) => void;
+
+function spyLogger(): Logger & Record<"debug" | "warn" | "error", Mock<LogFn>> {
+  return { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
 }
 
 const identity = createTestIdentity();
@@ -229,10 +231,14 @@ describe("HueSsdpServer", () => {
       await server.start();
       const socket = h.sockets[0];
 
-      socket.emit("message", Buffer.from(MSEARCH_BASIC.replace("ST: urn:schemas-upnp-org:device:Basic:1", "ST: ssdp:all"), "ascii"), {
-        address: "10.0.0.7",
-        port: 51000,
-      });
+      socket.emit(
+        "message",
+        Buffer.from(MSEARCH_BASIC.replace("ST: urn:schemas-upnp-org:device:Basic:1", "ST: ssdp:all"), "ascii"),
+        {
+          address: "10.0.0.7",
+          port: 51000,
+        },
+      );
 
       expect(socket.sent.map(x => x.text)).toEqual(
         TABLE.map(entry => buildSearchResponse({ st: entry.nt, usn: entry.usn }, BRIDGE, new Date().toUTCString())),
@@ -244,11 +250,21 @@ describe("HueSsdpServer", () => {
       await server.start();
       const socket = h.sockets[0];
 
-      socket.emit("message", Buffer.from(MSEARCH_BASIC.replace("ST: urn:schemas-upnp-org:device:Basic:1", "ST: urn:other:device:X:1"), "ascii"), {
-        address: "10.0.0.7",
-        port: 51000,
+      socket.emit(
+        "message",
+        Buffer.from(
+          MSEARCH_BASIC.replace("ST: urn:schemas-upnp-org:device:Basic:1", "ST: urn:other:device:X:1"),
+          "ascii",
+        ),
+        {
+          address: "10.0.0.7",
+          port: 51000,
+        },
+      );
+      socket.emit("message", Buffer.from("NOTIFY * HTTP/1.1\r\nNTS: ssdp:alive\r\n\r\n", "ascii"), {
+        address: "10.0.0.8",
+        port: 1900,
       });
-      socket.emit("message", Buffer.from("NOTIFY * HTTP/1.1\r\nNTS: ssdp:alive\r\n\r\n", "ascii"), { address: "10.0.0.8", port: 1900 });
 
       expect(socket.sent).toEqual([]);
     });
@@ -287,7 +303,7 @@ describe("HueSsdpServer", () => {
       expect(h.sockets).toHaveLength(0);
 
       await server.start();
-      server.stop();
+      await server.stop();
       const sentAfterStop = h.sockets[0].sent.length;
       server.announce();
       expect(h.sockets[0].sent).toHaveLength(sentAfterStop);
@@ -299,7 +315,7 @@ describe("HueSsdpServer", () => {
       const server = makeServer();
       await server.start();
 
-      server.stop();
+      await server.stop();
 
       const socket = h.sockets[0];
       expect(socket.sent).toEqual(
@@ -317,22 +333,23 @@ describe("HueSsdpServer", () => {
       const server = makeServer();
       await server.start();
 
-      server.stop();
+      const stopped = server.stop();
       const socket = h.sockets[0];
       expect(socket.closed).toBe(false);
 
       h.heldSendCallbacks.forEach(invoke => invoke());
+      await stopped;
       expect(socket.closed).toBe(true);
     });
 
     it("is idempotent and safe before start", async () => {
       const server = makeServer();
-      expect(() => server.stop()).not.toThrow();
+      await expect(server.stop()).resolves.toBeUndefined();
 
       await server.start();
-      server.stop();
+      await server.stop();
       const sent = h.sockets[0].sent.length;
-      server.stop();
+      await server.stop();
       expect(h.sockets[0].sent).toHaveLength(sent);
     });
   });

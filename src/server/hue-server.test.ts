@@ -79,21 +79,25 @@ function makeConfig(overrides: Partial<HueEmulatorConfig> = {}): HueEmulatorConf
 
 function makeHandler(): HueApiHandler {
   return {
-    createUser: async () => "test-user",
-    getFullState: async () => ({ lights: {}, groups: {}, config: {} }) as never,
+    createUser: () => Promise.resolve("test-user"),
+    getFullState: () => Promise.resolve({ lights: {}, groups: {}, config: {} } as never),
     getConfig: () => ({ name: "Philips hue", bridgeid: "TEST" }) as never,
     getFullConfig: () => ({ name: "Philips hue", bridgeid: "TEST", ipaddress: "127.0.0.1" }) as never,
-    getAllLights: async () => ({}),
-    getLightById: async () => ({ state: { on: true } }) as never,
-    setLightState: async () => [],
-    setGroupAction: async () => [],
+    getAllLights: () => Promise.resolve({}),
+    getLightById: () => Promise.resolve({ state: { on: true } } as never),
+    setLightState: () => Promise.resolve([]),
+    setGroupAction: () => Promise.resolve([]),
     fallback: () => ({}),
-    isUserAuthenticated: async () => true,
+    isUserAuthenticated: () => Promise.resolve(true),
     isAuthDisabled: () => false,
   };
 }
 
-/** Build the (private) Fastify instance for inject-based wiring tests. */
+/**
+ * Build the (private) Fastify instance for inject-based wiring tests.
+ *
+ * @param config The emulator config to build the Fastify instance from
+ */
 async function buildInstance(config = makeConfig()): Promise<FastifyInstance> {
   const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger() });
   return (server as unknown as { createServer(https: boolean): Promise<FastifyInstance> }).createServer(false);
@@ -184,7 +188,7 @@ describe("HueServer wiring (inject)", () => {
     // shows what the caller claims, not where the request came from.
     app = await buildInstance(makeConfig({ trustProxy: false }));
     let seenIp = "";
-    app.get("/whoami", async req => {
+    app.get("/whoami", req => {
       seenIp = req.ip;
       return { ip: req.ip };
     });
@@ -195,7 +199,7 @@ describe("HueServer wiring (inject)", () => {
     // Opting in is what makes the header authoritative (reverse-proxy setups).
     const trusting = await buildInstance(makeConfig({ trustProxy: true }));
     let trustedIp = "";
-    trusting.get("/whoami", async req => {
+    trusting.get("/whoami", req => {
       trustedIp = req.ip;
       return { ip: req.ip };
     });
@@ -262,7 +266,7 @@ describe("HueServer lifecycle (real listen)", () => {
     const net = await import("node:net");
     // Occupy a port so the HTTPS listen below collides (EADDRINUSE).
     const blocker = net.createServer();
-    await new Promise<void>((resolve) => blocker.listen(0, "127.0.0.1", () => resolve()));
+    await new Promise<void>(resolve => blocker.listen(0, "127.0.0.1", () => resolve()));
     const busyPort = (blocker.address() as { port: number }).port;
 
     const config = makeConfig({ https: { port: busyPort, cert: TEST_CERT_PEM, key: TEST_KEY_PEM } });
@@ -273,7 +277,7 @@ describe("HueServer lifecycle (real listen)", () => {
       expect((server as unknown as { httpServer: FastifyInstance | null }).httpServer).toBeNull();
     } finally {
       await server.stop().catch(() => {});
-      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+      await new Promise<void>(resolve => blocker.close(() => resolve()));
     }
   });
 });

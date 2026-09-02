@@ -50,32 +50,32 @@ function createMockAdapter(existingClients: string[] = []): MockUserAdapter {
     setObjectShouldFail: false,
     setStateShouldFail: false,
     getStatesShouldFail: false,
-    setObjectNotExistsAsync: async (id, obj) => {
+    setObjectNotExistsAsync: (id, obj) => {
       if (adapter.setObjectShouldFail) {
-        throw new Error("setObjectNotExistsAsync failure");
+        return Promise.reject(new Error("setObjectNotExistsAsync failure"));
       }
       writtenObjects.set(id, obj);
-      return { id };
+      return Promise.resolve({ id });
     },
-    setStateAsync: async (id, state) => {
+    setStateAsync: (id, state) => {
       if (adapter.setStateShouldFail) {
-        throw new Error("setStateAsync failure");
+        return Promise.reject(new Error("setStateAsync failure"));
       }
       writtenStates.set(id, state);
-      return { id };
+      return Promise.resolve({ id });
     },
-    getStatesOfAsync: async () => {
+    getStatesOfAsync: () => {
       if (adapter.getStatesShouldFail) {
-        throw new Error("getStatesOfAsync failure");
+        return Promise.reject(new Error("getStatesOfAsync failure"));
       }
-      return stateObjects;
+      return Promise.resolve(stateObjects);
     },
   };
 
   return adapter;
 }
 
-function createService(existingClients: string[] = []) {
+function createService(existingClients: string[] = []): { service: UserService; adapter: MockUserAdapter } {
   const adapter = createMockAdapter(existingClients);
   const service = new UserService({ adapter, logger: createMockLogger() });
   return { service, adapter };

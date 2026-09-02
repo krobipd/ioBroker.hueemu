@@ -1,7 +1,7 @@
 /**
  * Tests for the Device-Manager backend. i18n is mocked (so `t()` returns the key
  * and the tests don't depend on I18n.init), but the "search" test drives the REAL
- * @iobroker/type-detector over sample objects so the own-namespace exclusion and
+ * `@iobroker/type-detector` over sample objects so the own-namespace exclusion and
  * append-only dedup are proven end-to-end, not stubbed.
  */
 
@@ -16,41 +16,61 @@ vi.mock("./lib/i18n", () => ({
 import { HueEmuDeviceManagement, cleanDevice, buildDeviceForm, buildSelectionForm } from "./device-management";
 import type { DeviceConfig } from "./hue-api";
 
-/** A running-config mock adapter backed by an in-memory native.devices array. */
+/**
+ * A running-config mock adapter backed by an in-memory native.devices array.
+ *
+ * @param devices The initial native.devices list
+ * @param allObjects Every object the fake object view returns (id → object)
+ */
 function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, unknown> = {}): any {
   let stored = devices;
   return {
     namespace: "hueemu.0",
     on: vi.fn(),
-    getForeignObjectAsync: vi.fn(async (id: string) =>
-      id === "system.adapter.hueemu.0" ? { native: { devices: stored } } : null,
+    getForeignObjectAsync: vi.fn((id: string) =>
+      Promise.resolve(id === "system.adapter.hueemu.0" ? { native: { devices: stored } } : null),
     ),
-    extendForeignObjectAsync: vi.fn(async (_id: string, patch: { native: { devices: DeviceConfig[] } }) => {
+    extendForeignObjectAsync: vi.fn((_id: string, patch: { native: { devices: DeviceConfig[] } }) => {
       stored = patch.native.devices;
+      return Promise.resolve();
     }),
-    getForeignObjectsAsync: vi.fn(async () => allObjects),
+    getForeignObjectsAsync: vi.fn(() => Promise.resolve(allObjects)),
     // A1: searchDevices now loads via getObjectView per type. Return the objects
     // of the requested design ("device" | "channel" | "state"), like js-controller.
-    getObjectViewAsync: vi.fn(async (_system: string, design: string) => ({
-      rows: Object.entries(allObjects)
-        .filter(([, o]) => (o as ioBroker.Object).type === design)
-        .map(([id, value]) => ({ id, value })),
-    })),
+    getObjectViewAsync: vi.fn((_system: string, design: string) =>
+      Promise.resolve({
+        rows: Object.entries(allObjects)
+          .filter(([, o]) => (o as ioBroker.Object).type === design)
+          .map(([id, value]) => ({ id, value })),
+      }),
+    ),
     _stored: () => stored,
   };
 }
 
-/** A mock ActionContext with configurable form/confirmation results. */
-function mockContext(opts: { form?: unknown; confirm?: boolean } = {}) {
+/**
+ * A mock ActionContext with configurable form/confirmation results.
+ *
+ * @param opts Dialog results the fake context hands back
+ * @param opts.form Result of showForm (undefined = cancelled)
+ * @param opts.confirm Result of showConfirmation (default true)
+ */
+function mockContext(opts: { form?: unknown; confirm?: boolean } = {}): MockCtx {
   return {
-    showForm: vi.fn(async () => opts.form),
-    showConfirmation: vi.fn(async () => opts.confirm ?? true),
-    showMessage: vi.fn(async () => undefined),
-    openProgress: vi.fn(async () => ({ update: vi.fn(), close: vi.fn(async () => undefined) })),
+    showForm: vi.fn(() => Promise.resolve(opts.form)),
+    showConfirmation: vi.fn(() => Promise.resolve(opts.confirm ?? true)),
+    showMessage: vi.fn(() => Promise.resolve(undefined)),
+    openProgress: vi.fn(() => Promise.resolve({ update: vi.fn(), close: vi.fn(() => Promise.resolve(undefined)) })),
   };
 }
 
-type MockCtx = ReturnType<typeof mockContext>;
+/** The slice of the device-manager ActionContext the backend calls, as vi mocks. */
+interface MockCtx {
+  showForm: ReturnType<typeof vi.fn>;
+  showConfirmation: ReturnType<typeof vi.fn>;
+  showMessage: ReturnType<typeof vi.fn>;
+  openProgress: ReturnType<typeof vi.fn>;
+}
 
 /**
  * Typed access to the private DeviceManagement methods the tests drive — mirrors
@@ -65,10 +85,15 @@ interface DmInternals {
 }
 const internalOf = (dm: HueEmuDeviceManagement): DmInternals => dm as unknown as DmInternals;
 
-/** Build a channel device with `[suffix, role, type?]` state children (detector-friendly). */
+/**
+ * Build a channel device with `[suffix, role, type?]` state children (detector-friendly).
+ *
+ * @param prefix The channel id (device prefix of the state ids)
+ * @param states `[suffix, role, type?]` tuples for the state children
+ */
 function channel(prefix: string, states: [string, string, ioBroker.CommonType?][]): Record<string, ioBroker.Object> {
   const objs: Record<string, ioBroker.Object> = {
-    [prefix]: { _id: prefix, type: "channel", common: { role: "light", name: prefix }, native: {} } as ioBroker.Object,
+    [prefix]: { _id: prefix, type: "channel", common: { role: "light", name: prefix }, native: {} },
   };
   for (const [suf, role, t] of states) {
     const id = `${prefix}.${suf}`;
@@ -77,7 +102,7 @@ function channel(prefix: string, states: [string, string, ioBroker.CommonType?][
       type: "state",
       common: { role, type: t ?? "number", read: true, write: true, name: id },
       native: {},
-    } as ioBroker.Object;
+    };
   }
   return objs;
 }
@@ -89,7 +114,15 @@ describe("cleanDevice", () => {
   });
 
   it("keeps all colour fields for a colour light", () => {
-    const raw = { name: "C", lightType: "color", onState: "a", briState: "b", hueState: "h", satState: "s", xyState: "x" };
+    const raw = {
+      name: "C",
+      lightType: "color",
+      onState: "a",
+      briState: "b",
+      hueState: "h",
+      satState: "s",
+      xyState: "x",
+    };
     expect(cleanDevice(raw)).toEqual(raw);
   });
 
@@ -99,7 +132,14 @@ describe("cleanDevice", () => {
   });
 
   it("prunes stale colour fields when a colour light becomes on/off (edit)", () => {
-    const out = cleanDevice({ name: "L", lightType: "onoff", onState: "a", hueState: "old", ctState: "old", xyState: "old" });
+    const out = cleanDevice({
+      name: "L",
+      lightType: "onoff",
+      onState: "a",
+      hueState: "old",
+      ctState: "old",
+      xyState: "old",
+    });
     expect(out).toEqual({ name: "L", lightType: "onoff", onState: "a" });
   });
 });
@@ -109,8 +149,18 @@ describe("buildDeviceForm", () => {
     const form = buildDeviceForm() as { type: string; items: Record<string, unknown> };
     expect(form.type).toBe("panel");
     expect(Object.keys(form.items)).toEqual([
-      "name", "lightType", "onState", "briState", "briScale",
-      "ctState", "ctScale", "hueState", "hueScale", "satState", "satScale", "xyState",
+      "name",
+      "lightType",
+      "onState",
+      "briState",
+      "briScale",
+      "ctState",
+      "ctScale",
+      "hueState",
+      "hueScale",
+      "satState",
+      "satScale",
+      "xyState",
     ]);
   });
 });
@@ -185,7 +235,9 @@ describe("HueEmuDeviceManagement", () => {
       const adapter = make([{ name: "Old", lightType: "onoff", onState: "a.on" }]);
       const ctx = mockContext({ form: { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" } });
       await internalOf(dm).editDevice(0, ctx);
-      expect(adapter._stored()).toEqual([{ name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" }]);
+      expect(adapter._stored()).toEqual([
+        { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" },
+      ]);
     });
 
     it("deletes on confirmation and keeps others", async () => {
@@ -225,9 +277,15 @@ describe("HueEmuDeviceManagement", () => {
   describe("searchDevices (real detector + selection)", () => {
     it("detects foreign lights, excludes own namespace, and adds only the ticked ones", async () => {
       const objs = {
-        ...channel("lampe.0.wohnzimmer", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]),
+        ...channel("lampe.0.wohnzimmer", [
+          ["on", "switch.light", "boolean"],
+          ["bri", "level.dimmer"],
+        ]),
         // hueemu's own emulated light — must NOT be re-detected as a source:
-        ...channel("hueemu.0.1.state", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]),
+        ...channel("hueemu.0.1.state", [
+          ["on", "switch.light", "boolean"],
+          ["bri", "level.dimmer"],
+        ]),
       };
       const adapter = make([], objs);
       // Tick the single detected light in the selection form.
@@ -243,21 +301,30 @@ describe("HueEmuDeviceManagement", () => {
     });
 
     it("adds nothing when the user unticks everything", async () => {
-      const objs = channel("lampe.0.kueche", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
+      const objs = channel("lampe.0.kueche", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+      ]);
       const adapter = make([], objs);
       await internalOf(dm).searchDevices(mockContext({ form: {} })); // form returns, nothing ticked
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
     it("adds nothing when the selection form is cancelled", async () => {
-      const objs = channel("lampe.0.bad", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
+      const objs = channel("lampe.0.bad", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+      ]);
       const adapter = make([], objs);
       await internalOf(dm).searchDevices(mockContext({ form: undefined }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
     it("does not offer an already-mapped light (append-only dedup) — no form shown", async () => {
-      const objs = channel("lampe.0.flur", [["on", "switch.light", "boolean"], ["bri", "level.dimmer"]]);
+      const objs = channel("lampe.0.flur", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+      ]);
       const adapter = make(
         [{ name: "Flur", lightType: "dimmable", onState: "lampe.0.flur.on", briState: "lampe.0.flur.bri" }],
         objs,
@@ -271,9 +338,7 @@ describe("HueEmuDeviceManagement", () => {
     // C8: the scan-failure branch (object loading throws) reports via showMessage.
     it("reports a scan failure when object loading throws", async () => {
       const adapter = make([], {});
-      adapter.getObjectViewAsync = vi.fn(async () => {
-        throw new Error("db down");
-      });
+      adapter.getObjectViewAsync = vi.fn(() => Promise.reject(new Error("db down")));
       const ctx = mockContext();
       const res = await internalOf(dm).searchDevices(ctx);
       expect(res).toEqual({ refresh: true });
