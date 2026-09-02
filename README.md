@@ -98,6 +98,8 @@ Before any client can connect, pairing must be activated:
 2. Start the device search / pairing in your client app within **50 seconds**
 3. After successful pairing a new entry appears under `hueemu.0.clients.*`
 
+New clients are limited to 100 per hour across all pairing paths; a single warning tells you when that limit was hit. A client-supplied username longer than 64 characters is replaced by a generated one.
+
 ### Connecting with Alexa (older Echo without Matter)
 
 > If you have a current Echo, use the [Matter adapter](https://github.com/ioBroker/ioBroker.matter) instead.
@@ -162,6 +164,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
 ### 1.14.0 (2026-09-02)
 
 - New: the bridge answers GET /api/config without a username, like a real Hue bridge, so apps that read the configuration before pairing find what they expect.

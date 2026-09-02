@@ -41,7 +41,8 @@ export interface UserServiceConfig {
  * thousands of permanent client records over those seconds. Real Hue
  * bridges press only one pair per button-press; we keep the auto-add for
  * compat but cap the total per window. Manual `createUser` (POST /api with
- * the link button held) is unaffected.
+ * the link button held) is not counted here — the hourly ceiling below bounds
+ * it together with every other path.
  */
 const AUTO_ADD_CAP_PER_WINDOW = 64;
 
@@ -136,7 +137,7 @@ export class UserService {
    * @param devicetype Client-supplied device type (purely informational).
    * @param viaAutoAdd `true` when called from the pairing-window auto-add
    *   path — counts against the per-window cap. `false` for explicit
-   *   `POST /api` createUser calls (unbounded, gated by the link button).
+   *   `POST /api` createUser calls (gated by the link button and the hourly ceiling).
    */
   public async addUser(username: string, devicetype = "unknown", viaAutoAdd = false): Promise<void> {
     // Every path — the ceiling is what bounds the object DB when nothing else does.
