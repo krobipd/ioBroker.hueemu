@@ -162,8 +162,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-
-### **WORK IN PROGRESS**
+### 1.14.0 (2026-09-02)
 
 - New: the bridge answers GET /api/config without a username, like a real Hue bridge, so apps that read the configuration before pairing find what they expect.
 - Fixed: an app that only read the bridge configuration while pairing was open got paired under its probe name (e.g. "nouser") — reading the configuration no longer pairs anyone.
@@ -190,12 +189,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 - Leaving the HTTPS port empty in the settings no longer shows an error — an empty value simply means that no HTTPS server is started for the bridge
 - The bridge MAC address that is generated automatically is now always a valid device address; some of the values generated before were not valid MAC addresses
-
-### 1.12.0 (2026-07-12) — stable
-
-- The "Search lights" assistant now actually finds your lights (it scanned the wrong objects before) and lets you pick which ones to add instead of adding them all
-- The two IP fields in the settings are now one Host/IP selector — pick your IP, or "all interfaces" to auto-detect the announced address
-- A logged-in client reading the bridge configuration now receives the full config, matching a real Hue bridge
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
