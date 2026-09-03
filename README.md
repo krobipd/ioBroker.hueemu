@@ -172,6 +172,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.16.0 (2026-09-03)
+
+- Fixed: If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.
+
 ### 1.15.2 (2026-09-03)
 
 - Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.
@@ -198,10 +202,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Changed: a client-supplied username longer than 64 characters is ignored in favour of a generated one; the device type stored as the client name is cut to 100 characters.
 - Fixed: an unreadable brightness, saturation, hue or colour temperature in a request is no longer written as a default (full brightness, red) — it is skipped but still acknowledged.
 - Fixed: if cleaning up objects from earlier versions failed at start, the pairing and authentication switches stopped working — the adapter now continues and reports the failure.
-
-### 1.13.1 (2026-08-27) — stable
-
-- Fixed: when the adapter is stopped it now really tells the connected apps that the bridge is gone — until now they kept it in their list until they ran into their own timeout.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

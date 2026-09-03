@@ -391,7 +391,12 @@ describe("HueEmuDeviceManagement", () => {
       return action.handler;
     }
 
-    /** Make every config read fail, the way an unreachable objects DB would. */
+    /**
+     * Make every config read fail, the way an unreachable objects DB would.
+     *
+     * @param adapter The mock adapter whose reads should fail
+     * @param adapter.getForeignObjectAsync Its object-read mock
+     */
     function breakConfigRead(adapter: { getForeignObjectAsync: ReturnType<typeof vi.fn> }): void {
       adapter.getForeignObjectAsync.mockRejectedValue(new Error("db down"));
     }

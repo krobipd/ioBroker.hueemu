@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.15.2",
+    "version": "1.16.0",
     "news": {
+      "1.16.0": {
+        "en": "If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.",
+        "de": "Schlägt eine Aktion im Geräte-Tab fehl, erscheint jetzt eine Meldung mit dem Grund — statt eines Dialogs, der nie fertig wird.",
+        "ru": "Если действие на вкладке устройств не удалось, теперь появляется сообщение с причиной, а не диалог, который никогда не завершается.",
+        "pt": "Se uma ação no separador de dispositivos falhar, recebe agora uma mensagem com o motivo em vez de um diálogo que nunca termina.",
+        "nl": "Mislukt een actie op het tabblad Apparaten, dan krijg je nu een melding met de reden in plaats van een dialoog die nooit eindigt.",
+        "fr": "Si une action de l'onglet Appareils échoue, un message en indique désormais la raison au lieu d'une boîte de dialogue sans fin.",
+        "it": "Se un'azione nella scheda dispositivi non riesce, ora compare un messaggio con il motivo invece di una finestra che non si chiude.",
+        "es": "Si una acción de la pestaña de dispositivos falla, ahora aparece un mensaje con el motivo en lugar de un diálogo que nunca termina.",
+        "pl": "Jeśli akcja w zakładce urządzeń się nie powiedzie, zobaczysz teraz komunikat z przyczyną zamiast okna, które nigdy się nie kończy.",
+        "uk": "Якщо дія на вкладці пристроїв не вдалася, тепер з'являється повідомлення з причиною замість діалогу, який ніколи не завершується.",
+        "zh-cn": "设备选项卡中的操作失败时，现在会显示说明原因的消息，而不是一个永远无法结束的对话框。"
+      },
       "1.15.2": {
         "en": "Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.",
         "de": "Behoben: Beim Update einer sehr alten Einrichtung bekommen bereits gekoppelte Clients ihren richtigen Namen und die Erklärung sofort statt erst nach dem nächsten Neustart.",
@@ -80,19 +93,6 @@
         "pl": "Usługa wykrywania została przebudowana — stare ostrzeżenie bezpieczeństwa zniknęło, urządzenia znajdują mostek jak dotąd, a mostek zgłasza teraz w sieci swoje wyłączenie.",
         "uk": "Службу виявлення перебудовано — старе попередження безпеки зникло, пристрої знаходять міст як і раніше, і міст тепер повідомляє мережу про своє вимкнення.",
         "zh-cn": "发现服务已重建——旧的安全警告已消除，设备照常找到桥接器，并且适配器停止时桥接器会在网络上通告下线。"
-      },
-      "1.12.2": {
-        "en": "Internal cleanup. No user-facing changes.",
-        "de": "Interne Aufräumarbeiten. Keine Änderungen für Nutzer.",
-        "ru": "Внутренняя очистка. Изменений для пользователей нет.",
-        "pt": "Limpeza interna. Sem alterações para o utilizador.",
-        "nl": "Interne opschoning. Geen wijzigingen voor gebruikers.",
-        "fr": "Nettoyage interne. Aucun changement pour l'utilisateur.",
-        "it": "Pulizia interna. Nessuna modifica per gli utenti.",
-        "es": "Limpieza interna. Sin cambios para el usuario.",
-        "pl": "Porządki wewnętrzne. Bez zmian dla użytkownika.",
-        "uk": "Внутрішнє прибирання. Без змін для користувачів.",
-        "zh-cn": "内部清理。用户无可见变化。"
       }
     },
     "plugins": {
