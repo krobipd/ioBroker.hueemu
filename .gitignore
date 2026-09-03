@@ -27,7 +27,6 @@ coverage/
 # Environment
 .env
 .env.local
-admin/hue-emu-logo.png
 
 # Claude Code local files (not published)
 .claude/settings.local.json
