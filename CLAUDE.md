@@ -30,7 +30,7 @@ src/device-management.ts          → v1.11.0 Geräte-Manager-Backend (DeviceMan
 src/lib/device-scan.ts            → v1.11.0 reine Licht-Discovery (ChannelDetector → DeviceConfig-Mapping; adapter-agnostisch, gegen echten type-detector getestet). v1.15.0: Skalen-Ableitung (deriveLevelScale/deriveHueScale/deriveCtScale aus common.min/max/unit), Schreibbarkeitsprüfung am echten Objekt (stateFactsOf), TEMPERATURE auch bei hue/cie, MapOutcome mit UnmappedReason
 src/lib/migrations.ts             → + runDeviceScaleBackfill (v1.15.0): füllt LEERE Skalen bestehender native.devices nach, einmalig in onReady, Neustart-Kurzschluss wie die Legacy-Migration
 src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex + parsePort (shared boundary helpers)
-src/lib/i18n.ts                   → tName + t: type-safe I18n.getTranslatedObject wrapper (t mit %s-Interpolation für DM-Strings; keys from admin/i18n/en.json)
+src/lib/i18n.ts                   → tName + t + tRaw (Rohtext in alle 11 Sprachen, v1.15.1): type-safe I18n.getTranslatedObject wrapper (t mit %s-Interpolation für DM-Strings; keys from admin/i18n/en.json)
 src/server/hue-server.ts          → Fastify HTTP/HTTPS (trustProxy opt-in, bodyLimit 64KiB, forceCloseConnections)
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints (+ GET /api/config ohne Benutzername, v1.14.0)
 src/types/                        → config (HueEmulatorConfig.trustProxy, validateNetworkConfig), errors, hue-api, light, utils (sanitizeId + errText + oneLine über den ganzen C0-Bereich)
@@ -57,6 +57,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 15. **Ein Licht ohne Schalt-Datenpunkt wird über die Helligkeit gefahren** (v1.15.0) — Quellwert 0 = aus, > 0 = an; `on:false` schreibt 0, `on:true` schreibt volle Helligkeit (eine Quelle auf 0 kennt ihren früheren Wert nicht mehr). Bringt dieselbe Anfrage ein eigenes `bri` mit, gewinnt dieses beim Einschalten (sonst sichtbarer Helligkeitssprung) — und **beim Ausschalten gewinnt das Aus** (sonst schaltet die Helligkeit derselben Anfrage sofort wieder ein). Anlass: der HomeMatic HmIP-BDT legt seinen Dimmer-Kanal als `DIMMER_VIRTUAL_RECEIVER` mit `LEVEL` und ohne jeden booleschen Datenpunkt an.
 16. **Relative Attribute (`bri_inc` & Co.) werden ausgeführt** (v1.15.0) — Semantik gegen die offizielle Parameterbeschreibung und die Referenz-Bridge diyHue (`HueObjects/__init__.py:incProcess`, ebd0eaf) belegt: `_inc` wird ignoriert, wenn das absolute Feld in derselben Anfrage steht; Ergebnis geklemmt außer `hue`, das **umläuft**; Antwort trägt die **absolute** Adresse. Bewusste Abweichungen: jedes `_inc` einer Anfrage wird bedient (diyHue nur das erste), und `hue` läuft modulo 65536 um (0..65535 sind 65536 Werte). Ist das Grund-Attribut nicht abgebildet oder die Nutzlast unbrauchbar, gilt wie beim absoluten Feld: quittiert, nichts geschrieben.
 17. **Die eigenen Objekte werden bei JEDEM Start per `extendObject` erneuert** (v1.15.0) — js-controller legt `instanceObjects` nur an, wo sie FEHLEN; eine geänderte `common.name`/`desc` erreichte damit ausschließlich Neuinstallationen, während Manifest und Gate grün aussahen ([[reference_iobroker_bestehende_objekte_erreichen]]). `refreshInstanceObjects()` schreibt `startPairing`/`disableAuth`/`clients` unbedingt. **Das löst die v1.4.0-Namens-Migration ab**, die nur anfasste, was noch exakt die alte englische Vorgabe trug — jede spätere Textänderung war für bestehende Anlagen unsichtbar. Bewusste Folge: eine Umbenennung durch den Nutzer wird überschrieben; der Adapter verantwortet seinen Datenpunkt-Bestand allein ([[feedback_adapter_verantwortet_datenpunkte]]).
+18. **JEDER Datenpunkt trägt Namen UND Erklärung in 11 Sprachen — auch die zur Laufzeit erzeugten** (v1.15.1) — `tRaw()` in `lib/i18n.ts` legt den vom Gerät gelieferten Gerätetyp unter allen elf Sprachen ab. Es gibt nichts zu übersetzen (der Client schickt EINEN String), aber `common.name` ist bei JEDEM Objekttyp ein Übersetzungsobjekt, nie ein fester String (Core-Team, nut2 #15). Der Client-Datenpunkt und der `clients`-Ordner tragen zusätzlich eine `desc` (`clientDesc`/`clientsFolderDesc`; das Ordner-Feld kommt über `sync-iopackage-from-i18n.py` ins Manifest). `refreshClientNames()` zieht bestehende Kopplungen einmalig nach — Namen UND Erklärung, und lässt ein bereits vollständiges Objekt in Ruhe — Client-Objekte entstehen per `setObjectNotExists` und werden sonst nie wieder angefasst. **Herkunft des Fundes: die Prüfung des LAUFENDEN Baums nach dem Deploy** (`check-live-tree.py`), nicht ein statisches Gate — Quelltext, Lint, Typprüfung und Rollen-Gate waren alle grün, während im Baum zwei Clients einen festen String trugen.
 
 ## Light-Typen
 
@@ -73,7 +74,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500 oder Kelvin (`ctScale`, I2), **xy**: Array oder CSV → [x,y]
 - **on**: via shared `coerceBool` (Allowlist `true/1/yes/on`, case-insensitiv; `"off"`/`"no"`/`"false"`/`""` → aus) (v1.10.0 M1)
 
-## Tests (611 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration)
+## Tests (621 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration)
 
 Runner: **vitest** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`.
 
@@ -95,7 +96,7 @@ Aktuelle Version: `io-package.json`. **User-facing Changelog:** `README.md` + `i
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (611 inkl. Repo-Standard-Prüfungen)
+npm run test:ts          # Unit-Tests via vitest (621 inkl. Repo-Standard-Prüfungen)
 npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
 npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
