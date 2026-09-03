@@ -80,6 +80,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "release": "release-script",
+    "release-patch": "release-script patch --yes --all",
+    "release-minor": "release-script minor --yes --all",
+    "release-major": "release-script major --yes --all",
     "translate": "translate-adapter"
   },
   "bugs": {
