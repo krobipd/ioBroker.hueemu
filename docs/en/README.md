@@ -59,12 +59,12 @@ afterwards, so nothing disappears silently.
 **By hand** — click **Add light**, give it a name, pick a light type and point each
 field at an ioBroker state with the object browser.
 
-| Light type            | What the client sees                    |
-| --------------------- | --------------------------------------- |
-| **On/Off**            | on and off                              |
-| **Dimmable**          | on/off and brightness                   |
-| **Color Temperature** | on/off, brightness, warm–cool white     |
-| **Color**             | on/off, brightness, full colour         |
+| Light type            | What the client sees                |
+| --------------------- | ----------------------------------- |
+| **On/Off**            | on and off                          |
+| **Dimmable**          | on/off and brightness               |
+| **Color Temperature** | on/off, brightness, warm–cool white |
+| **Color**             | on/off, brightness, full colour     |
 
 ### 5. Pair the client
 
@@ -121,11 +121,11 @@ per hour in any case; a single log warning tells you when that limit was reached
 
 ## Ports the adapter uses
 
-| Port  | Protocol | What for                        | Configurable                   |
-| ----- | -------- | ------------------------------- | ------------------------------ |
-| 8080  | TCP      | the Hue API itself              | yes — clients learn it via SSDP |
-| 1900  | UDP      | discovery, so clients find you  | no — fixed by the UPnP standard |
-| —     | TCP      | optional HTTPS                  | yes, off unless you set a port  |
+| Port | Protocol | What for                       | Configurable                    |
+| ---- | -------- | ------------------------------ | ------------------------------- |
+| 8080 | TCP      | the Hue API itself             | yes — clients learn it via SSDP |
+| 1900 | UDP      | discovery, so clients find you | no — fixed by the UPnP standard |
+| —    | TCP      | optional HTTPS                 | yes, off unless you set a port  |
 
 ## Troubleshooting
 

@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "Keine neuen zuordenbaren Lichter gefunden. %s Gerät(e) konnten nicht automatisch zugeordnet werden und brauchen manuelle Zuordnung.",
   "dmScanAdded": "%s Licht(er) hinzugefügt.",
   "dmScanAddedSkipped": "%s Licht(er) hinzugefügt. %s Gerät(e) konnten nicht automatisch zugeordnet werden und brauchen manuelle Zuordnung.",
-  "dmScanFailed": "Suche fehlgeschlagen: %s"
+  "dmScanFailed": "Suche fehlgeschlagen: %s",
+  "dmActionFailed": "Die Aktion konnte nicht abgeschlossen werden: %s"
 }

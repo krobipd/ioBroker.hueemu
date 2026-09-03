@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "未找到可映射的新灯。%s 个设备无法自动映射，需要手动映射。",
   "dmScanAdded": "已添加 %s 个灯。",
   "dmScanAddedSkipped": "已添加 %s 个灯。%s 个设备无法自动映射，需要手动映射。",
-  "dmScanFailed": "搜索失败：%s"
+  "dmScanFailed": "搜索失败：%s",
+  "dmActionFailed": "无法完成该操作：%s"
 }

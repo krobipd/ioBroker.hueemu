@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "Geen nieuwe koppelbare lampen gevonden. %s apparaat/apparaten konden niet automatisch worden toegewezen en vereisen handmatige toewijzing.",
   "dmScanAdded": "%s lamp(en) toegevoegd.",
   "dmScanAddedSkipped": "%s lamp(en) toegevoegd. %s apparaat/apparaten konden niet automatisch worden toegewezen en vereisen handmatige toewijzing.",
-  "dmScanFailed": "Zoeken mislukt: %s"
+  "dmScanFailed": "Zoeken mislukt: %s",
+  "dmActionFailed": "De actie kon niet worden voltooid: %s"
 }

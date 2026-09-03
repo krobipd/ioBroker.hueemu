@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "No new mappable lights found. %s device(s) could not be mapped automatically and need manual mapping.",
   "dmScanAdded": "Added %s light(s).",
   "dmScanAddedSkipped": "Added %s light(s). %s device(s) could not be mapped automatically and need manual mapping.",
-  "dmScanFailed": "Scan failed: %s"
+  "dmScanFailed": "Scan failed: %s",
+  "dmActionFailed": "The action could not be completed: %s"
 }

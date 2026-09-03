@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "Nessuna nuova luce mappabile trovata. %s dispositivo/i non sono stati mappati automaticamente e richiedono mappatura manuale.",
   "dmScanAdded": "Aggiunte %s luce/luci.",
   "dmScanAddedSkipped": "Aggiunte %s luce/luci. %s dispositivo/i non sono stati mappati automaticamente e richiedono mappatura manuale.",
-  "dmScanFailed": "Ricerca non riuscita: %s"
+  "dmScanFailed": "Ricerca non riuscita: %s",
+  "dmActionFailed": "Impossibile completare l'azione: %s"
 }

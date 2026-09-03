@@ -26,6 +26,7 @@ import {
 import type { DeviceConfig } from "./hue-api";
 import { scanForLightDevices } from "./lib/device-scan";
 import { t } from "./lib/i18n";
+import { errText } from "./types/utils";
 
 /** Manager directive returned by an instance action — reload the whole view. */
 type InstanceResult = { refresh: boolean };
@@ -265,12 +266,61 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   }
 
   /**
+   * Run one device-manager action so that it can never reject.
+   *
+   * dm-utils calls our handlers from `handleMessage`, whose only safety net is
+   * `void this.handleMessage(obj).catch(this.log.error)` — so a rejection does not
+   * crash the adapter, but it aborts `handleMessage` at the throw. The reply that
+   * closes the action (`context.sendFinalResult`) is then never sent and the
+   * `messageContexts` entry for that request is never removed (dm-utils 3.2.0
+   * deletes it only on the normal path and has no timeout of its own). The user
+   * would be left with nothing but a log line.
+   *
+   * So every handler answers, always: on failure we log, tell the user what went
+   * wrong, and return the same directive the successful path returns — the manager
+   * simply reloads. This is the rule `searchDevices` already followed on its own.
+   *
+   * @param context The action context used to reach the user.
+   * @param fallback The directive to return when the action failed.
+   * @param run The actual action.
+   * @returns The action's result, or `fallback` when it threw.
+   */
+  private async guardAction<T>(context: ActionContext, fallback: T, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (e) {
+      const reason = errText(e);
+      this.adapter.log.warn(`Device-manager action failed: ${reason}`);
+      try {
+        await context.showMessage(t("dmActionFailed", reason));
+      } catch (notifyError) {
+        // Telling the user failed too — nothing left to do but say so in the log.
+        this.adapter.log.debug(`Could not report the failure to the user: ${errText(notifyError)}`);
+      }
+      return fallback;
+    }
+  }
+
+  /**
    * Populate the device-manager list from `native.devices`.
+   *
+   * Reading the config object can fail (objects DB unreachable). This path has no
+   * `ActionContext` — `DeviceLoadContext` only offers `addDevice`/`setTotalDevices`
+   * — and it does not go through `sendFinalResult` either: dm-utils handles
+   * `dm:loadDevices` separately and, on a throw, skips both the context cleanup and
+   * the rebuild of its device map. Catching here keeps that path intact; the user
+   * sees an empty list plus a warning instead of a view that never finishes.
    *
    * @param context The load context to add one card per device to.
    */
   protected async loadDevices(context: DeviceLoadContext<string>): Promise<void> {
-    const devices = await this.readDevices();
+    let devices: DeviceConfig[] = [];
+    try {
+      devices = await this.readDevices();
+    } catch (e) {
+      this.adapter.log.warn(`Could not read the configured lights: ${errText(e)}`);
+      return;
+    }
     devices.forEach((device, index) => context.addDevice(this.toDeviceInfo(device, index)));
   }
 
@@ -290,13 +340,19 @@ export class HueEmuDeviceManagement extends DeviceManagement {
           id: "edit",
           icon: "edit",
           description: t("dmEdit"),
-          handler: async (id: string, context: ActionContext) => this.editDevice(Number(id), context),
+          handler: async (id: string, context: ActionContext) =>
+            this.guardAction<DeviceResult>(context, { refresh: "instance" }, () =>
+              this.editDevice(Number(id), context),
+            ),
         },
         {
           id: "delete",
           icon: "delete",
           description: t("dmDelete"),
-          handler: async (id: string, context: ActionContext) => this.deleteDevice(Number(id), context),
+          handler: async (id: string, context: ActionContext) =>
+            this.guardAction<DeviceResult>(context, { refresh: "instance" }, () =>
+              this.deleteDevice(Number(id), context),
+            ),
         },
       ],
     };
@@ -316,13 +372,15 @@ export class HueEmuDeviceManagement extends DeviceManagement {
           id: "add",
           icon: "add",
           title: t("dmAddLight"),
-          handler: async context => this.addDevice(context),
+          handler: async context =>
+            this.guardAction<InstanceResult>(context, { refresh: true }, () => this.addDevice(context)),
         },
         {
           id: "search",
           icon: "search",
           title: t("dmSearchLights"),
-          handler: async context => this.searchDevices(context),
+          handler: async context =>
+            this.guardAction<InstanceResult>(context, { refresh: true }, () => this.searchDevices(context)),
         },
       ],
     };
@@ -444,7 +502,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       }
     } catch (e) {
       await closeProgress();
-      await context.showMessage(t("dmScanFailed", e instanceof Error ? e.message : String(e)));
+      await context.showMessage(t("dmScanFailed", errText(e)));
     }
     return { refresh: true };
   }

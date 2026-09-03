@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "No se encontraron luces asignables nuevas. %s dispositivo(s) no se pudieron asignar automáticamente y requieren asignación manual.",
   "dmScanAdded": "%s luz(ces) añadida(s).",
   "dmScanAddedSkipped": "%s luz(ces) añadida(s). %s dispositivo(s) no se pudieron asignar automáticamente y requieren asignación manual.",
-  "dmScanFailed": "Error en la búsqueda: %s"
+  "dmScanFailed": "Error en la búsqueda: %s",
+  "dmActionFailed": "No se pudo completar la acción: %s"
 }

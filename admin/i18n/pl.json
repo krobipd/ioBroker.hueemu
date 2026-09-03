@@ -73,5 +73,6 @@
   "dmScanNoneSkipped": "Nie znaleziono nowych świateł do przypisania. %s urządzenie/urządzenia nie zostały przypisane automatycznie i wymagają ręcznego przypisania.",
   "dmScanAdded": "Dodano %s światło/światła.",
   "dmScanAddedSkipped": "Dodano %s światło/światła. %s urządzenie/urządzenia nie zostały przypisane automatycznie i wymagają ręcznego przypisania.",
-  "dmScanFailed": "Wyszukiwanie nie powiodło się: %s"
+  "dmScanFailed": "Wyszukiwanie nie powiodło się: %s",
+  "dmActionFailed": "Nie udało się zakończyć akcji: %s"
 }

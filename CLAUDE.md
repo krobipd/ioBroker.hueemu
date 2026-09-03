@@ -26,7 +26,7 @@ src/hue-api/api-handler.ts        → API Orchestrator + resetAutoAddBudget + wh
 src/hue-api/config-service.ts     → Bridge Config (IPv4-gateway, IANA-tz, whitelist from provider)
 src/hue-api/device-binding-service.ts → ioBroker States ↔ Hue Lights (parallel refresh/getAllLights, parseLightIndex, hex uniqueid, xy round-trip, detectColorMode from mapped states; Cache nur für gemappte IDs, ungültige Zahlen beim Schreiben übersprungen — v1.14.0; brightnessImpliesOn/switchViaBrightness + resolveIncrements/applyIncrement — v1.15.0)
 src/hue-api/user-service.ts       → Auth/Pairing (auto-add-cap 64/window, in-memory client-id cache, listCachedClientIds for whitelist, Stunden-Obergrenze 100 Neuanlagen über alle Pfade — v1.14.0; enforceCreateCeiling PRÜFT nur, countCreatedClient bucht nach echter Anlage — v1.15.0)
-src/device-management.ts          → v1.11.0 Geräte-Manager-Backend (DeviceManagement-Subklasse: loadDevices/getInstanceInfo, Aktionen add/edit/delete/search, buildDeviceForm, cleanDevice; new HueEmuDeviceManagement(this) im main.ts-Konstruktor)
+src/device-management.ts          → v1.11.0 Geräte-Manager-Backend (DeviceManagement-Subklasse: loadDevices/getInstanceInfo, Aktionen add/edit/delete/search, buildDeviceForm, cleanDevice; new HueEmuDeviceManagement(this) im main.ts-Konstruktor). guardAction umschließt JEDEN registrierten Handler, loadDevices fängt selbst — ein Handler antwortet immer (Entscheidung 19)
 src/lib/device-scan.ts            → v1.11.0 reine Licht-Discovery (ChannelDetector → DeviceConfig-Mapping; adapter-agnostisch, gegen echten type-detector getestet). v1.15.0: Skalen-Ableitung (deriveLevelScale/deriveHueScale/deriveCtScale aus common.min/max/unit), Schreibbarkeitsprüfung am echten Objekt (stateFactsOf), TEMPERATURE auch bei hue/cie, MapOutcome mit UnmappedReason
 src/lib/migrations.ts             → + runDeviceScaleBackfill (v1.15.0): füllt LEERE Skalen bestehender native.devices nach, einmalig in onReady, Neustart-Kurzschluss wie die Legacy-Migration
 src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex + parsePort (shared boundary helpers)
@@ -59,6 +59,8 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 17. **Die eigenen Objekte werden bei JEDEM Start per `extendObject` erneuert** (v1.15.0) — js-controller legt `instanceObjects` nur an, wo sie FEHLEN; eine geänderte `common.name`/`desc` erreichte damit ausschließlich Neuinstallationen, während Manifest und Gate grün aussahen ([[reference_iobroker_bestehende_objekte_erreichen]]). `refreshInstanceObjects()` schreibt `startPairing`/`disableAuth`/`clients` unbedingt. **Das löst die v1.4.0-Namens-Migration ab**, die nur anfasste, was noch exakt die alte englische Vorgabe trug — jede spätere Textänderung war für bestehende Anlagen unsichtbar. Bewusste Folge: eine Umbenennung durch den Nutzer wird überschrieben; der Adapter verantwortet seinen Datenpunkt-Bestand allein ([[feedback_adapter_verantwortet_datenpunkte]]).
 18. **JEDER Datenpunkt trägt Namen UND Erklärung in 11 Sprachen — auch die zur Laufzeit erzeugten** (v1.15.1) — `tRaw()` in `lib/i18n.ts` legt den vom Gerät gelieferten Gerätetyp unter allen elf Sprachen ab. Es gibt nichts zu übersetzen (der Client schickt EINEN String), aber `common.name` ist bei JEDEM Objekttyp ein Übersetzungsobjekt, nie ein fester String (Core-Team, nut2 #15). Der Client-Datenpunkt und der `clients`-Ordner tragen zusätzlich eine `desc` (`clientDesc`/`clientsFolderDesc`; das Ordner-Feld kommt über `sync-iopackage-from-i18n.py` ins Manifest). `refreshClientNames()` zieht bestehende Kopplungen einmalig nach — Namen UND Erklärung, und lässt ein bereits vollständiges Objekt in Ruhe. **Der Legacy-Pfad `user.*` → `clients.*` hebt seit v1.15.2 selbst** (er läuft SPÄT in `onReady`, der Nachzug früh — sonst trüge ein migriertes Objekt seinen alten Text bis zum nächsten Start); ein dort schon übersetzter Name bleibt unangetastet — Client-Objekte entstehen per `setObjectNotExists` und werden sonst nie wieder angefasst. **Herkunft des Fundes: die Prüfung des LAUFENDEN Baums nach dem Deploy** (`check-live-tree.py`), nicht ein statisches Gate — Quelltext, Lint, Typprüfung und Rollen-Gate waren alle grün, während im Baum zwei Clients einen festen String trugen.
 
+19. **Ein Geräte-Manager-Handler antwortet IMMER** (In-depth-Audit 2026-09-03) — `guardAction` umschließt jeden registrierten Einsprung (add/search/edit/delete), `loadDevices` hat einen eigenen Fang. **Warum das nötig ist, an der gebundelten dm-utils 3.2.0 nachgelesen:** das Framework ruft die Handler aus `handleMessage`, dessen einzige Absicherung `void this.handleMessage(obj).catch(this.log.error)` ist — eine Ablehnung **stürzt den Adapter also nicht ab**, bricht `handleMessage` aber an der Wurfstelle ab. Übersprungen werden damit `context.sendFinalResult(...)` (die Antwort, die die Aktion im Admin schließt) **und** `messageContexts.delete(msg._id)`; dm-utils löscht diesen Eintrag nur auf dem normalen Weg und hat **keine eigene Zeitgrenze**. Der Nutzer bliebe mit einer Logzeile zurück. Im Fehlerfall gibt es jetzt: Protokolleintrag (`warn`), Meldung an den Nutzer (`dmActionFailed`, 11 Sprachen) und dieselbe Auffrisch-Anweisung wie auf dem Erfolgsweg. Scheitert auch die Meldung, fängt eine innere Absicherung — der Wächter selbst wirft nie. `loadDevices` läuft über einen ANDEREN Weg (`dm:loadDevices` mit `DeviceLoadContext`, ohne `sendFinalResult` und ohne `showMessage`): dort bleibt die Liste bei unlesbarer Konfiguration leer statt hängen, mit Warnung. `searchDevices` folgte der Regel schon selbst und war die Vorlage.
+
 ## Light-Typen
 
 | Typ      | States                    | Model ID |
@@ -74,7 +76,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500 oder Kelvin (`ctScale`, I2), **xy**: Array oder CSV → [x,y]
 - **on**: via shared `coerceBool` (Allowlist `true/1/yes/on`, case-insensitiv; `"off"`/`"no"`/`"false"`/`""` → aus) (v1.10.0 M1)
 
-## Tests (624 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration)
+## Tests (631 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration)
 
 Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: 9/9 grün, `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22 und 24.
 
@@ -96,7 +98,7 @@ Aktuelle Version: `io-package.json`. **User-facing Changelog:** `README.md` + `i
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (624 inkl. Repo-Standard-Prüfungen)
+npm run test:ts          # Unit-Tests via vitest (631 inkl. Repo-Standard-Prüfungen)
 npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
 npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
@@ -104,6 +106,6 @@ npm run test:integration # Standard Integration-Tests (1, CI only)
 npm test                 # test:ts + test:package (lokal)
 npm run lint             # ESLint
 npm run lint:fix         # ESLint --fix
-npm run format           # Prettier --write
-npm run format:check     # Prettier --check
+npm run format           # Prettier --write (ohne build/, Manifest, README, alte Historie, Bot-Datei, Master-Datei)
+npm run format:check     # Prettier --check (dieselben Ausnahmen) — grün
 ```

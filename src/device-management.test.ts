@@ -27,6 +27,7 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
   return {
     namespace: "hueemu.0",
     on: vi.fn(),
+    log: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
     getForeignObjectAsync: vi.fn((id: string) =>
       Promise.resolve(id === "system.adapter.hueemu.0" ? { native: { devices: stored } } : null),
     ),
@@ -82,6 +83,12 @@ interface DmInternals {
   editDevice(index: number, ctx: MockCtx): Promise<{ refresh: "instance" }>;
   deleteDevice(index: number, ctx: MockCtx): Promise<{ refresh: "instance" }>;
   searchDevices(ctx: MockCtx): Promise<{ refresh: boolean }>;
+  // The registered handlers — the entry points dm-utils actually calls.
+  getInstanceInfo(): { actions?: { id: string; handler: (ctx: MockCtx) => Promise<unknown> }[] };
+  toDeviceInfo(
+    device: DeviceConfig,
+    index: number,
+  ): { actions?: { id: string; handler: (id: string, ctx: MockCtx) => Promise<unknown> }[] };
 }
 const internalOf = (dm: HueEmuDeviceManagement): DmInternals => dm as unknown as DmInternals;
 
@@ -344,6 +351,110 @@ describe("HueEmuDeviceManagement", () => {
       expect(res).toEqual({ refresh: true });
       // t() is mocked: t("dmScanFailed", "db down") → { key, args }
       expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmScanFailed", args: ["db down"] });
+    });
+  });
+
+  /**
+   * The registered handlers are what dm-utils calls. If one of them rejects,
+   * dm-utils aborts `handleMessage` at the throw: the reply that closes the
+   * action is never sent and the request's context is never cleaned up. So the
+   * contract under test is "a handler always answers" — not "the action works".
+   */
+  describe("handler entry points always answer", () => {
+    /**
+     * Get one registered instance action handler by id.
+     *
+     * @param id The action id as registered in getInstanceInfo()
+     */
+    function instanceHandler(id: string): (ctx: MockCtx) => Promise<unknown> {
+      const action = internalOf(dm)
+        .getInstanceInfo()
+        .actions?.find(a => a.id === id);
+      if (!action) {
+        throw new Error(`instance action "${id}" is not registered`);
+      }
+      return action.handler;
+    }
+
+    /**
+     * Get one registered per-device action handler by id.
+     *
+     * @param id The action id as registered on the device card
+     */
+    function deviceHandler(id: string): (deviceId: string, ctx: MockCtx) => Promise<unknown> {
+      const action = internalOf(dm)
+        .toDeviceInfo({ name: "L", lightType: "onoff", onState: "a.on" }, 0)
+        .actions?.find(a => a.id === id);
+      if (!action) {
+        throw new Error(`device action "${id}" is not registered`);
+      }
+      return action.handler;
+    }
+
+    /** Make every config read fail, the way an unreachable objects DB would. */
+    function breakConfigRead(adapter: { getForeignObjectAsync: ReturnType<typeof vi.fn> }): void {
+      adapter.getForeignObjectAsync.mockRejectedValue(new Error("db down"));
+    }
+
+    it("add: reports the failure and still returns the refresh directive", async () => {
+      const adapter = make([]);
+      breakConfigRead(adapter);
+      const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "a.on" } });
+      await expect(instanceHandler("add")(ctx)).resolves.toEqual({ refresh: true });
+      expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmActionFailed", args: ["db down"] });
+    });
+
+    it("search: reports the failure and still returns the refresh directive", async () => {
+      const adapter = make([]);
+      // Break the progress dialog itself — that is ahead of searchDevices' own
+      // try block, so only the handler guard can still answer here.
+      adapter.getObjectViewAsync = vi.fn(() => Promise.reject(new Error("db down")));
+      const ctx = mockContext();
+      ctx.openProgress.mockRejectedValueOnce(new Error("gui gone"));
+      await expect(instanceHandler("search")(ctx)).resolves.toEqual({ refresh: true });
+      expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmActionFailed", args: ["gui gone"] });
+    });
+
+    it("edit: reports the failure and still returns the refresh directive", async () => {
+      const adapter = make([{ name: "L", lightType: "onoff", onState: "a.on" }]);
+      breakConfigRead(adapter);
+      const ctx = mockContext({ form: { name: "L2", lightType: "onoff", onState: "a.on" } });
+      await expect(deviceHandler("edit")("0", ctx)).resolves.toEqual({ refresh: "instance" });
+      expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmActionFailed", args: ["db down"] });
+    });
+
+    it("delete: reports the failure and still returns the refresh directive", async () => {
+      const adapter = make([{ name: "L", lightType: "onoff", onState: "a.on" }]);
+      breakConfigRead(adapter);
+      const ctx = mockContext();
+      await expect(deviceHandler("delete")("0", ctx)).resolves.toEqual({ refresh: "instance" });
+      expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmActionFailed", args: ["db down"] });
+    });
+
+    it("answers even when telling the user fails too", async () => {
+      const adapter = make([]);
+      breakConfigRead(adapter);
+      const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "a.on" } });
+      ctx.showMessage.mockRejectedValue(new Error("gui gone"));
+      await expect(instanceHandler("add")(ctx)).resolves.toEqual({ refresh: true });
+      expect(adapter.log.warn).toHaveBeenCalled();
+    });
+
+    it("passes a successful action through untouched", async () => {
+      const adapter = make([]);
+      const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "a.on" } });
+      await expect(instanceHandler("add")(ctx)).resolves.toEqual({ refresh: true });
+      expect(ctx.showMessage).not.toHaveBeenCalled();
+      expect(adapter._stored()).toEqual([{ name: "New", lightType: "onoff", onState: "a.on" }]);
+    });
+
+    it("loadDevices survives an unreadable config and adds no card", async () => {
+      const adapter = make([{ name: "L", lightType: "onoff", onState: "a.on" }]);
+      breakConfigRead(adapter);
+      const ctx = { addDevice: vi.fn() };
+      await expect(internalOf(dm).loadDevices(ctx)).resolves.toBeUndefined();
+      expect(ctx.addDevice).not.toHaveBeenCalled();
+      expect(adapter.log.warn).toHaveBeenCalled();
     });
   });
 });

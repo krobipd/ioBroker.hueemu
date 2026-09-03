@@ -61,12 +61,12 @@ steht anschließend als Anzahl in der Meldung — es verschwindet also nichts st
 **Von Hand** — auf **Licht hinzufügen** klicken, Namen vergeben, Lampentyp wählen und
 jedes Feld per Objektauswahl auf einen ioBroker-Datenpunkt zeigen lassen.
 
-| Lampentyp           | Was der Client sieht                      |
-| ------------------- | ----------------------------------------- |
-| **Ein/Aus**         | ein und aus                               |
-| **Dimmbar**         | ein/aus und Helligkeit                    |
-| **Farbtemperatur**  | ein/aus, Helligkeit, Warm-/Kaltweiß       |
-| **Farbe**           | ein/aus, Helligkeit, volle Farbe          |
+| Lampentyp          | Was der Client sieht                |
+| ------------------ | ----------------------------------- |
+| **Ein/Aus**        | ein und aus                         |
+| **Dimmbar**        | ein/aus und Helligkeit              |
+| **Farbtemperatur** | ein/aus, Helligkeit, Warm-/Kaltweiß |
+| **Farbe**          | ein/aus, Helligkeit, volle Farbe    |
 
 ### 5. Client koppeln
 
@@ -125,11 +125,11 @@ Stunde begrenzt; eine einzelne Warnung im Protokoll sagt dir, wann diese Grenze 
 
 ## Ports, die der Adapter benutzt
 
-| Port  | Protokoll | Wofür                                | Einstellbar                          |
-| ----- | --------- | ------------------------------------ | ------------------------------------ |
-| 8080  | TCP       | die Hue-Schnittstelle selbst         | ja — Clients erfahren ihn per SSDP   |
-| 1900  | UDP       | Erkennung, damit Clients dich finden | nein — vom UPnP-Standard festgelegt  |
-| —     | TCP       | optionales HTTPS                     | ja, aus, solange kein Port gesetzt ist |
+| Port | Protokoll | Wofür                                | Einstellbar                            |
+| ---- | --------- | ------------------------------------ | -------------------------------------- |
+| 8080 | TCP       | die Hue-Schnittstelle selbst         | ja — Clients erfahren ihn per SSDP     |
+| 1900 | UDP       | Erkennung, damit Clients dich finden | nein — vom UPnP-Standard festgelegt    |
+| —    | TCP       | optionales HTTPS                     | ja, aus, solange kein Port gesetzt ist |
 
 ## Wenn etwas nicht geht
 
