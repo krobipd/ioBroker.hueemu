@@ -76,7 +76,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 
 ## Tests (624 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration)
 
-Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]).
+Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: 9/9 grün, `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22 und 24.
 
 **WICHTIG:** .gitignore hat `*.js` — test/package.js und test/integration.js haben Ausnahmen!
 
