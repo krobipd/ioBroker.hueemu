@@ -714,7 +714,7 @@ export class HueEmu extends utils.Adapter {
       // a translation-object name; this is defensive in case it was deleted)
       await this.setObjectNotExistsAsync("clients", {
         type: "meta",
-        common: { name: tName("clientsFolder"), type: "meta.folder" },
+        common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc"), type: "meta.folder" },
         native: {},
       });
 
@@ -730,9 +730,20 @@ export class HueEmu extends utils.Adapter {
           const state = await this.getStateAsync(oldId);
 
           const obj = row.value;
+          // The old object's `common` is carried over, but its name and
+          // description are lifted to the current standard right here. The
+          // client refresh in `refreshInstanceObjects` has already run by this
+          // point (it sits early in onReady, this migration late), so without
+          // this the migrated object would carry a bare string until the NEXT
+          // start — one restart of nothing but wrong text in the tree.
+          const legacyCommon = obj.common as ioBroker.StateCommon;
           await this.setObjectNotExistsAsync(newId, {
             type: "state",
-            common: obj.common as ioBroker.StateCommon,
+            common: {
+              ...legacyCommon,
+              name: typeof legacyCommon.name === "string" ? tRaw(legacyCommon.name) : legacyCommon.name,
+              desc: tName("clientDesc"),
+            },
             native: obj.native || {},
           });
           if (state?.val !== undefined && state?.val !== null) {

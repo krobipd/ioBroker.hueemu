@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.15.1",
+    "version": "1.15.2",
     "news": {
+      "1.15.2": {
+        "en": "Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.",
+        "de": "Behoben: Beim Update einer sehr alten Einrichtung bekommen bereits gekoppelte Clients ihren richtigen Namen und die Erklärung sofort statt erst nach dem nächsten Neustart.",
+        "ru": "Исправлено: При обновлении очень старой установки уже сопряжённые клиенты получают правильное имя и пояснение сразу, а не после следующего перезапуска.",
+        "pt": "Corrigido: Ao atualizar uma instalação muito antiga, os clientes já emparelhados recebem agora o nome e a explicação corretos de imediato, e não só após o reinício seguinte.",
+        "nl": "Opgelost: Bij het bijwerken van een zeer oude installatie krijgen al gekoppelde clients hun juiste naam en uitleg meteen, in plaats van pas na de volgende herstart.",
+        "fr": "Corrigé : Lors de la mise à jour d'une très ancienne installation, les clients déjà appairés reçoivent aussitôt leur nom et leur explication corrects, et non au redémarrage suivant.",
+        "it": "Corretto: Aggiornando un'installazione molto vecchia, i client già accoppiati ricevono subito nome e spiegazione corretti, invece che solo dopo il riavvio successivo.",
+        "es": "Corregido: Al actualizar una instalación muy antigua, los clientes ya emparejados reciben su nombre y explicación correctos de inmediato, y no tras el siguiente reinicio.",
+        "pl": "Naprawiono: Przy aktualizacji bardzo starej instalacji już sparowane klienty otrzymują poprawną nazwę i wyjaśnienie od razu, a nie dopiero po następnym restarcie.",
+        "uk": "Виправлено: Під час оновлення дуже старої інсталяції вже спарені клієнти отримують правильне ім'я та пояснення одразу, а не після наступного перезапуску.",
+        "zh-cn": "修复：升级非常旧的安装时，已配对的客户端现在会立即获得正确的名称和说明，而不必等到下次重启。"
+      },
       "1.15.1": {
         "en": "Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.",
         "de": "Behoben: Jeder Datenpunkt des Adapters trägt jetzt einen Namen und eine kurze Erklärung in deiner Admin-Sprache, gekoppelte Clients eingeschlossen.",
@@ -80,19 +93,6 @@
         "pl": "Porządki wewnętrzne. Bez zmian dla użytkownika.",
         "uk": "Внутрішнє прибирання. Без змін для користувачів.",
         "zh-cn": "内部清理。用户无可见变化。"
-      },
-      "1.12.1": {
-        "en": "Leaving the HTTPS port empty no longer shows an error in the settings. The bridge MAC address generated automatically is now always a valid address.",
-        "de": "Ein leeres HTTPS-Port-Feld zeigt in den Einstellungen keinen Fehler mehr. Die automatisch erzeugte Bridge-MAC-Adresse ist jetzt immer eine gültige Adresse.",
-        "ru": "Пустое поле порта HTTPS больше не показывает ошибку в настройках. Автоматически создаваемый MAC-адрес моста теперь всегда является корректным адресом.",
-        "pt": "Deixar a porta HTTPS vazia já não mostra um erro nas definições. O endereço MAC da bridge gerado automaticamente é agora sempre um endereço válido.",
-        "nl": "Een leeg HTTPS-poortveld toont geen foutmelding meer in de instellingen. Het automatisch gegenereerde bridge-MAC-adres is nu altijd een geldig adres.",
-        "fr": "Un champ de port HTTPS vide n'affiche plus d'erreur dans les paramètres. L'adresse MAC du pont générée automatiquement est désormais toujours valide.",
-        "it": "Lasciare vuota la porta HTTPS non mostra più un errore nelle impostazioni. L'indirizzo MAC del bridge generato automaticamente è ora sempre valido.",
-        "es": "Dejar vacío el puerto HTTPS ya no muestra un error en los ajustes. La dirección MAC del puente generada automáticamente ahora siempre es válida.",
-        "pl": "Puste pole portu HTTPS nie pokazuje już błędu w ustawieniach. Adres MAC mostka generowany automatycznie jest teraz zawsze prawidłowym adresem.",
-        "uk": "Порожнє поле порту HTTPS більше не показує помилку в налаштуваннях. MAC-адреса мосту, що створюється автоматично, тепер завжди є коректною.",
-        "zh-cn": "在设置中将 HTTPS 端口留空不再显示错误。自动生成的网桥 MAC 地址现在始终是有效地址。"
       }
     },
     "plugins": {

@@ -172,6 +172,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.15.2 (2026-09-03)
+
+- Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.
+
 ### 1.15.1 (2026-09-03)
 
 - Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.
@@ -198,11 +202,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.13.1 (2026-08-27) — stable
 
 - Fixed: when the adapter is stopped it now really tells the connected apps that the bridge is gone — until now they kept it in their list until they ran into their own timeout.
-
-### 1.13.0 (2026-08-25)
-
-- Changed: The discovery service was rebuilt — the long-standing security warning is gone and devices find the bridge exactly as before
-- Improved: When the adapter stops, the bridge now announces its shutdown on the network so controllers notice right away instead of waiting for a timeout
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

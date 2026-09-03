@@ -1,4 +1,9 @@
 # Older Changes
+## 1.13.0 (2026-08-25)
+
+- Changed: The discovery service was rebuilt — the long-standing security warning is gone and devices find the bridge exactly as before
+- Improved: When the adapter stops, the bridge now announces its shutdown on the network so controllers notice right away instead of waiting for a timeout
+
 ## 1.12.2 (2026-08-22)
 
 - Changed: Internal cleanup. No user-facing changes.

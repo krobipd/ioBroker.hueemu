@@ -567,7 +567,7 @@ class HueEmu extends utils.Adapter {
     if ((children == null ? void 0 : children.rows) && children.rows.length > 0) {
       await this.setObjectNotExistsAsync("clients", {
         type: "meta",
-        common: { name: (0, import_i18n.tName)("clientsFolder"), type: "meta.folder" },
+        common: { name: (0, import_i18n.tName)("clientsFolder"), desc: (0, import_i18n.tName)("clientsFolderDesc"), type: "meta.folder" },
         native: {}
       });
       await Promise.all(
@@ -577,9 +577,14 @@ class HueEmu extends utils.Adapter {
           const newId = `clients.${(0, import_utils.sanitizeId)(username)}`;
           const state = await this.getStateAsync(oldId);
           const obj = row.value;
+          const legacyCommon = obj.common;
           await this.setObjectNotExistsAsync(newId, {
             type: "state",
-            common: obj.common,
+            common: {
+              ...legacyCommon,
+              name: typeof legacyCommon.name === "string" ? (0, import_i18n.tRaw)(legacyCommon.name) : legacyCommon.name,
+              desc: (0, import_i18n.tName)("clientDesc")
+            },
             native: obj.native || {}
           });
           if ((state == null ? void 0 : state.val) !== void 0 && (state == null ? void 0 : state.val) !== null) {

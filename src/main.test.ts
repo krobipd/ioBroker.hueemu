@@ -785,6 +785,78 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     await i.migrateUserToClients();
     expect(i.delObjectAsync).not.toHaveBeenCalled();
   });
+
+  it("lifts the migrated client to the current name/description standard right away", async () => {
+    // This migration runs LATE in onReady, the client refresh runs early — so a
+    // migrated object would otherwise carry its bare legacy name until the NEXT
+    // start. One restart of nothing but wrong text in the tree.
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [
+        {
+          id: "hueemu.0.user.old.echo",
+          value: { common: { name: "Echo", type: "string", role: "text", read: true, write: false }, native: {} },
+        },
+      ],
+    });
+    i.getStateAsync.mockResolvedValue({ val: "old.echo", ack: true });
+
+    await i.migrateUserToClients();
+
+    const [, obj] = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients.old_echo") as [
+      string,
+      ioBroker.SettableObject,
+    ];
+    expect((obj.common?.name as Record<string, string>).de).toBe("Echo");
+    expect(Object.keys(obj.common?.name as object)).toHaveLength(11);
+    expect(obj.common?.desc).toEqual({ en: "clientDesc" });
+    // The rest of the legacy common survives.
+    expect(obj.common).toMatchObject({ type: "string", role: "text", read: true, write: false });
+  });
+
+  it("keeps a legacy name that is already a translation object", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [
+        {
+          id: "hueemu.0.user.done",
+          value: { common: { name: { en: "Echo", de: "Echo" }, type: "string", role: "text" }, native: {} },
+        },
+      ],
+    });
+    i.getStateAsync.mockResolvedValue({ val: "done", ack: true });
+
+    await i.migrateUserToClients();
+
+    const [, obj] = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients.done") as [
+      string,
+      ioBroker.SettableObject,
+    ];
+    expect(obj.common?.name).toEqual({ en: "Echo", de: "Echo" });
+  });
+
+  it("creates the clients folder WITH its description on this path too", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    // The folder is only created when there is something to migrate.
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [{ id: "hueemu.0.user.x", value: { common: { name: "X", type: "string", role: "text" }, native: {} } }],
+    });
+    i.getStateAsync.mockResolvedValue({ val: "x", ack: true });
+
+    await i.migrateUserToClients();
+
+    const [, folder] = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients") as [
+      string,
+      ioBroker.SettableObject,
+    ];
+    expect(folder.common?.desc).toEqual({ en: "clientsFolderDesc" });
+  });
 });
 
 describe("HueEmu migrateLegacyDevices", () => {
