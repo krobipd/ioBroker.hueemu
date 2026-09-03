@@ -426,7 +426,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       await closeProgress();
 
       if (!fresh.length) {
-        await context.showMessage(unmapped.length ? t("dmScanNoneRgb", unmapped.length) : t("dmScanNone"));
+        await context.showMessage(unmapped.length ? t("dmScanNoneSkipped", unmapped.length) : t("dmScanNone"));
         return { refresh: true };
       }
 
@@ -439,7 +439,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
           await this.writeDevices([...existing, ...chosen]);
         }
         await context.showMessage(
-          unmapped.length ? t("dmScanAddedRgb", chosen.length, unmapped.length) : t("dmScanAdded", chosen.length),
+          unmapped.length ? t("dmScanAddedSkipped", chosen.length, unmapped.length) : t("dmScanAdded", chosen.length),
         );
       }
     } catch (e) {

@@ -375,7 +375,7 @@ class HueEmuDeviceManagement extends import_dm_utils.DeviceManagement {
       const fresh = found.filter((d) => !d.onState || !mappedIds.has(d.onState));
       await closeProgress();
       if (!fresh.length) {
-        await context.showMessage(unmapped.length ? (0, import_i18n.t)("dmScanNoneRgb", unmapped.length) : (0, import_i18n.t)("dmScanNone"));
+        await context.showMessage(unmapped.length ? (0, import_i18n.t)("dmScanNoneSkipped", unmapped.length) : (0, import_i18n.t)("dmScanNone"));
         return { refresh: true };
       }
       const selection = await context.showForm(buildSelectionForm(fresh), { title: (0, import_i18n.t)("dmSelectTitle"), data: {} });
@@ -385,7 +385,7 @@ class HueEmuDeviceManagement extends import_dm_utils.DeviceManagement {
           await this.writeDevices([...existing, ...chosen]);
         }
         await context.showMessage(
-          unmapped.length ? (0, import_i18n.t)("dmScanAddedRgb", chosen.length, unmapped.length) : (0, import_i18n.t)("dmScanAdded", chosen.length)
+          unmapped.length ? (0, import_i18n.t)("dmScanAddedSkipped", chosen.length, unmapped.length) : (0, import_i18n.t)("dmScanAdded", chosen.length)
         );
       }
     } catch (e) {

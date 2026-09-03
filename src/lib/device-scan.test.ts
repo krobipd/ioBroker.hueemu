@@ -3,9 +3,30 @@
  * `@iobroker/type-detector` (not a mock) over sample object trees, so the
  * detector-type → hueemu-DeviceConfig mapping is proven against the library's
  * actual output, and drifts if the detector changes its patterns.
+ *
+ * The v1.15.0 block at the bottom reproduces the four shapes the 2026-09-03
+ * audit measured on real hardware (zigbee colour bulb, HomeMatic HmIP-BDT
+ * dimmer channel) — those are the regressions that must never come back.
  */
 
-import { scanForLightDevices, mapControlToDevice } from "./device-scan";
+import {
+  scanForLightDevices,
+  mapControlToDevice,
+  deriveLevelScale,
+  deriveHueScale,
+  deriveCtScale,
+  stateFactsOf,
+  type StateFacts,
+  type StateLookup,
+} from "./device-scan";
+
+/** Extra `common` fields a sample state may declare. */
+interface StateExtras {
+  write?: boolean;
+  min?: number;
+  max?: number;
+  unit?: string;
+}
 
 /**
  * Build a state object with a role.
@@ -13,35 +34,47 @@ import { scanForLightDevices, mapControlToDevice } from "./device-scan";
  * @param id The full state id
  * @param role The common.role of the state
  * @param type The common.type of the state (default number)
+ * @param extras Optional write flag / bounds / unit, as a real adapter declares them
  */
-function state(id: string, role: string, type: ioBroker.CommonType = "number"): Record<string, ioBroker.Object> {
+function state(
+  id: string,
+  role: string,
+  type: ioBroker.CommonType = "number",
+  extras: StateExtras = {},
+): Record<string, ioBroker.Object> {
   return {
     [id]: {
       _id: id,
       type: "state",
-      common: { role, type, read: true, write: true, name: id },
+      common: { role, type, read: true, write: extras.write ?? true, name: id, ...extras },
       native: {},
     },
   };
 }
 
+/** A state child of a sample channel: `[suffix, role, type?, extras?]`. */
+type ChannelState = [string, string, ioBroker.CommonType?, StateExtras?];
+
 /**
- * Build a channel device with the given `[suffix, role]` state children.
+ * Build a channel device with the given state children.
  *
  * @param prefix The channel id (device prefix of the state ids)
- * @param states `[suffix, role]` tuples (optional type) for the state children
+ * @param states `[suffix, role, type?, extras?]` tuples for the state children
  */
-function channel(prefix: string, states: [string, string, ioBroker.CommonType?][]): Record<string, ioBroker.Object> {
+function channel(prefix: string, states: ChannelState[]): Record<string, ioBroker.Object> {
   let objs: Record<string, ioBroker.Object> = {
     [prefix]: { _id: prefix, type: "channel", common: { role: "light", name: prefix }, native: {} },
   };
-  for (const [suf, role, t] of states) {
-    objs = { ...objs, ...state(`${prefix}.${suf}`, role, t) };
+  for (const [suf, role, t, extras] of states) {
+    objs = { ...objs, ...state(`${prefix}.${suf}`, role, t, extras) };
   }
   return objs;
 }
 
 const nameOf = (_id: string, obj: ioBroker.Object): string => (obj.common.name as string) || _id;
+
+/** A lookup that treats every id as a plain writable state with no bounds. */
+const anyWritable: StateLookup = () => ({ writable: true });
 
 describe("scanForLightDevices", () => {
   it("maps an on/off light → onoff", () => {
@@ -122,6 +155,7 @@ describe("scanForLightDevices", () => {
     );
     expect(devices).toEqual([]);
     expect(unmapped.map(u => u.type)).toContain("rgb");
+    expect(unmapped.every(u => u.reason === "rgbChannel")).toBe(true);
   });
 
   it("ignores non-light objects", () => {
@@ -147,19 +181,31 @@ describe("scanForLightDevices", () => {
 });
 
 describe("mapControlToDevice", () => {
-  it("returns null for a control without an on/off state", () => {
-    expect(mapControlToDevice("dimmer", [{ name: "SET", id: "x.bri" }], "x")).toBeNull();
+  it("reports a control with nothing writable to drive, instead of dropping it", () => {
+    const outcome = mapControlToDevice("ct", [{ name: "TEMPERATURE", id: "x.ct" }], "x", anyWritable);
+    expect(outcome).toEqual({ kind: "unmapped", reason: "noWritableTarget" });
   });
 
-  it("returns null for an rgb control type", () => {
-    expect(mapControlToDevice("rgb", [{ name: "RED", id: "x.r" }], "x")).toBeNull();
+  it("maps a dimmer that has only a brightness state — brightness carries on/off", () => {
+    const outcome = mapControlToDevice("dimmer", [{ name: "SET", id: "x.bri" }], "x", anyWritable);
+    expect(outcome).toEqual({
+      kind: "device",
+      device: { name: "x", lightType: "dimmable", onState: undefined, briState: "x.bri" },
+    });
+  });
+
+  it("reports an rgb control type as an RGB channel", () => {
+    expect(mapControlToDevice("rgb", [{ name: "RED", id: "x.r" }], "x", anyWritable)).toEqual({
+      kind: "unmapped",
+      reason: "rgbChannel",
+    });
   });
 
   it("binds the FIRST state of a pattern — the detector lists the primary one first", () => {
     // A control can carry the same pattern twice (a writable setpoint plus a
     // read-only actual). Taking the last one would bind the emulator to the
     // read-back value: the Hue client shows a light that never switches.
-    const device = mapControlToDevice(
+    const outcome = mapControlToDevice(
       "dimmer",
       [
         { name: "ON_SET", id: "x.on" },
@@ -168,7 +214,185 @@ describe("mapControlToDevice", () => {
         { name: "DIMMER", id: "x.bri_actual" },
       ],
       "x",
+      anyWritable,
     );
-    expect(device).toEqual({ name: "x", lightType: "dimmable", onState: "x.on", briState: "x.bri" });
+    expect(outcome).toEqual({
+      kind: "device",
+      device: { name: "x", lightType: "dimmable", onState: "x.on", briState: "x.bri" },
+    });
+  });
+
+  it("never binds a read-only state as the switch", () => {
+    // ON_ACTUAL is `write: false` in every light pattern of the detector — a
+    // status mirror. Binding it produced a light that could never be switched.
+    const lookup: StateLookup = id => ({ writable: id !== "x.status" });
+    const outcome = mapControlToDevice(
+      "dimmer",
+      [
+        { name: "ON_ACTUAL", id: "x.status" },
+        { name: "SET", id: "x.bri" },
+      ],
+      "x",
+      lookup,
+    );
+    expect(outcome).toMatchObject({ kind: "device", device: { onState: undefined, briState: "x.bri" } });
+  });
+
+  it("maps the colour temperature of a hue-type light (it has a ct slot)", () => {
+    const outcome = mapControlToDevice(
+      "hue",
+      [
+        { name: "ON", id: "x.on" },
+        { name: "HUE", id: "x.hue" },
+        { name: "SATURATION", id: "x.sat" },
+        { name: "TEMPERATURE", id: "x.ct" },
+      ],
+      "x",
+      anyWritable,
+    );
+    expect(outcome).toMatchObject({ kind: "device", device: { ctState: "x.ct" } });
+  });
+
+  it("treats an unknown object as unusable — we cannot tell whether writing does anything", () => {
+    const outcome = mapControlToDevice("dimmer", [{ name: "SET", id: "x.bri" }], "x", () => undefined);
+    expect(outcome).toEqual({ kind: "unmapped", reason: "noWritableTarget" });
+  });
+});
+
+describe("scale derivation", () => {
+  it("has no opinion without evidence", () => {
+    expect(deriveLevelScale({ writable: true })).toBeUndefined();
+    expect(deriveHueScale({ writable: true })).toBeUndefined();
+    expect(deriveCtScale({ writable: true })).toBeUndefined();
+    expect(deriveLevelScale(undefined)).toBeUndefined();
+    expect(deriveHueScale(undefined)).toBeUndefined();
+    expect(deriveCtScale(undefined)).toBeUndefined();
+  });
+
+  it("reads a percent brightness from the unit and from the bounds", () => {
+    expect(deriveLevelScale({ writable: true, unit: "%" })).toBe("percent");
+    expect(deriveLevelScale({ writable: true, min: 0, max: 100 })).toBe("percent");
+  });
+
+  it("tolerates a bound that is a hair off the round number", () => {
+    // HomeMatic stores 1.01 as the native max of a 0..100 level.
+    expect(deriveLevelScale({ writable: true, max: 100.4 })).toBe("percent");
+    expect(deriveLevelScale({ writable: true, max: 1.01 })).toBe("normalized");
+  });
+
+  it("reads a normalized and a Hue-native brightness", () => {
+    expect(deriveLevelScale({ writable: true, min: 0, max: 1 })).toBe("normalized");
+    expect(deriveLevelScale({ writable: true, min: 0, max: 254 })).toBe("raw");
+    expect(deriveLevelScale({ writable: true, min: 0, max: 255 })).toBe("raw");
+  });
+
+  it("reads a hue in degrees and a Hue-native one", () => {
+    expect(deriveHueScale({ writable: true, min: 0, max: 360 })).toBe("degrees");
+    expect(deriveHueScale({ writable: true, unit: "°" })).toBe("degrees");
+    expect(deriveHueScale({ writable: true, max: 65535 })).toBe("raw");
+  });
+
+  it("reads a colour temperature in Kelvin from the unit or a plausible range", () => {
+    expect(deriveCtScale({ writable: true, unit: "°K" })).toBe("kelvin");
+    expect(deriveCtScale({ writable: true, unit: "K" })).toBe("kelvin");
+    expect(deriveCtScale({ writable: true, unit: "Kelvin" })).toBe("kelvin");
+    expect(deriveCtScale({ writable: true, min: 2000, max: 6500 })).toBe("kelvin");
+  });
+
+  it("leaves a bare colour temperature alone — the zigbee adapter reports mired", () => {
+    // The live zigbee `colortemp` carries neither unit nor bounds while the
+    // detector's pattern claims °K. Deriving from the role would have turned a
+    // correct binding into a wrong one (2026-09-03 audit).
+    expect(deriveCtScale({ writable: true })).toBeUndefined();
+    expect(deriveCtScale({ writable: true, unit: "mired" })).toBe("raw");
+  });
+});
+
+describe("stateFactsOf", () => {
+  it("treats a missing write flag as writable — plenty of adapters omit it", () => {
+    const obj = { _id: "x", type: "state", common: { name: "x", type: "number", role: "level" }, native: {} };
+    expect(stateFactsOf(obj as ioBroker.Object)).toMatchObject({ writable: true });
+  });
+
+  it("only an explicit false disqualifies", () => {
+    const obj = state("x", "level", "number", { write: false }).x;
+    expect(stateFactsOf(obj)?.writable).toBe(false);
+  });
+
+  it("has no facts for a non-state object or a missing one", () => {
+    const obj = { _id: "x", type: "channel", common: { name: "x" }, native: {} };
+    expect(stateFactsOf(obj as ioBroker.Object)).toBeUndefined();
+    expect(stateFactsOf(undefined)).toBeUndefined();
+    expect(stateFactsOf(null)).toBeUndefined();
+  });
+
+  it("passes bounds and unit through, ignoring non-numeric ones", () => {
+    const facts = stateFactsOf(state("x", "level", "number", { min: 0, max: 360, unit: "°" }).x) as StateFacts;
+    expect(facts).toEqual({ writable: true, min: 0, max: 360, unit: "°" });
+  });
+});
+
+describe("v1.15.0 regressions — shapes measured on real hardware (2026-09-03 audit)", () => {
+  it("a zigbee colour bulb gets every provable scale AND its colour temperature", () => {
+    // zigbee.0.<id>: hue 0..360, saturation 0..100, brightness 0..100,
+    // colortemp with neither unit nor bounds (it is mired).
+    const objs: Record<string, ioBroker.Object> = {
+      "zigbee.0.bulb": { _id: "zigbee.0.bulb", type: "device", common: { name: "Kitchen" }, native: {} },
+      ...state("zigbee.0.bulb.state", "switch.light", "boolean"),
+      ...state("zigbee.0.bulb.brightness", "level.dimmer", "number", { min: 0, max: 100 }),
+      ...state("zigbee.0.bulb.hue", "level.color.hue", "number", { min: 0, max: 360 }),
+      ...state("zigbee.0.bulb.saturation", "level.color.saturation", "number", { min: 0, max: 100 }),
+      ...state("zigbee.0.bulb.colortemp", "level.color.temperature", "number"),
+    };
+    const { devices } = scanForLightDevices(objs, nameOf);
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toEqual({
+      name: "Kitchen",
+      lightType: "color",
+      onState: "zigbee.0.bulb.state",
+      briState: "zigbee.0.bulb.brightness",
+      briScale: "percent",
+      hueState: "zigbee.0.bulb.hue",
+      hueScale: "degrees",
+      satState: "zigbee.0.bulb.saturation",
+      satScale: "percent",
+      // Mapped at last — an unmapped ct made every scanned colour light report
+      // the 250-mired placeholder for ever.
+      ctState: "zigbee.0.bulb.colortemp",
+      // …and deliberately WITHOUT a ctScale: the source proves nothing, and the
+      // adapter's mired default is what this adapter actually delivers.
+    });
+    expect(devices[0].ctScale).toBeUndefined();
+  });
+
+  it("a HomeMatic dimmer channel without any switch becomes a usable light", () => {
+    // HmIP-BDT, channel type DIMMER_VIRTUAL_RECEIVER: LEVEL and nothing boolean.
+    const objs: Record<string, ioBroker.Object> = {
+      "hm-rpc.1.ABC.4": { _id: "hm-rpc.1.ABC.4", type: "channel", common: { name: "Bedroom" }, native: {} },
+      ...state("hm-rpc.1.ABC.4.LEVEL", "level.dimmer", "number", { min: 0, max: 100, unit: "%" }),
+      ...state("hm-rpc.1.ABC.4.LEVEL_STATUS", "", "number", { write: false, min: 0, max: 4 }),
+    };
+    const { devices, unmapped } = scanForLightDevices(objs, nameOf);
+    expect(unmapped).toEqual([]);
+    expect(devices).toEqual([
+      {
+        name: "Bedroom",
+        lightType: "dimmable",
+        onState: undefined,
+        briState: "hm-rpc.1.ABC.4.LEVEL",
+        briScale: "percent",
+      },
+    ]);
+  });
+
+  it("a light whose only on/off candidate is read-only is not bound to that mirror", () => {
+    const objs = channel("knx.0.dim", [
+      ["level", "level.dimmer", "number", { min: 0, max: 100, unit: "%" }],
+      ["status", "sensor.light", "boolean", { write: false }],
+    ]);
+    const { devices } = scanForLightDevices(objs, nameOf);
+    expect(devices).toHaveLength(1);
+    expect(devices[0].onState).toBeUndefined();
+    expect(devices[0].briState).toBe("knx.0.dim.level");
   });
 });

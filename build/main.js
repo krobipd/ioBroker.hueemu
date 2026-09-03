@@ -189,7 +189,10 @@ class HueEmu extends utils.Adapter {
       if (migrated) {
         return;
       }
-      await this.migrateInstanceObjectNames();
+      await this.refreshInstanceObjects();
+      if (await this.backfillDeviceScales()) {
+        return;
+      }
       const emulatorConfig = await this.buildConfig();
       if (this.nativePersistPending) {
         this.log.info("Persisted generated bridge identity/TLS \u2014 restarting with the stored configuration.");
@@ -427,17 +430,70 @@ class HueEmu extends utils.Adapter {
     });
   }
   /**
-   * Migrate v1.3.x instanceObject names/descriptions from plain English strings
-   * to translation objects. instanceObjects are NOT re-applied on adapter
-   * upgrade, so this is the only path that backfills translations for users
-   * who installed before v1.4.0. Idempotent (logic in {@link runInstanceObjectMigration}).
+   * Re-apply the adapter's OWN objects — the two switches and the clients folder
+   * — on every start.
+   *
+   * js-controller creates the manifest's `instanceObjects` only where they are
+   * MISSING, so a changed name or description never reaches an installation that
+   * already has them: the manifest would be correct and the real tree unchanged
+   * (`reference_iobroker_bestehende_objekte_erreichen` — a green gate is not a
+   * green tree). `extendObject` is what carries the change into an existing tree,
+   * so an update always lands on every datapoint, not just on fresh installs.
+   *
+   * This replaces the v1.4.0 name migration, which only ever patched an object
+   * whose name was still the exact pre-1.4.0 English default — every later text
+   * change was invisible to existing installations. The adapter owns its own
+   * datapoints, so it writes them unconditionally.
    */
-  async migrateInstanceObjectNames() {
-    await (0, import_migrations.runInstanceObjectMigration)({
-      getObjectAsync: (id) => this.getObjectAsync(id),
-      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj),
-      log: { debug: (msg) => this.log.debug(msg) }
+  async refreshInstanceObjects() {
+    await this.extendObject("startPairing", {
+      type: "state",
+      common: {
+        name: (0, import_i18n.tName)("startPairingName"),
+        desc: (0, import_i18n.tName)("startPairingDesc"),
+        type: "boolean",
+        role: "button",
+        read: false,
+        write: true
+      },
+      native: {}
     });
+    await this.extendObject("disableAuth", {
+      type: "state",
+      common: {
+        name: (0, import_i18n.tName)("disableAuthName"),
+        desc: (0, import_i18n.tName)("disableAuthDesc"),
+        type: "boolean",
+        role: "switch",
+        read: true,
+        write: true
+      },
+      native: {}
+    });
+    await this.extendObject("clients", {
+      type: "meta",
+      common: { name: (0, import_i18n.tName)("clientsFolder"), type: "meta.folder" },
+      native: {}
+    });
+    this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
+  }
+  /**
+   * v1.15.0: fill in the per-device value scales the v1.11.0 assistant never
+   * wrote. Only empty fields, only where the bound source proves the scale.
+   * Logic + guard rails in {@link runDeviceScaleBackfill}.
+   *
+   * @returns true when the config was rewritten and the instance is restarting.
+   */
+  async backfillDeviceScales() {
+    return (0, import_migrations.runDeviceScaleBackfill)(
+      {
+        namespace: this.namespace,
+        getForeignObjectAsync: (id) => this.getForeignObjectAsync(id),
+        extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
+        log: { info: (msg) => this.log.info(msg), debug: (msg) => this.log.debug(msg) }
+      },
+      this.config.devices || []
+    );
   }
   /**
    * Remove states/channels/objects that were removed in newer adapter versions

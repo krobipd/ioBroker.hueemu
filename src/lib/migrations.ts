@@ -7,9 +7,9 @@
  * wrappers that pass `this`.
  */
 
-import { tName } from "./i18n";
 import { errText } from "../types/utils";
 import type { DeviceConfig } from "../hue-api";
+import { deriveCtScale, deriveHueScale, deriveLevelScale, stateFactsOf, type StateFacts } from "./device-scan";
 
 /**
  * Upper bound for `getObjectList`/`getObjectView` range queries over an id
@@ -39,100 +39,6 @@ export function detectLegacyLightType(stateKeys: Set<string>): LegacyLightType {
     return "dimmable";
   }
   return "onoff";
-}
-
-/** Pairs `(instanceObject id, i18n keys)` that v1.4.0 backfills. */
-export const INSTANCE_OBJECT_MIGRATION_PAIRS: ReadonlyArray<{
-  id: string;
-  nameKey: "startPairingName" | "disableAuthName" | "clientsFolder";
-  descKey?: "startPairingDesc" | "disableAuthDesc";
-  /** Pre-1.4.0 plain-English default name; only translate when it still matches. */
-  oldName: string;
-}> = [
-  { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc", oldName: "Start Pairing" },
-  { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc", oldName: "Disable Authentication" },
-  { id: "clients", nameKey: "clientsFolder", oldName: "Paired Clients" },
-];
-
-/**
- * Object common shape we look at — narrow on purpose so the helper can
- * accept anything ioBroker hands back without typing the whole world.
- */
-export interface MigratableCommon {
-  /** Object name (string or translation object) */
-  name?: unknown;
-  /** Object description (string or translation object) */
-  desc?: unknown;
-}
-
-/**
- * Build the partial `common` patch that should be applied via `extendObject`
- * to make `common.name`/`common.desc` translation objects. Returns `null`
- * when nothing needs to change (idempotent — caller skips the call).
- *
- * @param common Current `common` block from the object (may be undefined).
- * @param pair Migration pair specifying source ids → i18n keys.
- */
-export function buildInstanceObjectMigrationPatch(
-  common: MigratableCommon | undefined,
-  pair: (typeof INSTANCE_OBJECT_MIGRATION_PAIRS)[number],
-): { name?: unknown; desc?: unknown } | null {
-  // Only translate the NAME when it is still the old plain-English default. A
-  // user-renamed name (any other string) is left untouched — earlier this was
-  // attempted with extendObject `preserve`, but preserve ALSO blocked the
-  // legitimate default→translation update, so the i18n backfill never landed.
-  const nameIsOldDefault = typeof common?.name === "string" && common.name === pair.oldName;
-  const descIsString = pair.descKey !== undefined && typeof common?.desc === "string";
-  if (!nameIsOldDefault && !descIsString) {
-    return null;
-  }
-  const patch: { name?: unknown; desc?: unknown } = {};
-  if (nameIsOldDefault) {
-    patch.name = tName(pair.nameKey);
-  }
-  if (descIsString && pair.descKey) {
-    patch.desc = tName(pair.descKey);
-  }
-  return patch;
-}
-
-/** Adapter surface required by `runInstanceObjectMigration`. */
-export interface InstanceObjectMigrationAdapter {
-  /** Read an object by ID */
-  getObjectAsync(id: string): Promise<{ common?: MigratableCommon } | null | undefined>;
-  /** Extend an object with partial data */
-  extendObjectAsync(
-    id: string,
-    obj: { common: { name?: unknown; desc?: unknown } },
-    options?: { preserve?: { common?: string[] } },
-  ): Promise<unknown>;
-  /** Logger with debug method */
-  log: { debug(message: string): void };
-}
-
-/**
- * Iterate the migration pairs, fetch each object, compute the patch, and
- * apply it via `extendObject`. Idempotent — re-running on already-migrated
- * objects is a no-op (no extendObject call).
- *
- * @param adapter Minimum adapter surface (getObjectAsync, extendObjectAsync, log).
- */
-export async function runInstanceObjectMigration(adapter: InstanceObjectMigrationAdapter): Promise<void> {
-  for (const pair of INSTANCE_OBJECT_MIGRATION_PAIRS) {
-    const obj = await adapter.getObjectAsync(pair.id);
-    if (!obj) {
-      continue;
-    }
-    const patch = buildInstanceObjectMigrationPatch(obj.common, pair);
-    if (!patch) {
-      continue;
-    }
-    // No `preserve` needed: the patch only ever sets the name when it is the
-    // known old default (a user rename is never patched), so there is nothing
-    // to protect — and preserving name here would block the translation itself.
-    await adapter.extendObjectAsync(pair.id, { common: patch });
-    adapter.log.debug(`Translated instanceObject names: ${pair.id}`);
-  }
 }
 
 /**
@@ -296,5 +202,146 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
     native: { devices: migratedDevices },
   });
   adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
+  return true;
+}
+
+/**
+ * v1.15.0 — backfill the per-device value scales on EXISTING configurations.
+ *
+ * The 2026-09-03 audit found that the v1.11.0 "Search lights" assistant never
+ * wrote a scale, so a hue source in degrees was read and written as if it were
+ * Hue-native. Fixing the assistant only helps new entries: `searchDevices`
+ * skips every light whose on/off state is already mapped, so a re-scan would
+ * never touch the broken ones. This runs once at start and fills what it can
+ * prove.
+ *
+ * Guard rails, deliberately narrow:
+ *  - only ABSENT scale fields are filled — a value the user picked by hand, or
+ *    one a previous run derived, is never overwritten,
+ *  - evidence is `common.min`/`common.max` and `common.unit` only, never the
+ *    role (see `deriveCtScale`),
+ *  - no evidence → the field stays empty, which is exactly today's behaviour.
+ */
+
+/** Facts of the source states a device binds, keyed by Hue attribute. */
+export interface DeviceScaleFacts {
+  /** Facts of the brightness source. */
+  bri?: StateFacts;
+  /** Facts of the saturation source. */
+  sat?: StateFacts;
+  /** Facts of the hue source. */
+  hue?: StateFacts;
+  /** Facts of the colour-temperature source. */
+  ct?: StateFacts;
+}
+
+/**
+ * Build the scale patch for one device, or `null` when nothing can be proven.
+ * Pure — the caller supplies the facts it read from the object database.
+ *
+ * @param device The stored device configuration.
+ * @param facts Facts of the states this device binds.
+ */
+export function buildDeviceScalePatch(device: DeviceConfig, facts: DeviceScaleFacts): Partial<DeviceConfig> | null {
+  const patch: Partial<DeviceConfig> = {};
+  if (device.briState && !device.briScale) {
+    const scale = deriveLevelScale(facts.bri);
+    if (scale) {
+      patch.briScale = scale;
+    }
+  }
+  if (device.satState && !device.satScale) {
+    const scale = deriveLevelScale(facts.sat);
+    if (scale) {
+      patch.satScale = scale;
+    }
+  }
+  if (device.hueState && !device.hueScale) {
+    const scale = deriveHueScale(facts.hue);
+    if (scale) {
+      patch.hueScale = scale;
+    }
+  }
+  if (device.ctState && !device.ctScale) {
+    const scale = deriveCtScale(facts.ct);
+    if (scale) {
+      patch.ctScale = scale;
+    }
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+/** Adapter surface required by {@link runDeviceScaleBackfill}. */
+export interface DeviceScaleBackfillAdapter {
+  /** Adapter namespace (e.g. hueemu.0) */
+  namespace: string;
+  /** Read a foreign object by ID */
+  getForeignObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
+  /** Persist the patched device list into the instance's native config */
+  extendForeignObjectAsync(id: string, obj: { native: { devices: DeviceConfig[] } }): Promise<unknown>;
+  /** Logger */
+  log: { info(message: string): void; debug(message: string): void };
+}
+
+/**
+ * Apply {@link buildDeviceScalePatch} to every stored device and persist the
+ * result when anything changed.
+ *
+ * @param adapter Minimum adapter surface (object read/extend + log).
+ * @param devices The stored device configurations.
+ * @returns `true` when the config was rewritten — the instance restarts, so the
+ *   caller must stop instead of binding servers that are about to go down.
+ */
+export async function runDeviceScaleBackfill(
+  adapter: DeviceScaleBackfillAdapter,
+  devices: DeviceConfig[],
+): Promise<boolean> {
+  if (!devices.length) {
+    return false;
+  }
+
+  /**
+   * Read the facts of one bound state, tolerating a missing object.
+   *
+   * @param id The state id, when the device binds one.
+   */
+  const factsFor = async (id: string | undefined): Promise<StateFacts | undefined> => {
+    if (!id) {
+      return undefined;
+    }
+    try {
+      return stateFactsOf(await adapter.getForeignObjectAsync(id));
+    } catch (error) {
+      adapter.log.debug(`Scale backfill: could not read ${id}: ${errText(error)}`);
+      return undefined;
+    }
+  };
+
+  const patched: DeviceConfig[] = [];
+  let changed = 0;
+  for (const device of devices) {
+    const patch = buildDeviceScalePatch(device, {
+      bri: await factsFor(device.briState),
+      sat: await factsFor(device.satState),
+      hue: await factsFor(device.hueState),
+      ct: await factsFor(device.ctState),
+    });
+    if (patch) {
+      changed++;
+      adapter.log.debug(`Scale backfill for "${device.name}": ${JSON.stringify(patch)}`);
+      patched.push({ ...device, ...patch });
+    } else {
+      patched.push(device);
+    }
+  }
+
+  if (changed === 0) {
+    return false;
+  }
+
+  await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, { native: { devices: patched } });
+  adapter.log.info(
+    `Determined the value scale for ${changed} configured light(s) from their source states. Adapter will restart.`,
+  );
   return true;
 }

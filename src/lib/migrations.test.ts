@@ -5,14 +5,15 @@ vi.mock("@iobroker/adapter-core", () => ({
 }));
 
 import {
-  buildInstanceObjectMigrationPatch,
+  buildDeviceScalePatch,
   detectLegacyLightType,
-  INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS,
-  runInstanceObjectMigration,
+  runDeviceScaleBackfill,
   runLegacyDeviceMigration,
   runObsoleteStateCleanup,
+  type DeviceScaleBackfillAdapter,
 } from "./migrations";
+import type { DeviceConfig } from "../hue-api";
 
 describe("migrations", () => {
   describe("detectLegacyLightType", () => {
@@ -41,130 +42,6 @@ describe("migrations", () => {
     it("returns onoff when no brightness/colour states", () => {
       expect(detectLegacyLightType(new Set(["on"]))).toBe("onoff");
       expect(detectLegacyLightType(new Set())).toBe("onoff");
-    });
-  });
-
-  describe("buildInstanceObjectMigrationPatch", () => {
-    it("returns a name patch when common.name is still the old English default", () => {
-      const patch = buildInstanceObjectMigrationPatch({ name: "Start Pairing" }, INSTANCE_OBJECT_MIGRATION_PAIRS[0]);
-      expect(patch).not.toBeNull();
-      expect(patch!.name).toBeTypeOf("object");
-    });
-
-    it("does NOT patch a user-renamed name (rename preserved)", () => {
-      const patch = buildInstanceObjectMigrationPatch(
-        { name: "My Custom Pairing Button" },
-        INSTANCE_OBJECT_MIGRATION_PAIRS[0],
-      );
-      expect(patch).toBeNull();
-    });
-
-    it("returns desc patch when common.desc is a string", () => {
-      const patch = buildInstanceObjectMigrationPatch(
-        { name: { en: "x" }, desc: "some plain desc" },
-        INSTANCE_OBJECT_MIGRATION_PAIRS[0],
-      );
-      expect(patch).not.toBeNull();
-      expect(patch!.desc).toBeTypeOf("object");
-      expect(patch!.name).toBeUndefined();
-    });
-
-    it("returns null when name is already an object and no desc", () => {
-      const patch = buildInstanceObjectMigrationPatch(
-        { name: { en: "x", de: "y" } },
-        INSTANCE_OBJECT_MIGRATION_PAIRS[2], // clients (no descKey)
-      );
-      expect(patch).toBeNull();
-    });
-
-    it("returns null for already-migrated objects (idempotent)", () => {
-      const patch = buildInstanceObjectMigrationPatch(
-        { name: { en: "Start Pairing" }, desc: { en: "Enable pairing" } },
-        INSTANCE_OBJECT_MIGRATION_PAIRS[0],
-      );
-      expect(patch).toBeNull();
-    });
-
-    it("returns null when common is undefined", () => {
-      const patch = buildInstanceObjectMigrationPatch(undefined, INSTANCE_OBJECT_MIGRATION_PAIRS[0]);
-      expect(patch).toBeNull();
-    });
-  });
-
-  describe("runInstanceObjectMigration", () => {
-    it("calls extendObjectAsync only for objects with string common.name", async () => {
-      const objects: Record<string, { common?: { name?: unknown; desc?: unknown } }> = {
-        startPairing: { common: { name: "startPairing", desc: "Enable pairing mode for 50 seconds" } },
-        disableAuth: { common: { name: { en: "Already migrated" }, desc: { en: "ok" } } },
-        clients: { common: { name: "Paired Clients" } },
-      };
-      const calls: Array<{ id: string; patch: unknown; options: unknown }> = [];
-      await runInstanceObjectMigration({
-        getObjectAsync: id => Promise.resolve(objects[id] ?? null),
-        extendObjectAsync: (id, obj, options) => {
-          calls.push({ id, patch: obj.common, options });
-          return Promise.resolve(null);
-        },
-        log: { debug: () => {} },
-      });
-
-      expect(calls).toHaveLength(2);
-      expect(calls[0].id).toBe("startPairing");
-      expect(calls[1].id).toBe("clients");
-    });
-
-    it("translates an old-default name but leaves a user-renamed name untouched", async () => {
-      const objects: Record<string, { common?: { name?: unknown } }> = {
-        startPairing: { common: { name: "Start Pairing" } }, // old default → translate
-        disableAuth: { common: { name: "My Renamed Switch" } }, // user rename → leave alone
-        clients: { common: { name: { en: "x" } } }, // already migrated → skip
-      };
-      const calls: Array<{ id: string; patch: { name?: unknown } }> = [];
-      await runInstanceObjectMigration({
-        getObjectAsync: id => Promise.resolve(objects[id] ?? null),
-        extendObjectAsync: (id, obj) => {
-          calls.push({ id, patch: obj.common });
-          return Promise.resolve(null);
-        },
-        log: { debug: () => {} },
-      });
-
-      // Only the old-default name is migrated; the renamed one is left untouched
-      // (the gate replaces the old `preserve` option, which used to block the
-      // translation itself).
-      expect(calls.map(c => c.id)).toEqual(["startPairing"]);
-      expect(calls[0].patch.name).toBeTypeOf("object");
-    });
-
-    it("skips non-existing objects", async () => {
-      let calls = 0;
-      await runInstanceObjectMigration({
-        getObjectAsync: () => Promise.resolve(null),
-        extendObjectAsync: () => {
-          calls++;
-          return Promise.resolve(null);
-        },
-        log: { debug: () => {} },
-      });
-      expect(calls).toBe(0);
-    });
-
-    it("is idempotent (re-run on already-migrated state does nothing)", async () => {
-      const migratedObjects: Record<string, { common?: { name?: unknown; desc?: unknown } }> = {
-        startPairing: { common: { name: { en: "x" }, desc: { en: "y" } } },
-        disableAuth: { common: { name: { en: "x" }, desc: { en: "y" } } },
-        clients: { common: { name: { en: "x" } } },
-      };
-      let calls = 0;
-      await runInstanceObjectMigration({
-        getObjectAsync: id => Promise.resolve(migratedObjects[id] ?? null),
-        extendObjectAsync: () => {
-          calls++;
-          return Promise.resolve(null);
-        },
-        log: { debug: () => {} },
-      });
-      expect(calls).toBe(0);
     });
   });
 
@@ -243,18 +120,6 @@ describe("migrations", () => {
       expect(ids).toContain("info.connection");
       expect(ids).toContain("info");
       expect(ids).toContain("createLight");
-    });
-  });
-
-  describe("INSTANCE_OBJECT_MIGRATION_PAIRS", () => {
-    it("covers startPairing, disableAuth, clients", () => {
-      const ids = INSTANCE_OBJECT_MIGRATION_PAIRS.map(p => p.id);
-      expect(ids).toEqual(["startPairing", "disableAuth", "clients"]);
-    });
-
-    it("clients pair has no descKey (folder has no desc)", () => {
-      const clients = INSTANCE_OBJECT_MIGRATION_PAIRS.find(p => p.id === "clients");
-      expect(clients!.descKey).toBeUndefined();
     });
   });
 
@@ -349,5 +214,157 @@ describe("migrations", () => {
       expect(deleted).not.toContain("lamp.state");
       expect(deleted).not.toContain("lamp");
     });
+  });
+});
+
+describe("runDeviceScaleBackfill", () => {
+  /**
+   * Build the minimum adapter surface, backed by a fixed object map.
+   *
+   * @param objects The object map the backfill reads its evidence from
+   */
+  function makeAdapter(objects: Record<string, ioBroker.Object>): {
+    adapter: DeviceScaleBackfillAdapter;
+    written: DeviceConfig[][];
+    info: string[];
+  } {
+    const written: DeviceConfig[][] = [];
+    const info: string[] = [];
+    return {
+      written,
+      info,
+      adapter: {
+        namespace: "hueemu.0",
+        getForeignObjectAsync: id => Promise.resolve(objects[id] ?? null),
+        extendForeignObjectAsync: (_id, obj) => {
+          written.push(obj.native.devices);
+          return Promise.resolve();
+        },
+        log: { info: m => info.push(m), debug: () => {} },
+      },
+    };
+  }
+
+  /**
+   * A writable number state with the given bounds/unit.
+   *
+   * @param id The full state id
+   * @param extras The bounds and unit the source declares
+   * @param extras.min Declared `common.min`, if any
+   * @param extras.max Declared `common.max`, if any
+   * @param extras.unit Declared `common.unit`, if any
+   */
+  function numState(id: string, extras: { min?: number; max?: number; unit?: string }): ioBroker.Object {
+    return {
+      _id: id,
+      type: "state",
+      common: { name: id, type: "number", role: "level", read: true, write: true, ...extras },
+      native: {},
+    };
+  }
+
+  it("does nothing without devices", async () => {
+    const { adapter, written } = makeAdapter({});
+    expect(await runDeviceScaleBackfill(adapter, [])).toBe(false);
+    expect(written).toEqual([]);
+  });
+
+  it("fills the scales a bound source proves, and reports the restart", async () => {
+    const objects = {
+      "z.bri": numState("z.bri", { min: 0, max: 100 }),
+      "z.hue": numState("z.hue", { min: 0, max: 360 }),
+      "z.sat": numState("z.sat", { unit: "%" }),
+    };
+    const { adapter, written, info } = makeAdapter(objects);
+    const devices: DeviceConfig[] = [
+      { name: "Lamp", lightType: "color", briState: "z.bri", hueState: "z.hue", satState: "z.sat" },
+    ];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(true);
+    expect(written[0][0]).toMatchObject({ briScale: "percent", hueScale: "degrees", satScale: "percent" });
+    expect(info[0]).toContain("1 configured light");
+  });
+
+  it("never overwrites a scale that is already set", async () => {
+    // A value the user picked by hand — or a previous run derived — is the
+    // user's decision, and the source may well disagree with it.
+    const objects = { "z.hue": numState("z.hue", { min: 0, max: 360 }) };
+    const { adapter } = makeAdapter(objects);
+    const devices: DeviceConfig[] = [{ name: "Lamp", lightType: "color", hueState: "z.hue", hueScale: "raw" }];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(false);
+  });
+
+  it("leaves a source that proves nothing alone — the zigbee colour temperature", async () => {
+    // No unit, no bounds: the adapter's mired default is what zigbee delivers,
+    // so writing "kelvin" here would break a working binding.
+    const objects = { "z.ct": numState("z.ct", {}) };
+    const { adapter, written } = makeAdapter(objects);
+    const devices: DeviceConfig[] = [{ name: "Lamp", lightType: "ct", ctState: "z.ct" }];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(false);
+    expect(written).toEqual([]);
+  });
+
+  it("derives a Kelvin colour temperature when the source declares it", async () => {
+    const objects = { "k.ct": numState("k.ct", { min: 2000, max: 6500, unit: "°K" }) };
+    const { adapter, written } = makeAdapter(objects);
+    const devices: DeviceConfig[] = [{ name: "Lamp", lightType: "ct", ctState: "k.ct" }];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(true);
+    expect(written[0][0]).toMatchObject({ ctScale: "kelvin" });
+  });
+
+  it("survives an object database that throws while reading a source", async () => {
+    const written: DeviceConfig[][] = [];
+    const adapter: DeviceScaleBackfillAdapter = {
+      namespace: "hueemu.0",
+      getForeignObjectAsync: () => Promise.reject(new Error("objects db down")),
+      extendForeignObjectAsync: (_id, obj) => {
+        written.push(obj.native.devices);
+        return Promise.resolve();
+      },
+      log: { info: () => {}, debug: () => {} },
+    };
+    const devices: DeviceConfig[] = [{ name: "Lamp", lightType: "dimmable", briState: "z.bri" }];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(false);
+    expect(written).toEqual([]);
+  });
+
+  it("tolerates a bound state whose object is gone", async () => {
+    const { adapter } = makeAdapter({});
+    const devices: DeviceConfig[] = [{ name: "Lamp", lightType: "dimmable", briState: "missing.id" }];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(false);
+  });
+
+  it("keeps untouched devices in the written list, in order", async () => {
+    const objects = { "b.bri": numState("b.bri", { unit: "%" }) };
+    const { adapter, written } = makeAdapter(objects);
+    const devices: DeviceConfig[] = [
+      { name: "Untouched", lightType: "onoff", onState: "a.on" },
+      { name: "Patched", lightType: "dimmable", briState: "b.bri" },
+    ];
+    await runDeviceScaleBackfill(adapter, devices);
+    expect(written[0]).toHaveLength(2);
+    expect(written[0][0]).toEqual({ name: "Untouched", lightType: "onoff", onState: "a.on" });
+    expect(written[0][1]).toMatchObject({ name: "Patched", briScale: "percent" });
+  });
+
+  it("is idempotent — a second run has nothing left to do", async () => {
+    const objects = { "z.bri": numState("z.bri", { unit: "%" }) };
+    const { adapter, written } = makeAdapter(objects);
+    const devices: DeviceConfig[] = [{ name: "Lamp", lightType: "dimmable", briState: "z.bri" }];
+    expect(await runDeviceScaleBackfill(adapter, devices)).toBe(true);
+    expect(await runDeviceScaleBackfill(adapter, written[0])).toBe(false);
+  });
+});
+
+describe("buildDeviceScalePatch", () => {
+  it("has nothing to patch when the device binds no scaled state", () => {
+    expect(buildDeviceScalePatch({ name: "x", lightType: "onoff", onState: "a" }, {})).toBeNull();
+  });
+
+  it("only patches attributes the device actually binds", () => {
+    const patch = buildDeviceScalePatch(
+      { name: "x", lightType: "dimmable", briState: "b" },
+      { bri: { writable: true, unit: "%" }, hue: { writable: true, max: 360 } },
+    );
+    expect(patch).toEqual({ briScale: "percent" });
   });
 });

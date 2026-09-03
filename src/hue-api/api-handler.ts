@@ -339,7 +339,11 @@ export class ApiHandler implements HueApiHandler {
         this.logger.debug(`Pairing enabled, auto-added user: ${oneLine(username)}`);
         return true;
       } catch (err) {
-        this.logger.warn(`Auto-add rejected for ${oneLine(username)}: ${errText(err)}`);
+        // Debug, not warn: this route needs no authentication, so a warning here
+        // is a log line anyone on the LAN can produce at will during the pairing
+        // window — the same reasoning `fallback` below already follows. The
+        // budget that was actually hit warns once per window in UserService.
+        this.logger.debug(`Auto-add rejected for ${oneLine(username)}: ${errText(err)}`);
         return false;
       }
     }

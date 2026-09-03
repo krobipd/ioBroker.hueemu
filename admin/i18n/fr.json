@@ -68,8 +68,8 @@
   "dmSelectTitle": "Sélectionner les lumières à ajouter",
   "dmSelectHint": "Cochez les lumières que vous voulez exposer comme lumières Hue. Les non cochées sont ignorées.",
   "dmScanNone": "Aucune nouvelle lumière mappable trouvée.",
-  "dmScanNoneRgb": "Aucune nouvelle lumière mappable trouvée. %s appareil(s) ressemblent à du RGB et nécessitent un mappage manuel.",
+  "dmScanNoneSkipped": "Aucune nouvelle lumière mappable trouvée. %s appareil(s) n'ont pas pu être mappés automatiquement et nécessitent un mappage manuel.",
   "dmScanAdded": "%s lumière(s) ajoutée(s).",
-  "dmScanAddedRgb": "%s lumière(s) ajoutée(s). %s appareil(s) ressemblent à du RGB et nécessitent un mappage manuel.",
+  "dmScanAddedSkipped": "%s lumière(s) ajoutée(s). %s appareil(s) n'ont pas pu être mappés automatiquement et nécessitent un mappage manuel.",
   "dmScanFailed": "Échec de la recherche : %s"
 }

@@ -18,9 +18,9 @@ import { coerceBool, parsePort } from "./lib/coerce";
 import { tName } from "./lib/i18n";
 import {
   ID_RANGE_END,
-  runInstanceObjectMigration,
   runObsoleteStateCleanup,
   runLegacyDeviceMigration,
+  runDeviceScaleBackfill,
 } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
@@ -224,8 +224,16 @@ export class HueEmu extends utils.Adapter {
         return;
       }
 
-      // Migrate v1.3.x instanceObject names to translation objects
-      await this.migrateInstanceObjectNames();
+      // Carry the manifest's own objects into an EXISTING tree (js-controller
+      // creates them only where they are missing).
+      await this.refreshInstanceObjects();
+
+      // v1.15.0: derive the value scales the assistant used to leave empty.
+      // Writing native restarts the instance (jsonConfig semantics), so stop
+      // here exactly like the legacy migration does.
+      if (await this.backfillDeviceScales()) {
+        return;
+      }
 
       // Parse and validate configuration
       const emulatorConfig = await this.buildConfig();
@@ -557,17 +565,71 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Migrate v1.3.x instanceObject names/descriptions from plain English strings
-   * to translation objects. instanceObjects are NOT re-applied on adapter
-   * upgrade, so this is the only path that backfills translations for users
-   * who installed before v1.4.0. Idempotent (logic in {@link runInstanceObjectMigration}).
+   * Re-apply the adapter's OWN objects — the two switches and the clients folder
+   * — on every start.
+   *
+   * js-controller creates the manifest's `instanceObjects` only where they are
+   * MISSING, so a changed name or description never reaches an installation that
+   * already has them: the manifest would be correct and the real tree unchanged
+   * (`reference_iobroker_bestehende_objekte_erreichen` — a green gate is not a
+   * green tree). `extendObject` is what carries the change into an existing tree,
+   * so an update always lands on every datapoint, not just on fresh installs.
+   *
+   * This replaces the v1.4.0 name migration, which only ever patched an object
+   * whose name was still the exact pre-1.4.0 English default — every later text
+   * change was invisible to existing installations. The adapter owns its own
+   * datapoints, so it writes them unconditionally.
    */
-  private async migrateInstanceObjectNames(): Promise<void> {
-    await runInstanceObjectMigration({
-      getObjectAsync: id => this.getObjectAsync(id),
-      extendObjectAsync: (id, obj) => this.extendObjectAsync(id, obj as ioBroker.SettableObject),
-      log: { debug: msg => this.log.debug(msg) },
+  private async refreshInstanceObjects(): Promise<void> {
+    await this.extendObject("startPairing", {
+      type: "state",
+      common: {
+        name: tName("startPairingName"),
+        desc: tName("startPairingDesc"),
+        type: "boolean",
+        role: "button",
+        read: false,
+        write: true,
+      },
+      native: {},
     });
+    await this.extendObject("disableAuth", {
+      type: "state",
+      common: {
+        name: tName("disableAuthName"),
+        desc: tName("disableAuthDesc"),
+        type: "boolean",
+        role: "switch",
+        read: true,
+        write: true,
+      },
+      native: {},
+    });
+    await this.extendObject("clients", {
+      type: "meta",
+      common: { name: tName("clientsFolder"), type: "meta.folder" },
+      native: {},
+    });
+    this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
+  }
+
+  /**
+   * v1.15.0: fill in the per-device value scales the v1.11.0 assistant never
+   * wrote. Only empty fields, only where the bound source proves the scale.
+   * Logic + guard rails in {@link runDeviceScaleBackfill}.
+   *
+   * @returns true when the config was rewritten and the instance is restarting.
+   */
+  private async backfillDeviceScales(): Promise<boolean> {
+    return runDeviceScaleBackfill(
+      {
+        namespace: this.namespace,
+        getForeignObjectAsync: id => this.getForeignObjectAsync(id),
+        extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
+        log: { info: msg => this.log.info(msg), debug: msg => this.log.debug(msg) },
+      },
+      this.config.devices || [],
+    );
   }
 
   /**

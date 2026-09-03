@@ -19,17 +19,16 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var migrations_exports = {};
 __export(migrations_exports, {
   ID_RANGE_END: () => ID_RANGE_END,
-  INSTANCE_OBJECT_MIGRATION_PAIRS: () => INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS: () => OBSOLETE_STATE_IDS,
-  buildInstanceObjectMigrationPatch: () => buildInstanceObjectMigrationPatch,
+  buildDeviceScalePatch: () => buildDeviceScalePatch,
   detectLegacyLightType: () => detectLegacyLightType,
-  runInstanceObjectMigration: () => runInstanceObjectMigration,
+  runDeviceScaleBackfill: () => runDeviceScaleBackfill,
   runLegacyDeviceMigration: () => runLegacyDeviceMigration,
   runObsoleteStateCleanup: () => runObsoleteStateCleanup
 });
 module.exports = __toCommonJS(migrations_exports);
-var import_i18n = require("./i18n");
 var import_utils = require("../types/utils");
+var import_device_scan = require("./device-scan");
 const ID_RANGE_END = "\uFFFF";
 function detectLegacyLightType(stateKeys) {
   if (stateKeys.has("hue") || stateKeys.has("sat") || stateKeys.has("xy")) {
@@ -42,40 +41,6 @@ function detectLegacyLightType(stateKeys) {
     return "dimmable";
   }
   return "onoff";
-}
-const INSTANCE_OBJECT_MIGRATION_PAIRS = [
-  { id: "startPairing", nameKey: "startPairingName", descKey: "startPairingDesc", oldName: "Start Pairing" },
-  { id: "disableAuth", nameKey: "disableAuthName", descKey: "disableAuthDesc", oldName: "Disable Authentication" },
-  { id: "clients", nameKey: "clientsFolder", oldName: "Paired Clients" }
-];
-function buildInstanceObjectMigrationPatch(common, pair) {
-  const nameIsOldDefault = typeof (common == null ? void 0 : common.name) === "string" && common.name === pair.oldName;
-  const descIsString = pair.descKey !== void 0 && typeof (common == null ? void 0 : common.desc) === "string";
-  if (!nameIsOldDefault && !descIsString) {
-    return null;
-  }
-  const patch = {};
-  if (nameIsOldDefault) {
-    patch.name = (0, import_i18n.tName)(pair.nameKey);
-  }
-  if (descIsString && pair.descKey) {
-    patch.desc = (0, import_i18n.tName)(pair.descKey);
-  }
-  return patch;
-}
-async function runInstanceObjectMigration(adapter) {
-  for (const pair of INSTANCE_OBJECT_MIGRATION_PAIRS) {
-    const obj = await adapter.getObjectAsync(pair.id);
-    if (!obj) {
-      continue;
-    }
-    const patch = buildInstanceObjectMigrationPatch(obj.common, pair);
-    if (!patch) {
-      continue;
-    }
-    await adapter.extendObjectAsync(pair.id, { common: patch });
-    adapter.log.debug(`Translated instanceObject names: ${pair.id}`);
-  }
 }
 const OBSOLETE_STATE_IDS = [
   { id: "info.configuredDevices", removedIn: "1.0.15" },
@@ -167,14 +132,82 @@ async function runLegacyDeviceMigration(adapter) {
   adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
   return true;
 }
+function buildDeviceScalePatch(device, facts) {
+  const patch = {};
+  if (device.briState && !device.briScale) {
+    const scale = (0, import_device_scan.deriveLevelScale)(facts.bri);
+    if (scale) {
+      patch.briScale = scale;
+    }
+  }
+  if (device.satState && !device.satScale) {
+    const scale = (0, import_device_scan.deriveLevelScale)(facts.sat);
+    if (scale) {
+      patch.satScale = scale;
+    }
+  }
+  if (device.hueState && !device.hueScale) {
+    const scale = (0, import_device_scan.deriveHueScale)(facts.hue);
+    if (scale) {
+      patch.hueScale = scale;
+    }
+  }
+  if (device.ctState && !device.ctScale) {
+    const scale = (0, import_device_scan.deriveCtScale)(facts.ct);
+    if (scale) {
+      patch.ctScale = scale;
+    }
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+async function runDeviceScaleBackfill(adapter, devices) {
+  if (!devices.length) {
+    return false;
+  }
+  const factsFor = async (id) => {
+    if (!id) {
+      return void 0;
+    }
+    try {
+      return (0, import_device_scan.stateFactsOf)(await adapter.getForeignObjectAsync(id));
+    } catch (error) {
+      adapter.log.debug(`Scale backfill: could not read ${id}: ${(0, import_utils.errText)(error)}`);
+      return void 0;
+    }
+  };
+  const patched = [];
+  let changed = 0;
+  for (const device of devices) {
+    const patch = buildDeviceScalePatch(device, {
+      bri: await factsFor(device.briState),
+      sat: await factsFor(device.satState),
+      hue: await factsFor(device.hueState),
+      ct: await factsFor(device.ctState)
+    });
+    if (patch) {
+      changed++;
+      adapter.log.debug(`Scale backfill for "${device.name}": ${JSON.stringify(patch)}`);
+      patched.push({ ...device, ...patch });
+    } else {
+      patched.push(device);
+    }
+  }
+  if (changed === 0) {
+    return false;
+  }
+  await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, { native: { devices: patched } });
+  adapter.log.info(
+    `Determined the value scale for ${changed} configured light(s) from their source states. Adapter will restart.`
+  );
+  return true;
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ID_RANGE_END,
-  INSTANCE_OBJECT_MIGRATION_PAIRS,
   OBSOLETE_STATE_IDS,
-  buildInstanceObjectMigrationPatch,
+  buildDeviceScalePatch,
   detectLegacyLightType,
-  runInstanceObjectMigration,
+  runDeviceScaleBackfill,
   runLegacyDeviceMigration,
   runObsoleteStateCleanup
 });

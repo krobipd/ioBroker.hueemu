@@ -68,8 +68,8 @@
   "dmSelectTitle": "Selecionar luzes a adicionar",
   "dmSelectHint": "Marque as luzes que quer expor como luzes Hue. As não marcadas são ignoradas.",
   "dmScanNone": "Nenhuma luz mapeável nova encontrada.",
-  "dmScanNoneRgb": "Nenhuma luz mapeável nova encontrada. %s dispositivo(s) parecem RGB e precisam de mapeamento manual.",
+  "dmScanNoneSkipped": "Nenhuma luz mapeável nova encontrada. %s dispositivo(s) não puderam ser mapeados automaticamente e precisam de mapeamento manual.",
   "dmScanAdded": "%s luz(es) adicionada(s).",
-  "dmScanAddedRgb": "%s luz(es) adicionada(s). %s dispositivo(s) parecem RGB e precisam de mapeamento manual.",
+  "dmScanAddedSkipped": "%s luz(es) adicionada(s). %s dispositivo(s) não puderam ser mapeados automaticamente e precisam de mapeamento manual.",
   "dmScanFailed": "Falha na busca: %s"
 }

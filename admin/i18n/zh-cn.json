@@ -68,8 +68,8 @@
   "dmSelectTitle": "选择要添加的灯",
   "dmSelectHint": "勾选要作为 Hue 灯公开的灯。未勾选的将被忽略。",
   "dmScanNone": "未找到可映射的新灯。",
-  "dmScanNoneRgb": "未找到可映射的新灯。%s 个设备看起来是 RGB，需要手动映射。",
+  "dmScanNoneSkipped": "未找到可映射的新灯。%s 个设备无法自动映射，需要手动映射。",
   "dmScanAdded": "已添加 %s 个灯。",
-  "dmScanAddedRgb": "已添加 %s 个灯。%s 个设备看起来是 RGB，需要手动映射。",
+  "dmScanAddedSkipped": "已添加 %s 个灯。%s 个设备无法自动映射，需要手动映射。",
   "dmScanFailed": "搜索失败：%s"
 }

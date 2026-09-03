@@ -86,6 +86,92 @@ function ctForState(n: number, scale: CtScale | undefined): number {
 }
 
 /**
+ * Hue v1 relative attributes: `<base>_inc` adjusts the CURRENT value instead of
+ * setting an absolute one. That is how "make it a bit darker" and a dimmer
+ * rocker work — the client does not know the current value and must not need to.
+ *
+ * Semantics verified against the official parameter description and the diyHue
+ * reference bridge (`HueObjects/__init__.py:incProcess`, ebd0eaf):
+ *  - the `_inc` field is IGNORED when its absolute field is in the same body,
+ *  - the result is clamped, EXCEPT hue, which wraps (a colour wheel has no end),
+ *  - the response carries the ABSOLUTE address with the resulting value.
+ *
+ * Deviations, both deliberate: every `_inc` in a body is honoured (diyHue takes
+ * only the first), and hue wraps modulo 65536 rather than diyHue's ±65535 —
+ * 0..65535 inclusive is 65536 distinct values.
+ */
+const INCREMENT_ATTRIBUTES: Readonly<Record<string, string>> = {
+  bri_inc: "bri",
+  sat_inc: "sat",
+  hue_inc: "hue",
+  ct_inc: "ct",
+  xy_inc: "xy",
+};
+
+/** Number of distinct hue values — the wrap modulus for the colour wheel. */
+const HUE_HUE_SPAN = HUE_HUE_MAX + 1;
+
+/**
+ * Wrap a hue value into 0..65535. Unlike brightness, hue has no ends: one step
+ * past red comes out at the other side of the wheel.
+ *
+ * @param value Raw (possibly out-of-range) hue value
+ */
+function wrapHue(value: number): number {
+  return ((Math.round(value) % HUE_HUE_SPAN) + HUE_HUE_SPAN) % HUE_HUE_SPAN;
+}
+
+/**
+ * Round an xy component and hold it inside the valid 0..1 colour space.
+ *
+ * @param v The shifted component, possibly outside the colour space
+ */
+const clampXyComponent = (v: number): number => Math.min(1, Math.max(0, Math.round(v * 10000) / 10000));
+
+/**
+ * Apply a relative change to the current Hue-space value of one attribute.
+ * Returns `undefined` when either side is not a usable value — the caller then
+ * leaves the request untouched rather than inventing a target.
+ *
+ * @param base Absolute attribute name the increment belongs to (bri/sat/hue/ct/xy)
+ * @param current Current Hue-space value of that attribute
+ * @param delta The client-supplied increment
+ */
+export function applyIncrement(base: string, current: unknown, delta: unknown): number | [number, number] | undefined {
+  if (base === "xy") {
+    if (!Array.isArray(delta) || delta.length < 2 || !Array.isArray(current) || current.length < 2) {
+      return undefined;
+    }
+    const dx = coerceFiniteNumber(delta[0]);
+    const dy = coerceFiniteNumber(delta[1]);
+    const x = coerceFiniteNumber(current[0]);
+    const y = coerceFiniteNumber(current[1]);
+    if (dx === null || dy === null || x === null || y === null) {
+      return undefined;
+    }
+    return [clampXyComponent(x + dx), clampXyComponent(y + dy)];
+  }
+
+  const step = coerceFiniteNumber(delta);
+  const now = coerceFiniteNumber(current);
+  if (step === null || now === null) {
+    return undefined;
+  }
+  switch (base) {
+    case "bri":
+      return clampRound(now + step, HUE_BRI_MIN, HUE_BRI_MAX);
+    case "sat":
+      return clampRound(now + step, 0, HUE_SAT_MAX);
+    case "ct":
+      return clampRound(now + step, HUE_CT_MIN, HUE_CT_MAX);
+    case "hue":
+      return wrapHue(now + step);
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Light type definitions matching the admin UI
  */
 const LIGHT_TYPES = {
@@ -415,6 +501,13 @@ export class DeviceBindingService {
         if (value !== undefined) {
           (state as Record<string, unknown>)[stateName] = value;
         }
+      } else if (stateName === "on" && device.briState) {
+        // v1.15.0: a light with no switch of its own — brightness carries on/off.
+        // Plenty of real dimmers have no boolean state at all (a HomeMatic
+        // HmIP-BDT channel exposes LEVEL and nothing else), so the source value
+        // itself is the truth: 0 = off, anything above = on. Read from the
+        // SOURCE, never from the assembled Hue `bri` — that one defaults to 254.
+        (state as Record<string, unknown>).on = await this.brightnessImpliesOn(device);
       } else {
         // Provide default values for unmapped states
         (state as Record<string, unknown>)[stateName] = this.getDefaultValue(stateName);
@@ -474,11 +567,41 @@ export class DeviceBindingService {
         .join(", ")}`,
     );
 
-    for (const [key, value] of Object.entries(stateUpdate)) {
+    // v1.15.0: turn every relative attribute into its absolute equivalent BEFORE
+    // the write loop, so the rest of the path (and the response) needs to know
+    // about one kind of attribute only.
+    const effective = await this.resolveIncrements(device, stateUpdate);
+
+    // A light without its own switch is turned off by writing brightness 0 — so
+    // a brightness in the SAME request would immediately switch it back on and
+    // "off" would silently do nothing. Off wins; the brightness is acknowledged
+    // (a real bridge stores it for the next on, which a bare level state cannot).
+    const body = effective as Record<string, unknown>;
+    const switchedOffViaBrightness = !device.onState && !!device.briState && "on" in body && !coerceBool(body.on);
+
+    for (const [key, value] of Object.entries(effective)) {
       const address = `/lights/${lightId}/state/${key}`;
       const stateId = this.getStateId(device, key);
 
+      if (switchedOffViaBrightness && key === "bri") {
+        this.logger.debug(`"${device.name}": ignoring bri — the same request switches the light off`);
+        results.push({ success: { [address]: value } });
+        continue;
+      }
+
       if (!stateId) {
+        // v1.15.0: a light whose only writable target is brightness still has to
+        // switch. Brightness carries on/off for it (see mapControlToDevice).
+        if (key === "on" && device.briState) {
+          try {
+            await this.switchViaBrightness(device, value, effective);
+            results.push({ success: { [address]: value } });
+          } catch (error) {
+            this.logger.error(`Failed to switch "${device.name}" via brightness: ${errText(error)}`);
+            results.push(HueApiError.resourceNotAvailable(lightId, address).toResponse());
+          }
+          continue;
+        }
         this.logger.debug(`No mapping for ${key} on device ${device.name}`);
         // Still report success for unmapped states (some clients expect this)
         results.push({ success: { [address]: value } });
@@ -511,6 +634,84 @@ export class DeviceBindingService {
   }
 
   /**
+   * v1.15.0: replace every relative attribute (`bri_inc`, `sat_inc`, `hue_inc`,
+   * `ct_inc`, `xy_inc`) by its absolute equivalent, computed from the light's
+   * current value. Returns the original object untouched when there is nothing
+   * to resolve.
+   *
+   * A relative attribute is left in place — and therefore acknowledged without a
+   * write, exactly like any unmapped attribute — when the light does not map the
+   * base attribute or the payload is unusable. That is deliberately the same
+   * rule the absolute path already follows; no new special case.
+   *
+   * @param device - Device configuration
+   * @param stateUpdate - The incoming state update
+   */
+  private async resolveIncrements(device: DeviceConfig, stateUpdate: LightStateUpdate): Promise<LightStateUpdate> {
+    const body = stateUpdate as Record<string, unknown>;
+    let resolved: Record<string, unknown> | null = null;
+
+    for (const [incKey, base] of Object.entries(INCREMENT_ATTRIBUTES)) {
+      if (!(incKey in body)) {
+        continue;
+      }
+      // Spec: the increment is ignored when the absolute value is also given.
+      if (base in body) {
+        resolved ??= { ...body };
+        delete resolved[incKey];
+        this.logger.debug(`Ignoring ${incKey} for "${device.name}" — ${base} is set in the same request`);
+        continue;
+      }
+      const stateId = this.getStateId(device, base);
+      if (!stateId) {
+        continue;
+      }
+      const current = await this.getStateValue(stateId, base, device);
+      const next = applyIncrement(base, current, body[incKey]);
+      if (next === undefined) {
+        this.logger.debug(`Ignoring invalid ${incKey} for "${device.name}": raw=${JSON.stringify(body[incKey])}`);
+        continue;
+      }
+      resolved ??= { ...body };
+      delete resolved[incKey];
+      resolved[base] = next;
+      this.logger.debug(`${incKey} on "${device.name}": ${JSON.stringify(current)} → ${JSON.stringify(next)}`);
+    }
+
+    return resolved ?? body;
+  }
+
+  /**
+   * v1.15.0: switch a light that has no switch of its own by writing its
+   * brightness. Off writes a plain 0 (that means "off" in every supported
+   * scale); on writes full brightness, because a source sitting at 0 carries no
+   * memory of what it used to be.
+   *
+   * When the very same request also brings an explicit `bri`, the switch-on
+   * write is skipped and that value does the turning on — otherwise the lamp
+   * would visibly jump to full brightness first.
+   *
+   * @param device - Device configuration (with a mapped briState)
+   * @param value - The `on` value the client sent
+   * @param update - The full (already increment-resolved) request body
+   */
+  private async switchViaBrightness(device: DeviceConfig, value: unknown, update: LightStateUpdate): Promise<void> {
+    const briState = device.briState;
+    if (!briState) {
+      return;
+    }
+    const on = coerceBool(value);
+    if (on && "bri" in (update as Record<string, unknown>)) {
+      this.logger.debug(`"${device.name}": on handled by the bri in the same request`);
+      return;
+    }
+    const target = on ? this.scaleValueForState(HUE_BRI_MAX, device.briScale, HUE_BRI_MAX) : 0;
+    await this.adapter.setForeignStateAsync(briState, { val: target, ack: false });
+    this.stateCache.set(briState, target);
+    this.logger.debug(`"${device.name}": switched ${on ? "on" : "off"} via brightness → ${target}`);
+  }
+
+  /**
    * Derive the Hue `colormode` from the colour states the device actually
    * maps, not from defaulted placeholders. Priority xy > ct > hs matches real
    * Hue. A `color` light always carries a defaulted `xy`, so without the
@@ -539,6 +740,47 @@ export class DeviceBindingService {
       return "ct";
     }
     return undefined;
+  }
+
+  /**
+   * Read the RAW source value of a mapped state (cache first), without any Hue
+   * conversion. The converted read path defaults a missing value to a sensible
+   * Hue value (bri → 254), which is exactly wrong when the question is
+   * "is there any brightness at all?".
+   *
+   * @param stateId - Full ioBroker state ID
+   */
+  private async rawSourceValue(stateId: string): Promise<unknown> {
+    if (this.stateCache.has(stateId)) {
+      return this.stateCache.get(stateId);
+    }
+    try {
+      const state = await this.adapter.getForeignStateAsync(stateId);
+      if (state !== null && state !== undefined) {
+        this.stateCache.set(stateId, state.val);
+        return state.val;
+      }
+      // Same negative caching as getStateValue (v1.10.0 I1) — the subscription
+      // heals it if the state appears later.
+      this.stateCache.set(stateId, null);
+    } catch (error) {
+      this.logger.debug(`Could not get state ${stateId}: ${errText(error)}`);
+    }
+    return null;
+  }
+
+  /**
+   * v1.15.0: on/off for a light whose only writable target is brightness.
+   * A source value above zero means the light is on.
+   *
+   * @param device - Device configuration
+   */
+  private async brightnessImpliesOn(device: DeviceConfig): Promise<boolean> {
+    if (!device.briState) {
+      return false;
+    }
+    const n = coerceFiniteNumber(await this.rawSourceValue(device.briState));
+    return n !== null && n > 0;
   }
 
   /**

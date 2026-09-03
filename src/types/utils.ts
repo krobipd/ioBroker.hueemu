@@ -36,8 +36,16 @@ export function errText(err: unknown): string {
   if (typeof err === "number" || typeof err === "boolean" || typeof err === "bigint") {
     return String(err);
   }
+  // A symbol has no JSON form at all — String() is the only way to a readable
+  // description, and JSON.stringify would hand back `undefined` for it.
+  if (typeof err === "symbol") {
+    return err.toString();
+  }
   try {
-    return JSON.stringify(err);
+    // JSON.stringify returns `undefined` (it does NOT throw) for a function and
+    // for any object whose toJSON() yields undefined — the catch below never
+    // runs for those, so the fallback has to be on the value, not on the throw.
+    return JSON.stringify(err) ?? Object.prototype.toString.call(err);
   } catch {
     return Object.prototype.toString.call(err);
   }

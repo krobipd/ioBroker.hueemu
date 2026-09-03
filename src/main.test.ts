@@ -30,6 +30,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public extendForeignObjectAsync = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
     public extendObjectAsync = vi.fn(async () => {});
+    public extendObject = vi.fn(async () => {});
     public subscribeStates = vi.fn();
     public setTimeout = vi.fn(() => ({}));
     public clearTimeout = vi.fn();
@@ -119,6 +120,7 @@ function internalOf(adapter: HueEmu): {
   clearInterval: ReturnType<typeof vi.fn>;
   subscribeStates: ReturnType<typeof vi.fn>;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
+  extendObject: ReturnType<typeof vi.fn>;
   getStateAsync: ReturnType<typeof vi.fn>;
   getObjectAsync: ReturnType<typeof vi.fn>;
   getObjectListAsync: ReturnType<typeof vi.fn>;
@@ -833,5 +835,117 @@ describe("HueEmu migrateLegacyDevices", () => {
     // ...but the parents of the retained leaf states must NOT be orphaned.
     expect(deleted).not.toContain("legacylamp.state");
     expect(deleted).not.toContain("legacylamp");
+  });
+});
+
+describe("HueEmu backfillDeviceScales (v1.15.0)", () => {
+  /**
+   * A writable number state carrying the bounds that prove a scale.
+   *
+   * @param id The full state id
+   * @param extras Declared bounds/unit of the source
+   * @param extras.min Declared `common.min`, if any
+   * @param extras.max Declared `common.max`, if any
+   * @param extras.unit Declared `common.unit`, if any
+   */
+  function sourceState(id: string, extras: { min?: number; max?: number; unit?: string }): unknown {
+    return {
+      _id: id,
+      type: "state",
+      common: { name: id, type: "number", role: "level", read: true, write: true, ...extras },
+      native: {},
+    };
+  }
+
+  it("stops onReady after rewriting the config — the instance is restarting", async () => {
+    // A native write restarts the instance (jsonConfig semantics), so binding
+    // ports here would only tear them down again a moment later.
+    const { adapter, servers, ssdps } = setup({
+      devices: [{ name: "Bedroom", lightType: "dimmable", briState: "hm.LEVEL" }],
+    });
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "hm.LEVEL" ? sourceState("hm.LEVEL", { min: 0, max: 100, unit: "%" }) : null),
+    );
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
+      "system.adapter.hueemu.0",
+      expect.objectContaining({ native: { devices: [expect.objectContaining({ briScale: "percent" })] } }),
+    );
+    expect(servers).toHaveLength(0);
+    expect(ssdps).toHaveLength(0);
+    expect(i.subscribeStates).not.toHaveBeenCalled();
+  });
+
+  it("boots normally when there is nothing to derive", async () => {
+    const { adapter, servers } = setup({
+      devices: [{ name: "Bulb", lightType: "ct", onState: "z.on", ctState: "z.ct" }],
+    });
+    const i = internalOf(adapter);
+    // A zigbee colour temperature: no unit, no bounds — nothing is provable, so
+    // the adapter must simply carry on booting.
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "z.ct" ? sourceState("z.ct", {}) : null),
+    );
+
+    await i.onReady();
+
+    expect(servers).toHaveLength(1);
+    expect(i.subscribeStates).toHaveBeenCalledWith("*");
+  });
+
+  it("boots normally for an installation without configured lights", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(servers).toHaveLength(1);
+  });
+});
+
+describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
+  it("re-applies all three manifest objects on every start", async () => {
+    // js-controller creates instanceObjects only where they are MISSING, so a
+    // changed name or description would otherwise reach fresh installs only —
+    // the manifest looks right while every existing tree keeps the old text.
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+
+    const ids = i.extendObject.mock.calls.map(c => c[0] as string);
+    expect(ids).toEqual(expect.arrayContaining(["startPairing", "disableAuth", "clients"]));
+  });
+
+  it("carries name AND description, as translation objects", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+
+    const byId = new Map(i.extendObject.mock.calls.map(c => [c[0] as string, c[1] as ioBroker.SettableObject]));
+    const pairing = byId.get("startPairing");
+    expect(pairing?.common?.name).toEqual({ en: "startPairingName" });
+    expect(pairing?.common?.desc).toEqual({ en: "startPairingDesc" });
+    const auth = byId.get("disableAuth");
+    expect(auth?.common?.name).toEqual({ en: "disableAuthName" });
+    expect(auth?.common?.desc).toEqual({ en: "disableAuthDesc" });
+    expect(byId.get("clients")?.common?.name).toEqual({ en: "clientsFolder" });
+  });
+
+  it("refreshes BEFORE the servers bind — a start that dies later still fixed the tree", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(i.extendObject.mock.invocationCallOrder[0]).toBeLessThan(servers[0].start.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps role and type on the switches, so the object stays a valid state", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    const byId = new Map(i.extendObject.mock.calls.map(c => [c[0] as string, c[1] as ioBroker.SettableObject]));
+    expect(byId.get("startPairing")?.common).toMatchObject({ type: "boolean", role: "button", read: false });
+    expect(byId.get("disableAuth")?.common).toMatchObject({ type: "boolean", role: "switch", read: true });
+    expect(byId.get("clients")?.common).toMatchObject({ type: "meta.folder" });
   });
 });

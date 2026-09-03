@@ -3,7 +3,7 @@
  */
 
 import { HueApiError, HueErrorType } from "../types/errors";
-import { DeviceBindingService, type DeviceConfig } from "./device-binding-service";
+import { applyIncrement, DeviceBindingService, type DeviceConfig } from "./device-binding-service";
 import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
 import type { Mock } from "vitest";
@@ -1358,5 +1358,204 @@ describe("Light type integration", () => {
     const light = await service.getLightById("1");
     expect(light.state.on).toBe(false); // default
     expect(light.state.bri).toBe(254); // default
+  });
+});
+
+describe("v1.15.0 — a light whose only writable target is brightness", () => {
+  // Real shape: a HomeMatic HmIP-BDT dimmer channel exposes LEVEL and nothing
+  // boolean at all, so brightness has to carry on/off (2026-09-03 audit, F3).
+  const briOnly: DeviceConfig = { name: "Bedroom", lightType: "dimmable", briState: "hm.LEVEL", briScale: "percent" };
+
+  it("reports on=false while the source sits at zero", async () => {
+    const { service } = createService([briOnly], { "hm.LEVEL": 0 });
+    const light = await service.getLightById("1");
+    expect(light.state.on).toBe(false);
+  });
+
+  it("reports on=true for any brightness above zero", async () => {
+    const { service } = createService([briOnly], { "hm.LEVEL": 7 });
+    const light = await service.getLightById("1");
+    expect(light.state.on).toBe(true);
+  });
+
+  it("does not read on=true off the DEFAULTED brightness of a missing source", async () => {
+    // The assembled Hue `bri` defaults to 254 when the source has no value —
+    // deriving on/off from that would report every dead binding as switched on.
+    const { service } = createService([briOnly], {});
+    const light = await service.getLightById("1");
+    expect(light.state.on).toBe(false);
+  });
+
+  it("switches off by writing zero", async () => {
+    const { service, adapter } = createService([briOnly], { "hm.LEVEL": 80 });
+    const results = await service.setLightState("1", { on: false });
+    expect(adapter.writtenStates.get("hm.LEVEL")).toBe(0);
+    expect(results[0]).toEqual({ success: { "/lights/1/state/on": false } });
+  });
+
+  it("switches on by writing full brightness in the source scale", async () => {
+    const { service, adapter } = createService([briOnly], { "hm.LEVEL": 0 });
+    await service.setLightState("1", { on: true });
+    expect(adapter.writtenStates.get("hm.LEVEL")).toBe(100);
+  });
+
+  it("lets an explicit brightness in the same request do the switching on", async () => {
+    // Otherwise the lamp jumps to full brightness first and then down to the
+    // requested value — visible, and not what the client asked for.
+    const { service, adapter } = createService([briOnly], { "hm.LEVEL": 0 });
+    await service.setLightState("1", { on: true, bri: 127 });
+    expect(adapter.writtenStates.get("hm.LEVEL")).toBe(50);
+  });
+
+  it("still writes zero when off comes together with a brightness", async () => {
+    const { service, adapter } = createService([briOnly], { "hm.LEVEL": 80 });
+    await service.setLightState("1", { on: false, bri: 254 });
+    expect(adapter.writtenStates.get("hm.LEVEL")).toBe(0);
+  });
+
+  it("leaves a light with neither switch nor brightness untouched", async () => {
+    const { service, adapter } = createService([{ name: "Nothing", lightType: "dimmable" }], {});
+    const results = await service.setLightState("1", { on: true });
+    expect(adapter.writtenStates.size).toBe(0);
+    expect(results[0]).toEqual({ success: { "/lights/1/state/on": true } });
+  });
+});
+
+describe("v1.15.0 — relative attributes (bri_inc & co.)", () => {
+  const colorLight: DeviceConfig = {
+    name: "Lamp",
+    lightType: "color",
+    onState: "z.on",
+    briState: "z.bri",
+    briScale: "raw",
+    hueState: "z.hue",
+    satState: "z.sat",
+    satScale: "raw",
+    ctState: "z.ct",
+    xyState: "z.xy",
+  };
+
+  it("raises brightness from the current value and answers with the ABSOLUTE address", async () => {
+    const { service, adapter } = createService([colorLight], { "z.bri": 100 });
+    const results = await service.setLightState("1", { bri_inc: 50 });
+    expect(adapter.writtenStates.get("z.bri")).toBe(150);
+    expect(results).toEqual([{ success: { "/lights/1/state/bri": 150 } }]);
+  });
+
+  it("lowers brightness and clamps at the Hue minimum of 1", async () => {
+    const { service, adapter } = createService([colorLight], { "z.bri": 10 });
+    await service.setLightState("1", { bri_inc: -200 });
+    expect(adapter.writtenStates.get("z.bri")).toBe(1);
+  });
+
+  it("clamps brightness at the Hue maximum of 254", async () => {
+    const { service, adapter } = createService([colorLight], { "z.bri": 250 });
+    await service.setLightState("1", { bri_inc: 900 });
+    expect(adapter.writtenStates.get("z.bri")).toBe(254);
+  });
+
+  it("wraps hue around the colour wheel instead of clamping", async () => {
+    // One step past the end of the wheel comes out at the other side — this is
+    // the one attribute that must NOT clamp.
+    const { service, adapter } = createService([colorLight], { "z.hue": 65000 });
+    await service.setLightState("1", { hue_inc: 1000 });
+    expect(adapter.writtenStates.get("z.hue")).toBe(464);
+  });
+
+  it("wraps hue downwards too", async () => {
+    const { service, adapter } = createService([colorLight], { "z.hue": 100 });
+    await service.setLightState("1", { hue_inc: -200 });
+    expect(adapter.writtenStates.get("z.hue")).toBe(65436);
+  });
+
+  it("clamps saturation and colour temperature into their Hue ranges", async () => {
+    const { service, adapter } = createService([colorLight], { "z.sat": 200, "z.ct": 490 });
+    await service.setLightState("1", { sat_inc: 100, ct_inc: 100 });
+    expect(adapter.writtenStates.get("z.sat")).toBe(254);
+    expect(adapter.writtenStates.get("z.ct")).toBe(500);
+  });
+
+  it("shifts xy per component and holds it inside the colour space", async () => {
+    const { service, adapter } = createService([colorLight], { "z.xy": [0.4, 0.9] });
+    await service.setLightState("1", { xy_inc: [0.1, 0.5] } as never);
+    expect(adapter.writtenStates.get("z.xy")).toBe(JSON.stringify([0.5, 1]));
+  });
+
+  it("ignores the increment when the absolute value is in the same request", async () => {
+    // Documented Hue behaviour, and what the diyHue reference bridge does.
+    const { service, adapter } = createService([colorLight], { "z.bri": 100 });
+    const results = await service.setLightState("1", { bri: 200, bri_inc: 50 });
+    expect(adapter.writtenStates.get("z.bri")).toBe(200);
+    expect(results).toEqual([{ success: { "/lights/1/state/bri": 200 } }]);
+  });
+
+  it("honours every increment in one request, not just the first", async () => {
+    const { service, adapter } = createService([colorLight], { "z.bri": 100, "z.sat": 100 });
+    await service.setLightState("1", { bri_inc: 10, sat_inc: 10 });
+    expect(adapter.writtenStates.get("z.bri")).toBe(110);
+    expect(adapter.writtenStates.get("z.sat")).toBe(110);
+  });
+
+  it("converts the result into the source scale, like the absolute path", async () => {
+    const percentLight: DeviceConfig = {
+      name: "Percent",
+      lightType: "dimmable",
+      onState: "p.on",
+      briState: "p.bri",
+      briScale: "percent",
+    };
+    const { service, adapter } = createService([percentLight], { "p.bri": 50 });
+    // 50 % reads as Hue 127; +127 → 254 → written back as 100 %.
+    await service.setLightState("1", { bri_inc: 127 });
+    expect(adapter.writtenStates.get("p.bri")).toBe(100);
+  });
+
+  it("writes nothing for an increment on an attribute the light does not map", async () => {
+    const plain: DeviceConfig = { name: "Plain", lightType: "dimmable", onState: "q.on" };
+    const { service, adapter } = createService([plain], { "q.on": true });
+    const results = await service.setLightState("1", { bri_inc: 50 });
+    expect(adapter.writtenStates.size).toBe(0);
+    expect(results).toEqual([{ success: { "/lights/1/state/bri_inc": 50 } }]);
+  });
+
+  it("writes nothing for an unusable increment payload", async () => {
+    const { service, adapter } = createService([colorLight], { "z.bri": 100 });
+    const results = await service.setLightState("1", { bri_inc: "much" } as never);
+    expect(adapter.writtenStates.size).toBe(0);
+    expect(results).toEqual([{ success: { "/lights/1/state/bri_inc": "much" } }]);
+  });
+});
+
+describe("applyIncrement", () => {
+  it("refuses an xy shift that is not a pair of numbers", () => {
+    expect(applyIncrement("xy", [0.3, 0.4], 0.1)).toBeUndefined();
+    expect(applyIncrement("xy", [0.3, 0.4], [0.1])).toBeUndefined();
+    expect(applyIncrement("xy", [0.3, 0.4], ["a", "b"])).toBeUndefined();
+  });
+
+  it("refuses an xy shift when the current colour is not a pair of numbers", () => {
+    expect(applyIncrement("xy", "0.3", [0.1, 0.1])).toBeUndefined();
+    expect(applyIncrement("xy", [0.3], [0.1, 0.1])).toBeUndefined();
+    expect(applyIncrement("xy", ["x", "y"], [0.1, 0.1])).toBeUndefined();
+  });
+
+  it("holds an xy shift inside the colour space in both directions", () => {
+    expect(applyIncrement("xy", [0.1, 0.1], [-0.5, -0.5])).toEqual([0, 0]);
+    expect(applyIncrement("xy", [0.9, 0.9], [0.5, 0.5])).toEqual([1, 1]);
+  });
+
+  it("has no opinion about an attribute that has no relative form", () => {
+    expect(applyIncrement("on", true, 1)).toBeUndefined();
+  });
+
+  it("refuses a non-numeric increment or current value", () => {
+    expect(applyIncrement("bri", 100, "more")).toBeUndefined();
+    expect(applyIncrement("bri", "bright", 10)).toBeUndefined();
+  });
+
+  it("lands exactly on the wrap boundary", () => {
+    // 65535 + 1 is the first value of the next turn, i.e. 0 — not 65536.
+    expect(applyIncrement("hue", 65535, 1)).toBe(0);
+    expect(applyIncrement("hue", 0, -1)).toBe(65535);
   });
 });

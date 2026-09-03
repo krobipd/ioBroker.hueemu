@@ -78,6 +78,23 @@ describe("errText", () => {
     expect(errText(BigInt(99))).toBe("99");
   });
 
+  // v1.15.0 (fleet defect, first seen in parcelapp 2026-08-22): JSON.stringify
+  // RETURNS `undefined` for these — it does not throw — so the try/catch never
+  // fired and the log line read "… : undefined", losing the whole diagnosis.
+  it("describes a symbol instead of returning undefined", () => {
+    const text = errText(Symbol("nope"));
+    expect(text).toContain("nope");
+    expect(text).not.toBe("undefined");
+  });
+
+  it("describes a function instead of returning undefined", () => {
+    expect(errText(() => "x")).toBe("[object Function]");
+  });
+
+  it("describes an object whose toJSON yields undefined", () => {
+    expect(errText({ toJSON: () => undefined })).toBe("[object Object]");
+  });
+
   it("JSON.stringifies plain objects", () => {
     expect(errText({ code: 500, msg: "nope" })).toBe('{"code":500,"msg":"nope"}');
   });

@@ -311,6 +311,58 @@ describe("UserService", () => {
       await expect(service.addUser("auto-1", "echo", true)).rejects.toThrow(/ceiling/i);
     });
 
+    it("a rejected attempt does not eat a slot — the owner can still pair after a flood", async () => {
+      // 2026-09-03 audit (F5): the ceiling counted the ATTEMPT, so the auto-add
+      // cap's own rejections burned the hourly budget. Measured: 64 clients
+      // created, and the owner's next manual pairing refused for the rest of
+      // the hour. 200 attempts must cost exactly the 64 that were persisted.
+      const { service } = serviceWithWarnSpy();
+      let created = 0;
+      for (let i = 0; i < 200; i++) {
+        try {
+          await service.addUser(`auto-${i}`, "flood", true);
+          created++;
+        } catch {
+          /* rejected — must not cost anything */
+        }
+      }
+      expect(created).toBe(64);
+      await expect(service.createUser("owners-echo", "Echo")).resolves.toBeTruthy();
+    });
+
+    it("re-pairing under an existing name costs nothing — no new object, no slot", async () => {
+      const { service } = serviceWithWarnSpy();
+      await service.createUser("known", "Echo");
+      for (let i = 0; i < 500; i++) {
+        await service.createUser("known", "Echo");
+      }
+      // The one real creation is the only one booked, so 99 slots are still
+      // free — the 500 repeats cost nothing.
+      for (let i = 0; i < CLIENT_CREATE_CEILING_PER_HOUR - 1; i++) {
+        await service.createUser(`rest-${i}`, "flood");
+      }
+      await expect(service.createUser("one-too-many", "flood")).rejects.toThrow(/ceiling/i);
+    });
+
+    it("a creation whose object write failed does not eat a slot", async () => {
+      const { service, adapter } = serviceWithWarnSpy();
+      adapter.setObjectShouldFail = true;
+      for (let i = 0; i < 150; i++) {
+        await service.createUser(`broken-${i}`, "flood");
+      }
+      adapter.setObjectShouldFail = false;
+      await expect(service.createUser("now-working", "Echo")).resolves.toBeTruthy();
+    });
+
+    it("still refuses to create anything once the ceiling is reached", async () => {
+      // The check has to stay AHEAD of the object write — counting later must
+      // not turn the ceiling into a post-hoc tally.
+      const { service, adapter } = serviceWithWarnSpy();
+      await fillTheHour(service, "c");
+      await expect(service.createUser("c-100", "flood")).rejects.toThrow(/ceiling/i);
+      expect(adapter.writtenObjects.has("clients.c-100")).toBe(false);
+    });
+
     it("opens a fresh window after the hour — a whole chain passes again and the warning re-arms", async () => {
       const { service, warn } = serviceWithWarnSpy();
       await fillTheHour(service, "c");

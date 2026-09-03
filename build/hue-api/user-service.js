@@ -79,10 +79,17 @@ class UserService {
     this.autoAddCapWarned = false;
   }
   /**
-   * Count one persistent client creation against the hourly ceiling; throws
-   * once the ceiling is reached (warns once per window). The window is fixed,
-   * not sliding: it starts with the first creation and the counter is zeroed
-   * when a new one starts — never a counter that only rises.
+   * Throw when the hourly ceiling is already used up (warns once per window).
+   * The window is fixed, not sliding: it starts with the first creation and the
+   * counter is zeroed when a new one starts — never a counter that only rises.
+   *
+   * v1.15.0: this only CHECKS. Counting moved to {@link countCreatedClient},
+   * which runs after a client was really persisted. Counting the attempt let
+   * rejected requests eat the budget: 64 auto-adds plus the auto-add cap's own
+   * rejections exhausted all 100 slots inside one 50-second pairing window, and
+   * the owner's next manual pairing was refused for the rest of the hour
+   * (measured, 2026-09-03 audit F5). It still runs BEFORE the object write, so a
+   * request over the ceiling creates nothing.
    */
   enforceCreateCeiling() {
     const now = Date.now();
@@ -98,6 +105,13 @@ class UserService {
       }
       throw new Error("Client creation ceiling reached for this hour");
     }
+  }
+  /**
+   * Book one actually-created client against the hourly ceiling. Only called
+   * once the client is persisted and new — a re-pairing under an existing name
+   * costs nothing, and neither does a creation whose object write failed.
+   */
+  countCreatedClient() {
     this.createWindow.count += 1;
   }
   /**
@@ -107,7 +121,7 @@ class UserService {
    * @param devicetype Client-supplied device type (purely informational).
    * @param viaAutoAdd `true` when called from the pairing-window auto-add
    *   path — counts against the per-window cap. `false` for explicit
-   *   `POST /api` createUser calls (unbounded, gated by the link button).
+   *   `POST /api` createUser calls (gated by the link button and the hourly ceiling).
    */
   async addUser(username, devicetype = "unknown", viaAutoAdd = false) {
     var _a;
@@ -127,6 +141,9 @@ class UserService {
     const safeUsername = (0, import_utils.sanitizeId)(username);
     this.logger.debug(`Creating client: ${safeUsername} (${(0, import_utils.oneLine)(devicetype)})`);
     await this.ensureClientsFolder();
+    const cache = await this.ensureCache();
+    const isNewClient = !cache.has(safeUsername);
+    let persisted = false;
     try {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
         type: "state",
@@ -139,6 +156,7 @@ class UserService {
         },
         native: { username }
       });
+      persisted = true;
     } catch (err) {
       this.logger.warn(`Failed to create client object ${safeUsername}: ${(0, import_utils.errText)(err)}`);
     }
@@ -150,7 +168,9 @@ class UserService {
     } catch (err) {
       this.logger.warn(`Failed to set client state ${safeUsername}: ${(0, import_utils.errText)(err)}`);
     }
-    await this.ensureCache();
+    if (isNewClient && persisted) {
+      this.countCreatedClient();
+    }
     (_a = this.clientIdsCache) == null ? void 0 : _a.add(safeUsername);
   }
   /**

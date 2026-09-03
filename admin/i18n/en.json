@@ -68,8 +68,8 @@
   "dmSelectTitle": "Select lights to add",
   "dmSelectHint": "Tick the lights you want to expose as Hue lights. Unticked ones are ignored.",
   "dmScanNone": "No new mappable lights found.",
-  "dmScanNoneRgb": "No new mappable lights found. %s device(s) look like RGB and need manual mapping.",
+  "dmScanNoneSkipped": "No new mappable lights found. %s device(s) could not be mapped automatically and need manual mapping.",
   "dmScanAdded": "Added %s light(s).",
-  "dmScanAddedRgb": "Added %s light(s). %s device(s) look like RGB and need manual mapping.",
+  "dmScanAddedSkipped": "Added %s light(s). %s device(s) could not be mapped automatically and need manual mapping.",
   "dmScanFailed": "Scan failed: %s"
 }

@@ -19,9 +19,9 @@ describe("tName", () => {
 
 describe("t", () => {
   it("forwards the key and the %s arguments to I18n.getTranslatedObject", () => {
-    const result = t("dmScanAddedRgb", 3, 1);
-    expect(vi.mocked(I18n.getTranslatedObject)).toHaveBeenCalledWith("dmScanAddedRgb", 3, 1);
-    expect(result).toEqual({ en: "dmScanAddedRgb", de: "dmScanAddedRgb_de" });
+    const result = t("dmScanAddedSkipped", 3, 1);
+    expect(vi.mocked(I18n.getTranslatedObject)).toHaveBeenCalledWith("dmScanAddedSkipped", 3, 1);
+    expect(result).toEqual({ en: "dmScanAddedSkipped", de: "dmScanAddedSkipped_de" });
   });
 });
 

@@ -68,8 +68,8 @@
   "dmSelectTitle": "Lampen om toe te voegen selecteren",
   "dmSelectHint": "Vink de lampen aan die je als Hue-lampen wilt aanbieden. Niet-aangevinkte worden genegeerd.",
   "dmScanNone": "Geen nieuwe koppelbare lampen gevonden.",
-  "dmScanNoneRgb": "Geen nieuwe koppelbare lampen gevonden. %s apparaat/apparaten lijken op RGB en vereisen handmatige toewijzing.",
+  "dmScanNoneSkipped": "Geen nieuwe koppelbare lampen gevonden. %s apparaat/apparaten konden niet automatisch worden toegewezen en vereisen handmatige toewijzing.",
   "dmScanAdded": "%s lamp(en) toegevoegd.",
-  "dmScanAddedRgb": "%s lamp(en) toegevoegd. %s apparaat/apparaten lijken op RGB en vereisen handmatige toewijzing.",
+  "dmScanAddedSkipped": "%s lamp(en) toegevoegd. %s apparaat/apparaten konden niet automatisch worden toegewezen en vereisen handmatige toewijzing.",
   "dmScanFailed": "Zoeken mislukt: %s"
 }

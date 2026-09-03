@@ -68,8 +68,8 @@
   "dmSelectTitle": "Wybierz światła do dodania",
   "dmSelectHint": "Zaznacz światła, które chcesz udostępnić jako światła Hue. Niezaznaczone są ignorowane.",
   "dmScanNone": "Nie znaleziono nowych świateł do przypisania.",
-  "dmScanNoneRgb": "Nie znaleziono nowych świateł do przypisania. %s urządzenie/urządzenia wyglądają na RGB i wymagają ręcznego przypisania.",
+  "dmScanNoneSkipped": "Nie znaleziono nowych świateł do przypisania. %s urządzenie/urządzenia nie zostały przypisane automatycznie i wymagają ręcznego przypisania.",
   "dmScanAdded": "Dodano %s światło/światła.",
-  "dmScanAddedRgb": "Dodano %s światło/światła. %s urządzenie/urządzenia wyglądają na RGB i wymagają ręcznego przypisania.",
+  "dmScanAddedSkipped": "Dodano %s światło/światła. %s urządzenie/urządzenia nie zostały przypisane automatycznie i wymagają ręcznego przypisania.",
   "dmScanFailed": "Wyszukiwanie nie powiodło się: %s"
 }

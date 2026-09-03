@@ -244,7 +244,7 @@ class ApiHandler {
         this.logger.debug(`Pairing enabled, auto-added user: ${(0, import_utils.oneLine)(username)}`);
         return true;
       } catch (err) {
-        this.logger.warn(`Auto-add rejected for ${(0, import_utils.oneLine)(username)}: ${(0, import_utils.errText)(err)}`);
+        this.logger.debug(`Auto-add rejected for ${(0, import_utils.oneLine)(username)}: ${(0, import_utils.errText)(err)}`);
         return false;
       }
     }

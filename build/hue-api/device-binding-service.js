@@ -18,7 +18,8 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var device_binding_service_exports = {};
 __export(device_binding_service_exports, {
-  DeviceBindingService: () => DeviceBindingService
+  DeviceBindingService: () => DeviceBindingService,
+  applyIncrement: () => applyIncrement
 });
 module.exports = __toCommonJS(device_binding_service_exports);
 var import_errors = require("../types/errors");
@@ -52,6 +53,50 @@ function ctFromState(n, scale) {
 function ctForState(n, scale) {
   const mired = clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
   return scale === "kelvin" ? Math.round(1e6 / mired) : mired;
+}
+const INCREMENT_ATTRIBUTES = {
+  bri_inc: "bri",
+  sat_inc: "sat",
+  hue_inc: "hue",
+  ct_inc: "ct",
+  xy_inc: "xy"
+};
+const HUE_HUE_SPAN = HUE_HUE_MAX + 1;
+function wrapHue(value) {
+  return (Math.round(value) % HUE_HUE_SPAN + HUE_HUE_SPAN) % HUE_HUE_SPAN;
+}
+const clampXyComponent = (v) => Math.min(1, Math.max(0, Math.round(v * 1e4) / 1e4));
+function applyIncrement(base, current, delta) {
+  if (base === "xy") {
+    if (!Array.isArray(delta) || delta.length < 2 || !Array.isArray(current) || current.length < 2) {
+      return void 0;
+    }
+    const dx = (0, import_coerce.coerceFiniteNumber)(delta[0]);
+    const dy = (0, import_coerce.coerceFiniteNumber)(delta[1]);
+    const x = (0, import_coerce.coerceFiniteNumber)(current[0]);
+    const y = (0, import_coerce.coerceFiniteNumber)(current[1]);
+    if (dx === null || dy === null || x === null || y === null) {
+      return void 0;
+    }
+    return [clampXyComponent(x + dx), clampXyComponent(y + dy)];
+  }
+  const step = (0, import_coerce.coerceFiniteNumber)(delta);
+  const now = (0, import_coerce.coerceFiniteNumber)(current);
+  if (step === null || now === null) {
+    return void 0;
+  }
+  switch (base) {
+    case "bri":
+      return clampRound(now + step, HUE_BRI_MIN, HUE_BRI_MAX);
+    case "sat":
+      return clampRound(now + step, 0, HUE_SAT_MAX);
+    case "ct":
+      return clampRound(now + step, HUE_CT_MIN, HUE_CT_MAX);
+    case "hue":
+      return wrapHue(now + step);
+    default:
+      return void 0;
+  }
 }
 const LIGHT_TYPES = {
   onoff: {
@@ -263,6 +308,8 @@ class DeviceBindingService {
         if (value !== void 0) {
           state[stateName] = value;
         }
+      } else if (stateName === "on" && device.briState) {
+        state.on = await this.brightnessImpliesOn(device);
       } else {
         state[stateName] = this.getDefaultValue(stateName);
       }
@@ -307,10 +354,28 @@ class DeviceBindingService {
     this.logger.debug(
       `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}`
     );
-    for (const [key, value] of Object.entries(stateUpdate)) {
+    const effective = await this.resolveIncrements(device, stateUpdate);
+    const body = effective;
+    const switchedOffViaBrightness = !device.onState && !!device.briState && "on" in body && !(0, import_coerce.coerceBool)(body.on);
+    for (const [key, value] of Object.entries(effective)) {
       const address = `/lights/${lightId}/state/${key}`;
       const stateId = this.getStateId(device, key);
+      if (switchedOffViaBrightness && key === "bri") {
+        this.logger.debug(`"${device.name}": ignoring bri \u2014 the same request switches the light off`);
+        results.push({ success: { [address]: value } });
+        continue;
+      }
       if (!stateId) {
+        if (key === "on" && device.briState) {
+          try {
+            await this.switchViaBrightness(device, value, effective);
+            results.push({ success: { [address]: value } });
+          } catch (error) {
+            this.logger.error(`Failed to switch "${device.name}" via brightness: ${(0, import_utils.errText)(error)}`);
+            results.push(import_errors.HueApiError.resourceNotAvailable(lightId, address).toResponse());
+          }
+          continue;
+        }
         this.logger.debug(`No mapping for ${key} on device ${device.name}`);
         results.push({ success: { [address]: value } });
         continue;
@@ -334,6 +399,79 @@ class DeviceBindingService {
       }
     }
     return results;
+  }
+  /**
+   * v1.15.0: replace every relative attribute (`bri_inc`, `sat_inc`, `hue_inc`,
+   * `ct_inc`, `xy_inc`) by its absolute equivalent, computed from the light's
+   * current value. Returns the original object untouched when there is nothing
+   * to resolve.
+   *
+   * A relative attribute is left in place — and therefore acknowledged without a
+   * write, exactly like any unmapped attribute — when the light does not map the
+   * base attribute or the payload is unusable. That is deliberately the same
+   * rule the absolute path already follows; no new special case.
+   *
+   * @param device - Device configuration
+   * @param stateUpdate - The incoming state update
+   */
+  async resolveIncrements(device, stateUpdate) {
+    const body = stateUpdate;
+    let resolved = null;
+    for (const [incKey, base] of Object.entries(INCREMENT_ATTRIBUTES)) {
+      if (!(incKey in body)) {
+        continue;
+      }
+      if (base in body) {
+        resolved != null ? resolved : resolved = { ...body };
+        delete resolved[incKey];
+        this.logger.debug(`Ignoring ${incKey} for "${device.name}" \u2014 ${base} is set in the same request`);
+        continue;
+      }
+      const stateId = this.getStateId(device, base);
+      if (!stateId) {
+        continue;
+      }
+      const current = await this.getStateValue(stateId, base, device);
+      const next = applyIncrement(base, current, body[incKey]);
+      if (next === void 0) {
+        this.logger.debug(`Ignoring invalid ${incKey} for "${device.name}": raw=${JSON.stringify(body[incKey])}`);
+        continue;
+      }
+      resolved != null ? resolved : resolved = { ...body };
+      delete resolved[incKey];
+      resolved[base] = next;
+      this.logger.debug(`${incKey} on "${device.name}": ${JSON.stringify(current)} \u2192 ${JSON.stringify(next)}`);
+    }
+    return resolved != null ? resolved : body;
+  }
+  /**
+   * v1.15.0: switch a light that has no switch of its own by writing its
+   * brightness. Off writes a plain 0 (that means "off" in every supported
+   * scale); on writes full brightness, because a source sitting at 0 carries no
+   * memory of what it used to be.
+   *
+   * When the very same request also brings an explicit `bri`, the switch-on
+   * write is skipped and that value does the turning on — otherwise the lamp
+   * would visibly jump to full brightness first.
+   *
+   * @param device - Device configuration (with a mapped briState)
+   * @param value - The `on` value the client sent
+   * @param update - The full (already increment-resolved) request body
+   */
+  async switchViaBrightness(device, value, update) {
+    const briState = device.briState;
+    if (!briState) {
+      return;
+    }
+    const on = (0, import_coerce.coerceBool)(value);
+    if (on && "bri" in update) {
+      this.logger.debug(`"${device.name}": on handled by the bri in the same request`);
+      return;
+    }
+    const target = on ? this.scaleValueForState(HUE_BRI_MAX, device.briScale, HUE_BRI_MAX) : 0;
+    await this.adapter.setForeignStateAsync(briState, { val: target, ack: false });
+    this.stateCache.set(briState, target);
+    this.logger.debug(`"${device.name}": switched ${on ? "on" : "off"} via brightness \u2192 ${target}`);
   }
   /**
    * Derive the Hue `colormode` from the colour states the device actually
@@ -364,6 +502,43 @@ class DeviceBindingService {
       return "ct";
     }
     return void 0;
+  }
+  /**
+   * Read the RAW source value of a mapped state (cache first), without any Hue
+   * conversion. The converted read path defaults a missing value to a sensible
+   * Hue value (bri → 254), which is exactly wrong when the question is
+   * "is there any brightness at all?".
+   *
+   * @param stateId - Full ioBroker state ID
+   */
+  async rawSourceValue(stateId) {
+    if (this.stateCache.has(stateId)) {
+      return this.stateCache.get(stateId);
+    }
+    try {
+      const state = await this.adapter.getForeignStateAsync(stateId);
+      if (state !== null && state !== void 0) {
+        this.stateCache.set(stateId, state.val);
+        return state.val;
+      }
+      this.stateCache.set(stateId, null);
+    } catch (error) {
+      this.logger.debug(`Could not get state ${stateId}: ${(0, import_utils.errText)(error)}`);
+    }
+    return null;
+  }
+  /**
+   * v1.15.0: on/off for a light whose only writable target is brightness.
+   * A source value above zero means the light is on.
+   *
+   * @param device - Device configuration
+   */
+  async brightnessImpliesOn(device) {
+    if (!device.briState) {
+      return false;
+    }
+    const n = (0, import_coerce.coerceFiniteNumber)(await this.rawSourceValue(device.briState));
+    return n !== null && n > 0;
   }
   /**
    * Get state value from cache or adapter
@@ -677,6 +852,7 @@ class DeviceBindingService {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  DeviceBindingService
+  DeviceBindingService,
+  applyIncrement
 });
 //# sourceMappingURL=device-binding-service.js.map

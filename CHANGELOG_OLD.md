@@ -1,4 +1,9 @@
 # Older Changes
+## 1.12.1 (2026-07-31) — stable
+
+- Leaving the HTTPS port empty in the settings no longer shows an error — an empty value simply means that no HTTPS server is started for the bridge
+- The bridge MAC address that is generated automatically is now always a valid device address; some of the values generated before were not valid MAC addresses
+
 ## 1.12.0 (2026-07-12) — stable
 
 - The "Search lights" assistant now actually finds your lights (it scanned the wrong objects before) and lets you pick which ones to add instead of adding them all

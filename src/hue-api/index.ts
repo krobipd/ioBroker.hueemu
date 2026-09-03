@@ -10,4 +10,7 @@ export {
   type DeviceBindingServiceConfig,
   type DeviceConfig,
   type DeviceBindingAdapter,
+  type LightStateScale,
+  type HueScale,
+  type CtScale,
 } from "./device-binding-service";

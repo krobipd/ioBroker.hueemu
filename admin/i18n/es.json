@@ -68,8 +68,8 @@
   "dmSelectTitle": "Seleccionar luces para añadir",
   "dmSelectHint": "Marca las luces que quieres exponer como luces Hue. Las no marcadas se ignoran.",
   "dmScanNone": "No se encontraron luces asignables nuevas.",
-  "dmScanNoneRgb": "No se encontraron luces asignables nuevas. %s dispositivo(s) parecen RGB y requieren asignación manual.",
+  "dmScanNoneSkipped": "No se encontraron luces asignables nuevas. %s dispositivo(s) no se pudieron asignar automáticamente y requieren asignación manual.",
   "dmScanAdded": "%s luz(ces) añadida(s).",
-  "dmScanAddedRgb": "%s luz(ces) añadida(s). %s dispositivo(s) parecen RGB y requieren asignación manual.",
+  "dmScanAddedSkipped": "%s luz(ces) añadida(s). %s dispositivo(s) no se pudieron asignar automáticamente y requieren asignación manual.",
   "dmScanFailed": "Error en la búsqueda: %s"
 }
