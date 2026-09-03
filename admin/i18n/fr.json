@@ -47,6 +47,8 @@
   "scaleNormalized": "Normalisé (0..1)",
   "scaleRaw": "Brut (1..254 Hue)",
   "clientsFolder": "Clients appariés",
+  "clientsFolderDesc": "Appareils appairés avec le pont — une entrée par appareil",
+  "clientDesc": "La clé avec laquelle cet appareil dialogue avec le pont",
   "startPairingName": "Démarrer l'appairage",
   "startPairingDesc": "Activer le mode d'appairage pendant 50 secondes",
   "disableAuthName": "Désactiver l'authentification",

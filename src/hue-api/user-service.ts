@@ -4,7 +4,7 @@
 
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
-import { tName } from "../lib/i18n";
+import { tName, tRaw } from "../lib/i18n";
 import { errText, oneLine, sanitizeId } from "../types/utils";
 
 /**
@@ -189,7 +189,12 @@ export class UserService {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
         type: "state",
         common: {
-          name: devicetype.slice(0, MAX_DEVICETYPE_LENGTH),
+          // A translation object, not a bare string — `common.name` is one for
+          // EVERY object type, even where the text comes from the device and has
+          // nothing to translate (core team, nut2 #15). Measured on the live tree
+          // 2026-09-03: the two paired clients carried bare strings.
+          name: tRaw(devicetype.slice(0, MAX_DEVICETYPE_LENGTH)),
+          desc: tName("clientDesc"),
           type: "string",
           role: "text",
           read: true,
@@ -301,6 +306,7 @@ export class UserService {
         type: "meta",
         common: {
           name: tName("clientsFolder"),
+          desc: tName("clientsFolderDesc"),
           type: "meta.folder",
         },
         native: {},

@@ -47,6 +47,8 @@
   "scaleNormalized": "Normalizzato (0..1)",
   "scaleRaw": "Grezzo (1..254 Hue)",
   "clientsFolder": "Client accoppiati",
+  "clientsFolderDesc": "Dispositivi che si sono accoppiati con il bridge — una voce per dispositivo",
+  "clientDesc": "La chiave con cui questo dispositivo parla con il bridge",
   "startPairingName": "Avvia accoppiamento",
   "startPairingDesc": "Attiva la modalità accoppiamento per 50 secondi",
   "disableAuthName": "Disattiva autenticazione",

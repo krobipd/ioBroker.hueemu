@@ -164,7 +164,7 @@ describe("ApiHandler", () => {
       );
       expect(writtenClientObjects).toHaveLength(1);
       const [, obj] = writtenClientObjects[0];
-      expect(obj.common?.name).toBe("unknown");
+      expect(obj.common?.name).toMatchObject({ en: "unknown" });
     });
 
     it("defaults devicetype when body.devicetype is empty string", async () => {
@@ -175,7 +175,7 @@ describe("ApiHandler", () => {
       const [, obj] = [...adapter.writtenObjects.entries()].find(
         ([id]) => id.startsWith("clients.") && id !== "clients",
       )!;
-      expect(obj.common?.name).toBe("unknown");
+      expect(obj.common?.name).toMatchObject({ en: "unknown" });
     });
 
     it("ignores non-string body.username and generates UUID", async () => {
@@ -292,7 +292,7 @@ describe("ApiHandler", () => {
       const [, obj] = [...adapter.writtenObjects.entries()].find(
         ([id]) => id.startsWith("clients.") && id !== "clients",
       )!;
-      expect(obj.common?.name).toHaveLength(100);
+      expect((obj.common?.name as Record<string, string>).en).toHaveLength(100);
     });
 
     it("keeps the pairing log line short even for a huge devicetype (cap applies before logging)", async () => {

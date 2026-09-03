@@ -47,6 +47,8 @@
   "scaleNormalized": "Normalizado (0..1)",
   "scaleRaw": "Crudo (1..254 Hue)",
   "clientsFolder": "Clientes emparejados",
+  "clientsFolderDesc": "Dispositivos que se han emparejado con el puente — una entrada por dispositivo",
+  "clientDesc": "La clave con la que este dispositivo habla con el puente",
   "startPairingName": "Iniciar emparejamiento",
   "startPairingDesc": "Activar el modo de emparejamiento durante 50 segundos",
   "disableAuthName": "Desactivar autenticación",

@@ -172,6 +172,10 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### 1.15.1 (2026-09-03)
+
+- Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.
+
 ### 1.15.0 (2026-09-03)
 
 - New: The light assistant now works out how brightness, colour and colour temperature are stored, so the lights it adds show and set the right values.
@@ -199,10 +203,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 
 - Changed: The discovery service was rebuilt — the long-standing security warning is gone and devices find the bridge exactly as before
 - Improved: When the adapter stops, the bridge now announces its shutdown on the network so controllers notice right away instead of waiting for a timeout
-
-### 1.12.2 (2026-08-22)
-
-- Changed: Internal cleanup. No user-facing changes.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

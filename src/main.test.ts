@@ -947,5 +947,98 @@ describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
     expect(byId.get("startPairing")?.common).toMatchObject({ type: "boolean", role: "button", read: false });
     expect(byId.get("disableAuth")?.common).toMatchObject({ type: "boolean", role: "switch", read: true });
     expect(byId.get("clients")?.common).toMatchObject({ type: "meta.folder" });
+    // Every object carries an explanation, the folder included.
+    expect(byId.get("clients")?.common?.desc).toEqual({ en: "clientsFolderDesc" });
+  });
+});
+
+describe("HueEmu refreshClientNames (v1.15.1)", () => {
+  /**
+   * A stored client object with the given name shape.
+   *
+   * @param id The client id under `clients.`
+   * @param name The stored `common.name` — a bare string before v1.15.1
+   */
+  function client(id: string, name: unknown): unknown {
+    return { _id: `hueemu.0.clients.${id}`, type: "state", common: { name, type: "string", role: "text" }, native: {} };
+  }
+
+  it("converts a bare-string client name into a translation object", async () => {
+    // Client objects are created once with setObjectNotExists and never touched
+    // again — the bare string versions before 1.15.1 wrote stayed in the tree for
+    // the life of the pairing (measured live 2026-09-03).
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getStatesOfAsync.mockResolvedValue([client("abc", "Harmony Hub")]);
+
+    await i.onReady();
+
+    const call = i.extendObject.mock.calls.find(c => c[0] === "clients.abc");
+    expect(call).toBeDefined();
+    const name = (call![1] as ioBroker.SettableObject).common?.name as Record<string, string>;
+    expect(name.en).toBe("Harmony Hub");
+    expect(name.de).toBe("Harmony Hub");
+    expect(Object.keys(name)).toHaveLength(11);
+  });
+
+  it("leaves a client alone once name AND description are in place", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    const done = client("done", { en: "Echo", de: "Echo" }) as { common: Record<string, unknown> };
+    done.common.desc = { en: "key" };
+    i.getStatesOfAsync.mockResolvedValue([done]);
+
+    await i.onReady();
+
+    expect(i.extendObject.mock.calls.find(c => c[0] === "clients.done")).toBeUndefined();
+  });
+
+  it("adds the missing description even when the name is already converted", async () => {
+    // Every datapoint carries a name AND an explanation — a client converted by an
+    // earlier step must still pick up the description.
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getStatesOfAsync.mockResolvedValue([client("half", { en: "Echo", de: "Echo" })]);
+
+    await i.onReady();
+
+    const call = i.extendObject.mock.calls.find(c => c[0] === "clients.half");
+    expect((call![1] as ioBroker.SettableObject).common?.desc).toEqual({ en: "clientDesc" });
+    expect((call![1] as ioBroker.SettableObject).common?.name).toBeUndefined();
+  });
+
+  it("gives a converted client both a translated name and a description", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getStatesOfAsync.mockResolvedValue([client("both", "Harmony Hub")]);
+
+    await i.onReady();
+
+    const common = (i.extendObject.mock.calls.find(c => c[0] === "clients.both")![1] as ioBroker.SettableObject)
+      .common as Record<string, unknown>;
+    expect((common.name as Record<string, string>).de).toBe("Harmony Hub");
+    expect(common.desc).toEqual({ en: "clientDesc" });
+  });
+
+  it("keeps the client's own text — it is the device type, not a label", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getStatesOfAsync.mockResolvedValue([client("x", "auto-paired")]);
+
+    await i.onReady();
+
+    const call = i.extendObject.mock.calls.find(c => c[0] === "clients.x");
+    expect((call![1] as ioBroker.SettableObject).common?.name).toMatchObject({ en: "auto-paired" });
+  });
+
+  it("keeps booting when the clients folder cannot be read", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    i.getStatesOfAsync.mockRejectedValue(new Error("objects db down"));
+
+    await i.onReady();
+
+    expect(servers).toHaveLength(1);
+    expect(i.subscribeStates).toHaveBeenCalledWith("*");
   });
 });

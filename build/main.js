@@ -472,10 +472,52 @@ class HueEmu extends utils.Adapter {
     });
     await this.extendObject("clients", {
       type: "meta",
-      common: { name: (0, import_i18n.tName)("clientsFolder"), type: "meta.folder" },
+      common: { name: (0, import_i18n.tName)("clientsFolder"), desc: (0, import_i18n.tName)("clientsFolderDesc"), type: "meta.folder" },
       native: {}
     });
     this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
+    await this.refreshClientNames();
+  }
+  /**
+   * v1.15.1: turn the name of an ALREADY PAIRED client into a translation object.
+   *
+   * A client object is created once, with `setObjectNotExists`, and never touched
+   * again — so the bare-string name that versions before 1.15.1 wrote stays in the
+   * tree for the life of the pairing. `common.name` is a translation object for
+   * every object type, even where the text comes from the device and has nothing
+   * to translate (core team, nut2 #15). Measured on the live tree 2026-09-03: both
+   * paired clients still carried a bare string.
+   *
+   * Only converts — the text itself is the client's own device type and is kept
+   * exactly as it is. An object whose name is already an object is left alone.
+   */
+  async refreshClientNames() {
+    var _a, _b;
+    let converted = 0;
+    try {
+      const clients = await this.getStatesOfAsync("clients", void 0);
+      for (const client of clients != null ? clients : []) {
+        const name = (_a = client.common) == null ? void 0 : _a.name;
+        const hasDesc = ((_b = client.common) == null ? void 0 : _b.desc) !== void 0;
+        if (typeof name !== "string" && hasDesc) {
+          continue;
+        }
+        const id = client._id.substring(this.namespace.length + 1);
+        await this.extendObject(id, {
+          common: {
+            ...typeof name === "string" ? { name: (0, import_i18n.tRaw)(name) } : {},
+            desc: (0, import_i18n.tName)("clientDesc")
+          }
+        });
+        converted++;
+      }
+    } catch (error) {
+      this.log.debug(`Could not refresh the paired-client names: ${(0, import_utils.errText)(error)}`);
+      return;
+    }
+    if (converted > 0) {
+      this.log.debug(`Brought ${converted} paired client object(s) up to the current name/description standard`);
+    }
   }
   /**
    * v1.15.0: fill in the per-device value scales the v1.11.0 assistant never

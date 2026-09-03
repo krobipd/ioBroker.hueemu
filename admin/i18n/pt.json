@@ -47,6 +47,8 @@
   "scaleNormalized": "Normalizado (0..1)",
   "scaleRaw": "Bruto (1..254 Hue)",
   "clientsFolder": "Clientes emparelhados",
+  "clientsFolderDesc": "Dispositivos que emparelharam com a bridge — uma entrada por dispositivo",
+  "clientDesc": "A chave com que este dispositivo fala com a bridge",
   "startPairingName": "Iniciar emparelhamento",
   "startPairingDesc": "Ativar modo de emparelhamento por 50 segundos",
   "disableAuthName": "Desativar autenticação",

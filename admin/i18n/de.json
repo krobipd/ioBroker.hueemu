@@ -47,6 +47,8 @@
   "scaleNormalized": "Normalisiert (0..1)",
   "scaleRaw": "Hue-Roh (1..254)",
   "clientsFolder": "Verbundene Clients",
+  "clientsFolderDesc": "Geräte, die sich mit der Bridge gekoppelt haben — ein Eintrag je Gerät",
+  "clientDesc": "Der Schlüssel, mit dem dieses Gerät mit der Bridge spricht",
   "startPairingName": "Pairing starten",
   "startPairingDesc": "Pairing-Modus für 50 Sekunden aktivieren",
   "disableAuthName": "Authentifizierung deaktivieren",

@@ -1,4 +1,8 @@
 # Older Changes
+## 1.12.2 (2026-08-22)
+
+- Changed: Internal cleanup. No user-facing changes.
+
 ## 1.12.1 (2026-07-31) — stable
 
 - Leaving the HTTPS port empty in the settings no longer shows an error — an empty value simply means that no HTTPS server is started for the bridge

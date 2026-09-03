@@ -15,7 +15,7 @@ import { HueSsdpServer, SSDP_PORT } from "./discovery";
 import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
 import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
-import { tName } from "./lib/i18n";
+import { tName, tRaw } from "./lib/i18n";
 import {
   ID_RANGE_END,
   runObsoleteStateCleanup,
@@ -607,10 +607,55 @@ export class HueEmu extends utils.Adapter {
     });
     await this.extendObject("clients", {
       type: "meta",
-      common: { name: tName("clientsFolder"), type: "meta.folder" },
+      common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc"), type: "meta.folder" },
       native: {},
     });
     this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
+    await this.refreshClientNames();
+  }
+
+  /**
+   * v1.15.1: turn the name of an ALREADY PAIRED client into a translation object.
+   *
+   * A client object is created once, with `setObjectNotExists`, and never touched
+   * again — so the bare-string name that versions before 1.15.1 wrote stays in the
+   * tree for the life of the pairing. `common.name` is a translation object for
+   * every object type, even where the text comes from the device and has nothing
+   * to translate (core team, nut2 #15). Measured on the live tree 2026-09-03: both
+   * paired clients still carried a bare string.
+   *
+   * Only converts — the text itself is the client's own device type and is kept
+   * exactly as it is. An object whose name is already an object is left alone.
+   */
+  private async refreshClientNames(): Promise<void> {
+    let converted = 0;
+    try {
+      const clients = await this.getStatesOfAsync("clients", undefined);
+      for (const client of clients ?? []) {
+        const name = client.common?.name;
+        const hasDesc = client.common?.desc !== undefined;
+        // Nothing to do once the name is a translation object AND the
+        // description is there — an already-converted client is left alone.
+        if (typeof name !== "string" && hasDesc) {
+          continue;
+        }
+        const id = client._id.substring(this.namespace.length + 1);
+        await this.extendObject(id, {
+          common: {
+            ...(typeof name === "string" ? { name: tRaw(name) } : {}),
+            desc: tName("clientDesc"),
+          },
+        });
+        converted++;
+      }
+    } catch (error) {
+      // A failure here must not stop the adapter — the pairing keeps working.
+      this.log.debug(`Could not refresh the paired-client names: ${errText(error)}`);
+      return;
+    }
+    if (converted > 0) {
+      this.log.debug(`Brought ${converted} paired client object(s) up to the current name/description standard`);
+    }
   }
 
   /**

@@ -47,6 +47,8 @@
   "scaleNormalized": "Genormaliseerd (0..1)",
   "scaleRaw": "Ruw (1..254 Hue)",
   "clientsFolder": "Gekoppelde clients",
+  "clientsFolderDesc": "Apparaten die met de bridge zijn gekoppeld — één vermelding per apparaat",
+  "clientDesc": "De sleutel waarmee dit apparaat met de bridge praat",
   "startPairingName": "Koppelen starten",
   "startPairingDesc": "Koppelmodus 50 seconden activeren",
   "disableAuthName": "Aanmelding uitschakelen",

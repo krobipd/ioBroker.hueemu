@@ -47,6 +47,8 @@
   "scaleNormalized": "Znormalizowane (0..1)",
   "scaleRaw": "Surowe (1..254 Hue)",
   "clientsFolder": "Sparowane klienty",
+  "clientsFolderDesc": "Urządzenia sparowane z mostkiem — jeden wpis na urządzenie",
+  "clientDesc": "Klucz, którym to urządzenie komunikuje się z mostkiem",
   "startPairingName": "Rozpocznij parowanie",
   "startPairingDesc": "Włącz tryb parowania na 50 sekund",
   "disableAuthName": "Wyłącz uwierzytelnianie",

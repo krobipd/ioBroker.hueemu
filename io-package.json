@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.15.0",
+    "version": "1.15.1",
     "news": {
+      "1.15.1": {
+        "en": "Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.",
+        "de": "Behoben: Jeder Datenpunkt des Adapters trägt jetzt einen Namen und eine kurze Erklärung in deiner Admin-Sprache, gekoppelte Clients eingeschlossen.",
+        "ru": "Исправлено: Каждый пункт данных адаптера теперь имеет имя и краткое пояснение на языке админки, включая сопряжённые клиенты.",
+        "pt": "Corrigido: Cada ponto de dados do adaptador tem agora um nome e uma breve explicação no seu idioma do admin, incluindo os clientes emparelhados.",
+        "nl": "Opgelost: Elk datapunt van de adapter heeft nu een naam en een korte uitleg in je admin-taal, gekoppelde clients inbegrepen.",
+        "fr": "Corrigé : Chaque point de données de l'adaptateur porte désormais un nom et une brève explication dans votre langue d'admin, clients appairés compris.",
+        "it": "Corretto: Ogni punto dati dell'adattatore ha ora un nome e una breve spiegazione nella tua lingua dell'admin, client accoppiati compresi.",
+        "es": "Corregido: Cada punto de datos del adaptador tiene ahora un nombre y una breve explicación en tu idioma del admin, incluidos los clientes emparejados.",
+        "pl": "Naprawiono: Każdy punkt danych adaptera ma teraz nazwę i krótkie wyjaśnienie w Twoim języku admina, łącznie ze sparowanymi klientami.",
+        "uk": "Виправлено: Кожна точка даних адаптера тепер має ім'я та коротке пояснення вашою мовою адмінки, включно зі спареними клієнтами.",
+        "zh-cn": "修复：适配器的每个数据点现在都带有名称和简短说明，并以你的管理界面语言显示，已配对客户端也包括在内。"
+      },
       "1.15.0": {
         "en": "New: The light assistant now works out how brightness, colour and colour temperature are stored, so the lights it adds show and set the right values.\nFixed: A colour light found by the assistant showed red instead of its real colour and lost its colour temperature entirely — both are corrected.\nNew: Dimmers with no separate on/off state, such as a HomeMatic dimmer channel, can be used at last — their brightness switches them.\nImproved: The assistant no longer picks a read-only status state as the switch, and it now counts every device it had to skip, not just RGB ones.\nFixed: Lights added by an earlier version showed wrong colours or brightness until you corrected their scale by hand; the right scale is now set for you.\nNew: Relative commands such as \"a bit darker\" or a dimmer rocker change the light now instead of being accepted and ignored.\nFixed: Rejected pairing attempts used up the hourly pairing budget and could block your own pairing for the rest of the hour.",
         "de": "Neu: Der Licht-Assistent ermittelt jetzt, wie Helligkeit, Farbe und Farbtemperatur gespeichert sind — hinzugefügte Lichter zeigen und setzen damit die richtigen Werte.\nBehoben: Ein vom Assistenten gefundenes Farblicht zeigte Rot statt seiner echten Farbe und verlor seine Farbtemperatur ganz — beides ist korrigiert.\nNeu: Dimmer ohne eigenen Ein/Aus-Datenpunkt, etwa ein HomeMatic-Dimmerkanal, sind endlich nutzbar — ihre Helligkeit schaltet sie.\nVerbessert: Der Assistent wählt keinen nur lesbaren Status-Datenpunkt mehr als Schalter und zählt jetzt jedes übersprungene Gerät, nicht nur RGB-Geräte.\nBehoben: Lichter aus einer früheren Version zeigten falsche Farben oder Helligkeiten, bis man die Skala von Hand korrigierte; jetzt wird die richtige gesetzt.\nNeu: Relative Befehle wie „etwas dunkler“ oder eine Dimm-Wippe verändern das Licht jetzt, statt angenommen und ignoriert zu werden.\nBehoben: Abgelehnte Kopplungsversuche verbrauchten das Stundenkontingent und konnten die eigene Kopplung für den Rest der Stunde blockieren.",
@@ -80,19 +93,6 @@
         "pl": "Puste pole portu HTTPS nie pokazuje już błędu w ustawieniach. Adres MAC mostka generowany automatycznie jest teraz zawsze prawidłowym adresem.",
         "uk": "Порожнє поле порту HTTPS більше не показує помилку в налаштуваннях. MAC-адреса мосту, що створюється автоматично, тепер завжди є коректною.",
         "zh-cn": "在设置中将 HTTPS 端口留空不再显示错误。自动生成的网桥 MAC 地址现在始终是有效地址。"
-      },
-      "1.12.0": {
-        "en": "The light search now actually finds your lights and lets you choose which to add. The two IP settings are now one Host/IP selector.",
-        "de": "Die Lichtsuche findet jetzt tatsächlich deine Lichter und lässt dich wählen, welche du hinzufügst. Die zwei IP-Einstellungen sind nun ein Host/IP-Selektor.",
-        "ru": "Поиск светильников теперь действительно находит ваши светильники и позволяет выбрать, какие добавить. Две настройки IP теперь один селектор Host/IP.",
-        "pt": "A busca de luzes agora encontra mesmo as suas luzes e deixa escolher quais adicionar. As duas definições de IP são agora um único seletor Host/IP.",
-        "nl": "Het lampen zoeken vindt nu echt je lampen en laat je kiezen welke je toevoegt. De twee IP-instellingen zijn nu één Host/IP-selector.",
-        "fr": "La recherche de lumières trouve désormais vraiment vos lumières et vous laisse choisir lesquelles ajouter. Les deux réglages IP ne font qu'un sélecteur Hôte/IP.",
-        "it": "La ricerca luci ora trova davvero le tue luci e ti fa scegliere quali aggiungere. Le due impostazioni IP sono ora un unico selettore Host/IP.",
-        "es": "La búsqueda de luces ahora encuentra realmente tus luces y te deja elegir cuáles añadir. Los dos ajustes de IP son ahora un único selector Host/IP.",
-        "pl": "Wyszukiwanie świateł teraz naprawdę znajduje twoje światła i pozwala wybrać, które dodać. Dwa ustawienia IP to teraz jeden selektor Host/IP.",
-        "uk": "Пошук світильників тепер справді знаходить ваші світильники й дає змогу вибрати, які додати. Два налаштування IP тепер один селектор Host/IP.",
-        "zh-cn": "灯光搜索现在能真正找到你的灯，并让你选择添加哪些。两个 IP 设置现在合并为一个 Host/IP 选择器。"
       }
     },
     "plugins": {
@@ -286,7 +286,20 @@
           "uk": "Спарені клієнти",
           "zh-cn": "已配对客户端"
         },
-        "type": "meta.folder"
+        "type": "meta.folder",
+        "desc": {
+          "en": "Devices that have paired with the bridge — one entry per device",
+          "de": "Geräte, die sich mit der Bridge gekoppelt haben — ein Eintrag je Gerät",
+          "ru": "Устройства, сопряжённые с мостом — по одной записи на устройство",
+          "pt": "Dispositivos que emparelharam com a bridge — uma entrada por dispositivo",
+          "nl": "Apparaten die met de bridge zijn gekoppeld — één vermelding per apparaat",
+          "fr": "Appareils appairés avec le pont — une entrée par appareil",
+          "it": "Dispositivi che si sono accoppiati con il bridge — una voce per dispositivo",
+          "es": "Dispositivos que se han emparejado con el puente — una entrada por dispositivo",
+          "pl": "Urządzenia sparowane z mostkiem — jeden wpis na urządzenie",
+          "uk": "Пристрої, спарені з мостом — по одному запису на пристрій",
+          "zh-cn": "已与网桥配对的设备——每台设备一个条目"
+        }
       },
       "native": {}
     }

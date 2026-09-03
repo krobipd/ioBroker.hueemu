@@ -148,7 +148,12 @@ class UserService {
       await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
         type: "state",
         common: {
-          name: devicetype.slice(0, MAX_DEVICETYPE_LENGTH),
+          // A translation object, not a bare string — `common.name` is one for
+          // EVERY object type, even where the text comes from the device and has
+          // nothing to translate (core team, nut2 #15). Measured on the live tree
+          // 2026-09-03: the two paired clients carried bare strings.
+          name: (0, import_i18n.tRaw)(devicetype.slice(0, MAX_DEVICETYPE_LENGTH)),
+          desc: (0, import_i18n.tName)("clientDesc"),
           type: "string",
           role: "text",
           read: true,
@@ -245,6 +250,7 @@ class UserService {
         type: "meta",
         common: {
           name: (0, import_i18n.tName)("clientsFolder"),
+          desc: (0, import_i18n.tName)("clientsFolderDesc"),
           type: "meta.folder"
         },
         native: {}

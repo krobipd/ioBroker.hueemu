@@ -47,6 +47,8 @@
   "scaleNormalized": "Normalized (0..1)",
   "scaleRaw": "Raw (1..254 Hue)",
   "clientsFolder": "Paired Clients",
+  "clientsFolderDesc": "Devices that have paired with the bridge — one entry per device",
+  "clientDesc": "The key this device uses to talk to the bridge",
   "startPairingName": "Start Pairing",
   "startPairingDesc": "Enable pairing mode for 50 seconds",
   "disableAuthName": "Disable Authentication",

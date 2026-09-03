@@ -92,7 +92,9 @@ describe("UserService", () => {
     it("stores at most 100 chars of the devicetype as the object name", async () => {
       const { service, adapter } = createService();
       await service.addUser("long-name-client", "x".repeat(300));
-      expect(adapter.writtenObjects.get("clients.long-name-client")?.common?.name).toHaveLength(MAX_DEVICETYPE_LENGTH);
+      expect(
+        (adapter.writtenObjects.get("clients.long-name-client")?.common?.name as Record<string, string>).en,
+      ).toHaveLength(MAX_DEVICETYPE_LENGTH);
     });
 
     it("creates client state object with sanitized id", async () => {
@@ -100,7 +102,7 @@ describe("UserService", () => {
       await service.addUser("alexa-echo-1", "Amazon Echo");
       expect(adapter.writtenObjects.has("clients.alexa-echo-1")).toBe(true);
       const obj = adapter.writtenObjects.get("clients.alexa-echo-1");
-      expect(obj?.common?.name).toBe("Amazon Echo");
+      expect(obj?.common?.name).toMatchObject({ en: "Amazon Echo", de: "Amazon Echo" });
     });
 
     it("sanitizes FORBIDDEN_CHARS in username", async () => {
@@ -119,7 +121,7 @@ describe("UserService", () => {
       const { service, adapter } = createService();
       await service.addUser("abc123");
       const obj = adapter.writtenObjects.get("clients.abc123");
-      expect(obj?.common?.name).toBe("unknown");
+      expect(obj?.common?.name).toMatchObject({ en: "unknown" });
     });
 
     it("stores original username as state value (not sanitized)", async () => {
@@ -176,7 +178,7 @@ describe("UserService", () => {
       await service.createUser("user1");
       const sanitized = "user1";
       const obj = adapter.writtenObjects.get(`clients.${sanitized}`);
-      expect(obj?.common?.name).toBe("unknown");
+      expect(obj?.common?.name).toMatchObject({ en: "unknown" });
     });
   });
 
@@ -416,5 +418,42 @@ describe("UserService", () => {
       const ids = service.listCachedClientIds();
       expect(ids).toEqual(expect.arrayContaining(["alexa-1", "harmony-2"]));
     });
+  });
+});
+
+describe("v1.15.1 — the client name is a translation object", () => {
+  it("writes the device type under every one of the eleven languages", async () => {
+    // `common.name` is a translation object for EVERY object type, even where the
+    // text comes from the device and has nothing to translate (core team, nut2 #15).
+    const adapter = createMockAdapter();
+    const service = new UserService({ adapter, logger: createMockLogger() });
+    await service.createUser("client-1", "Harmony Hub");
+    const name = adapter.writtenObjects.get("clients.client-1")?.common?.name as Record<string, string>;
+    expect(Object.keys(name)).toHaveLength(11);
+    expect(name.en).toBe("Harmony Hub");
+    expect(name["zh-cn"]).toBe("Harmony Hub");
+  });
+
+  it("never writes a bare string as the name", async () => {
+    const adapter = createMockAdapter();
+    const service = new UserService({ adapter, logger: createMockLogger() });
+    await service.createUser("client-2", "Echo");
+    expect(typeof adapter.writtenObjects.get("clients.client-2")?.common?.name).toBe("object");
+  });
+});
+
+describe("v1.15.1 — every client object carries an explanation", () => {
+  it("writes a description on the client datapoint", async () => {
+    const adapter = createMockAdapter();
+    const service = new UserService({ adapter, logger: createMockLogger() });
+    await service.createUser("with-desc", "Echo");
+    expect(adapter.writtenObjects.get("clients.with-desc")?.common?.desc).toBeDefined();
+  });
+
+  it("writes a description on the clients folder", async () => {
+    const adapter = createMockAdapter();
+    const service = new UserService({ adapter, logger: createMockLogger() });
+    await service.createUser("folder-check", "Echo");
+    expect(adapter.writtenObjects.get("clients")?.common?.desc).toBeDefined();
   });
 });

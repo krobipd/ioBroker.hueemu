@@ -47,6 +47,8 @@
   "scaleNormalized": "归一化 (0..1)",
   "scaleRaw": "原始 (1..254 Hue)",
   "clientsFolder": "已配对客户端",
+  "clientsFolderDesc": "已与网桥配对的设备——每台设备一个条目",
+  "clientDesc": "此设备与网桥通信所用的密钥",
   "startPairingName": "开始配对",
   "startPairingDesc": "启用配对模式 50 秒",
   "disableAuthName": "禁用身份验证",
