@@ -12,8 +12,7 @@
  */
 
 import * as dgram from "node:dgram";
-import * as os from "node:os";
-import type { BridgeIdentity, Logger } from "../types/config";
+import { listIPv4Addresses, type BridgeIdentity, type Logger } from "../types/config";
 import { errText } from "../types/utils";
 import { getDescriptionUrl } from "./description-xml";
 import {
@@ -140,15 +139,10 @@ export class HueSsdpServer {
    * @param socket - The bound SSDP socket
    */
   private joinMulticast(socket: dgram.Socket): void {
-    const addresses: string[] = [];
-    const interfaces = os.networkInterfaces();
-    for (const infos of Object.values(interfaces)) {
-      for (const info of infos ?? []) {
-        if (!info.internal && info.family === "IPv4") {
-          addresses.push(info.address);
-        }
-      }
-    }
+    // Shared with the advertised-address detection since v1.17.0 — the two used
+    // to walk the interface list separately and disagreed about how `family`
+    // may be spelled (audit 2026-09-06 F8).
+    const addresses = listIPv4Addresses().map(a => a.address);
     if (addresses.length === 0) {
       this.tryJoin(socket, undefined);
       return;

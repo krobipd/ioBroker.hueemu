@@ -50,6 +50,8 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 - **ioBroker js-controller >= 7.2.2**
 - **ioBroker Admin >= 8.0.11**
 
+> The adapter CANNOT be installed via GitHub: The adapter must be installed via the ioBroker repository (stable or latest).
+
 ---
 
 ## Ports
@@ -130,11 +132,17 @@ New clients are limited to 100 per hour across all pairing paths; a single warni
 
 ```
 hueemu.0.
+├── info/
+│   ├── connection       — Whether the bridge is answering Hue clients
+│   └── error            — Why it is not answering (empty while it works)
 ├── startPairing         — Enable pairing mode for 50 seconds (button)
 ├── disableAuth          — Disable authentication (switch)
 └── clients/             — Paired client devices
     └── {username}       — Client API key (created during pairing)
 ```
+
+If `info.connection` stays `false` after a start, `info.error` names the cause — a
+port that is already taken, or a host address the adapter could not resolve.
 
 ---
 
@@ -149,7 +157,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### Bridge not found
 
 - Ensure the UPnP port (1900) is not blocked by a firewall
-- On a multi-interface host, set the **Host / IP** to the concrete LAN address instead of `0.0.0.0` if the auto-detected IP is wrong
+- The address the adapter announces is written to the log at start ("Announcing … to clients"). On a host with Docker, a VM bridge or a VPN, set the **Host / IP** to the concrete LAN address if that pick is wrong
 - Check firewall rules on the ioBroker host
 
 ### Client finds no devices / pairing fails
@@ -161,7 +169,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### State changes not working
 
 - Verify state IDs in device configuration
-- Pick the matching brightness/saturation scale per device in the admin — Auto, Percent (0..100), Normalized (0..1) or Hue-Raw (1..254). A `level.dimmer` storing 0..100 needs Percent.
+- The scale is normally determined from the datapoint itself (its unit and its range) and applies to reading AND writing. Pick it by hand only for a datapoint that declares neither — Percent (0..100), Normalized (0..1) or Hue-Raw (1..254).
 - `ct` range is 153–500 (Mireds)
 
 ---
@@ -172,6 +180,19 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 1.17.0 (2026-09-06)
+
+- Fixed: Brightness and saturation left on "Auto" are now written in the unit the datapoint really uses — a percent dimmer no longer receives Hue values like 127 or 254.
+- Fixed: The scale of a light added by hand is now determined from the datapoint as well, exactly like a light found by the search.
+- Fixed: A pairing that could not be stored is no longer reported as successful — the client retries instead of losing access at the next restart.
+- Fixed: A client key is now checked exactly as it was issued; a key that merely resembles a paired one is rejected.
+- New: The instance now shows in the object tree whether the bridge is answering, and why not when it is not.
+- Fixed: On a host with Docker or a VPN, the automatically announced address is now the real network address instead of a virtual one.
+- Fixed: A light whose configured datapoint does not exist is reported as unreachable instead of pretending to work.
+- Fixed: Edit and delete in the devices tab always act on the light you clicked, even when the list changed in the meantime.
+- Improved: The first start after this update completes the scales of lights added earlier — if it finds anything to complete, the instance restarts once.
+
 ### 1.16.0 (2026-09-03)
 
 - Fixed: If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.
@@ -193,15 +214,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Fixed: Lights added by an earlier version showed wrong colours or brightness until you corrected their scale by hand; the right scale is now set for you.
 - New: Relative commands such as "a bit darker" or a dimmer rocker change the light now instead of being accepted and ignored.
 - Fixed: Rejected pairing attempts used up the hourly pairing budget and could block your own pairing for the rest of the hour.
-
-### 1.14.0 (2026-09-02)
-
-- New: the bridge answers GET /api/config without a username, like a real Hue bridge, so apps that read the configuration before pairing find what they expect.
-- Fixed: an app that only read the bridge configuration while pairing was open got paired under its probe name (e.g. "nouser") — reading the configuration no longer pairs anyone.
-- Fixed: with authentication disabled, one device could create client entries without limit — new clients are now capped at 100 per hour, with one warning per hour.
-- Changed: a client-supplied username longer than 64 characters is ignored in favour of a generated one; the device type stored as the client name is cut to 100 characters.
-- Fixed: an unreadable brightness, saturation, hue or colour temperature in a request is no longer written as a default (full brightness, red) — it is skipped but still acknowledged.
-- Fixed: if cleaning up objects from earlier versions failed at start, the pairing and authentication switches stopped working — the adapter now continues and reports the failure.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

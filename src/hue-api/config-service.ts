@@ -52,13 +52,27 @@ export class ConfigService {
     this.whitelistProvider = config.whitelistProvider;
   }
 
+  /**
+   * The host's IANA timezone, resolved once.
+   *
+   * v1.4.3 (C2) read it per request; v1.8.1 then cached the FORMATTERS below and
+   * left this one uncached — so 29 of the 34 µs a `/api/<user>` config build
+   * costs went into constructing an `Intl.DateTimeFormat` just to read a string
+   * off it, more than assembling 25 colour lights (measured, audit 2026-09-06
+   * F6). A host that really changes its timezone restarts the instance anyway.
+   */
+  private static hostTimezone: string | undefined;
+
   /** v1.4.3 (C2): IANA timezone of the host (or UTC if unresolvable). */
   private static getHostTimezone(): string {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    } catch {
-      return "UTC";
+    if (ConfigService.hostTimezone === undefined) {
+      try {
+        ConfigService.hostTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      } catch {
+        ConfigService.hostTimezone = "UTC";
+      }
     }
+    return ConfigService.hostTimezone;
   }
 
   /**

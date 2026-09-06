@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.16.0",
+    "version": "1.17.0",
     "news": {
+      "1.17.0": {
+        "en": "Fixed: Brightness and saturation set to Auto are now written in the unit the datapoint really uses — a percent dimmer no longer gets Hue values like 127 or 254.\nFixed: The scale of a light added by hand is now determined from the datapoint as well, exactly like a light found by the search.\nFixed: A pairing that could not be stored is no longer reported as successful — the client retries instead of losing access at the next restart.\nFixed: A client key is now checked exactly as it was issued; a key that merely resembles a paired one is rejected.\nNew: The instance now shows in the object tree whether the bridge is answering, and why not when it is not.\nFixed: On a host with Docker or a VPN, the announced address is now the real network address instead of a virtual one.\nFixed: A light whose configured datapoint does not exist is reported as unreachable instead of pretending to work.\nFixed: Edit and delete in the devices tab always act on the light you clicked, even when the list changed in the meantime.\nImproved: The first start after this update completes the scales of lights added earlier — if it finds anything to complete, the instance restarts once.",
+        "de": "Behoben: Helligkeit und Sättigung auf Auto werden jetzt in der Einheit des Datenpunkts geschrieben — ein Prozent-Dimmer bekommt keine Hue-Werte wie 127 oder 254 mehr.\nBehoben: Die Skala eines von Hand angelegten Lichts wird jetzt ebenfalls aus dem Datenpunkt bestimmt, genau wie bei einem gefundenen Licht.\nBehoben: Eine Kopplung, die nicht gespeichert werden konnte, gilt nicht mehr als Erfolg — der Client versucht es erneut, statt beim nächsten Neustart den Zugang zu verlieren.\nBehoben: Ein Client-Schlüssel wird jetzt genau so geprüft, wie er vergeben wurde; ein Schlüssel, der einem gekoppelten nur ähnelt, wird abgelehnt.\nNeu: Die Instanz zeigt im Objektbaum, ob die Bridge antwortet — und warum nicht, wenn sie es nicht tut.\nBehoben: Auf einem Host mit Docker oder VPN wird jetzt die echte Netzwerkadresse angekündigt statt einer virtuellen.\nBehoben: Ein Licht, dessen eingestellter Datenpunkt nicht existiert, wird als nicht erreichbar gemeldet, statt Betrieb vorzutäuschen.\nBehoben: Bearbeiten und Löschen im Geräte-Tab treffen immer das angeklickte Licht, auch wenn sich die Liste zwischenzeitlich geändert hat.\nVerbessert: Der erste Start nach diesem Update vervollständigt die Skalen früher angelegter Lichter — findet er etwas, startet die Instanz dabei einmal neu.",
+        "ru": "Исправлено: яркость и насыщенность в режиме Auto теперь записываются в единицах самого объекта — процентный диммер больше не получает значения Hue вроде 127 или 254.\nИсправлено: шкала лампы, добавленной вручную, теперь определяется по объекту так же, как у лампы, найденной поиском.\nИсправлено: привязка, которую не удалось сохранить, больше не считается успешной — клиент повторит попытку вместо потери доступа при перезапуске.\nИсправлено: ключ клиента теперь проверяется точно в том виде, в каком был выдан; похожий ключ отклоняется.\nНовое: экземпляр теперь показывает в дереве объектов, отвечает ли мост, и почему нет, если не отвечает.\nИсправлено: на хосте с Docker или VPN теперь объявляется реальный сетевой адрес, а не виртуальный.\nИсправлено: лампа, у которой указанного объекта не существует, отмечается как недоступная, а не изображает работу.\nИсправлено: изменение и удаление на вкладке устройств всегда относятся к выбранной лампе, даже если список изменился.\nУлучшено: первый запуск после обновления дополняет шкалы ранее добавленных ламп — если находится что дополнить, экземпляр один раз перезапускается.",
+        "pt": "Corrigido: o brilho e a saturação em Auto passam a ser escritos na unidade que o objeto usa — um dimmer em percentagem já não recebe valores Hue como 127 ou 254.\nCorrigido: a escala de uma luz adicionada à mão passa a ser determinada pelo objeto, tal como numa luz encontrada pela pesquisa.\nCorrigido: um emparelhamento que não pôde ser guardado deixa de ser dado como bem-sucedido — o cliente tenta de novo em vez de perder o acesso.\nCorrigido: a chave do cliente passa a ser verificada exatamente como foi emitida; uma chave que apenas se parece com outra é recusada.\nNovo: a instância mostra agora na árvore de objetos se a ponte responde e, se não responder, porquê.\nCorrigido: num anfitrião com Docker ou VPN é agora anunciado o endereço de rede real em vez de um virtual.\nCorrigido: uma luz cujo objeto configurado não existe é indicada como inacessível em vez de fingir funcionar.\nCorrigido: editar e eliminar no separador de dispositivos atuam sempre na luz escolhida, mesmo que a lista tenha mudado.\nMelhorado: o primeiro arranque após esta atualização completa as escalas das luzes anteriores — se houver algo a completar, a instância reinicia uma vez.",
+        "nl": "Opgelost: helderheid en verzadiging op Auto worden nu geschreven in de eenheid die het object echt gebruikt — een procent-dimmer krijgt geen Hue-waarden als 127 of 254 meer.\nOpgelost: de schaal van een handmatig toegevoegde lamp wordt nu ook uit het object bepaald, net als bij een gevonden lamp.\nOpgelost: een koppeling die niet kon worden opgeslagen geldt niet langer als geslaagd — de client probeert opnieuw in plaats van toegang te verliezen.\nOpgelost: een clientsleutel wordt nu precies zo gecontroleerd als hij is uitgegeven; een sleutel die er slechts op lijkt wordt geweigerd.\nNieuw: de instantie laat nu in de objectboom zien of de bridge antwoordt, en waarom niet als dat niet zo is.\nOpgelost: op een host met Docker of VPN wordt nu het echte netwerkadres aangekondigd in plaats van een virtueel adres.\nOpgelost: een lamp waarvan het ingestelde object niet bestaat wordt als onbereikbaar gemeld in plaats van te doen alsof.\nOpgelost: bewerken en verwijderen op het apparaten-tabblad treffen altijd de aangeklikte lamp, ook als de lijst is veranderd.\nVerbeterd: de eerste start na deze update vult de schalen van eerder toegevoegde lampen aan — als er iets aan te vullen is, herstart de instantie eenmaal.",
+        "fr": "Corrigé : la luminosité et la saturation en Auto sont écrites dans l'unité réelle de l'objet — un variateur en pour cent ne reçoit plus de valeurs Hue comme 127 ou 254.\nCorrigé : l'échelle d'une lampe ajoutée à la main est désormais déduite de l'objet, comme pour une lampe trouvée par la recherche.\nCorrigé : un appairage qui n'a pas pu être enregistré n'est plus annoncé comme réussi — le client réessaie au lieu de perdre l'accès.\nCorrigé : la clé d'un client est vérifiée exactement telle qu'elle a été délivrée ; une clé qui lui ressemble seulement est refusée.\nNouveau : l'instance indique désormais dans l'arbre des objets si le pont répond, et pourquoi il ne répond pas.\nCorrigé : sur un hôte avec Docker ou VPN, l'adresse annoncée est maintenant l'adresse réseau réelle et non une adresse virtuelle.\nCorrigé : une lampe dont l'objet configuré n'existe pas est signalée injoignable au lieu de faire semblant de fonctionner.\nCorrigé : modifier et supprimer dans l'onglet Appareils agissent toujours sur la lampe cliquée, même si la liste a changé.\nAmélioré : le premier démarrage après cette mise à jour complète les échelles des lampes existantes — s'il y a quelque chose à compléter, l'instance redémarre une fois.",
+        "it": "Corretto: luminosità e saturazione su Auto vengono ora scritte nell'unità che l'oggetto usa davvero — un dimmer in percentuale non riceve più valori Hue come 127 o 254.\nCorretto: la scala di una luce aggiunta a mano viene ora ricavata dall'oggetto, esattamente come per una luce trovata dalla ricerca.\nCorretto: un abbinamento che non è stato possibile salvare non viene più dato per riuscito — il client riprova invece di perdere l'accesso.\nCorretto: la chiave di un client viene ora verificata esattamente come è stata emessa; una chiave che le somiglia soltanto viene rifiutata.\nNuovo: l'istanza mostra ora nell'albero degli oggetti se il bridge risponde e, se non risponde, perché.\nCorretto: su un host con Docker o VPN viene ora annunciato l'indirizzo di rete reale invece di uno virtuale.\nCorretto: una luce il cui oggetto configurato non esiste viene segnalata irraggiungibile invece di fingere di funzionare.\nCorretto: modifica ed eliminazione nella scheda dispositivi agiscono sempre sulla luce selezionata, anche se l'elenco è cambiato.\nMigliorato: il primo avvio dopo questo aggiornamento completa le scale delle luci già presenti — se c'è qualcosa da completare, l'istanza si riavvia una volta.",
+        "es": "Corregido: el brillo y la saturación en Auto se escriben ahora en la unidad que el objeto usa realmente — un regulador en porcentaje ya no recibe valores Hue como 127 o 254.\nCorregido: la escala de una luz añadida a mano se deduce ahora del objeto, igual que en una luz encontrada por la búsqueda.\nCorregido: un emparejamiento que no se pudo guardar ya no se anuncia como correcto — el cliente vuelve a intentarlo en lugar de perder el acceso.\nCorregido: la clave de un cliente se comprueba ahora tal como se emitió; una clave que solo se le parece queda rechazada.\nNuevo: la instancia muestra ahora en el árbol de objetos si el puente responde y, si no responde, por qué.\nCorregido: en un host con Docker o VPN se anuncia ahora la dirección de red real en lugar de una virtual.\nCorregido: una luz cuyo objeto configurado no existe se indica como inaccesible en vez de aparentar que funciona.\nCorregido: editar y eliminar en la pestaña de dispositivos actúan siempre sobre la luz elegida, aunque la lista haya cambiado.\nMejorado: el primer arranque tras esta actualización completa las escalas de las luces ya añadidas — si hay algo que completar, la instancia se reinicia una vez.",
+        "pl": "Poprawiono: jasność i nasycenie w trybie Auto są teraz zapisywane w jednostce, której naprawdę używa obiekt — ściemniacz procentowy nie dostaje już wartości Hue jak 127 czy 254.\nPoprawiono: skala światła dodanego ręcznie jest teraz ustalana z obiektu, tak samo jak przy świetle znalezionym przez wyszukiwanie.\nPoprawiono: parowanie, którego nie udało się zapisać, nie jest już zgłaszane jako udane — klient ponawia próbę zamiast tracić dostęp.\nPoprawiono: klucz klienta jest teraz sprawdzany dokładnie w postaci, w jakiej został wydany; klucz jedynie podobny zostaje odrzucony.\nNowość: instancja pokazuje teraz w drzewie obiektów, czy mostek odpowiada, a jeśli nie — dlaczego.\nPoprawiono: na hoście z Dockerem lub VPN ogłaszany jest teraz rzeczywisty adres sieciowy, a nie wirtualny.\nPoprawiono: światło, którego skonfigurowany obiekt nie istnieje, jest zgłaszane jako nieosiągalne zamiast udawać, że działa.\nPoprawiono: edycja i usuwanie na karcie urządzeń zawsze dotyczą klikniętego światła, nawet gdy lista się zmieniła.\nUlepszono: pierwszy start po tej aktualizacji uzupełnia skale wcześniej dodanych świateł — jeśli jest co uzupełnić, instancja uruchamia się raz ponownie.",
+        "uk": "Виправлено: яскравість і насиченість у режимі Auto тепер записуються в одиницях самого об'єкта — відсотковий диммер більше не отримує значення Hue на кшталт 127 чи 254.\nВиправлено: шкала лампи, доданої вручну, тепер визначається з об'єкта так само, як у лампи, знайденої пошуком.\nВиправлено: прив'язка, яку не вдалося зберегти, більше не вважається успішною — клієнт повторить спробу замість втрати доступу.\nВиправлено: ключ клієнта тепер перевіряється точно в тому вигляді, у якому був виданий; схожий ключ відхиляється.\nНове: примірник тепер показує в дереві об'єктів, чи відповідає міст, і чому ні, якщо не відповідає.\nВиправлено: на хості з Docker або VPN тепер оголошується справжня мережева адреса, а не віртуальна.\nВиправлено: лампа, налаштованого об'єкта якої не існує, позначається як недоступна, а не вдає роботу.\nВиправлено: редагування та видалення на вкладці пристроїв завжди стосуються обраної лампи, навіть якщо список змінився.\nПокращено: перший запуск після оновлення доповнює шкали раніше доданих ламп — якщо є що доповнити, примірник один раз перезапускається.",
+        "zh-cn": "修复：设为 Auto 的亮度和饱和度现在按数据点实际使用的单位写入——百分比调光器不会再收到 127 或 254 这样的 Hue 数值。\n修复：手动添加的灯，其数值范围现在同样从数据点推断，与搜索找到的灯一致。\n修复：未能保存的配对不再报告为成功——客户端会重试，而不是在下次重启后失去访问权限。\n修复：客户端密钥现在按签发时的原样校验；仅仅相似的密钥会被拒绝。\n新增：实例现在在对象树中显示网桥是否在响应，以及未响应时的原因。\n修复：在装有 Docker 或 VPN 的主机上，现在公布真实的网络地址，而不是虚拟地址。\n修复：所配置数据点不存在的灯会被报告为不可达，而不是假装正常工作。\n修复：设备选项卡中的编辑和删除始终作用于所点击的灯，即使列表期间发生了变化。\n改进：本次更新后的首次启动会补全既有灯的数值范围——如有需要补全的内容，实例会重启一次。"
+      },
       "1.16.0": {
         "en": "If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.",
         "de": "Schlägt eine Aktion im Geräte-Tab fehl, erscheint jetzt eine Meldung mit dem Grund — statt eines Dialogs, der nie fertig wird.",
@@ -80,19 +93,6 @@
         "pl": "Przy zatrzymaniu połączone aplikacje naprawdę dowiadują się, że mostek zniknął, zamiast czekać na własny limit czasu.",
         "uk": "Під час зупинки під'єднані застосунки тепер справді дізнаються, що міст зник, замість чекати власного тайм-ауту.",
         "zh-cn": "停止适配器时，已连接的应用现在确实会得知网桥已消失，而不必等到自身超时。"
-      },
-      "1.13.0": {
-        "en": "Changed: The discovery service was rebuilt — the old security warning is gone, devices find the bridge as before, and the bridge now reports its shutdown on the network.",
-        "de": "Der Erkennungsdienst wurde neu gebaut — die alte Sicherheitswarnung ist weg, Geräte finden die Bridge wie zuvor, und die Bridge meldet ihr Abschalten jetzt im Netzwerk.",
-        "ru": "Служба обнаружения переработана — старое предупреждение безопасности исчезло, устройства находят мост как прежде, и мост теперь сообщает в сеть о своём выключении.",
-        "pt": "O serviço de descoberta foi reconstruído — o antigo aviso de segurança desapareceu, os dispositivos encontram a bridge como antes, e a bridge agora comunica o seu encerramento na rede.",
-        "nl": "De detectiedienst is opnieuw opgebouwd — de oude beveiligingswaarschuwing is weg, apparaten vinden de bridge zoals voorheen, en de bridge meldt nu het afsluiten op het netwerk.",
-        "fr": "Le service de découverte a été reconstruit — l'ancien avertissement de sécurité a disparu, les appareils trouvent le pont comme avant, et le pont signale désormais son arrêt sur le réseau.",
-        "it": "Il servizio di rilevamento è stato ricostruito — il vecchio avviso di sicurezza è sparito, i dispositivi trovano il bridge come prima, e il bridge ora segnala in rete il suo spegnimento.",
-        "es": "El servicio de detección se ha reconstruido — el antiguo aviso de seguridad desapareció, los dispositivos encuentran el bridge como antes, y el bridge ahora informa su apagado en la red.",
-        "pl": "Usługa wykrywania została przebudowana — stare ostrzeżenie bezpieczeństwa zniknęło, urządzenia znajdują mostek jak dotąd, a mostek zgłasza teraz w sieci swoje wyłączenie.",
-        "uk": "Службу виявлення перебудовано — старе попередження безпеки зникло, пристрої знаходять міст як і раніше, і міст тепер повідомляє мережу про своє вимкнення.",
-        "zh-cn": "发现服务已重建——旧的安全警告已消除，设备照常找到桥接器，并且适配器停止时桥接器会在网络上通告下线。"
       }
     },
     "plugins": {
@@ -174,7 +174,8 @@
       {
         "admin": ">=8.0.11"
       }
-    ]
+    ],
+    "nogit": true
   },
   "native": {
     "host": "0.0.0.0",
@@ -195,6 +196,102 @@
   ],
   "objects": [],
   "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": {
+          "en": "Information",
+          "de": "Information",
+          "ru": "Информация",
+          "pt": "Informação",
+          "nl": "Informatie",
+          "fr": "Informations",
+          "it": "Informazioni",
+          "es": "Información",
+          "pl": "Informacje",
+          "uk": "Інформація",
+          "zh-cn": "信息"
+        }
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": {
+          "en": "Bridge is answering",
+          "de": "Bridge antwortet",
+          "ru": "Мост отвечает",
+          "pt": "A bridge está a responder",
+          "nl": "Bridge antwoordt",
+          "fr": "Le pont répond",
+          "it": "Il bridge risponde",
+          "es": "El puente responde",
+          "pl": "Mostek odpowiada",
+          "uk": "Міст відповідає",
+          "zh-cn": "网桥正在响应"
+        },
+        "type": "boolean",
+        "role": "indicator.connected",
+        "write": false,
+        "read": true,
+        "def": false,
+        "desc": {
+          "en": "True while the emulated bridge accepts requests from Hue clients",
+          "de": "Wahr, solange die emulierte Bridge Anfragen von Hue-Clients annimmt",
+          "ru": "Истина, пока эмулируемый мост принимает запросы от клиентов Hue",
+          "pt": "Verdadeiro enquanto a bridge emulada aceita pedidos de clientes Hue",
+          "nl": "Waar zolang de geëmuleerde bridge aanvragen van Hue-clients aanneemt",
+          "fr": "Vrai tant que le pont émulé accepte les requêtes des clients Hue",
+          "it": "Vero finché il bridge emulato accetta richieste dai client Hue",
+          "es": "Verdadero mientras el puente emulado acepta solicitudes de clientes Hue",
+          "pl": "Prawda, dopóki emulowany mostek przyjmuje żądania od klientów Hue",
+          "uk": "Істина, поки емульований міст приймає запити від клієнтів Hue",
+          "zh-cn": "当模拟网桥接受 Hue 客户端请求时为真"
+        }
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.error",
+      "type": "state",
+      "common": {
+        "name": {
+          "en": "Last error",
+          "de": "Letzter Fehler",
+          "ru": "Последняя ошибка",
+          "pt": "Último erro",
+          "nl": "Laatste fout",
+          "fr": "Dernière erreur",
+          "it": "Ultimo errore",
+          "es": "Último error",
+          "pl": "Ostatni błąd",
+          "uk": "Остання помилка",
+          "zh-cn": "最近的错误"
+        },
+        "type": "string",
+        "role": "text",
+        "write": false,
+        "read": true,
+        "def": "",
+        "desc": {
+          "en": "Why the bridge is not answering — empty while everything works",
+          "de": "Warum die Bridge nicht antwortet — leer, solange alles läuft",
+          "ru": "Почему мост не отвечает — пусто, пока всё работает",
+          "pt": "Porque a bridge não responde — vazio enquanto tudo funciona",
+          "nl": "Waarom de bridge niet antwoordt — leeg zolang alles werkt",
+          "fr": "Pourquoi le pont ne répond pas — vide tant que tout fonctionne",
+          "it": "Perché il bridge non risponde — vuoto finché tutto funziona",
+          "es": "Por qué el puente no responde — vacío mientras todo funciona",
+          "pl": "Dlaczego mostek nie odpowiada — puste, dopóki wszystko działa",
+          "uk": "Чому міст не відповідає — порожньо, поки все працює",
+          "zh-cn": "网桥为何没有响应——一切正常时为空"
+        }
+      },
+      "native": {}
+    },
     {
       "_id": "startPairing",
       "type": "state",
@@ -271,7 +368,7 @@
     },
     {
       "_id": "clients",
-      "type": "meta",
+      "type": "folder",
       "common": {
         "name": {
           "en": "Paired Clients",
@@ -286,7 +383,6 @@
           "uk": "Спарені клієнти",
           "zh-cn": "已配对客户端"
         },
-        "type": "meta.folder",
         "desc": {
           "en": "Devices that have paired with the bridge — one entry per device",
           "de": "Geräte, die sich mit der Bridge gekoppelt haben — ein Eintrag je Gerät",

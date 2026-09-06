@@ -13,6 +13,8 @@
  * v1.15.0 — three defects the 2026-09-03 audit proved on real objects:
  *   1. The suggestion carried NO value scale, so a source in degrees/percent was
  *      read and written as if it were Hue-native. See {@link deriveScales}.
+ *      (v1.17.0: the derivation itself moved to `lib/hue-scales.ts`, where the
+ *      runtime uses it too — a scan is not the only thing that needs it.)
  *   2. The on/off fallback accepted `ON_ACTUAL`, which every detector light
  *      pattern defines as `write: false` — a status mirror, not a switch. Every
  *      candidate is now checked for writability on the real object.
@@ -23,31 +25,14 @@
  */
 
 import ChannelDetector, { Types } from "@iobroker/type-detector";
-import type { CtScale, DeviceConfig, HueScale, LightStateScale } from "../hue-api";
+import type { DeviceConfig } from "../hue-api";
+import { deriveCtScale, deriveHueScale, deriveLevelScale, stateFactsOf, type StateLookup } from "./hue-scales";
 
 /** Minimal shape of a detected state — only the fields the mapping consumes. */
 interface DetectedState {
   name: string;
   id?: string;
 }
-
-/**
- * What the mapping needs to know about a candidate target state. Read from the
- * real ioBroker object, never guessed from the detector's pattern names.
- */
-export interface StateFacts {
-  /** `false` only when `common.write` is explicitly false (a status mirror). */
-  writable: boolean;
-  /** `common.min`, when the source declares one. */
-  min?: number;
-  /** `common.max`, when the source declares one. */
-  max?: number;
-  /** `common.unit`, when the source declares one. */
-  unit?: string;
-}
-
-/** Resolve the facts of a state id, or `undefined` when the object is unknown. */
-export type StateLookup = (id: string) => StateFacts | undefined;
 
 /** Why a detected light control has no hueemu representation. */
 export type UnmappedReason =
@@ -91,123 +76,6 @@ function statesByName(states: DetectedState[]): Map<string, string> {
     }
   }
   return map;
-}
-
-/** Tolerance for matching a declared max against a well-known scale bound. */
-const MAX_MATCH_TOLERANCE = 0.5;
-
-/**
- * True when a declared bound is (near enough) an expected value. `common.max`
- * is sometimes a float a hair off the round number (HomeMatic stores 1.01 for a
- * 0..100 level in its own native block).
- *
- * @param actual The declared bound, if any.
- * @param expected The bound we are testing for.
- */
-function isAbout(actual: number | undefined, expected: number): boolean {
-  return actual !== undefined && Math.abs(actual - expected) <= MAX_MATCH_TOLERANCE;
-}
-
-/**
- * Normalise a unit string for comparison: trimmed and lower-cased. The degree
- * sign is deliberately KEPT — a bare `"°"` is the unit of a hue in degrees,
- * so stripping it would erase the very evidence we are looking for.
- *
- * @param unit The raw `common.unit`, if any.
- */
-function normalizeUnit(unit: string | undefined): string {
-  return (unit ?? "").trim().toLowerCase();
-}
-
-/** Units that mean "degrees on a colour wheel". */
-const DEGREE_UNITS: ReadonlySet<string> = new Set(["°", "deg", "deg.", "degree", "degrees", "grad"]);
-
-/** Units that mean "Kelvin" — adapters write it with and without the degree sign. */
-const KELVIN_UNITS: ReadonlySet<string> = new Set(["k", "°k", "kelvin"]);
-
-/** Units that mean "mired", the Hue-native colour-temperature unit. */
-const MIRED_UNITS: ReadonlySet<string> = new Set(["mired", "mireds", "mirek", "mk^-1"]);
-
-/**
- * Derive the scale of a percent-style source (brightness, saturation).
- *
- * Evidence order is deliberate and narrow: **only `common.min`/`common.max` and
- * `common.unit` count**. The role is NEVER evidence — the 2026-09-03 audit
- * measured a live zigbee `level.color.temperature` that carries no unit and no
- * bounds while the detector's pattern claims `°K`; deriving from the role would
- * have turned a correct binding into a wrong one. No evidence → `undefined`,
- * i.e. the field stays empty and the existing `auto` default applies.
- *
- * @param facts Facts of the bound source state, if known.
- */
-export function deriveLevelScale(facts: StateFacts | undefined): LightStateScale | undefined {
-  if (!facts) {
-    return undefined;
-  }
-  if (normalizeUnit(facts.unit) === "%") {
-    return "percent";
-  }
-  if (isAbout(facts.max, 100)) {
-    return "percent";
-  }
-  if (isAbout(facts.max, 1)) {
-    return "normalized";
-  }
-  if (isAbout(facts.max, 254) || isAbout(facts.max, 255)) {
-    return "raw";
-  }
-  return undefined;
-}
-
-/**
- * Derive the scale of a hue source: `degrees` for a 0..360 colour wheel,
- * `raw` for a Hue-native 0..65535 source. Same evidence rules as
- * {@link deriveLevelScale}.
- *
- * @param facts Facts of the bound source state, if known.
- */
-export function deriveHueScale(facts: StateFacts | undefined): HueScale | undefined {
-  if (!facts) {
-    return undefined;
-  }
-  if (DEGREE_UNITS.has(normalizeUnit(facts.unit))) {
-    return "degrees";
-  }
-  if (isAbout(facts.max, 360)) {
-    return "degrees";
-  }
-  if (isAbout(facts.max, 65535) || isAbout(facts.max, 65534)) {
-    return "raw";
-  }
-  return undefined;
-}
-
-/** Lowest `common.max` that can only sensibly be a Kelvin colour temperature. */
-const KELVIN_MIN_PLAUSIBLE_MAX = 1000;
-
-/**
- * Derive the scale of a colour-temperature source: `kelvin` vs. Hue-native
- * mired. Same evidence rules as {@link deriveLevelScale} — and this is exactly
- * the state where guessing from the role would break the zigbee adapter, which
- * reports mired with neither unit nor bounds.
- *
- * @param facts Facts of the bound source state, if known.
- */
-export function deriveCtScale(facts: StateFacts | undefined): CtScale | undefined {
-  if (!facts) {
-    return undefined;
-  }
-  const unit = normalizeUnit(facts.unit);
-  if (KELVIN_UNITS.has(unit)) {
-    return "kelvin";
-  }
-  if (MIRED_UNITS.has(unit)) {
-    return "raw";
-  }
-  if (facts.max !== undefined && facts.max >= KELVIN_MIN_PLAUSIBLE_MAX) {
-    return "kelvin";
-  }
-  return undefined;
 }
 
 /**
@@ -351,27 +219,6 @@ const DETECTABLE_LIGHT_TYPES: ReadonlySet<string> = new Set([
   Types.rgbSingle,
   Types.rgbwSingle,
 ]);
-
-/**
- * Read the facts hueemu needs from a state object. A non-state object (or a
- * missing one) yields `undefined`, which the mapping treats as "not usable".
- *
- * @param obj The object from the scanned map, if present.
- */
-export function stateFactsOf(obj: ioBroker.Object | null | undefined): StateFacts | undefined {
-  if (obj?.type !== "state") {
-    return undefined;
-  }
-  const common = obj.common;
-  return {
-    // Only an explicit `false` disqualifies: plenty of adapters omit the flag on
-    // states that are perfectly writable.
-    writable: common.write !== false,
-    min: typeof common.min === "number" ? common.min : undefined,
-    max: typeof common.max === "number" ? common.max : undefined,
-    unit: typeof common.unit === "string" ? common.unit : undefined,
-  };
-}
 
 /**
  * Scan an object map for light devices and return hueemu suggestions.

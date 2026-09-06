@@ -22,6 +22,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public setStateAsync = vi.fn(() => Promise.resolve({ id: "x" }));
     public getStateAsync = vi.fn(() => Promise.resolve(null));
     public setObjectNotExistsAsync = vi.fn(() => Promise.resolve({ id: "x" }));
+    public setObjectAsync = vi.fn(() => Promise.resolve({ id: "x" }));
     public getObjectAsync = vi.fn(() => Promise.resolve(null));
     public delObjectAsync = vi.fn(async () => {});
     public getObjectListAsync = vi.fn(() => Promise.resolve({ rows: [] }));
@@ -128,6 +129,7 @@ function internalOf(adapter: HueEmu): {
   getStatesOfAsync: ReturnType<typeof vi.fn>;
   delObjectAsync: ReturnType<typeof vi.fn>;
   setObjectNotExistsAsync: ReturnType<typeof vi.fn>;
+  setObjectAsync: ReturnType<typeof vi.fn>;
   setStateAsync: ReturnType<typeof vi.fn>;
   pairingTimeoutId: unknown;
   _pairingEnabled: boolean;
@@ -143,7 +145,6 @@ function internalOf(adapter: HueEmu): {
     identity: { udn: string; mac: string };
     https?: { cert: string; key: string };
   }>;
-  getOrCreateTlsMaterial: () => Promise<{ cert: string; key: string }>;
   migrateLegacyDevices: () => Promise<boolean>;
   migrateUserToClients: () => Promise<void>;
 } {
@@ -264,55 +265,6 @@ describe("HueEmu buildConfig", () => {
     const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
     const config = await internalOf(adapter).buildConfig();
     expect(config.https).toEqual({ port: 8443, cert: PERSISTED_CERT, key: PERSISTED_KEY });
-  });
-});
-
-describe("HueEmu TLS lifecycle (getOrCreateTlsMaterial)", () => {
-  it("reuses a persisted, still-valid certificate without regenerating", async () => {
-    const { adapter } = setup({ tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
-    const i = internalOf(adapter);
-    const material = await i.getOrCreateTlsMaterial();
-    expect(material.cert).toBe(PERSISTED_CERT);
-    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled(); // nothing re-persisted
-  });
-
-  it("regenerates and persists when the persisted certificate is expired", async () => {
-    forgeControl.notAfter = new Date("2020-01-01T00:00:00Z");
-    const { adapter } = setup({ tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
-    const i = internalOf(adapter);
-    const material = await i.getOrCreateTlsMaterial();
-    expect(material.cert).toContain("GENERATED");
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("expired"));
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({ native: expect.objectContaining({ tlsCert: expect.stringContaining("GENERATED") }) }),
-    );
-  });
-
-  it("regenerates when the persisted certificate fails to parse (corruption guard)", async () => {
-    forgeControl.parseThrows = true;
-    const { adapter } = setup({ tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
-    const i = internalOf(adapter);
-    const material = await i.getOrCreateTlsMaterial();
-    expect(material.cert).toContain("GENERATED");
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("invalid"));
-  });
-
-  it("generates fresh material when nothing is persisted", async () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    const material = await i.getOrCreateTlsMaterial();
-    expect(material.cert).toContain("GENERATED");
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("persisted self-signed TLS certificate"));
-  });
-
-  it("still returns the generated material when persisting fails (warn, retry next restart)", async () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.extendForeignObjectAsync.mockRejectedValueOnce(new Error("db readonly"));
-    const material = await i.getOrCreateTlsMaterial();
-    expect(material.cert).toContain("GENERATED");
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("failed to persist"));
   });
 });
 
@@ -1018,9 +970,16 @@ describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
     const byId = new Map(i.extendObject.mock.calls.map(c => [c[0] as string, c[1] as ioBroker.SettableObject]));
     expect(byId.get("startPairing")?.common).toMatchObject({ type: "boolean", role: "button", read: false });
     expect(byId.get("disableAuth")?.common).toMatchObject({ type: "boolean", role: "switch", read: true });
-    expect(byId.get("clients")?.common).toMatchObject({ type: "meta.folder" });
+    // v1.17.0: the clients container is a `folder`. The old `meta.folder` is NOT
+    // removed via a null in this patch — js-controller validates the patch and
+    // logs an "invalid type" warning for `null` on every start, fresh installs
+    // included. The cleanup runs as a separate read+setObject (own tests above).
+    expect(byId.get("clients")?.type).toBe("folder");
+    expect(byId.get("clients")?.common).not.toHaveProperty("type");
     // Every object carries an explanation, the folder included.
     expect(byId.get("clients")?.common?.desc).toEqual({ en: "clientsFolderDesc" });
+    expect(byId.get("info.connection")?.common).toMatchObject({ type: "boolean", role: "indicator.connected" });
+    expect(byId.get("info.error")?.common).toMatchObject({ type: "string", role: "text" });
   });
 });
 
@@ -1112,5 +1071,117 @@ describe("HueEmu refreshClientNames (v1.15.1)", () => {
 
     expect(servers).toHaveLength(1);
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
+  });
+});
+
+describe("HueEmu info.connection / info.error (v1.17.0)", () => {
+  // Before this, a start that failed left one line in the log while the instance
+  // stayed green in the admin and the object tree said nothing (audit
+  // 2026-09-06 F4). `Unknown` while there is nothing to report yet, empty while
+  // it works, the real cause otherwise — never "the adapter is stopped".
+  it("reports Unknown before the listener is up and clears it on success", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(i.setState).toHaveBeenCalledWith("info.connection", { ack: true, val: false });
+    expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "Unknown" });
+    expect(i.setState).toHaveBeenCalledWith("info.connection", { ack: true, val: true });
+    expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "" });
+  });
+
+  /**
+   * Every value written to the reason datapoint, in order. Asserting the whole
+   * sequence matters: `Unknown` is also the start stamp, so a plain
+   * `toHaveBeenCalledWith` would pass even if the catch branch wrote nothing.
+   *
+   * @param i The adapter internals from {@link internalOf}.
+   */
+  const reasonWrites = (i: ReturnType<typeof internalOf>): unknown[] =>
+    i.setState.mock.calls
+      .filter((c: unknown[]) => c[0] === "info.error")
+      .map((c: unknown[]) => (c[1] as { val: unknown }).val);
+
+  it("keeps the adapter's OWN wording out of the datapoint and logs it instead", async () => {
+    // Fleet rule (krobi 2026-08-27): the reason text is never an adapter-specific
+    // phrasing and never an appended explanation. "Port not specified" is both
+    // hueemu's own invention and useless in a datapoint — it belongs in the log.
+    const { adapter } = setup({ port: undefined });
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(reasonWrites(i)).toEqual(["Unknown", "Unknown"]);
+    expect(i.setState).not.toHaveBeenCalledWith("info.connection", { ack: true, val: true });
+    expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("Port not specified"));
+  });
+
+  it("passes a FOREIGN cause through — that text is nobody's invention", async () => {
+    // The real EADDRINUSE path: node throws out of `listen`, hue-server does not
+    // catch it for the HTTP server, and onReady's catch is where it arrives.
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    const busy = "listen EADDRINUSE: address already in use 0.0.0.0:8080";
+    (adapter as unknown as { makeHueServer: (o: unknown) => FakeHueServer }).makeHueServer = options => ({
+      start: vi.fn(() => Promise.reject(new Error(busy))),
+      stop: vi.fn(() => Promise.resolve()),
+      options,
+    });
+    await i.onReady();
+    expect(reasonWrites(i)).toEqual(["Unknown", busy]);
+    expect(i.setState).not.toHaveBeenCalledWith("info.connection", { ack: true, val: true });
+  });
+
+  it("strips the stale meta common.type WITHOUT the null patch js-controller rejects", async () => {
+    // `extendObject(… common: { type: null })` does delete the field, but
+    // js-controller validates the PATCH first and logs "obj.common.type has an
+    // invalid type … will throw an error up from js-controller version 7.0.0"
+    // on every start of every installation (measured 2026-09-06). Read + rewrite
+    // touches the object only when there is really something to remove.
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === "clients"
+          ? { _id: "hueemu.0.clients", type: "folder", common: { name: { en: "Clients" }, type: "meta.folder" } }
+          : null,
+      ),
+    );
+    await i.onReady();
+    const written = i.setObjectAsync.mock.calls.find((c: unknown[]) => c[0] === "clients");
+    expect(written).toBeDefined();
+    expect((written?.[1] as { common: Record<string, unknown> }).common).not.toHaveProperty("type");
+    const patches = i.extendObject.mock.calls.filter((c: unknown[]) => c[0] === "clients");
+    expect(patches.every((c: unknown[]) => !("type" in (c[1] as { common: object }).common))).toBe(true);
+  });
+
+  it("leaves the clients folder alone when it never was a meta object", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "clients" ? { _id: "hueemu.0.clients", type: "folder", common: { name: {} } } : null),
+    );
+    await i.onReady();
+    expect(i.setObjectAsync.mock.calls.filter((c: unknown[]) => c[0] === "clients")).toEqual([]);
+  });
+
+  it("creates both objects on every start so an update reaches an existing tree", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    const ids = i.extendObject.mock.calls.map((c: unknown[]) => c[0]);
+    expect(ids).toContain("info");
+    expect(ids).toContain("info.connection");
+    expect(ids).toContain("info.error");
+  });
+
+  it("says the bridge is gone before reporting the shutdown as done", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    const order: string[] = [];
+    i.setStateAsync.mockImplementation((id: string) => {
+      order.push(id);
+      return Promise.resolve();
+    });
+    await new Promise<void>(resolve => i.onUnload(() => resolve()));
+    expect(order).toEqual(["info.connection", "info.error"]);
   });
 });

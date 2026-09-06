@@ -13,7 +13,14 @@ vi.mock("node:os", async importOriginal => {
   return { ...actual, default: { ...actual, networkInterfaces }, networkInterfaces };
 });
 
-import { detectPrimaryIPv4, generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
+import {
+  detectPrimaryIPv4,
+  generateBridgeId,
+  generateSerialNumber,
+  listIPv4Addresses,
+  macFromUdn,
+  validateNetworkConfig,
+} from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { createTestIdentity } from "../../test/test-helpers";
 
@@ -123,6 +130,58 @@ describe("Config utilities", () => {
     it("returns an empty string or a dotted-quad IPv4 (best-effort host IP)", () => {
       const ip = detectPrimaryIPv4();
       expect(ip === "" || /^(\d{1,3}\.){3}\d{1,3}$/.test(ip)).toBe(true);
+    });
+
+    // v1.17.0 (audit 2026-09-06 F7): a container bridge or a VPN tunnel is
+    // "non-internal" as far as Node is concerned and completely unreachable for
+    // a Hue client on the LAN. Announcing one means the bridge is never found
+    // and nothing in the log says why.
+    it("prefers a real network interface over a container bridge or a tunnel", () => {
+      osMock.interfaces = {
+        docker0: [{ family: "IPv4", address: "172.17.0.1", internal: false }],
+        eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
+      };
+      expect(detectPrimaryIPv4()).toBe("192.168.1.20");
+
+      osMock.interfaces = {
+        "br-9f2c": [{ family: "IPv4", address: "172.18.0.1", internal: false }],
+        wg0: [{ family: "IPv4", address: "10.8.0.2", internal: false }],
+        enp3s0: [{ family: "IPv4", address: "192.168.5.7", internal: false }],
+      };
+      expect(detectPrimaryIPv4()).toBe("192.168.5.7");
+    });
+
+    it("still answers when a virtual interface is all there is", () => {
+      osMock.interfaces = { docker0: [{ family: "IPv4", address: "172.17.0.1", internal: false }] };
+      expect(detectPrimaryIPv4()).toBe("172.17.0.1");
+    });
+  });
+
+  describe("listIPv4Addresses", () => {
+    afterEach(() => {
+      osMock.interfaces = null;
+    });
+
+    it("reports every non-internal IPv4 with its interface and whether it looks virtual", () => {
+      osMock.interfaces = {
+        lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
+        eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
+        docker0: [{ family: 4, address: "172.17.0.1", internal: false }],
+      };
+      expect(listIPv4Addresses()).toEqual([
+        { iface: "eth0", address: "192.168.1.20", virtual: false },
+        { iface: "docker0", address: "172.17.0.1", virtual: true },
+      ]);
+    });
+
+    it("skips IPv6 entirely", () => {
+      osMock.interfaces = {
+        eth0: [
+          { family: "IPv6", address: "fe80::1", internal: false },
+          { family: "IPv4", address: "192.168.1.20", internal: false },
+        ],
+      };
+      expect(listIPv4Addresses().map(a => a.address)).toEqual(["192.168.1.20"]);
     });
   });
 

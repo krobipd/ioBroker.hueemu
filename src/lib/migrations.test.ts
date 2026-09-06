@@ -64,7 +64,7 @@ describe("migrations", () => {
     });
 
     it("removes empty parent channel after last child deleted", async () => {
-      const existing = new Set(["info.connection"]);
+      const existing = new Set(["info.configuredDevices"]);
       const deleted: string[] = [];
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
@@ -76,7 +76,7 @@ describe("migrations", () => {
         getObjectListAsync: () => Promise.resolve({ rows: [] }), // empty parent after delete
         log: { debug: () => {} },
       });
-      expect(deleted).toContain("info.connection");
+      expect(deleted).toContain("info.configuredDevices");
       expect(deleted).toContain("info");
     });
 
@@ -117,9 +117,17 @@ describe("migrations", () => {
     it("includes the documented ids from main.ts history", () => {
       const ids = OBSOLETE_STATE_IDS.map(o => o.id);
       expect(ids).toContain("info.configuredDevices");
-      expect(ids).toContain("info.connection");
-      expect(ids).toContain("info");
       expect(ids).toContain("createLight");
+    });
+
+    // v1.17.0: `info` and `info.connection` came BACK as the serving indicator.
+    // This cleanup runs after the objects are created, so leaving them on the
+    // list would create and delete them again on every single start.
+    it("no longer removes the objects the adapter itself creates", () => {
+      const ids = OBSOLETE_STATE_IDS.map(o => o.id);
+      expect(ids).not.toContain("info");
+      expect(ids).not.toContain("info.connection");
+      expect(ids).not.toContain("info.error");
     });
   });
 

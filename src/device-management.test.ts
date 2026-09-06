@@ -46,6 +46,9 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
       }),
     ),
     _stored: () => stored,
+    _setStored: (devices: DeviceConfig[]) => {
+      stored = devices;
+    },
   };
 }
 
@@ -80,8 +83,8 @@ interface MockCtx {
 interface DmInternals {
   loadDevices(ctx: { addDevice: (info: unknown) => void }): Promise<void>;
   addDevice(ctx: MockCtx): Promise<{ refresh: boolean }>;
-  editDevice(index: number, ctx: MockCtx): Promise<{ refresh: "instance" }>;
-  deleteDevice(index: number, ctx: MockCtx): Promise<{ refresh: "instance" }>;
+  editDevice(cardId: string, ctx: MockCtx): Promise<{ refresh: "instance" }>;
+  deleteDevice(cardId: string, ctx: MockCtx): Promise<{ refresh: "instance" }>;
   searchDevices(ctx: MockCtx): Promise<{ refresh: boolean }>;
   // The registered handlers — the entry points dm-utils actually calls.
   getInstanceInfo(): { actions?: { id: string; handler: (ctx: MockCtx) => Promise<unknown> }[] };
@@ -131,6 +134,31 @@ describe("cleanDevice", () => {
       xyState: "x",
     };
     expect(cleanDevice(raw)).toEqual(raw);
+  });
+
+  // v1.17.0 (audit 2026-09-06 F1): "auto" was the form's preselection and it was
+  // stored as a decision — which excluded the light from the scale derivation
+  // for good. An edit drops it.
+  it("drops an undecided scale so the light is derived again", () => {
+    const out = cleanDevice({
+      name: "D",
+      lightType: "dimmable",
+      onState: "a.on",
+      briState: "a.bri",
+      briScale: "auto",
+    });
+    expect(out).toEqual({ name: "D", lightType: "dimmable", onState: "a.on", briState: "a.bri" });
+  });
+
+  it("keeps a scale the user really picked", () => {
+    const out = cleanDevice({
+      name: "D",
+      lightType: "dimmable",
+      onState: "a.on",
+      briState: "a.bri",
+      briScale: "percent",
+    });
+    expect(out.briScale).toBe("percent");
   });
 
   it("drops empty-string pickers", () => {
@@ -196,7 +224,10 @@ describe("HueEmuDeviceManagement", () => {
   }
 
   describe("loadDevices", () => {
-    it("adds one card per configured device with stable index ids", async () => {
+    // v1.17.0: the card id is the light's driving state, not its position — a
+    // list that shifts between rendering and acting must not point the action at
+    // a different light (audit 2026-09-06 F10).
+    it("adds one card per configured device, keyed by its driving state", async () => {
       make([
         { name: "Kitchen", lightType: "onoff", onState: "a.on" },
         { name: "Hall", lightType: "dimmable", onState: "b.on", briState: "b.bri" },
@@ -204,8 +235,15 @@ describe("HueEmuDeviceManagement", () => {
       const ctx = { addDevice: vi.fn() };
       await internalOf(dm).loadDevices(ctx);
       expect(ctx.addDevice).toHaveBeenCalledTimes(2);
-      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "0", name: "Kitchen" });
-      expect(ctx.addDevice.mock.calls[1][0]).toMatchObject({ id: "1", name: "Hall" });
+      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "a.on", name: "Kitchen" });
+      expect(ctx.addDevice.mock.calls[1][0]).toMatchObject({ id: "b.on", name: "Hall" });
+    });
+
+    it("falls back to the position for a light that maps nothing", async () => {
+      make([{ name: "Empty", lightType: "onoff" }]);
+      const ctx = { addDevice: vi.fn() };
+      await internalOf(dm).loadDevices(ctx);
+      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "#0", name: "Empty" });
     });
 
     it("adds nothing when native.devices is missing", async () => {
@@ -241,7 +279,7 @@ describe("HueEmuDeviceManagement", () => {
     it("replaces the edited device in place", async () => {
       const adapter = make([{ name: "Old", lightType: "onoff", onState: "a.on" }]);
       const ctx = mockContext({ form: { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" } });
-      await internalOf(dm).editDevice(0, ctx);
+      await internalOf(dm).editDevice("a.on", ctx);
       expect(adapter._stored()).toEqual([
         { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" },
       ]);
@@ -252,31 +290,44 @@ describe("HueEmuDeviceManagement", () => {
         { name: "A", lightType: "onoff", onState: "a" },
         { name: "B", lightType: "onoff", onState: "b" },
       ]);
-      await internalOf(dm).deleteDevice(0, mockContext({ confirm: true }));
+      await internalOf(dm).deleteDevice("a", mockContext({ confirm: true }));
       expect(adapter._stored()).toEqual([{ name: "B", lightType: "onoff", onState: "b" }]);
     });
 
-    it("edit / delete on a stale index do nothing (list changed under the dialog)", async () => {
+    it("edit / delete on a card that is gone do nothing (list changed under the dialog)", async () => {
       // The Device-Manager list is a snapshot: the user can open the edit or
       // delete action on a row that another admin session (or the add-flow)
-      // has meanwhile removed. Acting on that index would rewrite or drop the
-      // WRONG device — or write an `undefined` hole into native.devices.
+      // has meanwhile removed. Acting on it would rewrite or drop the WRONG
+      // device — or write an `undefined` hole into native.devices.
       const adapterEdit = make([{ name: "A", lightType: "onoff", onState: "a" }]);
       const editCtx = mockContext({ form: { name: "Ghost", lightType: "onoff", onState: "g" } });
-      await internalOf(dm).editDevice(5, editCtx);
+      await internalOf(dm).editDevice("gone", editCtx);
       expect(editCtx.showForm).not.toHaveBeenCalled();
       expect(adapterEdit.extendForeignObjectAsync).not.toHaveBeenCalled();
 
       const adapterDel = make([{ name: "A", lightType: "onoff", onState: "a" }]);
       const delCtx = mockContext({ confirm: true });
-      await internalOf(dm).deleteDevice(5, delCtx);
+      await internalOf(dm).deleteDevice("gone", delCtx);
       expect(delCtx.showConfirmation).not.toHaveBeenCalled();
       expect(adapterDel.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
+    // v1.17.0 (F10): the very case the positional id got wrong — another session
+    // removed the FIRST light while this card was on screen.
+    it("acts on the light the card names, even after the list shifted", async () => {
+      const adapter = make([
+        { name: "A", lightType: "onoff", onState: "a" },
+        { name: "B", lightType: "onoff", onState: "b" },
+      ]);
+      // The card for "B" was rendered at position 1; by action time "A" is gone.
+      adapter._setStored([{ name: "B", lightType: "onoff", onState: "b" }]);
+      await internalOf(dm).deleteDevice("b", mockContext({ confirm: true }));
+      expect(adapter._stored()).toEqual([]);
+    });
+
     it("does not delete when the confirmation is declined", async () => {
       const adapter = make([{ name: "A", lightType: "onoff", onState: "a" }]);
-      await internalOf(dm).deleteDevice(0, mockContext({ confirm: false }));
+      await internalOf(dm).deleteDevice("a", mockContext({ confirm: false }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
   });

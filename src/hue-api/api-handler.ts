@@ -70,7 +70,7 @@ export interface ApiHandlerConfig {
 export class ApiHandler implements HueApiHandler {
   private readonly adapter: ApiHandlerAdapter;
   private readonly userService: UserService;
-  private readonly lightService: DeviceBindingService;
+  private readonly deviceBinding: DeviceBindingService;
   private readonly configService: ConfigService;
   private readonly logger: Logger;
   /**
@@ -97,7 +97,7 @@ export class ApiHandler implements HueApiHandler {
 
     // Initialize device binding service
     const devices = config.devices || [];
-    this.lightService = new DeviceBindingService({
+    this.deviceBinding = new DeviceBindingService({
       adapter: config.adapter,
       devices,
       logger: config.logger,
@@ -109,7 +109,7 @@ export class ApiHandler implements HueApiHandler {
    * Initialize the API handler (must be called after construction)
    */
   public async initialize(): Promise<void> {
-    await this.lightService.initialize();
+    await this.deviceBinding.initialize();
   }
 
   /**
@@ -119,7 +119,7 @@ export class ApiHandler implements HueApiHandler {
    * @param value - New state value
    */
   public onStateChange(id: string, value: unknown): void {
-    this.lightService.updateStateCache(id, value);
+    this.deviceBinding.updateStateCache(id, value);
   }
 
   /**
@@ -192,7 +192,7 @@ export class ApiHandler implements HueApiHandler {
   public async getFullState(_req: HueRequest, username: string): Promise<FullState> {
     this.logger.debug(`Get full state for user: ${oneLine(username)}`);
 
-    const lights = await this.lightService.getAllLights();
+    const lights = await this.deviceBinding.getAllLights();
     const state = this.configService.buildFullState(lights);
     state.config.linkbutton = this.adapter.pairingEnabled;
     return state;
@@ -231,7 +231,7 @@ export class ApiHandler implements HueApiHandler {
    */
   public async getAllLights(_req: HueRequest, _username: string): Promise<LightsCollection> {
     this.logger.debug("Get all lights");
-    return this.lightService.getAllLights();
+    return this.deviceBinding.getAllLights();
   }
 
   /**
@@ -243,7 +243,7 @@ export class ApiHandler implements HueApiHandler {
    */
   public async getLightById(_req: HueRequest, _username: string, lightId: string): Promise<Light> {
     this.logger.debug(`Get light: ${oneLine(lightId)}`);
-    return this.lightService.getLightById(lightId);
+    return this.deviceBinding.getLightById(lightId);
   }
 
   /**
@@ -261,7 +261,7 @@ export class ApiHandler implements HueApiHandler {
     state: LightStateUpdate,
   ): Promise<LightStateResult[]> {
     this.logger.debug(`Set light ${oneLine(lightId)} state: ${JSON.stringify(state)}`);
-    return this.lightService.setLightState(lightId, state);
+    return this.deviceBinding.setLightState(lightId, state);
   }
 
   /**
@@ -283,10 +283,10 @@ export class ApiHandler implements HueApiHandler {
     // Fan out to every configured light using the cheap id list, not
     // getAllLights() (which rebuilds every light's full state) — a flood of
     // group writes shouldn't multiply state reads on top of the writes.
-    const lightIds = this.lightService.getLightIds();
+    const lightIds = this.deviceBinding.getLightIds();
     await Promise.all(
       lightIds.map(lightId =>
-        this.lightService.setLightState(lightId, state).catch((err: unknown) => {
+        this.deviceBinding.setLightState(lightId, state).catch((err: unknown) => {
           this.logger.warn(`Group action: failed to set light ${lightId}: ${errText(err)}`);
         }),
       ),

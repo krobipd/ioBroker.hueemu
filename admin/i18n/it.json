@@ -41,8 +41,8 @@
   "supportHeader": "Supporto",
   "scaleBri": "Scala luminosità",
   "scaleSat": "Scala saturazione",
-  "scaleTooltip": "Come viene interpretato il valore dello stato sorgente. 'auto' mantiene l'euristica legacy (<=1 come 0..1, <=100 come percentuale). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (Hue native).",
-  "scaleAuto": "Auto (legacy)",
+  "scaleTooltip": "Come viene interpretato il valore sorgente — in entrambe le direzioni. 'Automatico' prende unità e intervallo dal punto dati stesso; se mancano decide il valore (<=1 come 0..1, <=100 come percentuale). 'Percentuale' = 0..100 (es. level.dimmer). 'Normalizzato' = 0..1. 'Grezzo' = 1..254 (nativo Hue).",
+  "scaleAuto": "Automatico (dal punto dati)",
   "scalePercent": "Percentuale (0..100)",
   "scaleNormalized": "Normalizzato (0..1)",
   "scaleRaw": "Grezzo (1..254 Hue)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "Disattiva l'autenticazione (consenti tutte le richieste)",
   "scaleHue": "Scala della tonalità",
   "scaleCt": "Scala della temperatura del colore",
-  "scaleHueTooltip": "Come viene interpretato il valore sorgente della tonalità. 'Nativo' = 0..65535 (Hue). 'Gradi' = 0..360 (es. sorgenti HSV/HSL).",
-  "scaleCtTooltip": "Come viene interpretato il valore sorgente della temperatura del colore. 'Nativo' = 153..500 mired (Hue). 'Kelvin' = gradi Kelvin (es. 2700..6500).",
+  "scaleHueTooltip": "Come viene interpretato il valore sorgente della tonalità. 'Automatico' prende unità e intervallo dal punto dati. 'Nativo' = 0..65535 (Hue). 'Gradi' = 0..360 (es. sorgenti HSV/HSL).",
+  "scaleCtTooltip": "Come viene interpretato il valore sorgente della temperatura del colore. 'Automatico' prende unità e intervallo dal punto dati. 'Nativo' = 153..500 mired (Hue). 'Kelvin' = gradi Kelvin (es. 2700..6500).",
   "scaleNative": "Nativo (nessuna conversione)",
   "scaleDegrees": "Gradi (0..360)",
   "scaleKelvin": "Kelvin",
@@ -74,5 +74,10 @@
   "dmScanAdded": "Aggiunte %s luce/luci.",
   "dmScanAddedSkipped": "Aggiunte %s luce/luci. %s dispositivo/i non sono stati mappati automaticamente e richiedono mappatura manuale.",
   "dmScanFailed": "Ricerca non riuscita: %s",
-  "dmActionFailed": "Impossibile completare l'azione: %s"
+  "dmActionFailed": "Impossibile completare l'azione: %s",
+  "infoFolder": "Informazioni",
+  "infoConnectionName": "Il bridge risponde",
+  "infoConnectionDesc": "Vero finché il bridge emulato accetta richieste dai client Hue",
+  "infoErrorName": "Ultimo errore",
+  "infoErrorDesc": "Perché il bridge non risponde — vuoto finché tutto funziona"
 }

@@ -41,8 +41,8 @@
   "supportHeader": "Ondersteuning",
   "scaleBri": "Helderheidsschaal",
   "scaleSat": "Verzadigingsschaal",
-  "scaleTooltip": "Hoe de bronstatus geïnterpreteerd wordt. 'auto' = bestaande heuristiek (<=1 als 0..1, <=100 als procent). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (Hue-eigen).",
-  "scaleAuto": "Auto (legacy)",
+  "scaleTooltip": "Hoe de bronwaarde wordt uitgelegd — in beide richtingen. 'Automatisch' haalt eenheid en bereik uit het datapunt zelf; ontbreken die, dan beslist de waarde (<=1 als 0..1, <=100 als percentage). 'Percentage' = 0..100 (bijv. level.dimmer). 'Genormaliseerd' = 0..1. 'Ruw' = 1..254 (Hue-eigen).",
+  "scaleAuto": "Automatisch (uit het datapunt)",
   "scalePercent": "Procent (0..100)",
   "scaleNormalized": "Genormaliseerd (0..1)",
   "scaleRaw": "Ruw (1..254 Hue)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "Aanmelding uitschakelen (alle aanvragen toestaan)",
   "scaleHue": "Tint-schaal",
   "scaleCt": "Kleurtemperatuur-schaal",
-  "scaleHueTooltip": "Hoe de bron-tintwaarde wordt geïnterpreteerd. 'Native' = 0..65535 (Hue). 'Graden' = 0..360 (bijv. HSV/HSL-bronnen).",
-  "scaleCtTooltip": "Hoe de bron-kleurtemperatuurwaarde wordt geïnterpreteerd. 'Native' = 153..500 mired (Hue). 'Kelvin' = graden Kelvin (bijv. 2700..6500).",
+  "scaleHueTooltip": "Hoe de bronwaarde van de kleurtoon wordt uitgelegd. 'Automatisch' haalt eenheid en bereik uit het datapunt. 'Eigen' = 0..65535 (Hue). 'Graden' = 0..360 (bijv. HSV/HSL-bronnen).",
+  "scaleCtTooltip": "Hoe de bronwaarde van de kleurtemperatuur wordt uitgelegd. 'Automatisch' haalt eenheid en bereik uit het datapunt. 'Eigen' = 153..500 mired (Hue). 'Kelvin' = graden Kelvin (bijv. 2700..6500).",
   "scaleNative": "Native (geen conversie)",
   "scaleDegrees": "Graden (0..360)",
   "scaleKelvin": "Kelvin",
@@ -74,5 +74,10 @@
   "dmScanAdded": "%s lamp(en) toegevoegd.",
   "dmScanAddedSkipped": "%s lamp(en) toegevoegd. %s apparaat/apparaten konden niet automatisch worden toegewezen en vereisen handmatige toewijzing.",
   "dmScanFailed": "Zoeken mislukt: %s",
-  "dmActionFailed": "De actie kon niet worden voltooid: %s"
+  "dmActionFailed": "De actie kon niet worden voltooid: %s",
+  "infoFolder": "Informatie",
+  "infoConnectionName": "Bridge antwoordt",
+  "infoConnectionDesc": "Waar zolang de geëmuleerde bridge aanvragen van Hue-clients aanneemt",
+  "infoErrorName": "Laatste fout",
+  "infoErrorDesc": "Waarom de bridge niet antwoordt — leeg zolang alles werkt"
 }

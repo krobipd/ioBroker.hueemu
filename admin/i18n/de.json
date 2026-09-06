@@ -41,8 +41,8 @@
   "supportHeader": "Unterstützung",
   "scaleBri": "Helligkeits-Skala",
   "scaleSat": "Sättigungs-Skala",
-  "scaleTooltip": "Wie der Quellzustand interpretiert wird. 'auto' = bisheriges Verhalten (Werte <=1 als 0..1, <=100 als Prozent). 'percent' = 0..100 (z.B. level.dimmer). 'normalized' = 0..1. 'raw' = 1..254 (Hue-nativ).",
-  "scaleAuto": "Automatisch (bisher)",
+  "scaleTooltip": "Wie der Quellwert gedeutet wird — in beide Richtungen. 'Automatisch' nimmt Einheit und Bereich aus dem Datenpunkt selbst; fehlen sie, entscheidet der Wert (<=1 als 0..1, <=100 als Prozent). 'Prozent' = 0..100 (z. B. level.dimmer). 'Normiert' = 0..1. 'Roh' = 1..254 (Hue-nativ).",
+  "scaleAuto": "Automatisch (aus dem Datenpunkt)",
   "scalePercent": "Prozent (0..100)",
   "scaleNormalized": "Normalisiert (0..1)",
   "scaleRaw": "Hue-Roh (1..254)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "Authentifizierung deaktivieren (alle Anfragen erlauben)",
   "scaleHue": "Farbton-Skala",
   "scaleCt": "Farbtemperatur-Skala",
-  "scaleHueTooltip": "Wie der Farbton-Quellwert interpretiert wird. 'Nativ' = 0..65535 (Hue). 'Grad' = 0..360 (z. B. HSV/HSL-Quellen).",
-  "scaleCtTooltip": "Wie der Farbtemperatur-Quellwert interpretiert wird. 'Nativ' = 153..500 Mired (Hue). 'Kelvin' = Grad Kelvin (z. B. 2700..6500).",
+  "scaleHueTooltip": "Wie der Farbton-Quellwert gedeutet wird. 'Automatisch' nimmt Einheit und Bereich aus dem Datenpunkt. 'Nativ' = 0..65535 (Hue). 'Grad' = 0..360 (z. B. HSV/HSL-Quellen).",
+  "scaleCtTooltip": "Wie der Farbtemperatur-Quellwert gedeutet wird. 'Automatisch' nimmt Einheit und Bereich aus dem Datenpunkt. 'Nativ' = 153..500 Mired (Hue). 'Kelvin' = Grad Kelvin (z. B. 2700..6500).",
   "scaleNative": "Nativ (keine Umrechnung)",
   "scaleDegrees": "Grad (0..360)",
   "scaleKelvin": "Kelvin",
@@ -74,5 +74,10 @@
   "dmScanAdded": "%s Licht(er) hinzugefügt.",
   "dmScanAddedSkipped": "%s Licht(er) hinzugefügt. %s Gerät(e) konnten nicht automatisch zugeordnet werden und brauchen manuelle Zuordnung.",
   "dmScanFailed": "Suche fehlgeschlagen: %s",
-  "dmActionFailed": "Die Aktion konnte nicht abgeschlossen werden: %s"
+  "dmActionFailed": "Die Aktion konnte nicht abgeschlossen werden: %s",
+  "infoFolder": "Information",
+  "infoConnectionName": "Bridge antwortet",
+  "infoConnectionDesc": "Wahr, solange die emulierte Bridge Anfragen von Hue-Clients annimmt",
+  "infoErrorName": "Letzter Fehler",
+  "infoErrorDesc": "Warum die Bridge nicht antwortet — leer, solange alles läuft"
 }

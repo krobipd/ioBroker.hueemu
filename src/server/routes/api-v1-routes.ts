@@ -116,9 +116,47 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   const { handler, logger } = options;
 
   // Local helper closure that captures `logger` from plugin options — saves
-  // passing the logger through all 9 call-sites of `handleErrors`.
+  // passing the logger through all call-sites of `handleErrors`.
   async function runWithLog(req: FastifyRequest, rep: FastifyReply, fn: () => unknown): Promise<void> {
     return handleErrors(req, rep, fn, logger);
+  }
+
+  /**
+   * Run a route body that requires a paired client: read the params, build the
+   * Hue address the error would name, verify the username, then hand the body
+   * what it needs. Every authenticated route repeated those four lines.
+   *
+   * @param req - Fastify request
+   * @param rep - Fastify reply
+   * @param suffix - The part of the Hue address after `/api/<username>`
+   * @param fn - The route body
+   */
+  async function authed(
+    req: FastifyRequest,
+    rep: FastifyReply,
+    suffix: (params: LightParams) => string,
+    fn: (hueReq: HueRequest, params: LightParams) => unknown,
+  ): Promise<void> {
+    return runWithLog(req, rep, async () => {
+      const params = req.params as LightParams;
+      await requireAuth(handler, params.username, `/api/${params.username}${suffix(params)}`);
+      return fn(toHueRequest(req), params);
+    });
+  }
+
+  /**
+   * A request body must be a plain object — an array or a scalar is invalid JSON
+   * as far as the Hue API is concerned.
+   *
+   * @param body - The parsed request body
+   * @param address - The Hue address the error names
+   * @returns the body, typed
+   */
+  function requireObjectBody(body: unknown, address: string): LightStateUpdate {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw HueApiError.invalidJson(address);
+    }
+    return body;
   }
 
   // POST /api - Create user
@@ -154,12 +192,12 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
 
   // GET /api/:username - Get full state
   fastify.get<{ Params: UsernameParams }>("/api/:username", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
-      const hueReq = toHueRequest(request);
-      const { username } = request.params;
-      await requireAuth(handler, username, `/api/${username}`);
-      return handler.getFullState(hueReq, username);
-    });
+    await authed(
+      request,
+      reply,
+      () => "",
+      (hueReq, p) => handler.getFullState(hueReq, p.username),
+    );
   });
 
   // GET /api/:username/config - Get config. Real Hue returns the FULL config
@@ -179,64 +217,59 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
 
   // GET /api/:username/lights - Get all lights
   fastify.get<{ Params: UsernameParams }>("/api/:username/lights", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
-      const hueReq = toHueRequest(request);
-      const { username } = request.params;
-      await requireAuth(handler, username, `/api/${username}/lights`);
-      return handler.getAllLights(hueReq, username);
-    });
+    await authed(
+      request,
+      reply,
+      () => "/lights",
+      (hueReq, p) => handler.getAllLights(hueReq, p.username),
+    );
   });
 
   // GET /api/:username/lights/:id - Get single light
   fastify.get<{ Params: LightParams }>("/api/:username/lights/:id", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
-      const hueReq = toHueRequest(request);
-      const { username, id } = request.params;
-      await requireAuth(handler, username, `/api/${username}/lights/${id}`);
-      return handler.getLightById(hueReq, username, id);
-    });
+    await authed(
+      request,
+      reply,
+      p => `/lights/${p.id}`,
+      (hueReq, p) => handler.getLightById(hueReq, p.username, p.id),
+    );
   });
 
   // PUT /api/:username/lights/:id/state - Set light state
   fastify.put<{ Params: LightParams }>("/api/:username/lights/:id/state", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
-      const hueReq = toHueRequest(request);
-      const { username, id } = request.params;
-      const stateUpdate = request.body as LightStateUpdate;
-      await requireAuth(handler, username, `/api/${username}/lights/${id}/state`);
-
-      if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
-        throw HueApiError.invalidJson(`/api/${username}/lights/${id}/state`);
-      }
-
-      return handler.setLightState(hueReq, username, id, stateUpdate);
-    });
+    await authed(
+      request,
+      reply,
+      p => `/lights/${p.id}/state`,
+      (hueReq, p) => {
+        const address = `/api/${p.username}/lights/${p.id}/state`;
+        return handler.setLightState(hueReq, p.username, p.id, requireObjectBody(request.body, address));
+      },
+    );
   });
 
   // PUT /api/:username/groups/:id/action - Set group action (e.g. Harmony Hub)
   fastify.put<{ Params: LightParams }>("/api/:username/groups/:id/action", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
-      const hueReq = toHueRequest(request);
-      const { username, id } = request.params;
-      const stateUpdate = request.body as LightStateUpdate;
-      await requireAuth(handler, username, `/api/${username}/groups/${id}/action`);
-
-      if (!stateUpdate || typeof stateUpdate !== "object" || Array.isArray(stateUpdate)) {
-        throw HueApiError.invalidJson(`/api/${username}/groups/${id}/action`);
-      }
-
-      return handler.setGroupAction(hueReq, username, id, stateUpdate);
-    });
+    await authed(
+      request,
+      reply,
+      p => `/groups/${p.id}/action`,
+      (hueReq, p) => {
+        const address = `/api/${p.username}/groups/${p.id}/action`;
+        return handler.setGroupAction(hueReq, p.username, p.id, requireObjectBody(request.body, address));
+      },
+    );
   });
 
   // Empty collections (not implemented): groups, schedules, scenes, sensors, rules, resourcelinks
   for (const collection of ["groups", "schedules", "scenes", "sensors", "rules", "resourcelinks"]) {
     fastify.get<{ Params: UsernameParams }>(`/api/:username/${collection}`, async (request, reply) => {
-      await runWithLog(request, reply, async () => {
-        const { username } = request.params;
-        await requireAuth(handler, username, `/api/${username}/${collection}`);
-        return {};
-      });
+      await authed(
+        request,
+        reply,
+        () => `/${collection}`,
+        () => ({}),
+      );
     });
   }
 

@@ -1,4 +1,34 @@
 /**
+ * The fleet-wide reason text for "the adapter itself has nothing to report":
+ * off, or started and not serving yet. One word, identical in every adapter —
+ * krobi 2026-08-27: "ich will nicht in jeden adapter eine andere meldung sehen".
+ * Defined once here and used at every lifecycle point.
+ */
+export const REASON_UNKNOWN = "Unknown";
+
+/**
+ * A start-up failure hueemu diagnosed about ITS OWN configuration (no port, no
+ * routable host, colliding ports).
+ *
+ * The class exists for one reason: its message is the adapter's own wording, and
+ * the reason datapoint must never carry that (fleet rule, see
+ * {@link REASON_UNKNOWN}). `onReady` maps this type to `Unknown` for the
+ * datapoint and logs the full text, where an actionable hint belongs. An error
+ * that came from outside — node's `listen EADDRINUSE …`, a library — is nobody's
+ * invention and reaches the datapoint unchanged.
+ */
+export class ConfigurationError extends Error {
+  /**
+   * @param message The adapter's own description of the misconfiguration —
+   *   log-only, never the value of the reason datapoint.
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigurationError";
+  }
+}
+
+/**
  * Hue API Error types and handling
  */
 

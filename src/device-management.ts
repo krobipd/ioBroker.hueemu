@@ -94,9 +94,14 @@ export function buildDeviceForm(): JsonFormSchema {
         type: "select",
         label: t("scaleBri"),
         tooltip: t("scaleTooltip"),
-        default: "auto",
+        // No preselection: an empty scale means "derive it from the bound
+        // datapoint". Until v1.16.0 this select preselected `auto`, which the
+        // form stored as a decision — and a stored decision is never derived and
+        // never backfilled, so a hand-added percent dimmer stayed on the legacy
+        // heuristic for good (audit 2026-09-06 F1).
+        default: "",
         options: [
-          { label: t("scaleAuto"), value: "auto" },
+          { label: t("scaleAuto"), value: "" },
           { label: t("scalePercent"), value: "percent" },
           { label: t("scaleNormalized"), value: "normalized" },
           { label: t("scaleRaw"), value: "raw" },
@@ -117,8 +122,9 @@ export function buildDeviceForm(): JsonFormSchema {
         type: "select",
         label: t("scaleCt"),
         tooltip: t("scaleCtTooltip"),
-        default: "raw",
+        default: "",
         options: [
+          { label: t("scaleAuto"), value: "" },
           { label: t("scaleNative"), value: "raw" },
           { label: t("scaleKelvin"), value: "kelvin" },
         ],
@@ -138,8 +144,9 @@ export function buildDeviceForm(): JsonFormSchema {
         type: "select",
         label: t("scaleHue"),
         tooltip: t("scaleHueTooltip"),
-        default: "raw",
+        default: "",
         options: [
+          { label: t("scaleAuto"), value: "" },
           { label: t("scaleNative"), value: "raw" },
           { label: t("scaleDegrees"), value: "degrees" },
         ],
@@ -159,9 +166,9 @@ export function buildDeviceForm(): JsonFormSchema {
         type: "select",
         label: t("scaleSat"),
         tooltip: t("scaleTooltip"),
-        default: "auto",
+        default: "",
         options: [
-          { label: t("scaleAuto"), value: "auto" },
+          { label: t("scaleAuto"), value: "" },
           { label: t("scalePercent"), value: "percent" },
           { label: t("scaleNormalized"), value: "normalized" },
           { label: t("scaleRaw"), value: "raw" },
@@ -183,9 +190,10 @@ export function buildDeviceForm(): JsonFormSchema {
 }
 
 /**
- * Turn raw form data into a clean DeviceConfig: drop empty pickers and any
- * field not relevant to the chosen light type (e.g. a stale hueState left over
- * when a colour light is switched to on/off), so `native.devices` stays tidy.
+ * Turn raw form data into a clean DeviceConfig: drop empty pickers, the
+ * undecided value scales, and any field not relevant to the chosen light type
+ * (e.g. a stale hueState left over when a colour light is switched to on/off),
+ * so `native.devices` stays tidy.
  *
  * @param raw The submitted form values.
  * @returns The pruned device mapping.
@@ -196,6 +204,12 @@ export function cleanDevice(raw: Record<string, unknown>): DeviceConfig {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw)) {
     if (value === "" || value === undefined || value === null) {
+      continue;
+    }
+    // "auto" is the pre-v1.17.0 spelling of "no scale decided". Storing it kept
+    // the light out of the derivation for good, so an edit drops it and the
+    // scale is derived from the bound datapoint again.
+    if (key.endsWith("Scale") && value === "auto") {
       continue;
     }
     if (allowed && !allowed.includes(key)) {
@@ -325,15 +339,49 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   }
 
   /**
+   * The stable card id of a device: its driving state id, or — for a device that
+   * maps nothing at all — its position.
+   *
+   * v1.17.0: the card id used to be the array position alone, and edit/delete
+   * resolved it against a list read fresh at action time. Anything that shifted
+   * the list in between (a second admin session, another action) pointed the
+   * action at a DIFFERENT light than the one clicked (audit 2026-09-06 F10).
+   *
+   * @param device The stored mapping.
+   * @param index Its position in the list.
+   * @returns A card id that survives a shift of the list.
+   */
+  private static cardId(device: DeviceConfig, index: number): string {
+    return device.onState || device.briState || `#${index}`;
+  }
+
+  /**
+   * Resolve a card id back to a position in the CURRENT list.
+   *
+   * @param devices The list as it is right now.
+   * @param cardId The id the card was built with.
+   * @returns the position, or -1 when the device is gone.
+   */
+  private static indexOfCard(devices: DeviceConfig[], cardId: string): number {
+    const byState = devices.findIndex((d, i) => HueEmuDeviceManagement.cardId(d, i) === cardId);
+    if (byState >= 0) {
+      return byState;
+    }
+    // A positional fallback id (`#3`) from a device that maps nothing.
+    const positional = /^#(\d+)$/.exec(cardId);
+    return positional ? Number(positional[1]) : -1;
+  }
+
+  /**
    * Build one device card with edit/delete actions.
    *
    * @param device The stored mapping.
-   * @param index Its position in the list — used as the (per-session stable) card id.
+   * @param index Its position in the list.
    * @returns The device-manager card descriptor.
    */
   private toDeviceInfo(device: DeviceConfig, index: number): DeviceInfo<string> {
     return {
-      id: String(index),
+      id: HueEmuDeviceManagement.cardId(device, index),
       name: device.name || `Light ${index + 1}`,
       actions: [
         {
@@ -341,18 +389,14 @@ export class HueEmuDeviceManagement extends DeviceManagement {
           icon: "edit",
           description: t("dmEdit"),
           handler: async (id: string, context: ActionContext) =>
-            this.guardAction<DeviceResult>(context, { refresh: "instance" }, () =>
-              this.editDevice(Number(id), context),
-            ),
+            this.guardAction<DeviceResult>(context, { refresh: "instance" }, () => this.editDevice(id, context)),
         },
         {
           id: "delete",
           icon: "delete",
           description: t("dmDelete"),
           handler: async (id: string, context: ActionContext) =>
-            this.guardAction<DeviceResult>(context, { refresh: "instance" }, () =>
-              this.deleteDevice(Number(id), context),
-            ),
+            this.guardAction<DeviceResult>(context, { refresh: "instance" }, () => this.deleteDevice(id, context)),
         },
       ],
     };
@@ -408,12 +452,13 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   /**
    * Edit a device via the form, replacing it in place.
    *
-   * @param index The device's list position.
+   * @param cardId The card id the action was raised on.
    * @param context The action context.
    * @returns A directive to reload the list.
    */
-  private async editDevice(index: number, context: ActionContext): Promise<DeviceResult> {
+  private async editDevice(cardId: string, context: ActionContext): Promise<DeviceResult> {
     const devices = await this.readDevices();
+    const index = HueEmuDeviceManagement.indexOfCard(devices, cardId);
     const current = devices[index];
     if (!current) {
       return { refresh: "instance" };
@@ -432,12 +477,13 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   /**
    * Delete a device after confirmation.
    *
-   * @param index The device's list position.
+   * @param cardId The card id the action was raised on.
    * @param context The action context.
    * @returns A directive to reload the list.
    */
-  private async deleteDevice(index: number, context: ActionContext): Promise<DeviceResult> {
+  private async deleteDevice(cardId: string, context: ActionContext): Promise<DeviceResult> {
     const devices = await this.readDevices();
+    const index = HueEmuDeviceManagement.indexOfCard(devices, cardId);
     const target = devices[index];
     if (!target) {
       return { refresh: "instance" };

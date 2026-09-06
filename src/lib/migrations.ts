@@ -9,7 +9,14 @@
 
 import { errText } from "../types/utils";
 import type { DeviceConfig } from "../hue-api";
-import { deriveCtScale, deriveHueScale, deriveLevelScale, stateFactsOf, type StateFacts } from "./device-scan";
+import {
+  deriveCtScale,
+  deriveHueScale,
+  deriveLevelScale,
+  isUndecidedScale,
+  stateFactsOf,
+  type StateFacts,
+} from "./hue-scales";
 
 /**
  * Upper bound for `getObjectList`/`getObjectView` range queries over an id
@@ -48,10 +55,16 @@ export function detectLegacyLightType(stateKeys: Set<string>): LegacyLightType {
  */
 export const OBSOLETE_STATE_IDS: ReadonlyArray<{ id: string; removedIn: string }> = [
   { id: "info.configuredDevices", removedIn: "1.0.15" },
-  { id: "info.connection", removedIn: "1.1.3" },
-  { id: "info", removedIn: "1.1.3" },
   { id: "createLight", removedIn: "1.1.0" },
 ];
+
+/*
+ * `info.connection` and `info` were on this list from 1.1.3 until v1.17.0, which
+ * brought them back as the adapter's serving indicator. They HAD to come off:
+ * this cleanup runs late in onReady, after the objects are created, so an id
+ * that is both created and listed here would be created and deleted on every
+ * single start.
+ */
 
 /** Adapter surface required by `runObsoleteStateCleanup`. */
 export interface ObsoleteStateCleanupAdapter {
@@ -216,8 +229,11 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
  * prove.
  *
  * Guard rails, deliberately narrow:
- *  - only ABSENT scale fields are filled — a value the user picked by hand, or
- *    one a previous run derived, is never overwritten,
+ *  - only UNDECIDED scale fields are filled — absent, empty, or the explicit
+ *    `auto`; a scale the user really picked (percent/normalized/raw/…) is never
+ *    overwritten. Until v1.16.0 the check was `!device.briScale`, so the `auto`
+ *    the device-manager form wrote counted as a decision and a hand-added light
+ *    was excluded from this backfill for good (audit 2026-09-06 F1),
  *  - evidence is `common.min`/`common.max` and `common.unit` only, never the
  *    role (see `deriveCtScale`),
  *  - no evidence → the field stays empty, which is exactly today's behaviour.
@@ -244,25 +260,25 @@ export interface DeviceScaleFacts {
  */
 export function buildDeviceScalePatch(device: DeviceConfig, facts: DeviceScaleFacts): Partial<DeviceConfig> | null {
   const patch: Partial<DeviceConfig> = {};
-  if (device.briState && !device.briScale) {
+  if (device.briState && isUndecidedScale(device.briScale)) {
     const scale = deriveLevelScale(facts.bri);
     if (scale) {
       patch.briScale = scale;
     }
   }
-  if (device.satState && !device.satScale) {
+  if (device.satState && isUndecidedScale(device.satScale)) {
     const scale = deriveLevelScale(facts.sat);
     if (scale) {
       patch.satScale = scale;
     }
   }
-  if (device.hueState && !device.hueScale) {
+  if (device.hueState && isUndecidedScale(device.hueScale)) {
     const scale = deriveHueScale(facts.hue);
     if (scale) {
       patch.hueScale = scale;
     }
   }
-  if (device.ctState && !device.ctScale) {
+  if (device.ctState && isUndecidedScale(device.ctScale)) {
     const scale = deriveCtScale(facts.ct);
     if (scale) {
       patch.ctScale = scale;

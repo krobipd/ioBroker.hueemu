@@ -41,8 +41,8 @@
   "supportHeader": "Apoio",
   "scaleBri": "Escala de brilho",
   "scaleSat": "Escala de saturação",
-  "scaleTooltip": "Como o valor do estado de origem é interpretado. 'auto' mantém a heurística antiga (<=1 como 0..1, <=100 como porcentagem). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (Hue native).",
-  "scaleAuto": "Auto (legado)",
+  "scaleTooltip": "Como o valor de origem é interpretado — em ambas as direções. 'Automático' obtém unidade e intervalo do próprio ponto de dados; sem eles decide o valor (<=1 como 0..1, <=100 como percentagem). 'Percentagem' = 0..100 (p. ex. level.dimmer). 'Normalizado' = 0..1. 'Bruto' = 1..254 (nativo Hue).",
+  "scaleAuto": "Automático (a partir do ponto de dados)",
   "scalePercent": "Porcentagem (0..100)",
   "scaleNormalized": "Normalizado (0..1)",
   "scaleRaw": "Bruto (1..254 Hue)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "Desativar autenticação (permitir todos os pedidos)",
   "scaleHue": "Escala de matiz",
   "scaleCt": "Escala de temperatura de cor",
-  "scaleHueTooltip": "Como o valor de origem do matiz é interpretado. 'Nativo' = 0..65535 (Hue). 'Graus' = 0..360 (por ex. fontes HSV/HSL).",
-  "scaleCtTooltip": "Como o valor de origem da temperatura de cor é interpretado. 'Nativo' = 153..500 mired (Hue). 'Kelvin' = graus Kelvin (por ex. 2700..6500).",
+  "scaleHueTooltip": "Como o valor de origem do matiz é interpretado. 'Automático' obtém unidade e intervalo do ponto de dados. 'Nativo' = 0..65535 (Hue). 'Graus' = 0..360 (p. ex. fontes HSV/HSL).",
+  "scaleCtTooltip": "Como o valor de origem da temperatura de cor é interpretado. 'Automático' obtém unidade e intervalo do ponto de dados. 'Nativo' = 153..500 mired (Hue). 'Kelvin' = graus Kelvin (p. ex. 2700..6500).",
   "scaleNative": "Nativo (sem conversão)",
   "scaleDegrees": "Graus (0..360)",
   "scaleKelvin": "Kelvin",
@@ -74,5 +74,10 @@
   "dmScanAdded": "%s luz(es) adicionada(s).",
   "dmScanAddedSkipped": "%s luz(es) adicionada(s). %s dispositivo(s) não puderam ser mapeados automaticamente e precisam de mapeamento manual.",
   "dmScanFailed": "Falha na busca: %s",
-  "dmActionFailed": "Não foi possível concluir a ação: %s"
+  "dmActionFailed": "Não foi possível concluir a ação: %s",
+  "infoFolder": "Informação",
+  "infoConnectionName": "A bridge está a responder",
+  "infoConnectionDesc": "Verdadeiro enquanto a bridge emulada aceita pedidos de clientes Hue",
+  "infoErrorName": "Último erro",
+  "infoErrorDesc": "Porque a bridge não responde — vazio enquanto tudo funciona"
 }

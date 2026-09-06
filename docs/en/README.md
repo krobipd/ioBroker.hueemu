@@ -84,13 +84,16 @@ ioBroker adapters store the same value in different units. A hue is kept in degr
 (0–360) by one adapter and in the Hue-native 0–65535 by another; a colour temperature
 is Kelvin here and mired there; a brightness is a percentage or a raw 0–254.
 
-The assistant reads the unit and the value range from the state it binds and sets the
-scale for you **wherever the state declares them**. Where a state says nothing about
-its unit — which happens, for instance with the Zigbee adapter's colour temperature —
-the field stays empty and the adapter's default applies.
+The adapter reads the unit and the value range from the state it binds and settles the
+scale itself at every start — for lights the search found AND for lights you added by
+hand, and it applies to reading and writing alike. Where a state says nothing about its
+unit or its range — which happens, for instance, with the Zigbee adapter's colour
+temperature — the adapter falls back to reading the value itself, and writes it back
+the same way it read it.
 
 So if a light responds but shows the wrong colour, the wrong white tone or jumps to
-full brightness, open its card and set the scale by hand:
+full brightness, open its card and set the scale by hand — "Automatic (from the
+datapoint)" is the setting that lets the adapter decide:
 
 - **Brightness / Saturation** — `Percent (0..100)` for a typical `level.dimmer`,
   `Normalized (0..1)`, or `Raw (1..254)` for a source that already uses Hue's own range
@@ -109,11 +112,18 @@ writes full brightness, because a source sitting at 0 no longer knows what it us
 
 ```
 hueemu.0.
+├── info/
+│   ├── connection — whether the bridge is answering Hue clients
+│   └── error      — why it is not (empty while everything works)
 ├── startPairing   — opens the pairing window for 50 seconds (button)
 ├── disableAuth    — accept every request without pairing (switch)
 └── clients/       — one entry per paired client
     └── <name>     — the key that client uses
 ```
+
+`info.connection` is the quick answer to "is it running at all?". A start can fail for
+reasons the instance list does not show — the HTTP port already taken, or no usable
+network address — and then `info.error` carries the cause in plain words.
 
 `disableAuth` is a maintenance aid, not a setting to leave on: with it every device on
 your network can control your lights without pairing. New clients are limited to 100

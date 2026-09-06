@@ -1,6 +1,10 @@
 /**
  * Device Binding Service
- * Handles binding between admin-configured devices and ioBroker states
+ * Handles binding between admin-configured devices and ioBroker states.
+ *
+ * What it is: the state cache, the light builder and the write path. What it is
+ * NOT (since v1.17.0): a unit library — every Hue range, every conversion and
+ * every scale derivation lives in `lib/hue-scales.ts` and is pure.
  */
 
 import type { Logger } from "../types/config";
@@ -15,161 +19,27 @@ import type {
 import { HueApiError } from "../types/errors";
 import { errText } from "../types/utils";
 import { coerceBool, coerceFiniteNumber, parseLightIndex } from "../lib/coerce";
+import {
+  HUE_BRI_MAX,
+  INCREMENT_ATTRIBUTES,
+  applyIncrement,
+  convertValueForState,
+  convertValueFromState,
+  deriveCtScale,
+  deriveHueScale,
+  deriveLevelScale,
+  getDefaultValue,
+  isUndecidedScale,
+  scaleValueForState,
+  stateFactsOf,
+  type CtScale,
+  type HueScale,
+  type LightStateScale,
+  type ScaledDevice,
+} from "../lib/hue-scales";
 
-/** Hue API value ranges (per Philips Hue API specification) */
-const HUE_BRI_MIN = 1;
-const HUE_BRI_MAX = 254;
-const HUE_HUE_MAX = 65535;
-const HUE_SAT_MAX = 254;
-const HUE_CT_MIN = 153;
-const HUE_CT_MAX = 500;
-const HUE_CT_DEFAULT = 250;
-const HUE_XY_DEFAULT: [number, number] = [0.5, 0.5];
-
-/**
- * Clamp a finite number into an integer range.
- *
- * @param v Finite input number
- * @param min Minimum (inclusive)
- * @param max Maximum (inclusive)
- */
-function clampRound(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(v)));
-}
-
-/**
- * v1.10.0 (I2): scale a hue source value into the Hue 0..65535 range.
- * 'degrees' maps 0..360 → 0..65535; 'raw' (default) is already Hue-native.
- *
- * @param n Raw finite source value
- * @param scale Per-device hue scale ('raw' | 'degrees')
- */
-function hueFromState(n: number, scale: HueScale | undefined): number {
-  const hueValue = scale === "degrees" ? (n / 360) * HUE_HUE_MAX : n;
-  return clampRound(hueValue, 0, HUE_HUE_MAX);
-}
-
-/**
- * Inverse of {@link hueFromState}: a Hue 0..65535 value back into the source scale.
- *
- * @param n Incoming Hue value (0..65535 from the client)
- * @param scale Per-device hue scale ('raw' | 'degrees')
- */
-function hueForState(n: number, scale: HueScale | undefined): number {
-  const hueValue = clampRound(n, 0, HUE_HUE_MAX);
-  return scale === "degrees" ? Math.round((hueValue / HUE_HUE_MAX) * 360) : hueValue;
-}
-
-/**
- * v1.10.0 (I2): scale a colour-temperature source value into Hue mired (153..500).
- * 'kelvin' maps Kelvin → mired (1e6/K); 'raw' (default) is already Hue-native mired.
- *
- * @param n Raw finite source value
- * @param scale Per-device ct scale ('raw' | 'kelvin')
- */
-function ctFromState(n: number, scale: CtScale | undefined): number {
-  if (scale === "kelvin") {
-    return n > 0 ? clampRound(1_000_000 / n, HUE_CT_MIN, HUE_CT_MAX) : HUE_CT_DEFAULT;
-  }
-  return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
-}
-
-/**
- * Inverse of {@link ctFromState}: a Hue mired (153..500) value back into the source scale.
- *
- * @param n Incoming Hue mired value (153..500 from the client)
- * @param scale Per-device ct scale ('raw' | 'kelvin')
- */
-function ctForState(n: number, scale: CtScale | undefined): number {
-  const mired = clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
-  return scale === "kelvin" ? Math.round(1_000_000 / mired) : mired;
-}
-
-/**
- * Hue v1 relative attributes: `<base>_inc` adjusts the CURRENT value instead of
- * setting an absolute one. That is how "make it a bit darker" and a dimmer
- * rocker work — the client does not know the current value and must not need to.
- *
- * Semantics verified against the official parameter description and the diyHue
- * reference bridge (`HueObjects/__init__.py:incProcess`, ebd0eaf):
- *  - the `_inc` field is IGNORED when its absolute field is in the same body,
- *  - the result is clamped, EXCEPT hue, which wraps (a colour wheel has no end),
- *  - the response carries the ABSOLUTE address with the resulting value.
- *
- * Deviations, both deliberate: every `_inc` in a body is honoured (diyHue takes
- * only the first), and hue wraps modulo 65536 rather than diyHue's ±65535 —
- * 0..65535 inclusive is 65536 distinct values.
- */
-const INCREMENT_ATTRIBUTES: Readonly<Record<string, string>> = {
-  bri_inc: "bri",
-  sat_inc: "sat",
-  hue_inc: "hue",
-  ct_inc: "ct",
-  xy_inc: "xy",
-};
-
-/** Number of distinct hue values — the wrap modulus for the colour wheel. */
-const HUE_HUE_SPAN = HUE_HUE_MAX + 1;
-
-/**
- * Wrap a hue value into 0..65535. Unlike brightness, hue has no ends: one step
- * past red comes out at the other side of the wheel.
- *
- * @param value Raw (possibly out-of-range) hue value
- */
-function wrapHue(value: number): number {
-  return ((Math.round(value) % HUE_HUE_SPAN) + HUE_HUE_SPAN) % HUE_HUE_SPAN;
-}
-
-/**
- * Round an xy component and hold it inside the valid 0..1 colour space.
- *
- * @param v The shifted component, possibly outside the colour space
- */
-const clampXyComponent = (v: number): number => Math.min(1, Math.max(0, Math.round(v * 10000) / 10000));
-
-/**
- * Apply a relative change to the current Hue-space value of one attribute.
- * Returns `undefined` when either side is not a usable value — the caller then
- * leaves the request untouched rather than inventing a target.
- *
- * @param base Absolute attribute name the increment belongs to (bri/sat/hue/ct/xy)
- * @param current Current Hue-space value of that attribute
- * @param delta The client-supplied increment
- */
-export function applyIncrement(base: string, current: unknown, delta: unknown): number | [number, number] | undefined {
-  if (base === "xy") {
-    if (!Array.isArray(delta) || delta.length < 2 || !Array.isArray(current) || current.length < 2) {
-      return undefined;
-    }
-    const dx = coerceFiniteNumber(delta[0]);
-    const dy = coerceFiniteNumber(delta[1]);
-    const x = coerceFiniteNumber(current[0]);
-    const y = coerceFiniteNumber(current[1]);
-    if (dx === null || dy === null || x === null || y === null) {
-      return undefined;
-    }
-    return [clampXyComponent(x + dx), clampXyComponent(y + dy)];
-  }
-
-  const step = coerceFiniteNumber(delta);
-  const now = coerceFiniteNumber(current);
-  if (step === null || now === null) {
-    return undefined;
-  }
-  switch (base) {
-    case "bri":
-      return clampRound(now + step, HUE_BRI_MIN, HUE_BRI_MAX);
-    case "sat":
-      return clampRound(now + step, 0, HUE_SAT_MAX);
-    case "ct":
-      return clampRound(now + step, HUE_CT_MIN, HUE_CT_MAX);
-    case "hue":
-      return wrapHue(now + step);
-    default:
-      return undefined;
-  }
-}
+export type { LightStateScale, HueScale, CtScale };
+export { applyIncrement };
 
 /**
  * Light type definitions matching the admin UI
@@ -202,27 +72,9 @@ const LIGHT_TYPES = {
 };
 
 /**
- * v1.4.4 (D3): scale of the foreign source state. Earlier the read path
- * heuristically picked between 0..1 and 0..100 by the value itself
- * (`if (n <= 1) ×254 else if (n <= 100) ÷100×254`) — ambiguous at the
- * boundary: a `level.dimmer` storing 1 (= 1 %) collapsed to bri 254
- * (full bright). Now the user picks the scale per device per state.
- *
- * `auto` = legacy heuristic (default, keeps existing setups working).
- * `percent` = 0..100 → 1..254
- * `normalized` = 0..1 → 1..254
- * `raw` = 1..254 (Hue native), value passed through with clamp
- */
-export type LightStateScale = "auto" | "percent" | "normalized" | "raw";
-/** Scale for the hue source state: 'raw' = 0..65535 (Hue native), 'degrees' = 0..360. */
-export type HueScale = "raw" | "degrees";
-/** Scale for the ct source state: 'raw' = 153..500 mired (Hue native), 'kelvin' = Kelvin. */
-export type CtScale = "raw" | "kelvin";
-
-/**
  * Device configuration from admin UI (jsonConfig format)
  */
-export interface DeviceConfig {
+export interface DeviceConfig extends ScaledDevice {
   /** Display name of the device */
   name: string;
   /** Light type (onoff, dimmable, ct, color) */
@@ -232,20 +84,12 @@ export interface DeviceConfig {
   onState?: string;
   /** ioBroker state ID for brightness */
   briState?: string;
-  /** Scale of the brightness source state */
-  briScale?: LightStateScale;
   /** ioBroker state ID for color temperature */
   ctState?: string;
-  /** Scale of the color-temperature source state */
-  ctScale?: CtScale;
   /** ioBroker state ID for hue */
   hueState?: string;
-  /** Scale of the hue source state */
-  hueScale?: HueScale;
   /** ioBroker state ID for saturation */
   satState?: string;
-  /** Scale of the saturation source state */
-  satScale?: LightStateScale;
   /** ioBroker state ID for XY color */
   xyState?: string;
 }
@@ -262,6 +106,14 @@ const STATE_TO_CONFIG: Record<string, keyof DeviceConfig> = {
   xy: "xyState",
 };
 
+/** Which scale field belongs to which mapped state, for the start-up resolution. */
+const SCALE_FIELDS = [
+  { state: "briState", scale: "briScale" },
+  { state: "satState", scale: "satScale" },
+  { state: "hueState", scale: "hueScale" },
+  { state: "ctState", scale: "ctScale" },
+] as const;
+
 /**
  * Adapter interface for device binding service
  */
@@ -275,7 +127,7 @@ export interface DeviceBindingAdapter {
   /** Read a foreign object by ID (to tell "missing object" from "unset value") */
   getForeignObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
   /** Write a foreign state by ID */
-  setForeignStateAsync(id: string, state: ioBroker.SettableState): Promise<void>;
+  setForeignStateAsync(id: string, state: ioBroker.SettableState): Promise<unknown>;
   /** Subscribe to foreign state changes */
   subscribeForeignStates(pattern: string): void;
 }
@@ -297,11 +149,29 @@ export interface DeviceBindingServiceConfig {
  */
 export class DeviceBindingService {
   private readonly adapter: DeviceBindingAdapter;
-  private readonly devices: DeviceConfig[];
+  /**
+   * The device list the runtime works with. Starts as the stored configuration
+   * and is replaced during {@link initialize} by the same list with every
+   * undecided value scale resolved from the bound object (v1.17.0). The state
+   * ids are untouched, so the id set built in the constructor stays valid.
+   */
+  private devices: DeviceConfig[];
   private readonly logger: Logger;
   private stateCache: Map<string, unknown> = new Map();
   /** Every state id a device maps — the only ids the cache is ever read for. */
   private readonly mappedIds: Set<string>;
+  /**
+   * State ids whose OBJECT does not exist. A light bound to one of them cannot
+   * be driven, so it reports `reachable: false` instead of pretending (v1.17.0).
+   */
+  private readonly missingStates: Set<string> = new Set();
+  /**
+   * Last non-zero value seen per source state. The only evidence an undecided
+   * scale has left on the write path when the bound object declares no range:
+   * a source that reads 0..100 must be written 0..100, and a source sitting at
+   * 0 right now (a lamp that is off) still remembers what it used to be.
+   */
+  private readonly lastNonZeroSource: Map<string, number> = new Map();
 
   /**
    * Create a new device binding service
@@ -338,7 +208,7 @@ export class DeviceBindingService {
     const stateIds: string[] = [];
     for (const configKey of Object.values(STATE_TO_CONFIG)) {
       const stateId = device[configKey];
-      if (stateId) {
+      if (typeof stateId === "string" && stateId) {
         stateIds.push(stateId);
       }
     }
@@ -371,8 +241,83 @@ export class DeviceBindingService {
       }
     }
 
+    // v1.17.0: settle every undecided scale against the bound object BEFORE the
+    // first read or write, so both directions agree from the first request on.
+    this.devices = await this.resolveScales(this.devices);
+
     // Pre-load current state values
     await this.refreshStateCache();
+  }
+
+  /**
+   * v1.17.0: resolve every undecided value scale from the bound source object.
+   *
+   * Until v1.16.0 this only happened once, in a config migration that ran when
+   * the field was ABSENT — so a light the device-manager form had written (its
+   * select preselected `auto`/`raw`) never got it, and the two directions
+   * disagreed for the life of that light: the read path guessed from the value,
+   * the write path wrote the raw Hue number. A client setting half brightness
+   * put 127 into a 0..100 % datapoint (measured, audit 2026-09-06 F1).
+   *
+   * Evidence rules are the ones decision 14 fixed: `common.min`/`common.max`
+   * and `common.unit` only, never the role. Where the object proves nothing the
+   * scale stays undecided and the heuristic applies — in BOTH directions now.
+   *
+   * Resolved in memory only: the stored configuration is the user's, and a
+   * write to it would restart the instance on every start.
+   *
+   * @param devices The stored device configurations.
+   * @returns the same list with the scales it could prove filled in.
+   */
+  private async resolveScales(devices: DeviceConfig[]): Promise<DeviceConfig[]> {
+    const factsCache = new Map<string, Awaited<ReturnType<typeof stateFactsOf>>>();
+    /**
+     * Read the facts of one source state once, tolerating a missing object.
+     *
+     * @param id The state id to look up.
+     */
+    const factsFor = async (id: string): Promise<ReturnType<typeof stateFactsOf>> => {
+      if (factsCache.has(id)) {
+        return factsCache.get(id);
+      }
+      let facts: ReturnType<typeof stateFactsOf>;
+      try {
+        facts = stateFactsOf(await this.adapter.getForeignObjectAsync(id));
+      } catch (error) {
+        this.logger.debug(`Could not read the object of ${id}: ${errText(error)}`);
+        facts = undefined;
+      }
+      factsCache.set(id, facts);
+      return facts;
+    };
+
+    const resolved: DeviceConfig[] = [];
+    for (const device of devices) {
+      const patch: ScaledDevice = {};
+      for (const { state, scale } of SCALE_FIELDS) {
+        const stateId = device[state];
+        if (typeof stateId !== "string" || !stateId || !isUndecidedScale(device[scale])) {
+          continue;
+        }
+        const facts = await factsFor(stateId);
+        const derived =
+          scale === "hueScale"
+            ? deriveHueScale(facts)
+            : scale === "ctScale"
+              ? deriveCtScale(facts)
+              : deriveLevelScale(facts);
+        if (derived) {
+          (patch as Record<string, string>)[scale] = derived;
+        }
+      }
+      if (Object.keys(patch).length > 0) {
+        this.logger.debug(`Value scales for "${device.name}" resolved from the bound states: ${JSON.stringify(patch)}`);
+        resolved.push({ ...device, ...patch });
+      } else {
+        resolved.push(device);
+      }
+    }
+    return resolved;
   }
 
   /**
@@ -388,13 +333,16 @@ export class DeviceBindingService {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== undefined) {
+            this.rememberSourceValue(stateId, state.val);
             this.stateCache.set(stateId, state.val);
           } else {
             // null = the state has no value yet OR its object doesn't exist.
             // Only the latter is a misconfiguration; warn once at init so a
-            // typo'd/renamed state id isn't a silently dead binding.
+            // typo'd/renamed state id isn't a silently dead binding — and mark
+            // it so the light reports itself unreachable instead of pretending.
             const obj = await this.adapter.getForeignObjectAsync(stateId);
             if (!obj) {
+              this.missingStates.add(stateId);
               this.logger.warn(
                 `Configured state "${stateId}" does not exist — the bound light will report default values`,
               );
@@ -421,7 +369,25 @@ export class DeviceBindingService {
     if (!this.mappedIds.has(id)) {
       return;
     }
+    // A state that reports a value proves its object exists after all.
+    this.missingStates.delete(id);
+    this.rememberSourceValue(id, value);
     this.stateCache.set(id, value);
+  }
+
+  /**
+   * Remember the last non-zero value of a source state — the write path's only
+   * evidence for an undecided scale (see {@link scaleValueForState}). Zero is
+   * skipped on purpose: every scale has a zero, so it says nothing.
+   *
+   * @param id - Full state ID
+   * @param value - The value the state reported
+   */
+  private rememberSourceValue(id: string, value: unknown): void {
+    const n = coerceFiniteNumber(value);
+    if (n !== null && n !== 0) {
+      this.lastNonZeroSource.set(id, n);
+    }
   }
 
   /**
@@ -486,7 +452,7 @@ export class DeviceBindingService {
     // Build state object from mappings. Track which colour states the device
     // actually maps (vs. defaulted placeholders) so colormode reflects reality.
     const state: Partial<LightState> = {
-      reachable: true,
+      reachable: this.isReachable(device),
       mode: "homeautomation",
     };
     const mappedColorStates = new Set<string>();
@@ -510,7 +476,7 @@ export class DeviceBindingService {
         (state as Record<string, unknown>).on = await this.brightnessImpliesOn(device);
       } else {
         // Provide default values for unmapped states
-        (state as Record<string, unknown>)[stateName] = this.getDefaultValue(stateName);
+        (state as Record<string, unknown>)[stateName] = getDefaultValue(stateName);
       }
     }
 
@@ -544,6 +510,26 @@ export class DeviceBindingService {
     };
 
     return light;
+  }
+
+  /**
+   * v1.17.0: is this light drivable at all?
+   *
+   * A light whose driving state has no OBJECT in the tree — a typo, a renamed
+   * source, an uninstalled adapter — cannot be switched. `reachable` used to be
+   * a constant `true`, so a client was told "on" for a lamp nothing could reach;
+   * a real bridge reports an unreachable lamp and clients say so. The missing
+   * object is already known from the cache warm-up, and the subscription clears
+   * the flag the moment the state does appear.
+   *
+   * Only the DRIVING state counts: a colour light whose `xy` source is missing
+   * is still a working lamp.
+   *
+   * @param device - Device configuration
+   */
+  private isReachable(device: DeviceConfig): boolean {
+    const driving = device.onState ?? device.briState;
+    return !driving || !this.missingStates.has(driving);
   }
 
   /**
@@ -609,7 +595,13 @@ export class DeviceBindingService {
       }
 
       try {
-        const convertedValue = this.convertValueForState(key, value, device);
+        const convertedValue = convertValueForState(
+          key,
+          value,
+          device,
+          this.logger,
+          this.lastNonZeroSource.get(stateId),
+        );
         if (convertedValue === undefined) {
           // Invalid payload for this attribute (a non-array xy, a non-numeric
           // bri/sat/hue/ct). Skip the write rather than poison the state or set a
@@ -621,6 +613,7 @@ export class DeviceBindingService {
           val: convertedValue,
           ack: false,
         });
+        this.rememberSourceValue(stateId, convertedValue);
         this.stateCache.set(stateId, convertedValue);
         results.push({ success: { [address]: value } });
         this.logger.debug(`Set ${stateId} to ${convertedValue}`);
@@ -705,8 +698,11 @@ export class DeviceBindingService {
       this.logger.debug(`"${device.name}": on handled by the bri in the same request`);
       return;
     }
-    const target = on ? this.scaleValueForState(HUE_BRI_MAX, device.briScale, HUE_BRI_MAX) : 0;
+    const target = on
+      ? scaleValueForState(HUE_BRI_MAX, device.briScale, HUE_BRI_MAX, this.lastNonZeroSource.get(briState))
+      : 0;
     await this.adapter.setForeignStateAsync(briState, { val: target, ack: false });
+    this.rememberSourceValue(briState, target);
     this.stateCache.set(briState, target);
     this.logger.debug(`"${device.name}": switched ${on ? "on" : "off"} via brightness → ${target}`);
   }
@@ -757,6 +753,7 @@ export class DeviceBindingService {
     try {
       const state = await this.adapter.getForeignStateAsync(stateId);
       if (state !== null && state !== undefined) {
+        this.rememberSourceValue(stateId, state.val);
         this.stateCache.set(stateId, state.val);
         return state.val;
       }
@@ -784,7 +781,7 @@ export class DeviceBindingService {
   }
 
   /**
-   * Get state value from cache or adapter
+   * Get state value from cache or adapter, converted into the Hue API's shape.
    *
    * @param stateId - Full ioBroker state ID
    * @param stateName - Hue state name (on, bri, ct, etc.)
@@ -793,15 +790,16 @@ export class DeviceBindingService {
   private async getStateValue(stateId: string, stateName: string, device: DeviceConfig): Promise<unknown> {
     // Try cache first
     if (this.stateCache.has(stateId)) {
-      return this.convertValueFromState(stateName, this.stateCache.get(stateId), device);
+      return convertValueFromState(stateName, this.stateCache.get(stateId), device, this.logger);
     }
 
     // Fetch from adapter
     try {
       const state = await this.adapter.getForeignStateAsync(stateId);
       if (state !== null && state !== undefined) {
+        this.rememberSourceValue(stateId, state.val);
         this.stateCache.set(stateId, state.val);
-        return this.convertValueFromState(stateName, state.val, device);
+        return convertValueFromState(stateName, state.val, device, this.logger);
       }
       // v1.10.0 (I1): negatively cache a missing mapped state so repeated
       // full-state polls don't re-hit the broker on every read. The foreign-state
@@ -812,323 +810,7 @@ export class DeviceBindingService {
       this.logger.debug(`Could not get state ${stateId}: ${errText(error)}`);
     }
 
-    return this.getDefaultValue(stateName);
-  }
-
-  /**
-   * Convert value from ioBroker state to Hue API format.
-   *
-   * v1.4.4 (D3): bri/sat scale is configurable per device. Earlier code
-   * used a value-based heuristic (`if n<=1 ×254 else if n<=100 ÷100×254`)
-   * which collapsed 1-percent (`n=1` from a 0..100 scale) to bri 254.
-   * The "auto" scale keeps that legacy behaviour for backwards compat.
-   *
-   * bri/sat/hue/ct each carry a per-device scale (D3 + I2): bri/sat map percent/
-   * normalized/raw sources; hue maps raw (0..65535) vs degrees (0..360); ct maps
-   * raw (153..500 mired) vs Kelvin. Default 'raw' is the Hue-native unit, i.e. the
-   * pre-I2 behaviour — existing devices need no re-config.
-   *
-   * @param stateName Hue API state key (`on`, `bri`, `hue`, `sat`, `ct`, `xy`)
-   * @param value Raw value from the foreign state
-   * @param device Device config (for the per-state scale settings)
-   */
-  private convertValueFromState(stateName: string, value: unknown, device?: DeviceConfig): unknown {
-    if (value === null || value === undefined) {
-      return this.getDefaultValue(stateName);
-    }
-
-    switch (stateName) {
-      case "on":
-        // v1.10.0 (M1): shared boundary bool coercion (allowlist true/1/yes/on,
-        // case-insensitive) — the same helper main.ts uses for disableAuth. Reads
-        // "off"/"no"/"disabled"/"FALSE" as off, unlike the old "false"/"0"/""
-        // blocklist (which let every other string, incl. "off", read as ON) or a
-        // bare Boolean() cast (Boolean("false") === true).
-        return coerceBool(value);
-      case "bri":
-        return this.scaleValueFromState(value, device?.briScale, HUE_BRI_MIN, HUE_BRI_MAX, device, "bri");
-      case "hue": {
-        const n = coerceFiniteNumber(value);
-        if (n === null) {
-          this.logger.debug(`Default fallback for hue (device="${device?.name}"): raw=${JSON.stringify(value)}`);
-          return 0;
-        }
-        return hueFromState(n, device?.hueScale);
-      }
-      case "sat":
-        return this.scaleValueFromState(value, device?.satScale, 0, HUE_SAT_MAX, device, "sat");
-      case "ct": {
-        const n = coerceFiniteNumber(value);
-        if (n === null) {
-          this.logger.debug(`Default fallback for ct (device="${device?.name}"): raw=${JSON.stringify(value)}`);
-          return HUE_CT_DEFAULT;
-        }
-        return ctFromState(n, device?.ctScale);
-      }
-      case "xy": {
-        // XY as array [x, y] — both entries must be finite numbers
-        if (Array.isArray(value) && value.length >= 2) {
-          const x = coerceFiniteNumber(value[0]);
-          const y = coerceFiniteNumber(value[1]);
-          if (x !== null && y !== null) {
-            return [x, y] as [number, number];
-          }
-        }
-        if (typeof value === "string") {
-          // v1.4.3 (D4): we serialize xy as a JSON string on writes
-          // (`"[0.3,0.4]"`), so reads must accept the round-trip too.
-          // Without this, the comma-split below produced `["[0.3","0.4]"]`,
-          // parseFloat("[0.3") gave NaN, and every read fell through to the
-          // [0.5, 0.5] default — losing whatever the client just set.
-          const trimmed = value.trim();
-          if (trimmed.startsWith("[")) {
-            try {
-              const parsed: unknown = JSON.parse(trimmed);
-              if (Array.isArray(parsed) && parsed.length >= 2) {
-                const x = coerceFiniteNumber(parsed[0]);
-                const y = coerceFiniteNumber(parsed[1]);
-                if (x !== null && y !== null) {
-                  return [x, y] as [number, number];
-                }
-              }
-            } catch {
-              /* fall through to CSV */
-            }
-          }
-          const parts = trimmed.split(",");
-          if (parts.length >= 2) {
-            // v1.10.0 (L7): trim each part — coerceFiniteNumber is strict (rejects
-            // surrounding whitespace), so a spaced CSV like "0.3, 0.4" would
-            // otherwise fall through to the [0.5, 0.5] white default.
-            const x = coerceFiniteNumber(parts[0].trim());
-            const y = coerceFiniteNumber(parts[1].trim());
-            if (x !== null && y !== null) {
-              return [x, y] as [number, number];
-            }
-          }
-        }
-        this.logger.debug(
-          `Default fallback for xy (device="${device?.name}"): raw=${JSON.stringify(value)} not parsable`,
-        );
-        return HUE_XY_DEFAULT;
-      }
-      default:
-        return value;
-    }
-  }
-
-  /**
-   * Convert value from Hue API format to ioBroker state.
-   *
-   * v1.4.4 (D3): bri/sat write back in the foreign state's configured
-   * scale (`auto`/`raw` keep the current Hue-native behaviour, `percent`
-   * writes 0..100, `normalized` writes 0..1). Earlier the write side
-   * always wrote raw 1..254 regardless of source scale, so a
-   * `level.dimmer` (0..100) bound to bri ended up with values like 254
-   * — confusing other consumers of that state.
-   *
-   * @param stateName - Hue state name (on, bri, ct, etc.)
-   * @param value - Value from Hue API
-   * @param device - Device configuration for scale settings
-   */
-  private convertValueForState(
-    stateName: string,
-    value: unknown,
-    device?: DeviceConfig,
-  ): ioBroker.StateValue | undefined {
-    switch (stateName) {
-      case "on":
-        // v1.10.0 (M1): symmetric with the read path — shared coerceBool
-        // (allowlist true/1/yes/on). Hue clients send JSON booleans; a malformed
-        // string body ("off", "no", …) must not flip a light on.
-        return coerceBool(value);
-      case "bri":
-        return this.clampScaleForState(value, HUE_BRI_MIN, HUE_BRI_MAX, device?.briScale, device, "bri");
-      case "hue": {
-        const n = coerceFiniteNumber(value);
-        if (n === null) {
-          this.logger.debug(`Ignoring invalid hue write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
-          return undefined;
-        }
-        return hueForState(n, device?.hueScale);
-      }
-      case "sat":
-        return this.clampScaleForState(value, 0, HUE_SAT_MAX, device?.satScale, device, "sat");
-      case "ct": {
-        const n = coerceFiniteNumber(value);
-        if (n === null) {
-          this.logger.debug(`Ignoring invalid ct write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
-          return undefined;
-        }
-        return ctForState(n, device?.ctScale);
-      }
-      case "xy": {
-        // Only a 2-element finite-number array (or its JSON round-trip) is a
-        // valid xy. Anything else (object, bare number) would serialize to junk
-        // like "[object Object]" — return undefined so the caller skips the
-        // write instead of poisoning the foreign state.
-        if (Array.isArray(value) && value.length >= 2) {
-          const x = coerceFiniteNumber(value[0]);
-          const y = coerceFiniteNumber(value[1]);
-          if (x !== null && y !== null) {
-            return JSON.stringify([x, y]);
-          }
-        }
-        this.logger.debug(`Ignoring invalid xy write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
-        return undefined;
-      }
-      default:
-        if (value !== null && typeof value === "object") {
-          return JSON.stringify(value);
-        }
-        return value as ioBroker.StateValue;
-    }
-  }
-
-  /**
-   * Get default value for a state
-   *
-   * @param stateName - Hue state name
-   */
-  private getDefaultValue(stateName: string): unknown {
-    switch (stateName) {
-      case "on":
-        return false;
-      case "bri":
-        return HUE_BRI_MAX;
-      case "hue":
-        return 0;
-      case "sat":
-        return HUE_SAT_MAX;
-      case "ct":
-        return HUE_CT_DEFAULT;
-      case "xy":
-        return HUE_XY_DEFAULT;
-      default:
-        return null;
-    }
-  }
-
-  /**
-   * v1.4.4 (D3): coerce a foreign-state value into the Hue API integer
-   * range (`min..max`) according to the configured scale.
-   *
-   * - `auto` (default) — legacy heuristic: `<=1` ×max, `<=100` /100×max,
-   *   otherwise pass through clamped. Kept for backwards compatibility.
-   * - `percent` — input is 0..100, mapped to `min..max`. A stored 1 means
-   *   1 % and maps to 1 % of max (was the bug-trigger under `auto`).
-   * - `normalized` — input is 0..1, mapped to 0..max.
-   * - `raw` — input is already in `min..max` (Hue native), passed through
-   *   with clamp + round.
-   *
-   * `null` / non-finite input always returns `max` (current default).
-   *
-   * @param value - Raw value from the foreign state
-   * @param scale - Configured scale mode
-   * @param min - Minimum Hue API value (inclusive)
-   * @param max - Maximum Hue API value (inclusive)
-   * @param device - Device configuration for logging
-   * @param stateName - State name for logging
-   */
-  private scaleValueFromState(
-    value: unknown,
-    scale: LightStateScale | undefined,
-    min: number,
-    max: number,
-    device?: DeviceConfig,
-    stateName?: string,
-  ): number {
-    const n = coerceFiniteNumber(value);
-    if (n === null) {
-      this.logger.debug(
-        `Default fallback for ${stateName ?? "?"} (device="${device?.name}"): raw=${JSON.stringify(value)}`,
-      );
-      return max;
-    }
-    const mode: LightStateScale = scale ?? "auto";
-    switch (mode) {
-      case "percent":
-        return clampRound((n / 100) * max, min, max);
-      case "normalized":
-        return clampRound(n * max, min, max);
-      case "raw":
-        return clampRound(n, min, max);
-      case "auto":
-      default: {
-        let branch: string;
-        let result: number;
-        if (n <= 1) {
-          branch = "le1";
-          result = clampRound(n * max, min, max);
-        } else if (n <= 100) {
-          branch = "le100";
-          result = clampRound((n / 100) * max, min, max);
-        } else {
-          branch = "raw";
-          result = clampRound(n, min, max);
-        }
-        this.logger.debug(`scale-auto[${device?.name ?? "?"}/${stateName ?? "?"}/${branch}]: n=${n} → ${result}`);
-        return result;
-      }
-    }
-  }
-
-  /**
-   * v1.4.4 (D3): inverse of {@link scaleValueFromState} — convert a Hue
-   * value (1..254) back into the configured foreign-state scale on write.
-   * Earlier the write side always wrote raw Hue values regardless of the
-   * source scale: a `level.dimmer` (0..100) bound to bri got values like
-   * 254 written into it, breaking other adapters that read it.
-   *
-   * @param hueValue - Hue-native value (1..254)
-   * @param scale - Configured scale mode for the foreign state
-   * @param max - Maximum Hue API value
-   */
-  private scaleValueForState(hueValue: number, scale: LightStateScale | undefined, max: number): number {
-    const mode: LightStateScale = scale ?? "auto";
-    switch (mode) {
-      case "percent":
-        // Round to one decimal so 254/254 → 100, 127/254 → 50.0
-        return Math.round((hueValue / max) * 100 * 10) / 10;
-      case "normalized":
-        return Math.round((hueValue / max) * 1000) / 1000;
-      case "raw":
-      case "auto":
-      default:
-        return hueValue;
-    }
-  }
-
-  /**
-   * Write-path helper for bri/sat: coerce + clamp the incoming Hue value into
-   * [min,max], then scale it back into the configured foreign-state scale.
-   * Null/non-finite input is not written at all (undefined → the caller skips
-   * the write and still acks, like the xy path) — a default the client never
-   * asked for must not land in the foreign state.
-   *
-   * @param value - Raw value from the Hue API
-   * @param min - Minimum Hue API value (inclusive)
-   * @param max - Maximum Hue API value (inclusive)
-   * @param scale - Configured scale mode for the foreign state
-   * @param device - Device configuration (used for the fallback log)
-   * @param stateName - State name (used for the fallback log)
-   */
-  private clampScaleForState(
-    value: unknown,
-    min: number,
-    max: number,
-    scale: LightStateScale | undefined,
-    device?: DeviceConfig,
-    stateName?: string,
-  ): number | undefined {
-    const n = coerceFiniteNumber(value);
-    if (n === null) {
-      this.logger.debug(
-        `Ignoring invalid ${stateName ?? "?"} write (device="${device?.name}"): raw=${JSON.stringify(value)}`,
-      );
-      return undefined;
-    }
-    return this.scaleValueForState(clampRound(n, min, max), scale, max);
+    return getDefaultValue(stateName);
   }
 
   /**

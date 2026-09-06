@@ -41,8 +41,8 @@
   "supportHeader": "Support",
   "scaleBri": "Brightness scale",
   "scaleSat": "Saturation scale",
-  "scaleTooltip": "How the source state value is interpreted. 'auto' keeps the legacy heuristic (treats values <=1 as 0..1 and <=100 as percent). 'percent' = 0..100 (e.g. level.dimmer). 'normalized' = 0..1. 'raw' = 1..254 (Hue native).",
-  "scaleAuto": "Auto-detect (legacy)",
+  "scaleTooltip": "How the source value is interpreted — in both directions. 'Automatic' takes unit and range from the datapoint itself; without them the value decides (<=1 as 0..1, <=100 as percent). 'Percent' = 0..100 (e.g. level.dimmer). 'Normalized' = 0..1. 'Raw' = 1..254 (Hue native).",
+  "scaleAuto": "Automatic (from the datapoint)",
   "scalePercent": "Percent (0..100)",
   "scaleNormalized": "Normalized (0..1)",
   "scaleRaw": "Raw (1..254 Hue)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "Disable authentication (allow all requests)",
   "scaleHue": "Hue scale",
   "scaleCt": "Color temperature scale",
-  "scaleHueTooltip": "How the hue source value is interpreted. 'Native' = 0..65535 (Hue). 'Degrees' = 0..360 (e.g. HSV/HSL sources).",
-  "scaleCtTooltip": "How the color temperature source value is interpreted. 'Native' = 153..500 mired (Hue). 'Kelvin' = degrees Kelvin (e.g. 2700..6500).",
+  "scaleHueTooltip": "How the hue source value is interpreted. 'Automatic' takes unit and range from the datapoint. 'Native' = 0..65535 (Hue). 'Degrees' = 0..360 (e.g. HSV/HSL sources).",
+  "scaleCtTooltip": "How the colour temperature source value is interpreted. 'Automatic' takes unit and range from the datapoint. 'Native' = 153..500 mired (Hue). 'Kelvin' = degrees Kelvin (e.g. 2700..6500).",
   "scaleNative": "Native (no conversion)",
   "scaleDegrees": "Degrees (0..360)",
   "scaleKelvin": "Kelvin",
@@ -74,5 +74,10 @@
   "dmScanAdded": "Added %s light(s).",
   "dmScanAddedSkipped": "Added %s light(s). %s device(s) could not be mapped automatically and need manual mapping.",
   "dmScanFailed": "Scan failed: %s",
-  "dmActionFailed": "The action could not be completed: %s"
+  "dmActionFailed": "The action could not be completed: %s",
+  "infoFolder": "Information",
+  "infoConnectionName": "Bridge is answering",
+  "infoConnectionDesc": "True while the emulated bridge accepts requests from Hue clients",
+  "infoErrorName": "Last error",
+  "infoErrorDesc": "Why the bridge is not answering — empty while everything works"
 }

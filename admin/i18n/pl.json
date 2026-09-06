@@ -41,8 +41,8 @@
   "supportHeader": "Wsparcie",
   "scaleBri": "Skala jasności",
   "scaleSat": "Skala nasycenia",
-  "scaleTooltip": "Jak interpretowana jest wartość stanu źródłowego. 'auto' zachowuje starą heurystykę (<=1 jako 0..1, <=100 jako procent). 'percent' = 0..100. 'normalized' = 0..1. 'raw' = 1..254 (natywne Hue).",
-  "scaleAuto": "Auto (legacy)",
+  "scaleTooltip": "Jak interpretowana jest wartość źródłowa — w obu kierunkach. „Automatycznie” bierze jednostkę i zakres z samego punktu danych; bez nich decyduje wartość (<=1 jako 0..1, <=100 jako procent). „Procent” = 0..100 (np. level.dimmer). „Znormalizowane” = 0..1. „Surowe” = 1..254 (natywne Hue).",
+  "scaleAuto": "Automatycznie (z punktu danych)",
   "scalePercent": "Procent (0..100)",
   "scaleNormalized": "Znormalizowane (0..1)",
   "scaleRaw": "Surowe (1..254 Hue)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
   "scaleHue": "Skala barwy",
   "scaleCt": "Skala temperatury barwowej",
-  "scaleHueTooltip": "Jak interpretowana jest wartość źródłowa barwy. 'Natywny' = 0..65535 (Hue). 'Stopnie' = 0..360 (np. źródła HSV/HSL).",
-  "scaleCtTooltip": "Jak interpretowana jest wartość źródłowa temperatury barwowej. 'Natywny' = 153..500 mired (Hue). 'Kelwin' = stopnie Kelvina (np. 2700..6500).",
+  "scaleHueTooltip": "Jak interpretowana jest wartość źródłowa barwy. „Automatycznie” bierze jednostkę i zakres z punktu danych. „Natywnie” = 0..65535 (Hue). „Stopnie” = 0..360 (np. źródła HSV/HSL).",
+  "scaleCtTooltip": "Jak interpretowana jest wartość źródłowa temperatury barwowej. „Automatycznie” bierze jednostkę i zakres z punktu danych. „Natywnie” = 153..500 mired (Hue). „Kelwin” = stopnie Kelvina (np. 2700..6500).",
   "scaleNative": "Natywny (bez konwersji)",
   "scaleDegrees": "Stopnie (0..360)",
   "scaleKelvin": "Kelwin",
@@ -74,5 +74,10 @@
   "dmScanAdded": "Dodano %s światło/światła.",
   "dmScanAddedSkipped": "Dodano %s światło/światła. %s urządzenie/urządzenia nie zostały przypisane automatycznie i wymagają ręcznego przypisania.",
   "dmScanFailed": "Wyszukiwanie nie powiodło się: %s",
-  "dmActionFailed": "Nie udało się zakończyć akcji: %s"
+  "dmActionFailed": "Nie udało się zakończyć akcji: %s",
+  "infoFolder": "Informacje",
+  "infoConnectionName": "Mostek odpowiada",
+  "infoConnectionDesc": "Prawda, dopóki emulowany mostek przyjmuje żądania od klientów Hue",
+  "infoErrorName": "Ostatni błąd",
+  "infoErrorDesc": "Dlaczego mostek nie odpowiada — puste, dopóki wszystko działa"
 }

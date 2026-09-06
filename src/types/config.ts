@@ -3,6 +3,7 @@
  */
 
 import { networkInterfaces } from "node:os";
+import { ConfigurationError } from "./errors";
 
 /**
  * TLS/SSL configuration for HTTPS support
@@ -114,22 +115,56 @@ export function macFromUdn(udn: string): string {
 }
 
 /**
- * Best-effort primary IPv4 of the host — the first non-internal IPv4 interface.
- * Used as the advertised address when none is configured, so SSDP/description
- * announce a routable IP rather than the bind wildcard. Returns "" if none found.
+ * Interface names that carry a container, a VM or a tunnel rather than the LAN.
+ * An address on one of them is routable in Node's sense and useless to a Hue
+ * client on the network — announcing it means Alexa never finds the bridge, and
+ * nothing in the log says why (audit 2026-09-06 F7).
  */
-export function detectPrimaryIPv4(): string {
-  for (const addrs of Object.values(networkInterfaces())) {
+const VIRTUAL_IFACE_RE = /^(docker|br-|veth|virbr|vmnet|vboxnet|tun|tap|utun|wg|zt|tailscale|ham|lo)/i;
+
+/** One routable IPv4 address together with the interface it belongs to. */
+export interface IPv4Address {
+  /** Interface name, e.g. "eth0". */
+  iface: string;
+  /** Dotted-quad address. */
+  address: string;
+  /** Whether the interface name looks like a container/VM/tunnel device. */
+  virtual: boolean;
+}
+
+/**
+ * Every non-internal IPv4 address of the host, in the order the OS reports them.
+ *
+ * The single source for both callers — the advertised address and the SSDP
+ * multicast join. They used to walk `networkInterfaces()` separately, and only
+ * one of them handled the numeric `family` form, so the other would silently
+ * have found nothing (audit 2026-09-06 F8).
+ */
+export function listIPv4Addresses(): IPv4Address[] {
+  const found: IPv4Address[] = [];
+  for (const [iface, addrs] of Object.entries(networkInterfaces())) {
     for (const addr of addrs ?? []) {
       // Node typed `family` as the string "IPv4" historically and as the number
       // 4 from v18 — accept both so detection works across runtimes.
       const isV4 = addr.family === "IPv4" || (addr.family as unknown as number) === 4;
       if (isV4 && !addr.internal) {
-        return addr.address;
+        found.push({ iface, address: addr.address, virtual: VIRTUAL_IFACE_RE.test(iface) });
       }
     }
   }
-  return "";
+  return found;
+}
+
+/**
+ * Best-effort primary IPv4 of the host, used as the advertised address when the
+ * config says "listen on all interfaces". SSDP and description.xml must name an
+ * address a client can actually reach, so a real network interface always wins
+ * over a docker bridge or a VPN tunnel; a host that has nothing else falls back
+ * to whatever there is. Returns "" if there is no non-internal IPv4 at all.
+ */
+export function detectPrimaryIPv4(): string {
+  const addresses = listIPv4Addresses();
+  return (addresses.find(a => !a.virtual) ?? addresses[0])?.address ?? "";
 }
 
 /**
@@ -147,11 +182,11 @@ export function detectPrimaryIPv4(): string {
  */
 export function validateNetworkConfig(advertiseHost: string, port: number, httpsPort: number | undefined): void {
   if (!advertiseHost || advertiseHost === "0.0.0.0") {
-    throw new Error(
+    throw new ConfigurationError(
       "Could not determine a routable IP to advertise — set the Host/IP in admin config to the concrete address clients should reach",
     );
   }
   if (httpsPort !== undefined && httpsPort === port) {
-    throw new Error(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
+    throw new ConfigurationError(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
   }
 }

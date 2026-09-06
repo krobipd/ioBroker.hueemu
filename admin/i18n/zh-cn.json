@@ -41,8 +41,8 @@
   "supportHeader": "支持",
   "scaleBri": "亮度刻度",
   "scaleSat": "饱和度刻度",
-  "scaleTooltip": "如何解释源状态值。'auto' 保留以前的启发式（<=1 视为 0..1，<=100 视为百分比）。'percent' = 0..100。'normalized' = 0..1。'raw' = 1..254（Hue 原生）。",
-  "scaleAuto": "自动（兼容）",
+  "scaleTooltip": "如何解释源数值——双向都适用。“自动”从数据点本身读取单位和范围；若没有，则由数值决定（<=1 视为 0..1，<=100 视为百分比）。“百分比”= 0..100（例如 level.dimmer）。“归一化”= 0..1。“原始”= 1..254（Hue 原生）。",
+  "scaleAuto": "自动（根据数据点）",
   "scalePercent": "百分比 (0..100)",
   "scaleNormalized": "归一化 (0..1)",
   "scaleRaw": "原始 (1..254 Hue)",
@@ -55,8 +55,8 @@
   "disableAuthDesc": "禁用身份验证（允许所有请求）",
   "scaleHue": "色相刻度",
   "scaleCt": "色温刻度",
-  "scaleHueTooltip": "如何解释色相源值。“原生”= 0..65535（Hue）。“度数”= 0..360（例如 HSV/HSL 源）。",
-  "scaleCtTooltip": "如何解释色温源值。“原生”= 153..500 迈尔德（Hue）。“开尔文”= 开尔文度（例如 2700..6500）。",
+  "scaleHueTooltip": "如何解释色调源数值。“自动”从数据点读取单位和范围。“原生”= 0..65535（Hue）。“度”= 0..360（例如 HSV/HSL 源）。",
+  "scaleCtTooltip": "如何解释色温源数值。“自动”从数据点读取单位和范围。“原生”= 153..500 mired（Hue）。“开尔文”= 开氏度（例如 2700..6500）。",
   "scaleNative": "原生（不转换）",
   "scaleDegrees": "度数 (0..360)",
   "scaleKelvin": "开尔文",
@@ -74,5 +74,10 @@
   "dmScanAdded": "已添加 %s 个灯。",
   "dmScanAddedSkipped": "已添加 %s 个灯。%s 个设备无法自动映射，需要手动映射。",
   "dmScanFailed": "搜索失败：%s",
-  "dmActionFailed": "无法完成该操作：%s"
+  "dmActionFailed": "无法完成该操作：%s",
+  "infoFolder": "信息",
+  "infoConnectionName": "网桥正在响应",
+  "infoConnectionDesc": "当模拟网桥接受 Hue 客户端请求时为真",
+  "infoErrorName": "最近的错误",
+  "infoErrorDesc": "网桥为何没有响应——一切正常时为空"
 }

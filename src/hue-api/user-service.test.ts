@@ -26,20 +26,26 @@ interface MockUserAdapter extends UserServiceAdapter {
   getStatesShouldFail: boolean;
 }
 
-function createMockAdapter(existingClients: string[] = []): MockUserAdapter {
+/** A client already in the tree: its id, and optionally the real key it stores. */
+type ExistingClient = string | { id: string; username: string };
+
+function createMockAdapter(existingClients: ExistingClient[] = []): MockUserAdapter {
   const writtenObjects = new Map<string, ioBroker.SettableObject>();
   const writtenStates = new Map<string, ioBroker.SettableState>();
   const namespace = "hueemu.0";
 
-  const stateObjects: ioBroker.StateObject[] = existingClients.map(
-    name =>
-      ({
-        _id: `${namespace}.clients.${name}`,
-        type: "state",
-        common: { name, type: "string", role: "text", read: true, write: false },
-        native: {},
-      }) as unknown as ioBroker.StateObject,
-  );
+  const stateObjects: ioBroker.StateObject[] = existingClients.map(entry => {
+    // A plain string is an object whose id IS the key (a generated UUID);
+    // the pair form is a client whose real key differs from its sanitized id.
+    const id = typeof entry === "string" ? entry : entry.id;
+    const username = typeof entry === "string" ? undefined : entry.username;
+    return {
+      _id: `${namespace}.clients.${id}`,
+      type: "state",
+      common: { name: id, type: "string", role: "text", read: true, write: false },
+      native: username === undefined ? {} : { username },
+    } as unknown as ioBroker.StateObject;
+  });
 
   const adapter: MockUserAdapter = {
     namespace,
@@ -81,7 +87,7 @@ function createMockAdapter(existingClients: string[] = []): MockUserAdapter {
   return adapter;
 }
 
-function createService(existingClients: string[] = []): { service: UserService; adapter: MockUserAdapter } {
+function createService(existingClients: ExistingClient[] = []): { service: UserService; adapter: MockUserAdapter } {
   const adapter = createMockAdapter(existingClients);
   const service = new UserService({ adapter, logger: createMockLogger() });
   return { service, adapter };
@@ -131,19 +137,32 @@ describe("UserService", () => {
       expect((state as { val: unknown } | undefined)?.val).toBe("user.with.dots");
     });
 
-    it("creates clients parent folder", async () => {
+    // v1.17.0: a `folder`, not a `meta` object — repochecker counts `meta` as a
+    // non-hierarchy type, so a client state under it is an E2001.
+    it("creates clients parent folder as a folder object", async () => {
       const { service, adapter } = createService();
       await service.addUser("foo", "bar");
       const folder = adapter.writtenObjects.get("clients");
       expect(folder).toBeDefined();
-      expect(folder?.type).toBe("meta");
+      expect(folder?.type).toBe("folder");
+      expect(folder?.common).not.toHaveProperty("type");
     });
 
-    it("does not throw if setObjectNotExistsAsync fails", async () => {
+    // v1.17.0 (audit 2026-09-06 F2): a pairing that never reached the database
+    // used to be reported as success. The client then worked until the next
+    // adapter start and silently lost access.
+    it("refuses the pairing when the client object cannot be stored", async () => {
       const { service, adapter } = createService();
       adapter.setObjectShouldFail = true;
-      // Must not propagate the error — the service logs and continues
-      await service.addUser("foo", "bar");
+      await expect(service.addUser("foo", "bar")).rejects.toThrow(/could not be stored/i);
+    });
+
+    it("does not authenticate a client whose object write failed", async () => {
+      const { service, adapter } = createService();
+      adapter.setObjectShouldFail = true;
+      await expect(service.addUser("ghost", "Echo")).rejects.toThrow();
+      expect(await service.isUserAuthenticated("ghost")).toBe(false);
+      expect(service.listCachedClientIds()).not.toContain("ghost");
     });
 
     it("does not throw if setStateAsync fails", async () => {
@@ -198,10 +217,38 @@ describe("UserService", () => {
       expect(await service.isUserAuthenticated("unknown-user")).toBe(false);
     });
 
-    it("matches using sanitized username", async () => {
-      // Stored as sanitized "user_with_dots", lookup with raw dotted form
-      const { service } = createService(["user_with_dots"]);
-      expect(await service.isUserAuthenticated("user.with.dots")).toBe(true);
+    // v1.17.0 (audit 2026-09-06 F3): authentication compares the REAL key, not
+    // the sanitized object id. Matching the id made every character a key holds
+    // that is not [A-Za-z0-9-_] a wildcard.
+    it("does not accept a key that merely sanitizes to a paired one", async () => {
+      const { service } = createService([]);
+      await service.addUser("living.room", "Echo");
+      expect(await service.isUserAuthenticated("living.room")).toBe(true);
+      expect(await service.isUserAuthenticated("living_room")).toBe(false);
+      expect(await service.isUserAuthenticated("living+room")).toBe(false);
+    });
+
+    it("refuses a second key that would take over an existing client's object", async () => {
+      const { service } = createService([]);
+      await service.addUser("living.room", "Echo");
+      await expect(service.addUser("living+room", "Impostor")).rejects.toThrow(/already/i);
+    });
+
+    // Mutationswelle v1.17.0 (X9): ein Client, dessen echter Schlüssel sich von
+    // seiner bereinigten Objekt-ID unterscheidet — nur so lässt sich messen, aus
+    // welchem der beiden der Anmeldespeicher wirklich gebaut wird.
+    it("builds the cache from the stored key, not from the object id", async () => {
+      const { service } = createService([{ id: "living_room", username: "living.room" }]);
+      expect(await service.isUserAuthenticated("living.room")).toBe(true);
+      expect(await service.isUserAuthenticated("living_room")).toBe(false);
+      expect(service.listCachedClientIds()).toEqual(["living.room"]);
+    });
+
+    it("falls back to the object id for a client stored before the key was kept", async () => {
+      // A pre-v1.17.0 object (or a hand-built one) has no native.username; its
+      // id is the key, which for a generated UUID is the same string anyway.
+      const { service } = createService(["3f8a-9d2c"]);
+      expect(await service.isUserAuthenticated("3f8a-9d2c")).toBe(true);
     });
 
     it("returns false when getStatesOfAsync throws", async () => {
@@ -350,10 +397,22 @@ describe("UserService", () => {
       const { service, adapter } = serviceWithWarnSpy();
       adapter.setObjectShouldFail = true;
       for (let i = 0; i < 150; i++) {
-        await service.createUser(`broken-${i}`, "flood");
+        await expect(service.createUser(`broken-${i}`, "flood")).rejects.toThrow();
       }
       adapter.setObjectShouldFail = false;
       await expect(service.createUser("now-working", "Echo")).resolves.toBeTruthy();
+    });
+
+    // v1.17.0 (audit 2026-09-06 F12): the per-window auto-add budget is booked
+    // after the client exists, exactly like the hourly ceiling since v1.15.0.
+    it("a failed auto-add does not eat one of the 64 window slots", async () => {
+      const { service, adapter } = serviceWithWarnSpy();
+      adapter.setObjectShouldFail = true;
+      for (let i = 0; i < 100; i++) {
+        await expect(service.addUser(`ghost-${i}`, "auto-paired", true)).rejects.toThrow();
+      }
+      adapter.setObjectShouldFail = false;
+      await expect(service.addUser("real", "auto-paired", true)).resolves.toBeUndefined();
     });
 
     it("still refuses to create anything once the ceiling is reached", async () => {

@@ -9,16 +9,8 @@
  * dimmer channel) — those are the regressions that must never come back.
  */
 
-import {
-  scanForLightDevices,
-  mapControlToDevice,
-  deriveLevelScale,
-  deriveHueScale,
-  deriveCtScale,
-  stateFactsOf,
-  type StateFacts,
-  type StateLookup,
-} from "./device-scan";
+import { scanForLightDevices, mapControlToDevice } from "./device-scan";
+import type { StateLookup } from "./hue-scales";
 
 /** Extra `common` fields a sample state may declare. */
 interface StateExtras {
@@ -256,79 +248,6 @@ describe("mapControlToDevice", () => {
   it("treats an unknown object as unusable — we cannot tell whether writing does anything", () => {
     const outcome = mapControlToDevice("dimmer", [{ name: "SET", id: "x.bri" }], "x", () => undefined);
     expect(outcome).toEqual({ kind: "unmapped", reason: "noWritableTarget" });
-  });
-});
-
-describe("scale derivation", () => {
-  it("has no opinion without evidence", () => {
-    expect(deriveLevelScale({ writable: true })).toBeUndefined();
-    expect(deriveHueScale({ writable: true })).toBeUndefined();
-    expect(deriveCtScale({ writable: true })).toBeUndefined();
-    expect(deriveLevelScale(undefined)).toBeUndefined();
-    expect(deriveHueScale(undefined)).toBeUndefined();
-    expect(deriveCtScale(undefined)).toBeUndefined();
-  });
-
-  it("reads a percent brightness from the unit and from the bounds", () => {
-    expect(deriveLevelScale({ writable: true, unit: "%" })).toBe("percent");
-    expect(deriveLevelScale({ writable: true, min: 0, max: 100 })).toBe("percent");
-  });
-
-  it("tolerates a bound that is a hair off the round number", () => {
-    // HomeMatic stores 1.01 as the native max of a 0..100 level.
-    expect(deriveLevelScale({ writable: true, max: 100.4 })).toBe("percent");
-    expect(deriveLevelScale({ writable: true, max: 1.01 })).toBe("normalized");
-  });
-
-  it("reads a normalized and a Hue-native brightness", () => {
-    expect(deriveLevelScale({ writable: true, min: 0, max: 1 })).toBe("normalized");
-    expect(deriveLevelScale({ writable: true, min: 0, max: 254 })).toBe("raw");
-    expect(deriveLevelScale({ writable: true, min: 0, max: 255 })).toBe("raw");
-  });
-
-  it("reads a hue in degrees and a Hue-native one", () => {
-    expect(deriveHueScale({ writable: true, min: 0, max: 360 })).toBe("degrees");
-    expect(deriveHueScale({ writable: true, unit: "°" })).toBe("degrees");
-    expect(deriveHueScale({ writable: true, max: 65535 })).toBe("raw");
-  });
-
-  it("reads a colour temperature in Kelvin from the unit or a plausible range", () => {
-    expect(deriveCtScale({ writable: true, unit: "°K" })).toBe("kelvin");
-    expect(deriveCtScale({ writable: true, unit: "K" })).toBe("kelvin");
-    expect(deriveCtScale({ writable: true, unit: "Kelvin" })).toBe("kelvin");
-    expect(deriveCtScale({ writable: true, min: 2000, max: 6500 })).toBe("kelvin");
-  });
-
-  it("leaves a bare colour temperature alone — the zigbee adapter reports mired", () => {
-    // The live zigbee `colortemp` carries neither unit nor bounds while the
-    // detector's pattern claims °K. Deriving from the role would have turned a
-    // correct binding into a wrong one (2026-09-03 audit).
-    expect(deriveCtScale({ writable: true })).toBeUndefined();
-    expect(deriveCtScale({ writable: true, unit: "mired" })).toBe("raw");
-  });
-});
-
-describe("stateFactsOf", () => {
-  it("treats a missing write flag as writable — plenty of adapters omit it", () => {
-    const obj = { _id: "x", type: "state", common: { name: "x", type: "number", role: "level" }, native: {} };
-    expect(stateFactsOf(obj as ioBroker.Object)).toMatchObject({ writable: true });
-  });
-
-  it("only an explicit false disqualifies", () => {
-    const obj = state("x", "level", "number", { write: false }).x;
-    expect(stateFactsOf(obj)?.writable).toBe(false);
-  });
-
-  it("has no facts for a non-state object or a missing one", () => {
-    const obj = { _id: "x", type: "channel", common: { name: "x" }, native: {} };
-    expect(stateFactsOf(obj as ioBroker.Object)).toBeUndefined();
-    expect(stateFactsOf(undefined)).toBeUndefined();
-    expect(stateFactsOf(null)).toBeUndefined();
-  });
-
-  it("passes bounds and unit through, ignoring non-numeric ones", () => {
-    const facts = stateFactsOf(state("x", "level", "number", { min: 0, max: 360, unit: "°" }).x) as StateFacts;
-    expect(facts).toEqual({ writable: true, min: 0, max: 360, unit: "°" });
   });
 });
 

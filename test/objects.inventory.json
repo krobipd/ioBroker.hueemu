@@ -1,0 +1,244 @@
+{
+  "hueemu.0.clients": {
+    "_id": "hueemu.0.clients",
+    "type": "folder",
+    "common": {
+      "name": {
+        "en": "Paired Clients",
+        "de": "Verbundene Clients",
+        "ru": "Связанные клиенты",
+        "pt": "Clientes emparelhados",
+        "nl": "Gekoppelde clients",
+        "fr": "Clients appariés",
+        "it": "Client accoppiati",
+        "es": "Clientes emparejados",
+        "pl": "Sparowane klienty",
+        "uk": "Спарені клієнти",
+        "zh-cn": "已配对客户端"
+      },
+      "desc": {
+        "en": "Devices that have paired with the bridge — one entry per device",
+        "de": "Geräte, die sich mit der Bridge gekoppelt haben — ein Eintrag je Gerät",
+        "ru": "Устройства, сопряжённые с мостом — по одной записи на устройство",
+        "pt": "Dispositivos que emparelharam com a bridge — uma entrada por dispositivo",
+        "nl": "Apparaten die met de bridge zijn gekoppeld — één vermelding per apparaat",
+        "fr": "Appareils appairés avec le pont — une entrée par appareil",
+        "it": "Dispositivi che si sono accoppiati con il bridge — una voce per dispositivo",
+        "es": "Dispositivos que se han emparejado con el puente — una entrada por dispositivo",
+        "pl": "Urządzenia sparowane z mostkiem — jeden wpis na urządzenie",
+        "uk": "Пристрої, спарені з мостом — по одному запису на пристрій",
+        "zh-cn": "已与网桥配对的设备——每台设备一个条目"
+      }
+    },
+    "native": {}
+  },
+  "hueemu.0.clients.inventory-fixture-client": {
+    "type": "state",
+    "common": {
+      "name": {
+        "en": "inventory#fixture",
+        "de": "inventory#fixture",
+        "ru": "inventory#fixture",
+        "pt": "inventory#fixture",
+        "nl": "inventory#fixture",
+        "fr": "inventory#fixture",
+        "it": "inventory#fixture",
+        "es": "inventory#fixture",
+        "pl": "inventory#fixture",
+        "uk": "inventory#fixture",
+        "zh-cn": "inventory#fixture"
+      },
+      "desc": {
+        "de": "Der Schlüssel, mit dem dieses Gerät mit der Bridge spricht",
+        "en": "The key this device uses to talk to the bridge",
+        "es": "La clave con la que este dispositivo habla con el puente",
+        "fr": "La clé avec laquelle cet appareil dialogue avec le pont",
+        "it": "La chiave con cui questo dispositivo parla con il bridge",
+        "nl": "De sleutel waarmee dit apparaat met de bridge praat",
+        "pl": "Klucz, którym to urządzenie komunikuje się z mostkiem",
+        "pt": "A chave com que este dispositivo fala com a bridge",
+        "ru": "Ключ, с которым это устройство обращается к мосту",
+        "uk": "Ключ, яким цей пристрій спілкується з мостом",
+        "zh-cn": "此设备与网桥通信所用的密钥"
+      },
+      "type": "string",
+      "role": "text",
+      "read": true,
+      "write": false
+    },
+    "native": {
+      "username": "inventory-fixture-client"
+    },
+    "_id": "hueemu.0.clients.inventory-fixture-client"
+  },
+  "hueemu.0.disableAuth": {
+    "_id": "hueemu.0.disableAuth",
+    "type": "state",
+    "common": {
+      "name": {
+        "en": "Disable Authentication",
+        "de": "Authentifizierung deaktivieren",
+        "ru": "Отключить аутентификацию",
+        "pt": "Desativar autenticação",
+        "nl": "Aanmelding uitschakelen",
+        "fr": "Désactiver l'authentification",
+        "it": "Disattiva autenticazione",
+        "es": "Desactivar autenticación",
+        "pl": "Wyłącz uwierzytelnianie",
+        "uk": "Вимкнути автентифікацію",
+        "zh-cn": "禁用身份验证"
+      },
+      "type": "boolean",
+      "role": "switch",
+      "write": true,
+      "read": true,
+      "desc": {
+        "en": "Disable authentication (allow all requests)",
+        "de": "Authentifizierung deaktivieren (alle Anfragen erlauben)",
+        "ru": "Отключить аутентификацию (разрешить все запросы)",
+        "pt": "Desativar autenticação (permitir todos os pedidos)",
+        "nl": "Aanmelding uitschakelen (alle aanvragen toestaan)",
+        "fr": "Désactiver l'authentification (autoriser toutes les requêtes)",
+        "it": "Disattiva l'autenticazione (consenti tutte le richieste)",
+        "es": "Desactivar autenticación (permitir todas las solicitudes)",
+        "pl": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
+        "uk": "Вимкнути автентифікацію (дозволити всі запити)",
+        "zh-cn": "禁用身份验证（允许所有请求）"
+      }
+    },
+    "native": {}
+  },
+  "hueemu.0.info": {
+    "_id": "hueemu.0.info",
+    "type": "channel",
+    "common": {
+      "name": {
+        "en": "Information",
+        "de": "Information",
+        "ru": "Информация",
+        "pt": "Informação",
+        "nl": "Informatie",
+        "fr": "Informations",
+        "it": "Informazioni",
+        "es": "Información",
+        "pl": "Informacje",
+        "uk": "Інформація",
+        "zh-cn": "信息"
+      }
+    },
+    "native": {}
+  },
+  "hueemu.0.info.connection": {
+    "_id": "hueemu.0.info.connection",
+    "type": "state",
+    "common": {
+      "name": {
+        "en": "Bridge is answering",
+        "de": "Bridge antwortet",
+        "ru": "Мост отвечает",
+        "pt": "A bridge está a responder",
+        "nl": "Bridge antwoordt",
+        "fr": "Le pont répond",
+        "it": "Il bridge risponde",
+        "es": "El puente responde",
+        "pl": "Mostek odpowiada",
+        "uk": "Міст відповідає",
+        "zh-cn": "网桥正在响应"
+      },
+      "type": "boolean",
+      "role": "indicator.connected",
+      "write": false,
+      "read": true,
+      "def": false,
+      "desc": {
+        "en": "True while the emulated bridge accepts requests from Hue clients",
+        "de": "Wahr, solange die emulierte Bridge Anfragen von Hue-Clients annimmt",
+        "ru": "Истина, пока эмулируемый мост принимает запросы от клиентов Hue",
+        "pt": "Verdadeiro enquanto a bridge emulada aceita pedidos de clientes Hue",
+        "nl": "Waar zolang de geëmuleerde bridge aanvragen van Hue-clients aanneemt",
+        "fr": "Vrai tant que le pont émulé accepte les requêtes des clients Hue",
+        "it": "Vero finché il bridge emulato accetta richieste dai client Hue",
+        "es": "Verdadero mientras el puente emulado acepta solicitudes de clientes Hue",
+        "pl": "Prawda, dopóki emulowany mostek przyjmuje żądania od klientów Hue",
+        "uk": "Істина, поки емульований міст приймає запити від клієнтів Hue",
+        "zh-cn": "当模拟网桥接受 Hue 客户端请求时为真"
+      }
+    },
+    "native": {}
+  },
+  "hueemu.0.info.error": {
+    "_id": "hueemu.0.info.error",
+    "type": "state",
+    "common": {
+      "name": {
+        "en": "Last error",
+        "de": "Letzter Fehler",
+        "ru": "Последняя ошибка",
+        "pt": "Último erro",
+        "nl": "Laatste fout",
+        "fr": "Dernière erreur",
+        "it": "Ultimo errore",
+        "es": "Último error",
+        "pl": "Ostatni błąd",
+        "uk": "Остання помилка",
+        "zh-cn": "最近的错误"
+      },
+      "type": "string",
+      "role": "text",
+      "write": false,
+      "read": true,
+      "def": "",
+      "desc": {
+        "en": "Why the bridge is not answering — empty while everything works",
+        "de": "Warum die Bridge nicht antwortet — leer, solange alles läuft",
+        "ru": "Почему мост не отвечает — пусто, пока всё работает",
+        "pt": "Porque a bridge não responde — vazio enquanto tudo funciona",
+        "nl": "Waarom de bridge niet antwoordt — leeg zolang alles werkt",
+        "fr": "Pourquoi le pont ne répond pas — vide tant que tout fonctionne",
+        "it": "Perché il bridge non risponde — vuoto finché tutto funziona",
+        "es": "Por qué el puente no responde — vacío mientras todo funciona",
+        "pl": "Dlaczego mostek nie odpowiada — puste, dopóki wszystko działa",
+        "uk": "Чому міст не відповідає — порожньо, поки все працює",
+        "zh-cn": "网桥为何没有响应——一切正常时为空"
+      }
+    },
+    "native": {}
+  },
+  "hueemu.0.startPairing": {
+    "_id": "hueemu.0.startPairing",
+    "type": "state",
+    "common": {
+      "name": {
+        "en": "Start Pairing",
+        "de": "Pairing starten",
+        "ru": "Начать сопряжение",
+        "pt": "Iniciar emparelhamento",
+        "nl": "Koppelen starten",
+        "fr": "Démarrer l'appairage",
+        "it": "Avvia accoppiamento",
+        "es": "Iniciar emparejamiento",
+        "pl": "Rozpocznij parowanie",
+        "uk": "Почати спарювання",
+        "zh-cn": "开始配对"
+      },
+      "type": "boolean",
+      "role": "button",
+      "write": true,
+      "read": false,
+      "desc": {
+        "en": "Enable pairing mode for 50 seconds",
+        "de": "Pairing-Modus für 50 Sekunden aktivieren",
+        "ru": "Включить режим сопряжения на 50 секунд",
+        "pt": "Ativar modo de emparelhamento por 50 segundos",
+        "nl": "Koppelmodus 50 seconden activeren",
+        "fr": "Activer le mode d'appairage pendant 50 secondes",
+        "it": "Attiva la modalità accoppiamento per 50 secondi",
+        "es": "Activar el modo de emparejamiento durante 50 segundos",
+        "pl": "Włącz tryb parowania na 50 sekund",
+        "uk": "Увімкнути режим спарювання на 50 секунд",
+        "zh-cn": "启用配对模式 50 秒"
+      }
+    },
+    "native": {}
+  }
+}

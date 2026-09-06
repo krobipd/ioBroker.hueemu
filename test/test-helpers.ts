@@ -14,7 +14,10 @@ export function createMockLogger(): Logger {
   };
 }
 
-export function createMockDeviceBindingAdapter(stateValues: Record<string, unknown> = {}): DeviceBindingAdapter & {
+export function createMockDeviceBindingAdapter(
+  stateValues: Record<string, unknown> = {},
+  stateCommon: Record<string, Record<string, unknown>> = {},
+): DeviceBindingAdapter & {
   writtenStates: Map<string, unknown>;
   subscribedPatterns: string[];
 } {
@@ -44,9 +47,11 @@ export function createMockDeviceBindingAdapter(stateValues: Record<string, unkno
       return null;
     },
     getForeignObjectAsync: async (id: string) => {
-      // Treat a configured value as "object exists"; unknown ids = missing object.
-      if (id in stateValues) {
-        return { _id: id, type: "state", common: {}, native: {} } as unknown as ioBroker.Object;
+      // Treat a configured value (or a declared `common`) as "object exists";
+      // unknown ids = missing object. `stateCommon` lets a test give a source
+      // the min/max/unit the runtime scale resolution reads (v1.17.0).
+      if (id in stateValues || id in stateCommon) {
+        return { _id: id, type: "state", common: stateCommon[id] ?? {}, native: {} } as unknown as ioBroker.Object;
       }
       return null;
     },

@@ -1,6 +1,6 @@
 {
   "name": "iobroker.hueemu",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "ioBroker adapter that emulates a Philips Hue Bridge (v2)",
   "author": {
     "name": "krobi",
@@ -36,7 +36,7 @@
     "@iobroker/adapter-core": "^3.4.3",
     "@iobroker/dm-utils": "^3.2.0",
     "@iobroker/type-detector": "^6.0.1",
-    "fastify": "^5.12.1",
+    "fastify": "^5.12.3",
     "node-forge": "^1.4.0",
     "uuid": "^14.0.2"
   },
@@ -46,13 +46,13 @@
     "@alcalzone/release-script-plugin-license": "^5.2.2",
     "@iobroker/adapter-dev": "^1.5.0",
     "@iobroker/eslint-config": "^2.3.4",
-    "@iobroker/testing": "^5.3.0",
+    "@iobroker/testing": "^6.1.0",
     "@tsconfig/node22": "^22.0.5",
     "@types/iobroker": "npm:@iobroker/types@^7.2.2",
     "@types/node": "^22",
     "@types/node-forge": "^1.3.14",
     "@vitest/coverage-v8": "^5.0.0",
-    "iobroker-adapter-checks": "^0.3.0",
+    "iobroker-adapter-checks": "^0.4.0",
     "rimraf": "^6.1.3",
     "typescript": "~6.0.3",
     "vitest": "^5.0.0"
@@ -73,17 +73,19 @@
     "test:unit": "vitest run",
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
+    "test:inventory": "mocha test/inventory.js --exit",
     "test": "npm run test:ts && npm run test:package",
     "coverage": "vitest run --coverage",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "format": "prettier --write . \"!build/**\" \"!io-package.json\" \"!README.md\" \"!CHANGELOG_OLD.md\" \"!.github/dependabot.yml\" \"!.releaseconfig.json\"",
-    "format:check": "prettier --check . \"!build/**\" \"!io-package.json\" \"!README.md\" \"!CHANGELOG_OLD.md\" \"!.github/dependabot.yml\" \"!.releaseconfig.json\"",
+    "format": "prettier --write . \"!build/**\" \"!io-package.json\" \"!README.md\" \"!CHANGELOG_OLD.md\" \"!.github/dependabot.yml\" \"!.releaseconfig.json\" \"!.remember/**\"",
+    "format:check": "prettier --check . \"!build/**\" \"!io-package.json\" \"!README.md\" \"!CHANGELOG_OLD.md\" \"!.github/dependabot.yml\" \"!.releaseconfig.json\" \"!.remember/**\"",
     "release": "release-script",
     "release-patch": "release-script patch --yes --all",
     "release-minor": "release-script minor --yes --all",
     "release-major": "release-script major --yes --all",
-    "translate": "translate-adapter"
+    "translate": "translate-adapter",
+    "fix:changelog": "node -e \"const fs=require('fs');for(const[f,r]of[['README.md',/^(-->[ \\t]*)\\r?\\n(#{1,6} )/m],['CHANGELOG_OLD.md',/^(#{1,6} .*)\\r?\\n(#{1,6} )/]])if(fs.existsSync(f)){const t=fs.readFileSync(f,'utf8'),n=t.replace(r,(m,a,b)=>a+'\\n\\n'+b);if(n!==t)fs.writeFileSync(f,n)}\""
   },
   "bugs": {
     "url": "https://github.com/krobipd/ioBroker.hueemu/issues"

@@ -1559,3 +1559,173 @@ describe("applyIncrement", () => {
     expect(applyIncrement("hue", 0, -1)).toBe(65535);
   });
 });
+
+describe("v1.17.0 — the value scale is settled at start, from the bound object", () => {
+  /**
+   * Build a service over one dimmable light whose brightness source declares
+   * the given `common`.
+   *
+   * @param common What the bound brightness datapoint declares (min/max/unit).
+   * @param scale The scale stored in the configuration, if any.
+   * @param value The value the source currently holds.
+   */
+  async function dimmer(
+    common: Record<string, unknown>,
+    scale?: string,
+    value: unknown = 50,
+  ): Promise<{ svc: DeviceBindingService; adapter: ReturnType<typeof createMockDeviceBindingAdapter> }> {
+    const adapter = createMockDeviceBindingAdapter({ "hm.0.ON": true, "hm.0.LEVEL": value }, { "hm.0.LEVEL": common });
+    const device = {
+      name: "Dimmer",
+      lightType: "dimmable",
+      onState: "hm.0.ON",
+      briState: "hm.0.LEVEL",
+      ...(scale ? { briScale: scale } : {}),
+    } as DeviceConfig;
+    const svc = new DeviceBindingService({ adapter, devices: [device], logger: createMockLogger() });
+    await svc.initialize();
+    return { svc, adapter };
+  }
+
+  // The measured defect (audit 2026-09-06 F1): a client asking for half
+  // brightness put the raw Hue number 127 into a 0..100 % datapoint.
+  it("writes a percent source in percent, even when the stored scale says auto", async () => {
+    const { svc, adapter } = await dimmer({ min: 0, max: 100, unit: "%" }, "auto");
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(50);
+  });
+
+  it("does the same when the configuration carries no scale at all", async () => {
+    const { svc, adapter } = await dimmer({ min: 0, max: 100, unit: "%" });
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(50);
+  });
+
+  it("switches a light without its own switch in the source's scale", async () => {
+    const adapter = createMockDeviceBindingAdapter(
+      { "hm.0.LEVEL": 40 },
+      { "hm.0.LEVEL": { min: 0, max: 100, unit: "%" } },
+    );
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "BDT", lightType: "dimmable", briState: "hm.0.LEVEL", briScale: "auto" }],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    await svc.setLightState("1", { on: true });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(100);
+  });
+
+  // Mutationswelle v1.17.0 (X5): eine Quelle, bei der Ableitung und Heuristik
+  // AUSEINANDERGEHEN — nur so ist messbar, ob die Skala wirklich aus dem Objekt
+  // kommt. Der Datenpunkt sagt "Hue-nativ" (max 254), sein aktueller Wert 50
+  // sähe für die Heuristik wie Prozent aus.
+  it("takes the scale from the object even where the value would suggest another", async () => {
+    const { svc, adapter } = await dimmer({ min: 0, max: 254 }, "auto", 50);
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(127);
+  });
+
+  it("resolves a hue and a colour temperature source the same way", async () => {
+    const adapter = createMockDeviceBindingAdapter(
+      { "z.0.ON": true, "z.0.HUE": 180, "z.0.CT": 4000 },
+      { "z.0.HUE": { min: 0, max: 360, unit: "°" }, "z.0.CT": { min: 2000, max: 6500 } },
+    );
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [
+        {
+          name: "Colour",
+          lightType: "color",
+          onState: "z.0.ON",
+          hueState: "z.0.HUE",
+          ctState: "z.0.CT",
+        },
+      ],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    const light = await svc.getLightById("1");
+    expect(light.state.hue).toBe(32768); // 180° read as half the Hue circle
+    expect(light.state.ct).toBe(250); // 4000 K read as 250 mired
+    await svc.setLightState("1", { hue: 32768, ct: 250 });
+    expect(adapter.writtenStates.get("z.0.HUE")).toBe(180);
+    expect(adapter.writtenStates.get("z.0.CT")).toBe(4000);
+  });
+
+  it("never overrides a scale the user really picked", async () => {
+    const { svc, adapter } = await dimmer({ min: 0, max: 100, unit: "%" }, "raw");
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(127);
+  });
+
+  it("mirrors the read heuristic when the object proves nothing", async () => {
+    // No min/max/unit — the source's own last value is the only evidence left,
+    // and the two directions must still agree.
+    const { svc, adapter } = await dimmer({}, "auto", 50);
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(50);
+  });
+
+  it("stays Hue-native when neither the object nor a value says anything", async () => {
+    const { svc, adapter } = await dimmer({}, "auto", null);
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(127);
+  });
+
+  it("round-trips: what the client reads back is what it asked for", async () => {
+    const { svc, adapter } = await dimmer({ min: 0, max: 100, unit: "%" }, "auto");
+    await svc.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(50);
+    const light = await svc.getLightById("1");
+    expect(light.state.bri).toBe(127);
+  });
+});
+
+describe("v1.17.0 — a light whose driving state does not exist is not reachable", () => {
+  it("reports reachable:false when the on/off object is missing", async () => {
+    const adapter = createMockDeviceBindingAdapter({});
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "Typo", lightType: "onoff", onState: "typo.0.does.not.exist" }],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    expect((await svc.getLightById("1")).state.reachable).toBe(false);
+  });
+
+  it("reports reachable:true for a light whose driving state exists", async () => {
+    const adapter = createMockDeviceBindingAdapter({ "hm.0.ON": true });
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "Real", lightType: "onoff", onState: "hm.0.ON" }],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    expect((await svc.getLightById("1")).state.reachable).toBe(true);
+  });
+
+  it("only the DRIVING state counts — a missing colour source is still a working lamp", async () => {
+    const adapter = createMockDeviceBindingAdapter({ "hm.0.ON": true });
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "Colour", lightType: "color", onState: "hm.0.ON", xyState: "gone.0.xy" }],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    expect((await svc.getLightById("1")).state.reachable).toBe(true);
+  });
+
+  it("becomes reachable again once the state reports a value", async () => {
+    const adapter = createMockDeviceBindingAdapter({});
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "Late", lightType: "onoff", onState: "late.0.on" }],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    expect((await svc.getLightById("1")).state.reachable).toBe(false);
+    svc.updateStateCache("late.0.on", true);
+    expect((await svc.getLightById("1")).state.reachable).toBe(true);
+  });
+});

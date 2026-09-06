@@ -7,15 +7,14 @@ import * as utils from "@iobroker/adapter-core";
 import { I18n } from "@iobroker/adapter-core";
 import { join } from "node:path";
 import * as uuid from "uuid";
-import * as forge from "node-forge";
-import { randomBytes } from "node:crypto";
 
 import { HueServer } from "./server";
 import { HueSsdpServer, SSDP_PORT } from "./discovery";
-import { ApiHandler, type ApiHandlerAdapter, type DeviceConfig } from "./hue-api";
+import { ApiHandler, type DeviceConfig } from "./hue-api";
 import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName, tRaw } from "./lib/i18n";
+import { getOrCreateTlsMaterial } from "./lib/tls-material";
 import {
   ID_RANGE_END,
   runObsoleteStateCleanup,
@@ -28,9 +27,11 @@ import {
   detectPrimaryIPv4,
   generateBridgeId,
   generateSerialNumber,
+  listIPv4Addresses,
   macFromUdn,
   validateNetworkConfig,
 } from "./types/config";
+import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
 import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -158,6 +159,25 @@ export class HueEmu extends utils.Adapter {
     void this.setState(id, { ack: true, val }).catch(e => this.log.error(`setState ${id} failed: ${errText(e)}`));
   }
 
+  /**
+   * v1.17.0: report whether the emulated bridge is actually serving.
+   *
+   * Before this, a start that failed — a taken port, no routable IP to advertise
+   * — left exactly one line in the log while the instance stayed green in the
+   * admin and the whole object tree looked normal. The user had nothing to look
+   * at (audit 2026-09-06 F4). The pair follows the fleet rule for a reason text:
+   * `Unknown` while the adapter has nothing to report yet, empty while all is
+   * well, the real cause otherwise — never "the adapter is stopped", which is
+   * the one thing the user can already see.
+   *
+   * @param connected - Whether the HTTP listener is accepting requests
+   * @param reason - The failure to show, or "" when there is none
+   */
+  private setConnected(connected: boolean, reason: string): void {
+    this.ackState("info.connection", connected);
+    this.ackState("info.error", reason);
+  }
+
   /** Whether authentication is disabled */
   get disableAuth(): boolean {
     return this._disableAuth;
@@ -170,9 +190,6 @@ export class HueEmu extends utils.Adapter {
     this.log.info(value ? "Authentication disabled (all requests allowed)" : "Authentication enabled");
   }
 
-  /**
-   * Called when databases are connected and adapter received configuration
-   */
   /**
    * Switch off `supportedMessages.stopInstance` on this instance's own object.
    *
@@ -207,6 +224,11 @@ export class HueEmu extends utils.Adapter {
     }
   }
 
+  /**
+   * Called when the databases are connected and the adapter has its configuration.
+   * Top-level try/catch: an async event handler that rejects would take the
+   * process down with an unhandled rejection.
+   */
   private async onReady(): Promise<void> {
     try {
       // First: without this the whole shutdown path stays dead on an updated install.
@@ -216,6 +238,9 @@ export class HueEmu extends utils.Adapter {
       }
       await I18n.init(join(this.adapterDir, "admin"), this);
       this.log.debug(`onReady: starting (devices in config: ${this.config.devices?.length ?? 0})`);
+      // Nothing to report yet — the listener is not up. Written before anything
+      // can fail, so a crash between here and the listen leaves the truth behind.
+      this.setConnected(false, REASON_UNKNOWN);
 
       // Migrate legacy devices (created via createLight) to admin config format
       const migrated = await this.migrateLegacyDevices();
@@ -264,13 +289,12 @@ export class HueEmu extends utils.Adapter {
         onFatalError: () => this.stopSsdpAnnounce(),
       });
 
-      // Double cast `unknown → ApiHandlerAdapter` because the Adapter base
-      // class's `setStateAsync` returns `SetStatePromise` while our handler
-      // interfaces specify `Promise<{ id: string }>`. They are semantically
-      // equivalent for our usage; the explicit cast keeps the intent visible
-      // without `any`.
+      // No cast: the handler interfaces declare their write calls as
+      // `Promise<unknown>`, so the adapter satisfies them structurally and the
+      // compiler keeps watching this boundary (v1.17.0 — it used to be an
+      // `as unknown as ApiHandlerAdapter`, which switched every check off).
       this.apiHandler = this.makeApiHandler({
-        adapter: this as unknown as ApiHandlerAdapter,
+        adapter: this,
         configServiceConfig: {
           identity: emulatorConfig.identity,
           advertiseHost: emulatorConfig.advertiseHost,
@@ -325,11 +349,19 @@ export class HueEmu extends utils.Adapter {
       this.subscribeStates("*");
       this.log.debug("Subscribed to own states (pattern: *)");
 
+      this.setConnected(true, "");
       this.log.info(
         `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
       );
     } catch (error) {
-      this.log.error(`Failed to start Hue Emulator: ${errText(error)}`);
+      const detail = errText(error);
+      // The reason datapoint never carries hueemu's OWN wording — a text the
+      // adapter invented about itself is `Unknown` there, fleet-wide. Only a
+      // message from outside (node's `listen EADDRINUSE …`) names a cause the
+      // user could not have read off the instance state anyway. The full text,
+      // hint included, goes to the log where it is actionable.
+      this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail);
+      this.log.error(`Failed to start Hue Emulator: ${detail}`);
     }
   }
 
@@ -352,6 +384,15 @@ export class HueEmu extends utils.Adapter {
         : legacyAdvertise && legacyAdvertise !== "0.0.0.0"
           ? legacyAdvertise
           : detectPrimaryIPv4();
+    if (host === "0.0.0.0" && advertiseHost) {
+      // The address clients are told to use is a choice the adapter made — say
+      // which one, so a wrong pick (a docker bridge, a VPN tunnel) is visible in
+      // the log instead of only in "Alexa cannot find the bridge".
+      const iface = listIPv4Addresses().find(a => a.address === advertiseHost);
+      this.log.info(
+        `Announcing ${advertiseHost}${iface ? ` (interface ${iface.iface})` : ""} to clients — set Host/IP in the settings to override`,
+      );
+    }
     const httpsPort = parsePort(this.config.httpsPort);
     // v1.9.0: the bind host may be 0.0.0.0 (listen on all interfaces); what must
     // resolve is a routable advertiseHost. v1.4.3 (SV4): an HTTPS port equal to
@@ -381,8 +422,11 @@ export class HueEmu extends utils.Adapter {
     // Build TLS config if HTTPS is enabled
     let https: TlsConfig | undefined;
     if (httpsPort) {
-      const { cert, key } = await this.getOrCreateTlsMaterial();
-      https = { port: httpsPort, cert, key };
+      const material = await getOrCreateTlsMaterial(this, this.config.tlsCert, this.config.tlsKey);
+      if (material.persisted) {
+        this.nativePersistPending = true;
+      }
+      https = { port: httpsPort, cert: material.cert, key: material.key };
     }
 
     this.log.debug(
@@ -404,93 +448,6 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
-   * v1.4.3 (M1+M3+M5): persist the self-signed TLS cert/key in `native`
-   * so they survive restarts. Real Hue clients (Echo, Harmony, Wall Display)
-   * don't pin the cert — but regenerating each restart wasted ~1-2 s of
-   * sync RSA-keygen on the event loop and gave clients fresh cert warnings
-   * every time. Now: read from native; only generate (and persist) if
-   * missing/malformed. Serial number is randomized so reissues aren't
-   * identical (RFC 5280).
-   */
-  private async getOrCreateTlsMaterial(): Promise<{ cert: string; key: string }> {
-    const persistedCert = typeof this.config.tlsCert === "string" ? this.config.tlsCert.trim() : "";
-    const persistedKey = typeof this.config.tlsKey === "string" ? this.config.tlsKey.trim() : "";
-    if (
-      persistedCert.startsWith("-----BEGIN CERTIFICATE-----") &&
-      (persistedKey.startsWith("-----BEGIN RSA PRIVATE KEY-----") ||
-        persistedKey.startsWith("-----BEGIN PRIVATE KEY-----"))
-    ) {
-      // v1.4.5 (B): parse the persisted cert and check its validity window
-      // before reuse. Earlier we only matched the BEGIN-header, so an
-      // expired or corrupted cert would silently be handed to Fastify and
-      // cause a HTTPS-listen-fail far from the root cause.
-      try {
-        const parsed = forge.pki.certificateFromPem(persistedCert);
-        if (parsed.validity.notAfter > new Date()) {
-          this.log.debug(`Reusing persisted TLS certificate (notAfter=${parsed.validity.notAfter.toISOString()})`);
-          return { cert: persistedCert, key: persistedKey };
-        }
-        this.log.warn(
-          `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) — regenerating`,
-        );
-      } catch (err) {
-        this.log.warn(`Persisted TLS certificate invalid (${errText(err)}) — regenerating`);
-      }
-      // fall through to regenerate
-    }
-
-    const generated = this.generateCertificate();
-    try {
-      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-        native: { tlsCert: generated.certificate, tlsKey: generated.privateKey },
-      });
-      this.log.info("Generated and persisted self-signed TLS certificate (10-year validity)");
-      this.nativePersistPending = true;
-    } catch (err) {
-      this.log.warn(`TLS cert generated but failed to persist: ${errText(err)} — will regenerate next restart`);
-    }
-    return { cert: generated.certificate, key: generated.privateKey };
-  }
-
-  /**
-   * Generate a self-signed certificate for HTTPS
-   */
-  private generateCertificate(): {
-    certificate: string;
-    privateKey: string;
-  } {
-    this.log.debug("Generating self-signed certificate for HTTPS");
-
-    const keys = forge.pki.rsa.generateKeyPair(2048);
-    const cert = forge.pki.createCertificate();
-
-    cert.publicKey = keys.publicKey;
-    // v1.4.3 (M5): RFC 5280 wants unique serial numbers across reissues —
-    // 16 random bytes (positive, MSB cleared) is the standard approach.
-    const serialBytes = randomBytes(16);
-    serialBytes[0] &= 0x7f;
-    cert.serialNumber = serialBytes.toString("hex");
-    cert.validity.notBefore = new Date();
-    cert.validity.notAfter = new Date();
-    cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
-
-    const attrs = [
-      { name: "commonName", value: "Philips Hue" },
-      { name: "countryName", value: "NL" },
-      { name: "organizationName", value: "Philips Hue" },
-    ];
-
-    cert.setSubject(attrs);
-    cert.setIssuer(attrs);
-    cert.sign(keys.privateKey, forge.md.sha256.create());
-
-    return {
-      certificate: forge.pki.certificateToPem(cert),
-      privateKey: forge.pki.privateKeyToPem(keys.privateKey),
-    };
-  }
-
-  /**
    * Initialize adapter state values. Object creation is handled by
    * io-package.json:instanceObjects (declared once with translation-objects),
    * so we only need to seed the initial values here.
@@ -505,6 +462,14 @@ export class HueEmu extends utils.Adapter {
     this._disableAuth = coerceBool(disableAuthState?.val);
   }
 
+  /** Stop the ssdp:alive pulse — on unload and when the SSDP socket dies. */
+  private stopSsdpAnnounce(): void {
+    if (this.ssdpAnnounceInterval !== undefined) {
+      this.clearInterval(this.ssdpAnnounceInterval);
+      this.ssdpAnnounceInterval = undefined;
+    }
+  }
+
   /**
    * Start the SSDP server bounded by a managed timeout. Historically a hard
    * requirement (H1): node-ssdp swallowed a socket bind error and never settled
@@ -515,14 +480,6 @@ export class HueEmu extends utils.Adapter {
    * disabled, HTTP stays up" (S2); after a timeout the server holds no socket,
    * so onUnload's stop() is a safe no-op.
    */
-  /** Stop the ssdp:alive pulse — on unload and when the SSDP socket dies. */
-  private stopSsdpAnnounce(): void {
-    if (this.ssdpAnnounceInterval !== undefined) {
-      this.clearInterval(this.ssdpAnnounceInterval);
-      this.ssdpAnnounceInterval = undefined;
-    }
-  }
-
   private async startSsdpWithTimeout(): Promise<void> {
     const ssdp = this.ssdpServer;
     if (!ssdp) {
@@ -605,13 +562,85 @@ export class HueEmu extends utils.Adapter {
       },
       native: {},
     });
+    // v1.17.0: a `folder`, not a `meta` object. The paired clients are states,
+    // and repochecker's object-structure rule counts `meta` as a NON-hierarchy
+    // type — a state under it makes the whole branch an E2001 ("hierarchy
+    // contains non-hierarchy object types", `HIERARCHY_TYPES` in
+    // config_StateRoles.js is device/channel/state/folder). It went unseen until
+    // the adapter got an object inventory to check.
     await this.extendObject("clients", {
-      type: "meta",
-      common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc"), type: "meta.folder" },
+      type: "folder",
+      common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
+      native: {},
+    });
+    await this.dropClientsFolderType();
+    await this.extendObject("info", {
+      type: "channel",
+      common: { name: tName("infoFolder") },
+      native: {},
+    });
+    await this.extendObject("info.connection", {
+      type: "state",
+      common: {
+        name: tName("infoConnectionName"),
+        desc: tName("infoConnectionDesc"),
+        type: "boolean",
+        role: "indicator.connected",
+        read: true,
+        write: false,
+        def: false,
+      },
+      native: {},
+    });
+    await this.extendObject("info.error", {
+      type: "state",
+      common: {
+        name: tName("infoErrorName"),
+        desc: tName("infoErrorDesc"),
+        type: "string",
+        role: "text",
+        read: true,
+        write: false,
+        def: "",
+      },
       native: {},
     });
     this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
     await this.refreshClientNames();
+  }
+
+  /**
+   * Drop the `common.type` the pre-v1.17.0 `meta` object carried ("meta.folder").
+   * A `FolderCommon` has no `type` at all, and an extendObject merge would keep
+   * the stale value for ever.
+   *
+   * Why not `extendObject(… { common: { type: null } })`, the fleet's usual way of
+   * deleting a common field: js-controller validates the incoming PATCH before the
+   * null-means-delete semantics apply, sees `typeof null === "object"` and logs
+   * `Object clients is invalid: obj.common.type has an invalid type! Expected
+   * "string", received "object" This will throw an error up from js-controller
+   * version 7.0.0` — on EVERY start of EVERY installation, fresh ones included
+   * (measured against js-controller 7.2.3, 2026-09-06). The value did get deleted,
+   * but at the price of a warning in every user's log and an announced hard error.
+   *
+   * So: read first, and rewrite only when the field is really there. `setObject`
+   * replaces the object outright — no merge, nothing to validate — and on an
+   * installation that never had a meta object nothing happens at all.
+   */
+  private async dropClientsFolderType(): Promise<void> {
+    try {
+      const clients = await this.getObjectAsync("clients");
+      if (!clients?.common || !("type" in clients.common)) {
+        return;
+      }
+      const common = { ...clients.common } as Record<string, unknown>;
+      delete common.type;
+      await this.setObjectAsync("clients", { ...clients, common } as unknown as ioBroker.SettableObject);
+      this.log.debug("Removed the stale common.type from the clients folder");
+    } catch (error) {
+      // Cosmetic cleanup — a failure here must never stop the start.
+      this.log.debug(`Could not clean up the clients folder: ${errText(error)}`);
+    }
   }
 
   /**
@@ -713,8 +742,8 @@ export class HueEmu extends utils.Adapter {
       // Create clients folder first (instanceObjects already declares it with
       // a translation-object name; this is defensive in case it was deleted)
       await this.setObjectNotExistsAsync("clients", {
-        type: "meta",
-        common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc"), type: "meta.folder" },
+        type: "folder",
+        common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
         native: {},
       });
 
@@ -793,6 +822,10 @@ export class HueEmu extends utils.Adapter {
       void (async (): Promise<void> => {
         await this.ssdpServer?.stop();
         await this.hueServer?.stop();
+        // The bridge is gone — say so before the callback, or the write never
+        // reaches the database (the host allows one second, then kills).
+        await this.setStateAsync("info.connection", { ack: true, val: false });
+        await this.setStateAsync("info.error", { ack: true, val: REASON_UNKNOWN });
       })()
         .catch((error: unknown) => {
           this.log.error(`Error during shutdown: ${errText(error)}`);
@@ -900,7 +933,7 @@ export class HueEmu extends utils.Adapter {
   private toPort(port: unknown): number {
     const parsed = parsePort(port);
     if (parsed === undefined) {
-      throw new Error("Port not specified");
+      throw new ConfigurationError("Port not specified");
     }
     return parsed;
   }

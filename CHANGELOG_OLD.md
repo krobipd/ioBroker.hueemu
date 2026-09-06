@@ -1,4 +1,14 @@
 # Older Changes
+
+## 1.14.0 (2026-09-02)
+
+- New: the bridge answers GET /api/config without a username, like a real Hue bridge, so apps that read the configuration before pairing find what they expect.
+- Fixed: an app that only read the bridge configuration while pairing was open got paired under its probe name (e.g. "nouser") — reading the configuration no longer pairs anyone.
+- Fixed: with authentication disabled, one device could create client entries without limit — new clients are now capped at 100 per hour, with one warning per hour.
+- Changed: a client-supplied username longer than 64 characters is ignored in favour of a generated one; the device type stored as the client name is cut to 100 characters.
+- Fixed: an unreadable brightness, saturation, hue or colour temperature in a request is no longer written as a default (full brightness, red) — it is skipped but still acknowledged.
+- Fixed: if cleaning up objects from earlier versions failed at start, the pairing and authentication switches stopped working — the adapter now continues and reports the failure.
+
 ## 1.13.1 (2026-08-27) — stable
 
 - Fixed: when the adapter is stopped it now really tells the connected apps that the bridge is gone — until now they kept it in their list until they ran into their own timeout.

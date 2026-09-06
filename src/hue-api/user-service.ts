@@ -16,9 +16,9 @@ export interface UserServiceAdapter {
   /** ioBroker logger */
   log: ioBroker.Logger;
   /** Create an object if it does not exist */
-  setObjectNotExistsAsync(id: string, obj: ioBroker.SettableObject): Promise<{ id: string }>;
+  setObjectNotExistsAsync(id: string, obj: ioBroker.SettableObject): Promise<unknown>;
   /** Set a state value */
-  setStateAsync(id: string, state: ioBroker.SettableState): Promise<{ id: string }>;
+  setStateAsync(id: string, state: ioBroker.SettableState): Promise<unknown>;
   /** Get all state objects under a parent */
   getStatesOfAsync(parentDevice?: string, parentChannel?: string): Promise<ioBroker.StateObject[]>;
 }
@@ -70,12 +70,26 @@ export class UserService {
   private readonly logger: Logger;
 
   /**
-   * v1.4.3 (U2): in-memory mirror of paired client ids. Populated lazily on
+   * v1.4.3 (U2): in-memory mirror of the paired clients. Populated lazily on
    * first lookup, kept in sync by every `addUser`. Earlier every Hue API
    * request triggered `getStatesOfAsync("clients")`, hitting the broker on
    * every call — Echo polls the bridge frequently.
+   *
+   * v1.17.0: it holds the REAL keys, not the sanitized object ids. Matching the
+   * sanitized form meant every character a key holds that is not `[A-Za-z0-9-_]`
+   * became a wildcard: a client paired as `living.room` also authenticated as
+   * `living_room` and `living+room` (measured, audit 2026-09-06 F3). The object
+   * id still has to be sanitized — it is an ioBroker id — so the two are kept
+   * apart on purpose.
    */
-  private clientIdsCache: Set<string> | null = null;
+  private clientKeysCache: Set<string> | null = null;
+
+  /**
+   * Which real key owns which sanitized object id. Two different keys can
+   * sanitize to the same id; the second one would silently take over the first
+   * one's object, so it is refused instead.
+   */
+  private idOwners: Map<string, string> = new Map();
 
   /**
    * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
@@ -158,30 +172,38 @@ export class UserService {
     // Every path — the ceiling is what bounds the object DB when nothing else does.
     this.enforceCreateCeiling();
 
-    if (viaAutoAdd) {
-      if (this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
-        if (!this.autoAddCapWarned) {
-          this.logger.warn(
-            `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) — further unknown clients will be rejected until pairing is re-enabled`,
-          );
-          this.autoAddCapWarned = true;
-        }
-        throw new Error("Auto-add cap reached for this pairing window");
+    if (viaAutoAdd && this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
+      if (!this.autoAddCapWarned) {
+        this.logger.warn(
+          `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) — further unknown clients will be rejected until pairing is re-enabled`,
+        );
+        this.autoAddCapWarned = true;
       }
-      this.autoAddedThisWindow += 1;
+      throw new Error("Auto-add cap reached for this pairing window");
     }
 
     const safeUsername = sanitizeId(username);
     this.logger.debug(`Creating client: ${safeUsername} (${oneLine(devicetype)})`);
 
-    // Ensure clients folder exists
-    await this.ensureClientsFolder();
-
     // v1.4.3 (U2): keep the auth-cache fresh after every add. Warmed BEFORE the
     // write since v1.15.0, because the ceiling has to tell a genuinely new
     // client from a client re-pairing under a name that already exists.
     const cache = await this.ensureCache();
-    const isNewClient = !cache.has(safeUsername);
+    const isNewClient = !cache.has(username);
+
+    // Two different keys can sanitize to the same object id. Letting the second
+    // one through would hand it the first one's object — and its access.
+    const owner = this.idOwners.get(safeUsername);
+    if (owner !== undefined && owner !== username) {
+      this.logger.warn(
+        `Refusing client "${oneLine(username)}": its object id "${safeUsername}" already belongs to another paired client`,
+      );
+      throw new Error("Client id already taken by another key");
+    }
+
+    // Ensure clients folder exists
+    await this.ensureClientsFolder();
+
     let persisted = false;
 
     // Create client state (sanitizeId: FORBIDDEN_CHARS compliance)
@@ -207,6 +229,15 @@ export class UserService {
       this.logger.warn(`Failed to create client object ${safeUsername}: ${errText(err)}`);
     }
 
+    if (!persisted) {
+      // v1.17.0: a pairing that did not reach the database is NOT a pairing.
+      // It used to be reported as success and cached in memory, so the client
+      // worked until the next adapter start and then lost access with no
+      // explanation (measured, audit 2026-09-06 F2). The caller turns this into
+      // Hue error 101, which every client answers by simply trying again.
+      throw new Error("Client could not be stored");
+    }
+
     try {
       await this.adapter.setStateAsync(`clients.${safeUsername}`, {
         ack: true,
@@ -219,19 +250,27 @@ export class UserService {
     // Book against the hourly ceiling only for a client that is really new AND
     // really stored — the ceiling exists to bound the object database, so a
     // request that grew it by nothing must not consume a slot.
-    if (isNewClient && persisted) {
+    if (isNewClient) {
       this.countCreatedClient();
     }
-    this.clientIdsCache?.add(safeUsername);
+    // v1.17.0: the per-window auto-add budget is booked here too, for the same
+    // reason the hourly ceiling moved in v1.15.0 — a failed write used to eat
+    // one of the 64 slots (audit 2026-09-06 F12).
+    if (viaAutoAdd && isNewClient) {
+      this.autoAddedThisWindow += 1;
+    }
+    this.clientKeysCache?.add(username);
+    this.idOwners.set(safeUsername, username);
   }
 
   /**
-   * Returns the paired client ids (sanitized form) currently in the cache —
-   * empty until the first auth check populates it. Synchronous on purpose so
-   * the whitelist render-path (config-service) needn't become async.
+   * Returns the paired client keys currently in the cache — empty until the
+   * first auth check populates it. Synchronous on purpose so the whitelist
+   * render-path (config-service) needn't become async. Since v1.17.0 these are
+   * the real keys, which is also what a Hue whitelist is supposed to list.
    */
   public listCachedClientIds(): readonly string[] {
-    return this.clientIdsCache ? [...this.clientIdsCache] : [];
+    return this.clientKeysCache ? [...this.clientKeysCache] : [];
   }
 
   /**
@@ -258,29 +297,41 @@ export class UserService {
    * @param username - Username to verify
    */
   public async isUserAuthenticated(username: string): Promise<boolean> {
-    const safeUsername = sanitizeId(username);
     const cache = await this.ensureCache();
-    const found = cache.has(safeUsername);
+    // The REAL key, not its sanitized object id — see {@link clientKeysCache}.
+    const found = cache.has(username);
     if (found) {
       this.logger.debug(`Client authenticated: ${oneLine(username)}`);
     }
     return found;
   }
 
-  /** Build (or return) the cache of sanitized client ids. */
+  /**
+   * Build (or return) the cache of paired client keys.
+   *
+   * The key is `native.username`, which every client object has carried since
+   * the object was introduced. Only an object from before that — or one a user
+   * built by hand — falls back to its own id, which for a generated UUID key is
+   * the same string anyway.
+   */
   private async ensureCache(): Promise<Set<string>> {
-    if (this.clientIdsCache) {
-      return this.clientIdsCache;
+    if (this.clientKeysCache) {
+      return this.clientKeysCache;
     }
     const cache = new Set<string>();
+    const owners = new Map<string, string>();
     try {
       const stateObjects = (await this.adapter.getStatesOfAsync("clients", undefined)) || [];
       const offset = this.adapter.namespace.length + 1 + "clients.".length;
       for (const state of stateObjects) {
         const id = state._id.substring(offset);
-        if (id) {
-          cache.add(id);
+        if (!id) {
+          continue;
         }
+        const stored = (state.native as { username?: unknown } | undefined)?.username;
+        const key = typeof stored === "string" && stored ? stored : id;
+        cache.add(key);
+        owners.set(id, key);
       }
     } catch (err) {
       // Do NOT cache on failure: caching the empty set here would permanently
@@ -290,7 +341,8 @@ export class UserService {
       this.logger.warn(`Could not load clients into cache, retrying on next request: ${errText(err)}`);
       return cache;
     }
-    this.clientIdsCache = cache;
+    this.clientKeysCache = cache;
+    this.idOwners = owners;
     return cache;
   }
 
@@ -303,11 +355,10 @@ export class UserService {
   private async ensureClientsFolder(): Promise<void> {
     try {
       await this.adapter.setObjectNotExistsAsync("clients", {
-        type: "meta",
+        type: "folder",
         common: {
           name: tName("clientsFolder"),
           desc: tName("clientsFolderDesc"),
-          type: "meta.folder",
         },
         native: {},
       });

@@ -87,13 +87,16 @@ hält der eine in Grad (0–360), der andere im Hue-eigenen Bereich 0–65535; d
 Farbtemperatur steht hier in Kelvin und dort in Mired; die Helligkeit ist mal Prozent,
 mal roh 0–254.
 
-Der Assistent liest Einheit und Wertebereich aus dem Datenpunkt, den er anbindet, und
-setzt die Skala für dich — **überall dort, wo der Datenpunkt das angibt**. Sagt ein
-Datenpunkt nichts über seine Einheit, was etwa bei der Farbtemperatur des
-Zigbee-Adapters der Fall ist, bleibt das Feld leer und es gilt die Vorgabe des Adapters.
+Der Adapter liest Einheit und Wertebereich aus dem Datenpunkt, den er anbindet, und legt
+die Skala bei jedem Start selbst fest — für Lampen aus der Suche genauso wie für von Hand
+angelegte, und in beide Richtungen: beim Lesen wie beim Schreiben. Sagt ein Datenpunkt
+nichts über seine Einheit oder seinen Bereich, was etwa bei der Farbtemperatur des
+Zigbee-Adapters der Fall ist, geht der Adapter nach dem Wert selbst — und schreibt ihn so
+zurück, wie er ihn gelesen hat.
 
 Reagiert eine Lampe also, zeigt aber die falsche Farbe, den falschen Weißton, oder
 springt sie auf volle Helligkeit: öffne ihre Karte und stell die Skala von Hand ein.
+„Automatisch (aus dem Datenpunkt)" ist die Einstellung, mit der der Adapter entscheidet.
 
 - **Helligkeit / Sättigung** — `Prozent (0..100)` bei einem üblichen `level.dimmer`,
   `Normalisiert (0..1)`, oder `Roh (1..254)` bei einer Quelle im Hue-eigenen Bereich
@@ -113,11 +116,19 @@ früheren Wert nicht mehr.
 
 ```
 hueemu.0.
+├── info/
+│   ├── connection — ob die Bridge Hue-Clients antwortet
+│   └── error      — warum nicht (leer, solange alles läuft)
 ├── startPairing   — öffnet das Kopplungsfenster für 50 Sekunden (Taster)
 ├── disableAuth    — jede Anfrage ohne Kopplung annehmen (Schalter)
 └── clients/       — ein Eintrag je gekoppeltem Client
     └── <Name>     — der Schlüssel, den dieser Client benutzt
 ```
+
+`info.connection` ist die schnelle Antwort auf „läuft es überhaupt?". Ein Start kann aus
+Gründen scheitern, die man der Instanzliste nicht ansieht — der HTTP-Port ist belegt, oder
+es gibt keine brauchbare Netzwerkadresse — und dann steht die Ursache im Klartext in
+`info.error`.
 
 `disableAuth` ist eine Wartungshilfe, keine Dauereinstellung: damit kann jedes Gerät in
 deinem Netz deine Lampen ohne Kopplung steuern. Neue Clients sind ohnehin auf 100 pro
