@@ -181,7 +181,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     ### **WORK IN PROGRESS**
 -->
 
-### 1.17.0 (2026-09-06)
+### **WORK IN PROGRESS**
 
 - Fixed: Brightness and saturation left on "Auto" are now written in the unit the datapoint really uses — a percent dimmer no longer receives Hue values like 127 or 254.
 - Fixed: The scale of a light added by hand is now determined from the datapoint as well, exactly like a light found by the search.
