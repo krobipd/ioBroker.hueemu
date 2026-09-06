@@ -84,7 +84,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500 oder Kelvin (`ctScale`, I2), **xy**: Array oder CSV → [x,y]
 - **on**: via shared `coerceBool` (Allowlist `true/1/yes/on`, case-insensitiv; `"off"`/`"no"`/`"false"`/`""` → aus) (v1.10.0 M1)
 
-## Tests (678 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration + Objekt-Inventar)
+## Tests (684 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration + Objekt-Inventar)
 
 Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: 9/9 grün, `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22 und 24.
 
@@ -106,7 +106,7 @@ Aktuelle Version: `io-package.json`. **User-facing Changelog:** `README.md` + `i
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (678 inkl. Repo-Standard-Prüfungen)
+npm run test:ts          # Unit-Tests via vitest (684 inkl. Repo-Standard-Prüfungen)
 npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
 npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
