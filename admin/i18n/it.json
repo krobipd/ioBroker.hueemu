@@ -52,7 +52,7 @@
   "startPairingName": "Avvia accoppiamento",
   "startPairingDesc": "Attiva la modalità accoppiamento per 50 secondi",
   "disableAuthName": "Disattiva autenticazione",
-  "disableAuthDesc": "Disattiva l'autenticazione (consenti tutte le richieste)",
+  "disableAuthDesc": "⚠ Qualsiasi client in rete viene servito senza chiave e può accoppiarsi da solo",
   "scaleHue": "Scala della tonalità",
   "scaleCt": "Scala della temperatura del colore",
   "scaleHueTooltip": "Come viene interpretato il valore sorgente della tonalità. 'Automatico' prende unità e intervallo dal punto dati. 'Nativo' = 0..65535 (Hue). 'Gradi' = 0..360 (es. sorgenti HSV/HSL).",

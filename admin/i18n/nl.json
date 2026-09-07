@@ -52,7 +52,7 @@
   "startPairingName": "Koppelen starten",
   "startPairingDesc": "Koppelmodus 50 seconden activeren",
   "disableAuthName": "Aanmelding uitschakelen",
-  "disableAuthDesc": "Aanmelding uitschakelen (alle aanvragen toestaan)",
+  "disableAuthDesc": "⚠ Elke client in het netwerk wordt zonder sleutel bediend en kan zichzelf koppelen",
   "scaleHue": "Tint-schaal",
   "scaleCt": "Kleurtemperatuur-schaal",
   "scaleHueTooltip": "Hoe de bronwaarde van de kleurtoon wordt uitgelegd. 'Automatisch' haalt eenheid en bereik uit het datapunt. 'Eigen' = 0..65535 (Hue). 'Graden' = 0..360 (bijv. HSV/HSL-bronnen).",

@@ -52,7 +52,7 @@
   "startPairingName": "Démarrer l'appairage",
   "startPairingDesc": "Activer le mode d'appairage pendant 50 secondes",
   "disableAuthName": "Désactiver l'authentification",
-  "disableAuthDesc": "Désactiver l'authentification (autoriser toutes les requêtes)",
+  "disableAuthDesc": "⚠ Tout client du réseau est servi sans clé et peut s'appairer lui-même",
   "scaleHue": "Échelle de teinte",
   "scaleCt": "Échelle de température de couleur",
   "scaleHueTooltip": "Comment la valeur source de teinte est interprétée. « Automatique » lit l'unité et la plage dans le point de données. « Native » = 0..65535 (Hue). « Degrés » = 0..360 (p. ex. sources HSV/HSL).",

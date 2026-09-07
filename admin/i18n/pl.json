@@ -52,7 +52,7 @@
   "startPairingName": "Rozpocznij parowanie",
   "startPairingDesc": "Włącz tryb parowania na 50 sekund",
   "disableAuthName": "Wyłącz uwierzytelnianie",
-  "disableAuthDesc": "Wyłącz uwierzytelnianie (zezwalaj na wszystkie żądania)",
+  "disableAuthDesc": "⚠ Każdy klient w sieci jest obsługiwany bez klucza i może sam się sparować",
   "scaleHue": "Skala barwy",
   "scaleCt": "Skala temperatury barwowej",
   "scaleHueTooltip": "Jak interpretowana jest wartość źródłowa barwy. „Automatycznie” bierze jednostkę i zakres z punktu danych. „Natywnie” = 0..65535 (Hue). „Stopnie” = 0..360 (np. źródła HSV/HSL).",

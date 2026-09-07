@@ -52,7 +52,7 @@
   "startPairingName": "Pairing starten",
   "startPairingDesc": "Pairing-Modus für 50 Sekunden aktivieren",
   "disableAuthName": "Authentifizierung deaktivieren",
-  "disableAuthDesc": "Authentifizierung deaktivieren (alle Anfragen erlauben)",
+  "disableAuthDesc": "⚠ Jeder Client im Netzwerk wird ohne Schlüssel bedient und kann sich selbst koppeln",
   "scaleHue": "Farbton-Skala",
   "scaleCt": "Farbtemperatur-Skala",
   "scaleHueTooltip": "Wie der Farbton-Quellwert gedeutet wird. 'Automatisch' nimmt Einheit und Bereich aus dem Datenpunkt. 'Nativ' = 0..65535 (Hue). 'Grad' = 0..360 (z. B. HSV/HSL-Quellen).",

@@ -52,7 +52,7 @@
   "startPairingName": "Iniciar emparejamiento",
   "startPairingDesc": "Activar el modo de emparejamiento durante 50 segundos",
   "disableAuthName": "Desactivar autenticación",
-  "disableAuthDesc": "Desactivar autenticación (permitir todas las solicitudes)",
+  "disableAuthDesc": "⚠ Cualquier cliente de la red se atiende sin clave y puede emparejarse solo",
   "scaleHue": "Escala de tono",
   "scaleCt": "Escala de temperatura de color",
   "scaleHueTooltip": "Cómo se interpreta el valor de origen del tono. «Automático» toma la unidad y el rango del punto de datos. «Nativo» = 0..65535 (Hue). «Grados» = 0..360 (p. ej. fuentes HSV/HSL).",

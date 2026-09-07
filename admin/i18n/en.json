@@ -52,7 +52,7 @@
   "startPairingName": "Start Pairing",
   "startPairingDesc": "Enable pairing mode for 50 seconds",
   "disableAuthName": "Disable Authentication",
-  "disableAuthDesc": "Disable authentication (allow all requests)",
+  "disableAuthDesc": "⚠ Any client on the network is served without a key and can pair itself",
   "scaleHue": "Hue scale",
   "scaleCt": "Color temperature scale",
   "scaleHueTooltip": "How the hue source value is interpreted. 'Automatic' takes unit and range from the datapoint. 'Native' = 0..65535 (Hue). 'Degrees' = 0..360 (e.g. HSV/HSL sources).",

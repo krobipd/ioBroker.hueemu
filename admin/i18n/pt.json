@@ -52,7 +52,7 @@
   "startPairingName": "Iniciar emparelhamento",
   "startPairingDesc": "Ativar modo de emparelhamento por 50 segundos",
   "disableAuthName": "Desativar autenticação",
-  "disableAuthDesc": "Desativar autenticação (permitir todos os pedidos)",
+  "disableAuthDesc": "⚠ Qualquer cliente na rede é servido sem chave e pode emparelhar-se sozinho",
   "scaleHue": "Escala de matiz",
   "scaleCt": "Escala de temperatura de cor",
   "scaleHueTooltip": "Como o valor de origem do matiz é interpretado. 'Automático' obtém unidade e intervalo do ponto de dados. 'Nativo' = 0..65535 (Hue). 'Graus' = 0..360 (p. ex. fontes HSV/HSL).",
