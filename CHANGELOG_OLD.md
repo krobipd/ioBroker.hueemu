@@ -1,5 +1,15 @@
 # Older Changes
 
+## 1.15.0 (2026-09-03)
+
+- New: The light assistant now works out how brightness, colour and colour temperature are stored, so the lights it adds show and set the right values.
+- Fixed: A colour light found by the assistant showed red instead of its real colour and lost its colour temperature entirely — both are corrected.
+- New: Dimmers with no separate on/off state, such as a HomeMatic dimmer channel, can be used at last — their brightness switches them.
+- Improved: The assistant no longer picks a read-only status state as the switch, and it now counts every device it had to skip, not just RGB ones.
+- Fixed: Lights added by an earlier version showed wrong colours or brightness until you corrected their scale by hand; the right scale is now set for you.
+- New: Relative commands such as "a bit darker" or a dimmer rocker change the light now instead of being accepted and ignored.
+- Fixed: Rejected pairing attempts used up the hourly pairing budget and could block your own pairing for the rest of the hour.
+
 ## 1.14.0 (2026-09-02)
 
 - New: the bridge answers GET /api/config without a username, like a real Hue bridge, so apps that read the configuration before pairing find what they expect.

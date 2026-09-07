@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "hueemu",
-    "version": "1.17.0",
+    "version": "1.17.1",
     "news": {
+      "1.17.1": {
+        "en": "The switch that turns off authentication now warns what it really does: every client on the network is then served without a key and can pair itself.",
+        "de": "Der Schalter, der die Authentifizierung abschaltet, warnt jetzt vor seiner Wirkung: Jeder Client im Netzwerk wird dann ohne Schlüssel bedient und kann sich selbst koppeln.",
+        "ru": "Переключатель, отключающий аутентификацию, теперь предупреждает о последствиях: любой клиент в сети обслуживается без ключа и может сам выполнить сопряжение.",
+        "pt": "O interruptor que desliga a autenticação avisa agora o que faz realmente: qualquer cliente na rede passa a ser servido sem chave e pode emparelhar-se sozinho.",
+        "nl": "De schakelaar die de aanmelding uitschakelt waarschuwt nu voor zijn werking: elke client in het netwerk wordt dan zonder sleutel bediend en kan zichzelf koppelen.",
+        "fr": "L'interrupteur qui désactive l'authentification avertit désormais de son effet : tout client du réseau est alors servi sans clé et peut s'appairer lui-même.",
+        "it": "L'interruttore che disattiva l'autenticazione ora avverte del suo effetto: qualsiasi client in rete viene servito senza chiave e può accoppiarsi da solo.",
+        "es": "El interruptor que desactiva la autenticación ahora advierte de su efecto: cualquier cliente de la red se atiende sin clave y puede emparejarse solo.",
+        "pl": "Przełącznik wyłączający uwierzytelnianie ostrzega teraz przed swoim działaniem: każdy klient w sieci jest wtedy obsługiwany bez klucza i może sam się sparować.",
+        "uk": "Перемикач, що вимикає автентифікацію, тепер попереджає про наслідки: будь-який клієнт у мережі обслуговується без ключа і може спаруватися сам.",
+        "zh-cn": "关闭身份验证的开关现在会警告其真实作用：网络中的任何客户端届时都无需密钥即可访问，并可自行配对。"
+      },
       "1.17.0": {
         "en": "Fixed: Brightness and saturation set to Auto are now written in the unit the datapoint really uses — a percent dimmer no longer gets Hue values like 127 or 254.\nFixed: The scale of a light added by hand is now determined from the datapoint as well, exactly like a light found by the search.\nFixed: A pairing that could not be stored is no longer reported as successful — the client retries instead of losing access at the next restart.\nFixed: A client key is now checked exactly as it was issued; a key that merely resembles a paired one is rejected.\nNew: The instance now shows in the object tree whether the bridge is answering, and why not when it is not.\nFixed: On a host with Docker or a VPN, the announced address is now the real network address instead of a virtual one.\nFixed: A light whose configured datapoint does not exist is reported as unreachable instead of pretending to work.\nFixed: Edit and delete in the devices tab always act on the light you clicked, even when the list changed in the meantime.\nImproved: The first start after this update completes the scales of lights added earlier — if it finds anything to complete, the instance restarts once.",
         "de": "Behoben: Helligkeit und Sättigung auf Auto werden jetzt in der Einheit des Datenpunkts geschrieben — ein Prozent-Dimmer bekommt keine Hue-Werte wie 127 oder 254 mehr.\nBehoben: Die Skala eines von Hand angelegten Lichts wird jetzt ebenfalls aus dem Datenpunkt bestimmt, genau wie bei einem gefundenen Licht.\nBehoben: Eine Kopplung, die nicht gespeichert werden konnte, gilt nicht mehr als Erfolg — der Client versucht es erneut, statt beim nächsten Neustart den Zugang zu verlieren.\nBehoben: Ein Client-Schlüssel wird jetzt genau so geprüft, wie er vergeben wurde; ein Schlüssel, der einem gekoppelten nur ähnelt, wird abgelehnt.\nNeu: Die Instanz zeigt im Objektbaum, ob die Bridge antwortet — und warum nicht, wenn sie es nicht tut.\nBehoben: Auf einem Host mit Docker oder VPN wird jetzt die echte Netzwerkadresse angekündigt statt einer virtuellen.\nBehoben: Ein Licht, dessen eingestellter Datenpunkt nicht existiert, wird als nicht erreichbar gemeldet, statt Betrieb vorzutäuschen.\nBehoben: Bearbeiten und Löschen im Geräte-Tab treffen immer das angeklickte Licht, auch wenn sich die Liste zwischenzeitlich geändert hat.\nVerbessert: Der erste Start nach diesem Update vervollständigt die Skalen früher angelegter Lichter — findet er etwas, startet die Instanz dabei einmal neu.",
