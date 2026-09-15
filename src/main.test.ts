@@ -10,6 +10,9 @@ import type * as os from "node:os";
 import { join } from "node:path";
 import { vi } from "vitest";
 
+/** The options the adapter hands to adapter-core — recorded by the stub. */
+const adapterOptions = vi.hoisted(() => ({ last: undefined as unknown }));
+
 // Stub the adapter-core base so HueEmu can be instantiated without the
 // ioBroker runtime.
 vi.mock("@iobroker/adapter-core", () => {
@@ -38,7 +41,9 @@ vi.mock("@iobroker/adapter-core", () => {
     public clearTimeout = vi.fn();
     public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
-    constructor(_opts: unknown) {}
+    constructor(opts: unknown) {
+      adapterOptions.last = opts;
+    }
   }
   return {
     Adapter,
@@ -223,6 +228,13 @@ beforeEach(() => {
 
 const PERSISTED_CERT = "-----BEGIN CERTIFICATE-----\nPERSISTED\n-----END CERTIFICATE-----";
 const PERSISTED_KEY = "-----BEGIN RSA PRIVATE KEY-----\nPERSISTED\n-----END RSA PRIVATE KEY-----";
+
+describe("HueEmu constructor", () => {
+  it("asks js-controller for the system language (useFormatDate) — detected lights are named in it", () => {
+    setup();
+    expect(adapterOptions.last).toMatchObject({ name: "hueemu", useFormatDate: true });
+  });
+});
 
 describe("HueEmu buildConfig", () => {
   it("resolves bind/ports and derives the bridge identity from UDN/MAC", async () => {
