@@ -66,6 +66,11 @@ field at an ioBroker state with the object browser.
 | **Color Temperature** | on/off, brightness, warm–cool white |
 | **Color**             | on/off, brightness, full colour     |
 
+Every light keeps its number for good: deleting or reordering lights changes nothing
+for the others, so Alexa's routines keep pointing at the lamps they were set up with.
+A light may point at a datapoint that no device confirms — one from `0_userdata`, a
+script or a visualisation — and the bridge follows every change of it just the same.
+
 ### 5. Pair the client
 
 A client may only connect after you open the pairing window — this is the equivalent

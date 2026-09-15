@@ -68,6 +68,12 @@ jedes Feld per Objektauswahl auf einen ioBroker-Datenpunkt zeigen lassen.
 | **Farbtemperatur** | ein/aus, Helligkeit, Warm-/Kaltweiß |
 | **Farbe**          | ein/aus, Helligkeit, volle Farbe    |
 
+Jede Lampe behält ihre Nummer dauerhaft: Lampen löschen oder umsortieren ändert für die
+anderen nichts, Alexas Routinen zeigen weiter auf die Lampen, mit denen sie eingerichtet
+wurden. Eine Lampe darf auch auf einen Datenpunkt zeigen, den kein Gerät bestätigt — aus
+`0_userdata`, einem Skript oder einer Visualisierung — die Bridge folgt jeder Änderung
+daran genauso.
+
 ### 5. Client koppeln
 
 Ein Client darf sich erst verbinden, wenn du das Kopplungsfenster öffnest — das
