@@ -9,6 +9,7 @@
 
 import { errText } from "../types/utils";
 import type { DeviceConfig } from "../hue-api";
+import { assignDeviceIds } from "./device-ids";
 import {
   deriveCtScale,
   deriveHueScale,
@@ -212,10 +213,59 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
   }
 
   await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
-    native: { devices: migratedDevices },
+    // Number the converted lights right away — one restart instead of two.
+    native: { devices: assignDeviceIds(migratedDevices).devices },
   });
   adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
   return true;
+}
+
+/** Adapter surface required by {@link runDeviceIdMigration}. */
+export interface DeviceIdMigrationAdapter {
+  /** Adapter namespace (e.g. hueemu.0) */
+  namespace: string;
+  /** Persist the numbered device list into the instance's native config */
+  extendForeignObjectAsync(id: string, obj: { native: { devices: DeviceConfig[] } }): Promise<unknown>;
+  /** Logger */
+  log: { info(message: string): void; warn(message: string): void };
+}
+
+/**
+ * Number the stored lights once and persist the result.
+ *
+ * Same contract as the settings-key migration: `true` means the instance object
+ * was written and the caller must stop — the host restarts the instance with
+ * the numbered configuration. `false` means nothing had to change, or the write
+ * failed: then `devices` was numbered in memory and the start continues with
+ * these numbers (the write is retried on the next start).
+ *
+ * @param adapter Minimum adapter surface (object extend + log).
+ * @param devices The stored device configurations — numbered IN PLACE on a
+ *   failed write, so the running adapter and a later successful write agree.
+ */
+export async function runDeviceIdMigration(
+  adapter: DeviceIdMigrationAdapter,
+  devices: DeviceConfig[],
+): Promise<boolean> {
+  const numbered = assignDeviceIds(devices);
+  if (!numbered.changed) {
+    return false;
+  }
+  try {
+    await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
+      native: { devices: numbered.devices },
+    });
+    adapter.log.info(
+      `Assigned permanent light numbers to ${devices.length} configured light(s) — this instance restarts once`,
+    );
+    return true;
+  } catch (error) {
+    adapter.log.warn(`Light numbers could not be stored (${errText(error)}) — using them for this run only`);
+    numbered.devices.forEach((device, index) => {
+      devices[index] = device;
+    });
+    return false;
+  }
 }
 
 /**

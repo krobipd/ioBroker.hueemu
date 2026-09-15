@@ -18,7 +18,8 @@ import type {
 } from "../types/light";
 import { HueApiError } from "../types/errors";
 import { errText } from "../types/utils";
-import { coerceBool, coerceFiniteNumber, parseLightIndex } from "../lib/coerce";
+import { coerceBool, coerceFiniteNumber } from "../lib/coerce";
+import { assignDeviceIds } from "../lib/device-ids";
 import {
   HUE_BRI_MAX,
   INCREMENT_ATTRIBUTES,
@@ -75,6 +76,15 @@ const LIGHT_TYPES = {
  * Device configuration from admin UI (jsonConfig format)
  */
 export interface DeviceConfig extends ScaledDevice {
+  /**
+   * v1.18.0: the light's permanent number — its Hue light id and the source of
+   * its `uniqueid`. Assigned once (on the first start after the update, or when
+   * the device is added) and never reused, so deleting or reordering lights
+   * leaves every other light's identity untouched: Alexa keys a device by its
+   * `uniqueid` and would otherwise switch the wrong lamp. Absent only in a
+   * configuration the migration has not seen yet.
+   */
+  id?: number;
   /** Display name of the device */
   name: string;
   /** Light type (onoff, dimmable, ct, color) */
@@ -94,10 +104,13 @@ export interface DeviceConfig extends ScaledDevice {
   xyState?: string;
 }
 
+/** The DeviceConfig fields that hold a bound ioBroker state id. */
+type StateIdField = "onState" | "briState" | "ctState" | "hueState" | "satState" | "xyState";
+
 /**
  * Maps Hue state names to DeviceConfig property names
  */
-const STATE_TO_CONFIG: Record<string, keyof DeviceConfig> = {
+const STATE_TO_CONFIG: Record<string, StateIdField> = {
   on: "onState",
   bri: "briState",
   ct: "ctState",
@@ -180,7 +193,10 @@ export class DeviceBindingService {
    */
   constructor(config: DeviceBindingServiceConfig) {
     this.adapter = config.adapter;
-    this.devices = config.devices || [];
+    // v1.18.0: every light carries its permanent number. The start-up migration
+    // persists them; numbering here as well means the runtime never falls back
+    // to positions, whatever list it is handed.
+    this.devices = assignDeviceIds(config.devices || []).devices;
     this.logger = config.logger;
     this.mappedIds = new Set(this.devices.flatMap(device => this.getAllStateIds(device)));
   }
@@ -391,11 +407,34 @@ export class DeviceBindingService {
   }
 
   /**
-   * 1-based light id strings for all configured devices. Cheap (no state reads)
-   * — used by group actions to fan out without rebuilding every light first.
+   * The Hue light id of a configured device: its permanent number as a string.
+   *
+   * @param device - Device configuration (numbered in the constructor)
+   */
+  private static lightIdOf(device: DeviceConfig): string {
+    return String(device.id);
+  }
+
+  /**
+   * The device behind a Hue light id, or undefined for an id no light carries.
+   *
+   * v1.4.3 (E1): a bad id used to reach `devices[NaN]` and crash later with a
+   * confusing TypeError; since v1.18.0 the id is a lookup, not a position, so
+   * anything that is not a light's number simply finds nothing.
+   *
+   * @param lightId - Light id from the request
+   */
+  private findDevice(lightId: string): DeviceConfig | undefined {
+    return this.devices.find(device => DeviceBindingService.lightIdOf(device) === lightId);
+  }
+
+  /**
+   * Light id strings for all configured devices, in configuration order. Cheap
+   * (no state reads) — used by group actions to fan out without rebuilding
+   * every light first.
    */
   public getLightIds(): string[] {
-    return this.devices.map((_, i) => String(i + 1));
+    return this.devices.map(device => DeviceBindingService.lightIdOf(device));
   }
 
   /**
@@ -409,8 +448,8 @@ export class DeviceBindingService {
     const lights: LightsCollection = {};
 
     const built = await Promise.all(
-      this.devices.map(async (device, i) => {
-        const lightId = String(i + 1);
+      this.devices.map(async device => {
+        const lightId = DeviceBindingService.lightIdOf(device);
         try {
           const light = await this.getLightById(lightId);
           return [lightId, light] as const;
@@ -430,23 +469,17 @@ export class DeviceBindingService {
   }
 
   /**
-   * Get a single light by ID
+   * Get a single light by ID — an unknown id surfaces as Hue
+   * `resourceNotAvailable` at the boundary.
    *
-   * v1.4.3 (E1): strict integer validation via `parseLightIndex`. Earlier
-   * `parseInt("abc")` returned `NaN`; both `NaN < 0` and `NaN >= length`
-   * evaluate false, so we accessed `devices[NaN]` (undefined) and crashed
-   * later with a confusing TypeError. Now bad ids surface as Hue
-   * `resourceNotAvailable` (404) at the boundary.
-   *
-   * @param lightId - 1-based light ID string
+   * @param lightId - Light id string (the device's permanent number)
    */
   public async getLightById(lightId: string): Promise<Light> {
-    const index = parseLightIndex(lightId, this.devices.length);
-    if (index === null) {
+    const device = this.findDevice(lightId);
+    if (!device) {
       throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}`);
     }
 
-    const device = this.devices[index];
     const lightTypeConfig = LIGHT_TYPES[device.lightType] || LIGHT_TYPES.color;
 
     // Build state object from mappings. Track which colour states the device
@@ -502,10 +535,11 @@ export class DeviceBindingService {
       modelid: lightTypeConfig.modelid,
       manufacturername: "Signify Netherlands B.V.",
       productname: lightTypeConfig.name,
-      // v1.4.3 (D5): build a valid 8-octet hex MAC suffix from the numeric
-      // light index instead of repeating the decimal string. Earlier:
-      // light id 100 → "100:100:100" which is not a valid MAC pair.
-      uniqueid: `00:17:88:01:00:${this.lightUniqueidSuffix(index + 1)}-0b`,
+      // v1.4.3 (D5): a valid 8-octet hex MAC suffix built from the light's
+      // number (earlier: light id 100 → "100:100:100", not a valid MAC pair).
+      // v1.18.0: that number is permanent, so the uniqueid — what Alexa keys a
+      // device by — survives deleting or reordering other lights.
+      uniqueid: `00:17:88:01:00:${this.lightUniqueidSuffix(device.id ?? 0)}-0b`,
       swversion: "1.0.0",
     };
 
@@ -535,16 +569,15 @@ export class DeviceBindingService {
   /**
    * Set light state
    *
-   * @param lightId - 1-based light ID string
+   * @param lightId - Light id string (the device's permanent number)
    * @param stateUpdate - State properties to update
    */
   public async setLightState(lightId: string, stateUpdate: LightStateUpdate): Promise<LightStateResult[]> {
-    const index = parseLightIndex(lightId, this.devices.length);
-    if (index === null) {
+    const device = this.findDevice(lightId);
+    if (!device) {
       throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}/state`);
     }
 
-    const device = this.devices[index];
     const results: LightStateResult[] = [];
 
     this.logger.debug(
@@ -816,15 +849,15 @@ export class DeviceBindingService {
   /**
    * Build the trailing 3-octet MAC suffix for a Hue `uniqueid`. The full
    * uniqueid is `00:17:88:01:00:<3-octet-suffix>-0b` (8 pairs + endpoint),
-   * matching real Hue bridges. Encodes the 1-based light index as 24 bits,
-   * giving stable, valid hex even at large counts (light 1 → `00:00:01`,
-   * light 256 → `00:01:00`, light 16777215 → `ff:ff:ff`). Above 24 bits
-   * the value wraps — far beyond Hue's practical 50-light limit.
+   * matching real Hue bridges. Encodes the light's number as 24 bits, giving
+   * stable, valid hex even at large counts (light 1 → `00:00:01`, light 256 →
+   * `00:01:00`, light 16777215 → `ff:ff:ff`). Above 24 bits the value wraps —
+   * far beyond Hue's practical 50-light limit.
    *
-   * @param oneBasedIndex 1-based light index.
+   * @param lightNumber The light's permanent number.
    */
-  private lightUniqueidSuffix(oneBasedIndex: number): string {
-    const n = oneBasedIndex >>> 0;
+  private lightUniqueidSuffix(lightNumber: number): string {
+    const n = lightNumber >>> 0;
     const b0 = (n >>> 16) & 0xff;
     const b1 = (n >>> 8) & 0xff;
     const b2 = n & 0xff;

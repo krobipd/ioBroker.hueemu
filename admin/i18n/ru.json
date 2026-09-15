@@ -18,6 +18,7 @@
   "configuredDevices": "Настроенные устройства",
   "deviceConfigHelp": "Добавьте свет кнопкой «Добавить свет» или используйте «Поиск светильников» для автоматического обнаружения подходящих устройств ioBroker.",
   "deviceName": "Имя",
+  "lightNameFallback": "Светильник %s",
   "lightType": "Тип",
   "lightTypeOnOff": "Вкл/Выкл",
   "lightTypeDimmable": "Диммируемый",

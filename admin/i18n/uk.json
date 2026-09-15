@@ -18,6 +18,7 @@
   "configuredDevices": "Налаштовані пристрої",
   "deviceConfigHelp": "Додайте світло кнопкою «Додати світло» або скористайтеся «Пошук світла» для автоматичного виявлення сумісних пристроїв ioBroker.",
   "deviceName": "Назва",
+  "lightNameFallback": "Світильник %s",
   "lightType": "Тип",
   "lightTypeOnOff": "Вкл/Викл",
   "lightTypeDimmable": "Диммований",

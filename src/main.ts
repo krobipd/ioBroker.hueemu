@@ -19,6 +19,7 @@ import {
   ID_RANGE_END,
   runObsoleteStateCleanup,
   runLegacyDeviceMigration,
+  runDeviceIdMigration,
   runDeviceScaleBackfill,
 } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
@@ -127,6 +128,9 @@ export class HueEmu extends utils.Adapter {
     super({
       ...options,
       name: "hueemu",
+      // v1.18.0: makes js-controller hand over `system.config` — `this.language`
+      // is what names a detected light in the user's language (A3).
+      useFormatDate: true,
     });
 
     this.on("ready", this.onReady.bind(this));
@@ -264,6 +268,13 @@ export class HueEmu extends utils.Adapter {
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
         // Config was updated — adapter will restart automatically
+        return;
+      }
+
+      // v1.18.0: every light gets its permanent number once (its Hue id and
+      // uniqueid used to be its position — deleting one light re-identified all
+      // the others for Alexa). Same restart contract as the migrations above.
+      if (await runDeviceIdMigration(this, this.config.devices || [])) {
         return;
       }
 

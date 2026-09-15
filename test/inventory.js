@@ -32,6 +32,11 @@ const FIXTURE_CLIENT_KEY = "inventory-fixture-client";
  * so the configuration the adapter starts with is the full matrix — the lights
  * themselves live in `native`, not in the object tree, but a broken mapping
  * would stop the start and the inventory would come out empty.
+ *
+ * Every light carries its permanent number (`id`, v1.18.0): the fixture is the
+ * MIGRATED shape. A start-up migration that writes `native` stops the start and
+ * waits for a restart the harness never performs — the bridge would stay silent
+ * and the dump would time out.
  */
 const FIXTURE_NATIVE = {
   bind: "0.0.0.0",
@@ -41,8 +46,9 @@ const FIXTURE_NATIVE = {
   mac: "AA:BB:CC:DD:EE:FF",
   trustProxy: false,
   devices: [
-    { name: "Inventory on/off", lightType: "onoff", onState: "javascript.0.inv.on" },
+    { id: 1, name: "Inventory on/off", lightType: "onoff", onState: "javascript.0.inv.on" },
     {
+      id: 2,
       name: "Inventory dimmable",
       lightType: "dimmable",
       onState: "javascript.0.inv.on",
@@ -50,6 +56,7 @@ const FIXTURE_NATIVE = {
       briScale: "percent",
     },
     {
+      id: 3,
       name: "Inventory colour temperature",
       lightType: "ct",
       onState: "javascript.0.inv.on",
@@ -58,6 +65,7 @@ const FIXTURE_NATIVE = {
       ctScale: "kelvin",
     },
     {
+      id: 4,
       name: "Inventory colour",
       lightType: "color",
       onState: "javascript.0.inv.on",

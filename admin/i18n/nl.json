@@ -18,6 +18,7 @@
   "configuredDevices": "Geconfigureerde apparaten",
   "deviceConfigHelp": "Voeg een lamp toe met \"Lamp toevoegen\" of gebruik \"Lampen zoeken\" om geschikte ioBroker-apparaten automatisch te detecteren.",
   "deviceName": "Naam",
+  "lightNameFallback": "Lamp %s",
   "lightType": "Type",
   "lightTypeOnOff": "Aan/Uit",
   "lightTypeDimmable": "Dimbaar",

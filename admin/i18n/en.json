@@ -18,6 +18,7 @@
   "configuredDevices": "Configured Devices",
   "deviceConfigHelp": "Add a light with \"Add light\", or use \"Search lights\" to auto-detect mappable ioBroker devices.",
   "deviceName": "Name",
+  "lightNameFallback": "Light %s",
   "lightType": "Type",
   "lightTypeOnOff": "On/Off",
   "lightTypeDimmable": "Dimmable",

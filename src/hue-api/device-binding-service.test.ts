@@ -38,7 +38,7 @@ describe("DeviceBindingService", () => {
       expect(lights).toEqual({});
     });
 
-    it("should return lights with 1-based IDs", async () => {
+    it("should return lights with 1-based IDs when the list carries no numbers", async () => {
       const { service } = createService([
         { name: "First", lightType: "onoff" },
         { name: "Second", lightType: "dimmable" },
@@ -47,6 +47,29 @@ describe("DeviceBindingService", () => {
       expect(Object.keys(lights)).toEqual(["1", "2"]);
       expect(lights["1"].name).toBe("First");
       expect(lights["2"].name).toBe("Second");
+    });
+
+    // v1.18.0 (audit 2026-09-15 A4): the light id and the uniqueid were the
+    // position — after "kitchen" (1) was deleted, "hall" answered as light 1 with
+    // kitchen's uniqueid, and Alexa switched the hall when asked for the kitchen.
+    it("keeps every light's id and uniqueid when another light is removed", async () => {
+      const kitchen = { id: 1, name: "kitchen", lightType: "onoff" as const, onState: "l.k" };
+      const hall = { id: 2, name: "hall", lightType: "onoff" as const, onState: "l.h" };
+      const bedroom = { id: 3, name: "bedroom", lightType: "onoff" as const, onState: "l.b" };
+      const before = await createService([kitchen, hall, bedroom]).service.getAllLights();
+      const after = await createService([hall, bedroom]).service.getAllLights();
+      expect(Object.keys(after)).toEqual(["2", "3"]);
+      expect(after["2"]).toEqual(before["2"]);
+      expect(after["3"]).toEqual(before["3"]);
+      expect(after["3"].uniqueid).toBe("00:17:88:01:00:00:00:03-0b");
+    });
+
+    it("lists the lights under their own numbers, in configuration order", () => {
+      const { service } = createService([
+        { id: 7, name: "A", lightType: "onoff" },
+        { id: 2, name: "B", lightType: "onoff" },
+      ]);
+      expect(service.getLightIds()).toEqual(["7", "2"]);
     });
   });
 
@@ -70,6 +93,24 @@ describe("DeviceBindingService", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(HueApiError);
       }
+    });
+
+    it("answers a deleted light's old number with resource-not-available, not with its neighbour", async () => {
+      const { service } = createService([
+        { id: 2, name: "hall", lightType: "onoff" },
+        { id: 3, name: "bedroom", lightType: "onoff" },
+      ]);
+      await expect(service.getLightById("1")).rejects.toMatchObject({ type: HueErrorType.RESOURCE_NOT_AVAILABLE });
+      await expect(service.setLightState("1", { on: true })).rejects.toMatchObject({
+        type: HueErrorType.RESOURCE_NOT_AVAILABLE,
+      });
+      expect((await service.getLightById("3")).name).toBe("bedroom");
+    });
+
+    it("matches the number exactly — no leading zeros, no decimals", async () => {
+      const { service } = createService([{ id: 1, name: "Test", lightType: "onoff" }]);
+      await expect(service.getLightById("01")).rejects.toBeInstanceOf(HueApiError);
+      await expect(service.getLightById("1.0")).rejects.toBeInstanceOf(HueApiError);
     });
 
     it("should throw for negative light ID", async () => {
@@ -145,10 +186,16 @@ describe("DeviceBindingService", () => {
         expect(light.manufacturername).toBe("Signify Netherlands B.V.");
       });
 
-      it("should generate unique ID based on light index (D5 v1.4.3 — 24-bit hex suffix)", async () => {
+      it("should generate unique ID based on the light's number (D5 v1.4.3 — 24-bit hex suffix)", async () => {
         const { service } = createService([{ name: "Test", lightType: "onoff" }]);
         const light = await service.getLightById("1");
         expect(light.uniqueid).toBe("00:17:88:01:00:00:00:01-0b");
+      });
+
+      it("derives the unique ID from the permanent number, not from the position", async () => {
+        const { service } = createService([{ id: 300, name: "Late", lightType: "onoff" }]);
+        const light = await service.getLightById("300");
+        expect(light.uniqueid).toBe("00:17:88:01:00:00:01:2c-0b");
       });
 
       it("should generate hex-encoded unique ID even at large counts (D5 v1.4.3)", async () => {

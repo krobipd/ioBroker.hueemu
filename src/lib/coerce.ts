@@ -51,30 +51,6 @@ export function coerceBool(v: unknown): boolean {
 }
 
 /**
- * Parse a 1-based light ID string (Hue API URL path) into a zero-based array
- * index. Returns null when the value is not a positive integer in `[1, max]`.
- * Caller translates `null` into a Hue `resourceNotAvailable` (404). Earlier
- * `parseInt("abc")` produced `NaN`, which silently passed the bound checks and
- * crashed later with a confusing TypeError.
- *
- * @param id - Light id from the URL path
- * @param max - Total number of items in the collection
- */
-export function parseLightIndex(id: unknown, max: number): number | null {
-  if (typeof id !== "string" || id.length === 0) {
-    return null;
-  }
-  if (!/^\d+$/.test(id)) {
-    return null;
-  }
-  const n = parseInt(id, 10);
-  if (!Number.isFinite(n) || n < 1 || n > max) {
-    return null;
-  }
-  return n - 1;
-}
-
-/**
  * Parse a port number from an admin-config value (number or numeric string).
  * Returns undefined for missing / non-finite / unparseable input — the caller
  * decides whether a missing port is fatal.

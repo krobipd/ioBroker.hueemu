@@ -18,6 +18,7 @@
   "configuredDevices": "Skonfigurowane urządzenia",
   "deviceConfigHelp": "Dodaj światło za pomocą \"Dodaj światło\" lub użyj \"Szukaj świateł\", aby automatycznie wykryć pasujące urządzenia ioBroker.",
   "deviceName": "Nazwa",
+  "lightNameFallback": "Światło %s",
   "lightType": "Typ",
   "lightTypeOnOff": "Włącz/Wyłącz",
   "lightTypeDimmable": "Ściemnialne",

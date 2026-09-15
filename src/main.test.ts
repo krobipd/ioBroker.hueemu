@@ -916,60 +916,63 @@ describe("HueEmu migrateLegacyDevices", () => {
   });
 });
 
-describe("HueEmu backfillDeviceScales (v1.15.0)", () => {
-  /**
-   * A writable number state carrying the bounds that prove a scale.
-   *
-   * @param id The full state id
-   * @param extras Declared bounds/unit of the source
-   * @param extras.min Declared `common.min`, if any
-   * @param extras.max Declared `common.max`, if any
-   * @param extras.unit Declared `common.unit`, if any
-   */
-  function sourceState(id: string, extras: { min?: number; max?: number; unit?: string }): unknown {
-    return {
-      _id: id,
-      type: "state",
-      common: { name: id, type: "number", role: "level", read: true, write: true, ...extras },
-      native: {},
-    };
-  }
-
-  it("stops onReady after rewriting the config — the instance is restarting", async () => {
-    // A native write restarts the instance (jsonConfig semantics), so binding
-    // ports here would only tear them down again a moment later.
+describe("HueEmu device numbering (v1.18.0)", () => {
+  // A light's Hue id and uniqueid were its position in native.devices — deleting
+  // one light re-identified every light behind it for Alexa (audit 2026-09-15 A4).
+  // The first start numbers the stored lights once; a native write restarts the
+  // instance, so the start stops exactly like the other migrations.
+  it("numbers the stored lights by position, writes once and stops the start", async () => {
     const { adapter, servers, ssdps } = setup({
-      devices: [{ name: "Bedroom", lightType: "dimmable", briState: "hm.LEVEL" }],
+      devices: [
+        { name: "Kitchen", lightType: "onoff", onState: "k.on" },
+        { name: "Hall", lightType: "dimmable", briState: "h.bri" },
+      ],
     });
     const i = internalOf(adapter);
-    i.getForeignObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(id === "hm.LEVEL" ? sourceState("hm.LEVEL", { min: 0, max: 100, unit: "%" }) : null),
-    );
 
     await i.onReady();
 
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({ native: { devices: [expect.objectContaining({ briScale: "percent" })] } }),
-    );
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      native: {
+        devices: [
+          { id: 1, name: "Kitchen", lightType: "onoff", onState: "k.on" },
+          { id: 2, name: "Hall", lightType: "dimmable", briState: "h.bri" },
+        ],
+      },
+    });
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("permanent light numbers"));
     expect(servers).toHaveLength(0);
     expect(ssdps).toHaveLength(0);
     expect(i.subscribeStates).not.toHaveBeenCalled();
   });
 
-  it("boots normally when there is nothing to derive", async () => {
-    const { adapter, servers } = setup({
-      devices: [{ name: "Bulb", lightType: "ct", onState: "z.on", ctState: "z.ct" }],
+  it("boots with the numbers in memory when the write fails, and retries next start", async () => {
+    const { adapter, servers, handlers } = setup({
+      devices: [{ name: "Kitchen", lightType: "onoff", onState: "k.on" }],
     });
     const i = internalOf(adapter);
-    // A zigbee colour temperature: no unit, no bounds — nothing is provable, so
-    // the adapter must simply carry on booting.
-    i.getForeignObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(id === "z.ct" ? sourceState("z.ct", {}) : null),
-    );
+    i.extendForeignObjectAsync.mockRejectedValueOnce(new Error("objects db down"));
 
     await i.onReady();
 
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("Light numbers could not be stored"));
+    expect(servers).toHaveLength(1);
+    // The running adapter works with the numbers the write would have stored.
+    expect((handlers[0].options as { devices: { id?: number }[] }).devices[0].id).toBe(1);
+  });
+
+  it("boots straight through when every light is numbered already", async () => {
+    const { adapter, servers } = setup({
+      devices: [{ id: 7, name: "Bulb", lightType: "ct", onState: "z.on", ctState: "z.ct" }],
+    });
+    const i = internalOf(adapter);
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith(
+      "system.adapter.hueemu.0",
+      expect.objectContaining({ native: expect.objectContaining({ devices: expect.anything() }) }),
+    );
     expect(servers).toHaveLength(1);
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
   });

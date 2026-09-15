@@ -224,26 +224,45 @@ describe("HueEmuDeviceManagement", () => {
   }
 
   describe("loadDevices", () => {
-    // v1.17.0: the card id is the light's driving state, not its position — a
-    // list that shifts between rendering and acting must not point the action at
-    // a different light (audit 2026-09-06 F10).
-    it("adds one card per configured device, keyed by its driving state", async () => {
+    // v1.17.0: the card id is not the position — a list that shifts between
+    // rendering and acting must not point the action at a different light
+    // (audit 2026-09-06 F10). v1.18.0: it is the light's permanent number, which
+    // two lights on the same source cannot share (audit 2026-09-15 A2).
+    it("adds one card per configured device, keyed by its permanent number", async () => {
       make([
-        { name: "Kitchen", lightType: "onoff", onState: "a.on" },
-        { name: "Hall", lightType: "dimmable", onState: "b.on", briState: "b.bri" },
+        { id: 4, name: "Kitchen", lightType: "onoff", onState: "a.on" },
+        { id: 9, name: "Hall", lightType: "dimmable", onState: "b.on", briState: "b.bri" },
       ]);
       const ctx = { addDevice: vi.fn() };
       await internalOf(dm).loadDevices(ctx);
       expect(ctx.addDevice).toHaveBeenCalledTimes(2);
-      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "a.on", name: "Kitchen" });
-      expect(ctx.addDevice.mock.calls[1][0]).toMatchObject({ id: "b.on", name: "Hall" });
+      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "4", name: "Kitchen" });
+      expect(ctx.addDevice.mock.calls[1][0]).toMatchObject({ id: "9", name: "Hall" });
     });
 
-    it("falls back to the position for a light that maps nothing", async () => {
+    it("gives two lights on the same source two different cards", async () => {
+      make([
+        { id: 1, name: "Bedroom", lightType: "dimmable", briState: "hm.LEVEL" },
+        { id: 2, name: "Bedroom (alias)", lightType: "dimmable", briState: "hm.LEVEL" },
+      ]);
+      const ctx = { addDevice: vi.fn() };
+      await internalOf(dm).loadDevices(ctx);
+      expect(ctx.addDevice.mock.calls.map(c => (c[0] as { id: string }).id)).toEqual(["1", "2"]);
+    });
+
+    it("falls back to the position for an entry the migration has not numbered yet", async () => {
       make([{ name: "Empty", lightType: "onoff" }]);
       const ctx = { addDevice: vi.fn() };
       await internalOf(dm).loadDevices(ctx);
       expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "#0", name: "Empty" });
+    });
+
+    it("names a light without a name by its number, translated", async () => {
+      make([{ id: 3, name: "", lightType: "onoff", onState: "a.on" }]);
+      const ctx = { addDevice: vi.fn() };
+      await internalOf(dm).loadDevices(ctx);
+      // t() is mocked: t("lightNameFallback", 3) → { key, args }
+      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ name: { key: "lightNameFallback", args: [3] } });
     });
 
     it("adds nothing when native.devices is missing", async () => {
@@ -256,12 +275,29 @@ describe("HueEmuDeviceManagement", () => {
   });
 
   describe("add / edit / delete", () => {
-    it("appends a valid form result", async () => {
+    it("appends a valid form result with the next free number", async () => {
       const adapter = make([]);
       const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "x.on" } });
       const res = await internalOf(dm).addDevice(ctx);
       expect(res).toEqual({ refresh: true });
-      expect(adapter._stored()).toEqual([{ name: "New", lightType: "onoff", onState: "x.on" }]);
+      expect(adapter._stored()).toEqual([{ id: 1, name: "New", lightType: "onoff", onState: "x.on" }]);
+    });
+
+    // A deleted light's number is never handed out again — Alexa would otherwise
+    // treat the new light as the old one.
+    it("numbers a new light above every number ever used, not into a gap", async () => {
+      const adapter = make([
+        { id: 1, name: "A", lightType: "onoff", onState: "a" },
+        { id: 3, name: "C", lightType: "onoff", onState: "c" },
+      ]);
+      await internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } }));
+      expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([1, 3, 4]);
+    });
+
+    it("ignores a number the form tries to smuggle in", async () => {
+      const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
+      await internalOf(dm).addDevice(mockContext({ form: { id: 1, name: "New", lightType: "onoff", onState: "n" } }));
+      expect(adapter._stored()[1]).toEqual({ id: 2, name: "New", lightType: "onoff", onState: "n" });
     });
 
     it("does not write when the add form is cancelled", async () => {
@@ -276,22 +312,42 @@ describe("HueEmuDeviceManagement", () => {
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
-    it("replaces the edited device in place", async () => {
-      const adapter = make([{ name: "Old", lightType: "onoff", onState: "a.on" }]);
+    it("replaces the edited device in place and keeps its number", async () => {
+      const adapter = make([{ id: 5, name: "Old", lightType: "onoff", onState: "a.on" }]);
+      // The form hands back what it was seeded with (id included) — or not; the
+      // stored entry decides either way.
       const ctx = mockContext({ form: { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" } });
-      await internalOf(dm).editDevice("a.on", ctx);
+      await internalOf(dm).editDevice("5", ctx);
       expect(adapter._stored()).toEqual([
-        { name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" },
+        { id: 5, name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" },
       ]);
+    });
+
+    it("keeps the number even when the form sends a different one", async () => {
+      const adapter = make([{ id: 5, name: "Old", lightType: "onoff", onState: "a.on" }]);
+      const ctx = mockContext({ form: { id: 99, name: "Renamed", lightType: "onoff", onState: "a.on" } });
+      await internalOf(dm).editDevice("5", ctx);
+      expect(adapter._stored()[0].id).toBe(5);
     });
 
     it("deletes on confirmation and keeps others", async () => {
       const adapter = make([
-        { name: "A", lightType: "onoff", onState: "a" },
-        { name: "B", lightType: "onoff", onState: "b" },
+        { id: 1, name: "A", lightType: "onoff", onState: "a" },
+        { id: 2, name: "B", lightType: "onoff", onState: "b" },
       ]);
-      await internalOf(dm).deleteDevice("a", mockContext({ confirm: true }));
-      expect(adapter._stored()).toEqual([{ name: "B", lightType: "onoff", onState: "b" }]);
+      await internalOf(dm).deleteDevice("1", mockContext({ confirm: true }));
+      expect(adapter._stored()).toEqual([{ id: 2, name: "B", lightType: "onoff", onState: "b" }]);
+    });
+
+    // v1.18.0 (audit 2026-09-15 A2): two lights on the same source shared the
+    // card id — deleting the SECOND card removed the FIRST entry.
+    it("deletes exactly the card clicked when two lights share a source", async () => {
+      const adapter = make([
+        { id: 1, name: "Bedroom", lightType: "dimmable", briState: "hm.LEVEL" },
+        { id: 2, name: "Bedroom (alias)", lightType: "dimmable", briState: "hm.LEVEL" },
+      ]);
+      await internalOf(dm).deleteDevice("2", mockContext({ confirm: true }));
+      expect(adapter._stored()).toEqual([{ id: 1, name: "Bedroom", lightType: "dimmable", briState: "hm.LEVEL" }]);
     });
 
     it("edit / delete on a card that is gone do nothing (list changed under the dialog)", async () => {
@@ -316,18 +372,18 @@ describe("HueEmuDeviceManagement", () => {
     // removed the FIRST light while this card was on screen.
     it("acts on the light the card names, even after the list shifted", async () => {
       const adapter = make([
-        { name: "A", lightType: "onoff", onState: "a" },
-        { name: "B", lightType: "onoff", onState: "b" },
+        { id: 1, name: "A", lightType: "onoff", onState: "a" },
+        { id: 2, name: "B", lightType: "onoff", onState: "b" },
       ]);
       // The card for "B" was rendered at position 1; by action time "A" is gone.
-      adapter._setStored([{ name: "B", lightType: "onoff", onState: "b" }]);
-      await internalOf(dm).deleteDevice("b", mockContext({ confirm: true }));
+      adapter._setStored([{ id: 2, name: "B", lightType: "onoff", onState: "b" }]);
+      await internalOf(dm).deleteDevice("2", mockContext({ confirm: true }));
       expect(adapter._stored()).toEqual([]);
     });
 
     it("does not delete when the confirmation is declined", async () => {
-      const adapter = make([{ name: "A", lightType: "onoff", onState: "a" }]);
-      await internalOf(dm).deleteDevice("a", mockContext({ confirm: false }));
+      const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
+      await internalOf(dm).deleteDevice("1", mockContext({ confirm: false }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
   });
@@ -354,6 +410,7 @@ describe("HueEmuDeviceManagement", () => {
       const stored = adapter._stored();
       expect(stored).toHaveLength(1);
       expect(stored[0].onState).toBe("lampe.0.wohnzimmer.on");
+      expect(stored[0].id).toBe(1);
       expect(stored.some((d: DeviceConfig) => d.onState?.startsWith("hueemu.0"))).toBe(false);
       expect(ctx.showMessage).toHaveBeenCalled();
     });
@@ -384,13 +441,77 @@ describe("HueEmuDeviceManagement", () => {
         ["bri", "level.dimmer"],
       ]);
       const adapter = make(
-        [{ name: "Flur", lightType: "dimmable", onState: "lampe.0.flur.on", briState: "lampe.0.flur.bri" }],
+        [{ id: 1, name: "Flur", lightType: "dimmable", onState: "lampe.0.flur.on", briState: "lampe.0.flur.bri" }],
         objs,
       );
       const ctx = mockContext();
       await internalOf(dm).searchDevices(ctx);
       expect(ctx.showForm).not.toHaveBeenCalled(); // nothing fresh → no picker
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+    });
+
+    // v1.18.0 (audit 2026-09-15 A1): the dedup keyed on the on/off state alone, so
+    // a light without one — a dimmer exposing nothing but a level — was offered
+    // and stored again on every scan.
+    it("does not offer a light without an on/off state twice", async () => {
+      const objs = channel("hm.0.dimmer", [["bri", "level.dimmer"]]);
+      const adapter = make([{ id: 1, name: "Dimmer", lightType: "dimmable", briState: "hm.0.dimmer.bri" }], objs);
+      const ctx = mockContext({ form: { sel_0: true } });
+      await internalOf(dm).searchDevices(ctx);
+      expect(ctx.showForm).not.toHaveBeenCalled();
+      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._stored()).toHaveLength(1);
+    });
+
+    it("does not offer a light that shares any bound state with a configured one", async () => {
+      const objs = channel("lampe.0.flur", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+      ]);
+      // Configured by hand with the level only; the scan sees on + level.
+      const adapter = make([{ id: 1, name: "Flur", lightType: "dimmable", briState: "lampe.0.flur.bri" }], objs);
+      const ctx = mockContext();
+      await internalOf(dm).searchDevices(ctx);
+      expect(ctx.showForm).not.toHaveBeenCalled();
+      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+    });
+
+    it("numbers the added lights consecutively above the highest number in use", async () => {
+      const objs = {
+        ...channel("lampe.0.a", [["on", "switch.light", "boolean"]]),
+        ...channel("lampe.0.b", [["on", "switch.light", "boolean"]]),
+      };
+      const adapter = make([{ id: 7, name: "Old", lightType: "onoff", onState: "x.on" }], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true, sel_1: true } }));
+      expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([7, 8, 9]);
+    });
+
+    // v1.18.0 (audit 2026-09-15 A3): `common.name` is a translation object on more
+    // and more adapters — it used to fall through to the object id, and Alexa
+    // learned "shelly.0.lamp" as the lamp's name.
+    it("offers a light under its translated name in the system language", async () => {
+      const objs = channel("shelly.0.lamp", [["on", "switch.light", "boolean"]]);
+      (objs["shelly.0.lamp"].common as { name: unknown }).name = { en: "Lamp", de: "Lampe" };
+      const adapter = make([], objs);
+      adapter.language = "de";
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true } }));
+      expect(adapter._stored()[0].name).toBe("Lampe");
+    });
+
+    it("falls back to English, then to the id, for a translation object without the system language", async () => {
+      const objsEn = channel("shelly.0.lamp", [["on", "switch.light", "boolean"]]);
+      (objsEn["shelly.0.lamp"].common as { name: unknown }).name = { en: "Lamp" };
+      const adapterEn = make([], objsEn);
+      adapterEn.language = "de";
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true } }));
+      expect(adapterEn._stored()[0].name).toBe("Lamp");
+
+      const objsNone = channel("shelly.0.lamp", [["on", "switch.light", "boolean"]]);
+      (objsNone["shelly.0.lamp"].common as { name: unknown }).name = { fr: "Lampe" };
+      const adapterNone = make([], objsNone);
+      adapterNone.language = "de";
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true } }));
+      expect(adapterNone._stored()[0].name).toBe("shelly.0.lamp");
     });
 
     // C8: the scan-failure branch (object loading throws) reports via showMessage.
@@ -501,7 +622,7 @@ describe("HueEmuDeviceManagement", () => {
       const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "a.on" } });
       await expect(instanceHandler("add")(ctx)).resolves.toEqual({ refresh: true });
       expect(ctx.showMessage).not.toHaveBeenCalled();
-      expect(adapter._stored()).toEqual([{ name: "New", lightType: "onoff", onState: "a.on" }]);
+      expect(adapter._stored()).toEqual([{ id: 1, name: "New", lightType: "onoff", onState: "a.on" }]);
     });
 
     it("loadDevices survives an unreadable config and adds no card", async () => {

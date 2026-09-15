@@ -18,6 +18,7 @@
   "configuredDevices": "Appareils configurés",
   "deviceConfigHelp": "Ajoutez une lumière avec « Ajouter une lumière » ou utilisez « Rechercher des lumières » pour détecter automatiquement les appareils ioBroker compatibles.",
   "deviceName": "Nom",
+  "lightNameFallback": "Lumière %s",
   "lightType": "Type",
   "lightTypeOnOff": "Allumé/Éteint",
   "lightTypeDimmable": "Dimmable",

@@ -24,6 +24,7 @@ import {
   type JsonFormSchema,
 } from "@iobroker/dm-utils";
 import type { DeviceConfig } from "./hue-api";
+import { isDeviceId, nextDeviceId } from "./lib/device-ids";
 import { scanForLightDevices } from "./lib/device-scan";
 import { t } from "./lib/i18n";
 import { errText } from "./types/utils";
@@ -33,7 +34,12 @@ type InstanceResult = { refresh: boolean };
 /** Manager directive returned by a per-device action — reload the device list. */
 type DeviceResult = { refresh: "instance" };
 
-/** Which DeviceConfig fields are relevant per light type — used to prune the form result. */
+/**
+ * Which DeviceConfig fields are relevant per light type — used to prune the form
+ * result. The light's permanent number (`id`) is deliberately NOT a form field:
+ * it comes from the stored entry (edit) or is assigned by the backend (add), never
+ * from the user.
+ */
 const FIELDS_BY_TYPE: Record<string, readonly string[]> = {
   onoff: ["name", "lightType", "onState"],
   dimmable: ["name", "lightType", "onState", "briState", "briScale"],
@@ -339,20 +345,21 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   }
 
   /**
-   * The stable card id of a device: its driving state id, or — for a device that
-   * maps nothing at all — its position.
+   * The stable card id of a device: its permanent light number.
    *
-   * v1.17.0: the card id used to be the array position alone, and edit/delete
-   * resolved it against a list read fresh at action time. Anything that shifted
-   * the list in between (a second admin session, another action) pointed the
-   * action at a DIFFERENT light than the one clicked (audit 2026-09-06 F10).
+   * v1.17.0 keyed the card by the driving state id instead of the array position,
+   * so a list that shifted between rendering and acting no longer pointed the
+   * action at a different light (audit 2026-09-06 F10). v1.18.0: two lights on
+   * the same source shared that key — deleting the second card removed the first
+   * (audit 2026-09-15 A2). The number is unique by construction; the position is
+   * only the fallback for an entry the start-up migration has not numbered yet.
    *
    * @param device The stored mapping.
    * @param index Its position in the list.
    * @returns A card id that survives a shift of the list.
    */
   private static cardId(device: DeviceConfig, index: number): string {
-    return device.onState || device.briState || `#${index}`;
+    return isDeviceId(device.id) ? String(device.id) : `#${index}`;
   }
 
   /**
@@ -363,11 +370,11 @@ export class HueEmuDeviceManagement extends DeviceManagement {
    * @returns the position, or -1 when the device is gone.
    */
   private static indexOfCard(devices: DeviceConfig[], cardId: string): number {
-    const byState = devices.findIndex((d, i) => HueEmuDeviceManagement.cardId(d, i) === cardId);
-    if (byState >= 0) {
-      return byState;
+    const byNumber = devices.findIndex((d, i) => HueEmuDeviceManagement.cardId(d, i) === cardId);
+    if (byNumber >= 0) {
+      return byNumber;
     }
-    // A positional fallback id (`#3`) from a device that maps nothing.
+    // A positional fallback id (`#3`) from a not yet numbered entry.
     const positional = /^#(\d+)$/.exec(cardId);
     return positional ? Number(positional[1]) : -1;
   }
@@ -382,7 +389,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   private toDeviceInfo(device: DeviceConfig, index: number): DeviceInfo<string> {
     return {
       id: HueEmuDeviceManagement.cardId(device, index),
-      name: device.name || `Light ${index + 1}`,
+      name: device.name || t("lightNameFallback", isDeviceId(device.id) ? device.id : index + 1),
       actions: [
         {
           id: "edit",
@@ -443,7 +450,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     });
     if (data && typeof data.name === "string" && data.name) {
       const devices = await this.readDevices();
-      devices.push(cleanDevice(data));
+      devices.push({ ...cleanDevice(data), id: nextDeviceId(devices) });
       await this.writeDevices(devices);
     }
     return { refresh: true };
@@ -468,7 +475,9 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       data: { ...current },
     });
     if (data && typeof data.name === "string" && data.name) {
-      devices[index] = cleanDevice(data);
+      // The number is the light's identity for every paired client — it stays
+      // with the entry, whatever the form sent back.
+      devices[index] = { ...cleanDevice(data), id: current.id };
       await this.writeDevices(devices);
     }
     return { refresh: "instance" };
@@ -517,16 +526,18 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     };
     try {
       const objects = await this.loadAllObjects();
-      const { devices: found, unmapped } = scanForLightDevices(objects, (id, obj) => {
-        const name = obj.common?.name;
-        return (typeof name === "string" && name) || id;
-      });
+      const { devices: found, unmapped } = scanForLightDevices(objects, (id, obj) =>
+        HueEmuDeviceManagement.displayName(obj.common?.name, id, this.adapter.language),
+      );
 
       const existing = await this.readDevices();
-      const mappedIds = new Set(
-        existing.flatMap(d => [d.onState, d.briState, d.ctState, d.hueState, d.satState, d.xyState].filter(Boolean)),
-      );
-      const fresh = found.filter(d => !d.onState || !mappedIds.has(d.onState));
+      // Append-only dedup over EVERY bound state: a light that shares any source
+      // with a configured one is already in the bridge. v1.18.0: the check used
+      // to look at the on/off state only, so a light without one (a dimmer with
+      // nothing but a level) was offered — and stored — again on every scan
+      // (audit 2026-09-15 A1).
+      const mappedIds = new Set(existing.flatMap(HueEmuDeviceManagement.boundStateIds));
+      const fresh = found.filter(d => !HueEmuDeviceManagement.boundStateIds(d).some(id => mappedIds.has(id)));
       await closeProgress();
 
       if (!fresh.length) {
@@ -540,7 +551,8 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       if (selection) {
         const chosen = fresh.filter((_, index) => selection[`sel_${index}`] === true);
         if (chosen.length) {
-          await this.writeDevices([...existing, ...chosen]);
+          let next = nextDeviceId(existing);
+          await this.writeDevices([...existing, ...chosen.map(device => ({ ...device, id: next++ }))]);
         }
         await context.showMessage(
           unmapped.length ? t("dmScanAddedSkipped", chosen.length, unmapped.length) : t("dmScanAdded", chosen.length),
@@ -551,6 +563,46 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       await context.showMessage(t("dmScanFailed", errText(e)));
     }
     return { refresh: true };
+  }
+
+  /**
+   * The state ids a device binds, in a fixed order.
+   *
+   * @param device The stored (or freshly detected) mapping.
+   */
+  private static boundStateIds(device: DeviceConfig): string[] {
+    return [device.onState, device.briState, device.ctState, device.hueState, device.satState, device.xyState].filter(
+      (id): id is string => typeof id === "string" && id.length > 0,
+    );
+  }
+
+  /**
+   * The name a detected light is offered under: the object's `common.name` in the
+   * system language, its English text, or — when the object carries no usable
+   * name — its id.
+   *
+   * v1.18.0: `common.name` is a translation object on more and more adapters
+   * (the core team's rule for every object type), and a translation object used
+   * to fall through to the id — Alexa then learned "shelly.0.lamp" as the lamp's
+   * name (audit 2026-09-15 A3).
+   *
+   * @param name The object's `common.name`.
+   * @param id The object id, the last resort.
+   * @param language The system language (`this.language`, present with `useFormatDate`).
+   */
+  private static displayName(name: unknown, id: string, language: string | undefined): string {
+    if (typeof name === "string" && name) {
+      return name;
+    }
+    if (name && typeof name === "object") {
+      const translated = name as Record<string, unknown>;
+      const candidates = [language && translated[language], translated.en];
+      const hit = candidates.find(text => typeof text === "string" && text);
+      if (typeof hit === "string") {
+        return hit;
+      }
+    }
+    return id;
   }
 
   /**

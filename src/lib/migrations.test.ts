@@ -8,12 +8,72 @@ import {
   buildDeviceScalePatch,
   detectLegacyLightType,
   OBSOLETE_STATE_IDS,
+  runDeviceIdMigration,
   runDeviceScaleBackfill,
   runLegacyDeviceMigration,
   runObsoleteStateCleanup,
   type DeviceScaleBackfillAdapter,
 } from "./migrations";
 import type { DeviceConfig } from "../hue-api";
+
+describe("runDeviceIdMigration (v1.18.0)", () => {
+  function mkAdapter(write: (obj: { native: { devices: DeviceConfig[] } }) => Promise<unknown>): {
+    adapter: Parameters<typeof runDeviceIdMigration>[0];
+    infos: string[];
+    warns: string[];
+  } {
+    const infos: string[] = [];
+    const warns: string[] = [];
+    return {
+      adapter: {
+        namespace: "hueemu.0",
+        extendForeignObjectAsync: (_id, obj) => write(obj),
+        log: { info: m => infos.push(m), warn: m => warns.push(m) },
+      },
+      infos,
+      warns,
+    };
+  }
+
+  it("numbers an unnumbered list by position, writes it once and reports the restart", async () => {
+    let written: DeviceConfig[] | undefined;
+    const { adapter, infos } = mkAdapter(obj => {
+      written = obj.native.devices;
+      return Promise.resolve();
+    });
+    const devices: DeviceConfig[] = [
+      { name: "A", lightType: "onoff", onState: "a" },
+      { name: "B", lightType: "onoff", onState: "b" },
+    ];
+    expect(await runDeviceIdMigration(adapter, devices)).toBe(true);
+    expect(written?.map(d => d.id)).toEqual([1, 2]);
+    expect(infos.some(m => m.includes("restarts once"))).toBe(true);
+    // The caller's list is untouched on the success path — the restart reads the stored one.
+    expect(devices[0].id).toBeUndefined();
+  });
+
+  it("writes nothing for a list that is numbered already", async () => {
+    let writes = 0;
+    const { adapter } = mkAdapter(() => {
+      writes++;
+      return Promise.resolve();
+    });
+    const devices: DeviceConfig[] = [
+      { id: 3, name: "A", lightType: "onoff", onState: "a" },
+      { id: 1, name: "B", lightType: "onoff", onState: "b" },
+    ];
+    expect(await runDeviceIdMigration(adapter, devices)).toBe(false);
+    expect(writes).toBe(0);
+  });
+
+  it("numbers the caller's list in place and continues when the write fails", async () => {
+    const { adapter, warns } = mkAdapter(() => Promise.reject(new Error("db down")));
+    const devices: DeviceConfig[] = [{ name: "A", lightType: "onoff", onState: "a" }];
+    expect(await runDeviceIdMigration(adapter, devices)).toBe(false);
+    expect(devices[0].id).toBe(1);
+    expect(warns[0]).toContain("Light numbers could not be stored");
+  });
+});
 
 describe("migrations", () => {
   describe("detectLegacyLightType", () => {
@@ -199,6 +259,9 @@ describe("migrations", () => {
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(true);
       expect(written.native.devices[0]).toMatchObject({
+        // v1.18.0: numbered on the way, so the id migration has nothing left to
+        // write and the instance restarts once, not twice.
+        id: 1,
         lightType: "ct",
         onState: "hueemu.0.lamp.state.on",
         briState: "hueemu.0.lamp.state.bri",

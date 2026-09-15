@@ -2,7 +2,7 @@
  * Tests for the shared boundary coercion helpers.
  */
 
-import { coerceBool, coerceFiniteNumber, parseLightIndex, parsePort } from "./coerce";
+import { coerceBool, coerceFiniteNumber, parsePort } from "./coerce";
 
 describe("coerceFiniteNumber", () => {
   it("returns finite numbers as-is", () => {
@@ -52,40 +52,6 @@ describe("coerceFiniteNumber", () => {
     expect(coerceFiniteNumber("+42")).toBeNull();
     expect(coerceFiniteNumber(".5")).toBeNull();
     expect(coerceFiniteNumber("5.")).toBeNull();
-  });
-});
-
-describe("parseLightIndex (E1 v1.4.3)", () => {
-  it("returns 0-based index for valid 1-based id", () => {
-    expect(parseLightIndex("1", 5)).toBe(0);
-    expect(parseLightIndex("3", 5)).toBe(2);
-    expect(parseLightIndex("5", 5)).toBe(4);
-  });
-
-  it("returns null for ids out of range", () => {
-    expect(parseLightIndex("0", 5)).toBeNull();
-    expect(parseLightIndex("6", 5)).toBeNull();
-    expect(parseLightIndex("100", 5)).toBeNull();
-  });
-
-  it("returns null for non-integer strings (NaN-trap fix)", () => {
-    expect(parseLightIndex("abc", 5)).toBeNull();
-    expect(parseLightIndex("1.5", 5)).toBeNull();
-    expect(parseLightIndex("-1", 5)).toBeNull();
-    expect(parseLightIndex(" 1", 5)).toBeNull();
-    expect(parseLightIndex("1 ", 5)).toBeNull();
-    expect(parseLightIndex("1e2", 5)).toBeNull();
-  });
-
-  it("returns null for non-string inputs", () => {
-    expect(parseLightIndex(1, 5)).toBeNull();
-    expect(parseLightIndex(null, 5)).toBeNull();
-    expect(parseLightIndex(undefined, 5)).toBeNull();
-    expect(parseLightIndex({}, 5)).toBeNull();
-  });
-
-  it("returns null when the collection is empty", () => {
-    expect(parseLightIndex("1", 0)).toBeNull();
   });
 });
 

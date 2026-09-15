@@ -18,6 +18,7 @@
   "configuredDevices": "已配置设备",
   "deviceConfigHelp": "使用“添加灯”手动添加灯，或使用“搜索灯”自动检测可映射的 ioBroker 设备。",
   "deviceName": "名称",
+  "lightNameFallback": "灯 %s",
   "lightType": "类型",
   "lightTypeOnOff": "开/关",
   "lightTypeDimmable": "可调光",
