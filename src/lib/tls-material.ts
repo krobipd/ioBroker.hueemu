@@ -12,6 +12,9 @@ import * as forge from "node-forge";
 import { randomBytes } from "node:crypto";
 import { errText } from "../types/utils";
 
+/** How long a freshly generated certificate stays valid. */
+export const CERT_VALIDITY_YEARS = 10;
+
 /** A PEM certificate/key pair. */
 export interface TlsMaterial {
   /** PEM-encoded certificate. */
@@ -20,27 +23,23 @@ export interface TlsMaterial {
   key: string;
 }
 
-/** The result of resolving the material, plus whether it had to be persisted. */
+/** The result of resolving the material, plus whether it is new. */
 export interface TlsMaterialResult extends TlsMaterial {
   /**
-   * True when new material was written into `native` — that write restarts the
-   * instance, so the caller must not bind servers afterwards.
+   * True when the material was generated just now — the caller persists it
+   * (together with whatever else it has to store) and lets the instance restart.
    */
-  persisted: boolean;
+  generated: boolean;
 }
 
-/** Adapter surface required by {@link getOrCreateTlsMaterial}. */
-export interface TlsMaterialAdapter {
-  /** Adapter namespace (e.g. hueemu.0) */
-  namespace: string;
-  /** Persist generated material into the instance's native config */
-  extendForeignObjectAsync(id: string, obj: { native: { tlsCert: string; tlsKey: string } }): Promise<unknown>;
-  /** Logger */
-  log: { debug(message: string): void; info(message: string): void; warn(message: string): void };
+/** The log the resolution reports to. */
+export interface TlsMaterialLog {
+  /** Routine detail. */
+  debug(message: string): void;
+  /** A persisted certificate that had to be replaced. */
+  warn(message: string): void;
 }
 
-/** How long a freshly generated certificate stays valid. */
-const CERT_VALIDITY_YEARS = 10;
 /** RSA modulus length — 2048 bit is what every Hue client accepts. */
 const CERT_KEY_BITS = 2048;
 
@@ -103,16 +102,20 @@ function looksLikePem(cert: string, key: string): boolean {
  * corrupted certificate through to Fastify, where it failed the HTTPS listen
  * far from the cause.
  *
- * @param adapter Minimal adapter surface (namespace + persist + log).
+ * v1.18.0: pure — it no longer writes. The caller stores generated material in
+ * the same merge as the bridge identity, so a first start writes the instance
+ * object once instead of twice (audit 2026-09-15 B4).
+ *
  * @param persistedCert The `native.tlsCert` value, whatever type it has.
  * @param persistedKey The `native.tlsKey` value, whatever type it has.
- * @returns the material to serve, and whether it was newly persisted.
+ * @param log Where to report a replaced certificate.
+ * @returns the material to serve, and whether it was generated just now.
  */
-export async function getOrCreateTlsMaterial(
-  adapter: TlsMaterialAdapter,
+export function getOrCreateTlsMaterial(
   persistedCert: unknown,
   persistedKey: unknown,
-): Promise<TlsMaterialResult> {
+  log: TlsMaterialLog,
+): TlsMaterialResult {
   const cert = typeof persistedCert === "string" ? persistedCert.trim() : "";
   const key = typeof persistedKey === "string" ? persistedKey.trim() : "";
 
@@ -120,28 +123,16 @@ export async function getOrCreateTlsMaterial(
     try {
       const parsed = forge.pki.certificateFromPem(cert);
       if (parsed.validity.notAfter > new Date()) {
-        adapter.log.debug(`Reusing persisted TLS certificate (notAfter=${parsed.validity.notAfter.toISOString()})`);
-        return { cert, key, persisted: false };
+        log.debug(`Reusing persisted TLS certificate (notAfter=${parsed.validity.notAfter.toISOString()})`);
+        return { cert, key, generated: false };
       }
-      adapter.log.warn(
-        `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) — regenerating`,
-      );
+      log.warn(`Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) — regenerating`);
     } catch (err) {
-      adapter.log.warn(`Persisted TLS certificate invalid (${errText(err)}) — regenerating`);
+      log.warn(`Persisted TLS certificate invalid (${errText(err)}) — regenerating`);
     }
     // fall through to regenerate
   }
 
-  adapter.log.debug("Generating self-signed certificate for HTTPS");
-  const generated = generateCertificate();
-  try {
-    await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
-      native: { tlsCert: generated.cert, tlsKey: generated.key },
-    });
-    adapter.log.info(`Generated and persisted self-signed TLS certificate (${CERT_VALIDITY_YEARS}-year validity)`);
-    return { ...generated, persisted: true };
-  } catch (err) {
-    adapter.log.warn(`TLS cert generated but failed to persist: ${errText(err)} — will regenerate next restart`);
-    return { ...generated, persisted: false };
-  }
+  log.debug("Generating self-signed certificate for HTTPS");
+  return { ...generateCertificate(), generated: true };
 }

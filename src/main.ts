@@ -14,7 +14,7 @@ import { ApiHandler, type DeviceConfig } from "./hue-api";
 import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName, tRaw } from "./lib/i18n";
-import { getOrCreateTlsMaterial } from "./lib/tls-material";
+import { CERT_VALIDITY_YEARS, getOrCreateTlsMaterial } from "./lib/tls-material";
 import {
   ID_RANGE_END,
   runObsoleteStateCleanup,
@@ -87,11 +87,16 @@ export class HueEmu extends utils.Adapter {
   private ssdpAnnounceInterval: ioBroker.Interval | undefined = undefined;
   private _pairingEnabled = false;
   private _disableAuth = false;
-  // v1.12.0: set when buildConfig / getOrCreateTlsMaterial persist generated
-  // identity or TLS material into native — that write triggers an instance
-  // restart (jsonConfig semantics), so onReady short-circuits instead of binding
-  // servers the imminent restart would tear down.
+  // v1.12.0: set when buildConfig persisted generated identity or TLS material
+  // into native — that write triggers an instance restart (jsonConfig
+  // semantics), so onReady short-circuits instead of binding servers the
+  // imminent restart would tear down.
   private nativePersistPending = false;
+  // v1.18.0: set the moment the host asks us to stop. onReady checks it after
+  // every long await: in compact mode the process survives an unload, so a
+  // start that carried on would leave a bound server behind for the restarted
+  // instance to collide with (audit 2026-09-15 B3).
+  private unloaded = false;
 
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
@@ -281,6 +286,9 @@ export class HueEmu extends utils.Adapter {
       // Carry the manifest's own objects into an EXISTING tree (js-controller
       // creates them only where they are missing).
       await this.refreshInstanceObjects();
+      if (this.unloaded) {
+        return;
+      }
 
       // v1.15.0: derive the value scales the assistant used to leave empty.
       // Writing native restarts the instance (jsonConfig semantics), so stop
@@ -292,12 +300,15 @@ export class HueEmu extends utils.Adapter {
       // Parse and validate configuration
       const emulatorConfig = await this.buildConfig();
 
-      // v1.12.0: buildConfig / getOrCreateTlsMaterial may persist generated
-      // identity or TLS material into native, which triggers an instance restart
-      // (jsonConfig semantics). Short-circuit like the legacy migration so we
-      // don't bind servers the imminent restart would immediately tear down.
+      // v1.12.0: buildConfig may persist generated identity or TLS material into
+      // native, which triggers an instance restart (jsonConfig semantics).
+      // Short-circuit like the legacy migration so we don't bind servers the
+      // imminent restart would immediately tear down.
       if (this.nativePersistPending) {
         this.log.info("Persisted generated bridge identity/TLS — restarting with the stored configuration.");
+        return;
+      }
+      if (this.unloaded) {
         return;
       }
 
@@ -334,6 +345,9 @@ export class HueEmu extends utils.Adapter {
 
       // Initialize API handler (sets up state subscriptions for device bindings)
       await this.apiHandler.initialize();
+      if (this.unloaded) {
+        return;
+      }
 
       // Initialize HTTP server
       this.hueServer = this.makeHueServer({
@@ -353,6 +367,12 @@ export class HueEmu extends utils.Adapter {
       // SSDP throws and we still want the Hue API reachable for clients
       // configured by manual IP. Log SSDP-failure but don't break the adapter.
       await this.hueServer.start();
+      if (this.unloaded) {
+        // The stop request came while the listener was binding — it was not there
+        // to be stopped then, so release it now instead of leaving it behind.
+        await this.hueServer.stop();
+        return;
+      }
       try {
         await this.startSsdpWithTimeout();
         // Wake-up advertise + the periodic pulse (node-ssdp's internal ad loop,
@@ -431,12 +451,15 @@ export class HueEmu extends utils.Adapter {
     const udn = this.config.udn?.trim() || uuid.v4();
     const mac = this.config.mac?.trim() || macFromUdn(udn);
 
-    // Persist generated UDN/MAC so identity stays stable across restarts
+    // Everything generated on this start is stored in ONE merge below — the
+    // identity and, when HTTPS is on, the certificate. v1.18.0: they used to be
+    // two writes, and the second one (plus the RSA keygen before it) happened
+    // for a process that the first write had already committed to restarting
+    // (audit 2026-09-15 B4).
+    const generated: Record<string, string> = {};
     if (!this.config.udn?.trim() || !this.config.mac?.trim()) {
-      await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, {
-        native: { udn, mac },
-      });
-      this.nativePersistPending = true;
+      generated.udn = udn;
+      generated.mac = mac;
     }
 
     // Build bridge identity
@@ -451,11 +474,29 @@ export class HueEmu extends utils.Adapter {
     // Build TLS config if HTTPS is enabled
     let https: TlsConfig | undefined;
     if (httpsPort) {
-      const material = await getOrCreateTlsMaterial(this, this.config.tlsCert, this.config.tlsKey);
-      if (material.persisted) {
-        this.nativePersistPending = true;
+      const material = getOrCreateTlsMaterial(this.config.tlsCert, this.config.tlsKey, this.log);
+      if (material.generated) {
+        generated.tlsCert = material.cert;
+        generated.tlsKey = material.key;
       }
       https = { port: httpsPort, cert: material.cert, key: material.key };
+    }
+
+    if (Object.keys(generated).length > 0) {
+      // Persist so identity and certificate stay stable across restarts. A failed
+      // write is not fatal: this run serves with the generated values and the
+      // next start generates (and tries to store) again.
+      try {
+        await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, { native: generated });
+        this.nativePersistPending = true;
+        if (generated.tlsCert) {
+          this.log.info(`Generated and persisted self-signed TLS certificate (${CERT_VALIDITY_YEARS}-year validity)`);
+        }
+      } catch (error) {
+        this.log.warn(
+          `Generated bridge identity/TLS material could not be stored (${errText(error)}) — using it for this run`,
+        );
+      }
     }
 
     this.log.debug(
@@ -837,34 +878,29 @@ export class HueEmu extends utils.Adapter {
    * @param callback - Callback to invoke when shutdown is complete
    */
   private onUnload(callback: () => void): void {
-    try {
-      // Clear pairing timeout
-      this.clearPairingTimeout();
-      // The announce pulse must not outlive the server.
-      this.stopSsdpAnnounce();
+    this.unloaded = true;
+    // Clear pairing timeout
+    this.clearPairingTimeout();
+    // The announce pulse must not outlive the server.
+    this.stopSsdpAnnounce();
 
-      // Say goodbye on the network, THEN report done. The bye-bye datagrams are what tell
-      // Alexa & friends the bridge is gone; calling back first means the host tears the
-      // process down while they are still in the socket and the clients keep the bridge
-      // until their own timeout. No own deadline needed — the host already has one
-      // (`common.stopTimeout`), and `this.setTimeout` refuses during shutdown anyway.
-      void (async (): Promise<void> => {
-        await this.ssdpServer?.stop();
-        await this.hueServer?.stop();
-        // The bridge is gone — say so before the callback, or the write never
-        // reaches the database (the host allows one second, then kills).
-        await this.setStateAsync("info.connection", { ack: true, val: false });
-        await this.setStateAsync("info.error", { ack: true, val: REASON_UNKNOWN });
-      })()
-        .catch((error: unknown) => {
-          this.log.error(`Error during shutdown: ${errText(error)}`);
-        })
-        .finally(callback);
-      return;
-    } catch (error) {
-      this.log.error(`Error during shutdown: ${errText(error)}`);
-    }
-    callback();
+    // Say goodbye on the network, THEN report done. The bye-bye datagrams are what tell
+    // Alexa & friends the bridge is gone; calling back first means the host tears the
+    // process down while they are still in the socket and the clients keep the bridge
+    // until their own timeout. No own deadline needed — the host already has one
+    // (`common.stopTimeout`), and `this.setTimeout` refuses during shutdown anyway.
+    void (async (): Promise<void> => {
+      await this.ssdpServer?.stop();
+      await this.hueServer?.stop();
+      // The bridge is gone — say so before the callback, or the write never
+      // reaches the database (the host allows one second, then kills).
+      await this.setStateAsync("info.connection", { ack: true, val: false });
+      await this.setStateAsync("info.error", { ack: true, val: REASON_UNKNOWN });
+    })()
+      .catch((error: unknown) => {
+        this.log.error(`Error during shutdown: ${errText(error)}`);
+      })
+      .finally(callback);
   }
 
   /**
@@ -877,13 +913,22 @@ export class HueEmu extends utils.Adapter {
     try {
       if (!state) {
         this.log.debug(`State ${id} deleted`);
+        // A bound light must not keep serving the last value of a datapoint
+        // that no longer exists (audit 2026-09-15 C2).
+        this.apiHandler?.forgetState(id);
         return;
       }
 
       this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
 
-      // Update API handler state cache for device binding
-      if (this.apiHandler && state.ack) {
+      // Update the light cache for every change of a bound datapoint, confirmed
+      // or not. v1.18.0: an unconfirmed (ack:false) change used to be ignored —
+      // but a datapoint nobody confirms (0_userdata, a script, vis) never sends
+      // anything else, so such a light stood still in the bridge, while the
+      // adapter's own commands were cached optimistically all along. The cache
+      // shows what ioBroker shows; the device's confirmed answer still corrects
+      // it (audit 2026-09-15 C1, decision 26).
+      if (this.apiHandler) {
         this.apiHandler.onStateChange(id, state.val);
       }
 
@@ -923,8 +968,7 @@ export class HueEmu extends utils.Adapter {
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
       this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
-        this._pairingEnabled = false;
-        this.ackState("startPairing", false);
+        this.pairingEnabled = false;
         this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {

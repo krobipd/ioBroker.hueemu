@@ -97,6 +97,7 @@ interface FakeSsdp {
 interface FakeApiHandler {
   initialize: ReturnType<typeof vi.fn>;
   onStateChange: ReturnType<typeof vi.fn>;
+  forgetState: ReturnType<typeof vi.fn>;
   resetAutoAddBudget: ReturnType<typeof vi.fn>;
   options: unknown;
 }
@@ -134,6 +135,7 @@ function internalOf(adapter: HueEmu): {
   pairingTimeoutId: unknown;
   _pairingEnabled: boolean;
   _disableAuth: boolean;
+  nativePersistPending: boolean;
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
   getForeignObjectAsync: ReturnType<typeof vi.fn>;
@@ -192,6 +194,7 @@ function setup(configOverrides: Record<string, unknown> = {}): {
     const h: FakeApiHandler = {
       initialize: vi.fn(async () => {}),
       onStateChange: vi.fn(),
+      forgetState: vi.fn(),
       resetAutoAddBudget: vi.fn(),
       options,
     };
@@ -263,8 +266,54 @@ describe("HueEmu buildConfig", () => {
 
   it("builds the https block from persisted TLS material when httpsPort is set", async () => {
     const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
-    const config = await internalOf(adapter).buildConfig();
+    const i = internalOf(adapter);
+    const config = await i.buildConfig();
     expect(config.https).toEqual({ port: 8443, cert: PERSISTED_CERT, key: PERSISTED_KEY });
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
+  });
+
+  // v1.18.0 (audit 2026-09-15 B4): the identity and the certificate used to be
+  // two writes on a first HTTPS start — the second one for a process the first
+  // had already committed to restarting.
+  it("stores a generated identity AND a generated certificate in one write", async () => {
+    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443, tlsCert: "", tlsKey: "" });
+    const i = internalOf(adapter);
+    const config = await i.buildConfig();
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledTimes(1);
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      native: {
+        udn: config.identity.udn,
+        mac: config.identity.mac,
+        tlsCert: expect.stringContaining("GENERATED"),
+        tlsKey: expect.stringContaining("GENERATED"),
+      },
+    });
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("persisted self-signed TLS certificate"));
+    expect(i.nativePersistPending).toBe(true);
+  });
+
+  it("regenerates an expired certificate and stores only that", async () => {
+    forgeControl.notAfter = new Date("2020-01-01T00:00:00Z");
+    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
+    const i = internalOf(adapter);
+    const config = await i.buildConfig();
+    expect(config.https?.cert).toContain("GENERATED");
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("expired"));
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      native: { tlsCert: expect.stringContaining("GENERATED"), tlsKey: expect.stringContaining("GENERATED") },
+    });
+  });
+
+  // N1: the identity write had no fence — an objects-db hiccup on the very first
+  // start took the whole start down although the generated values serve fine.
+  it("serves with the generated values and does not restart when the write fails", async () => {
+    const { adapter } = setup({ udn: "", mac: "" });
+    const i = internalOf(adapter);
+    i.extendForeignObjectAsync.mockRejectedValueOnce(new Error("db readonly"));
+    const config = await i.buildConfig();
+    expect(config.identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(i.nativePersistPending).toBe(false);
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
   });
 });
 
@@ -531,13 +580,25 @@ describe("HueEmu onStateChange", () => {
     expect(adapter.pairingEnabled).toBe(false);
   });
 
-  it("does NOT feed an unacked write into the handler's state cache", async () => {
+  it("feeds an unacked foreign write into the handler's state cache too", async () => {
     const { adapter, handlers } = await ready();
     const i = internalOf(adapter);
-    // An unacked value is a COMMAND, not the device's answer. Caching it would
-    // make the Hue client read back the wish instead of the fact: the lamp
-    // shows as on while it never reacted.
+    // v1.18.0 (decision 26): a datapoint nobody confirms — 0_userdata, a script,
+    // vis — carries ack:false for good. Ignoring such changes left every light
+    // bound to one standing still in the bridge, while the adapter's own
+    // commands were cached optimistically all along. The device's acked answer
+    // still corrects the cache afterwards.
     i.onStateChange("hue.0.light.bri", { val: 80, ack: false } as ioBroker.State);
+    expect(handlers[0].onStateChange).toHaveBeenCalledWith("hue.0.light.bri", 80);
+    // A foreign unacked change is data, never a command for the adapter's own states.
+    expect(adapter.pairingEnabled).toBe(false);
+  });
+
+  it("tells the handler to forget a deleted state", async () => {
+    const { adapter, handlers } = await ready();
+    const i = internalOf(adapter);
+    i.onStateChange("hue.0.light.bri", null);
+    expect(handlers[0].forgetState).toHaveBeenCalledWith("hue.0.light.bri");
     expect(handlers[0].onStateChange).not.toHaveBeenCalled();
   });
 
@@ -617,6 +678,47 @@ describe("HueEmu onUnload", () => {
     i.onUnload(callback);
     await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
     expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("Error during shutdown"));
+  });
+
+  // v1.18.0 (audit 2026-09-15 B3): in compact mode the process outlives an
+  // unload. A start that carried on after the stop request bound the listener
+  // for nobody — and the restarted instance ran into EADDRINUSE.
+  it("stops the start when the unload arrives while the configuration is being built", async () => {
+    const { adapter, servers, ssdps } = setup();
+    const i = internalOf(adapter);
+    const original = i.buildConfig.bind(adapter);
+    const callback = vi.fn();
+    i.buildConfig = async () => {
+      const config = await original();
+      i.onUnload(callback);
+      return config;
+    };
+    await i.onReady();
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(servers).toHaveLength(0);
+    expect(ssdps).toHaveLength(0);
+    expect(i.setState).not.toHaveBeenCalledWith("info.connection", expect.objectContaining({ val: true }));
+  });
+
+  it("releases a listener that finished binding after the unload arrived", async () => {
+    const { adapter, servers, ssdps } = setup();
+    const i = internalOf(adapter);
+    const internal = adapter as unknown as { makeHueServer: (o: unknown) => FakeHueServer };
+    const origFactory = internal.makeHueServer.bind(adapter);
+    const callback = vi.fn();
+    internal.makeHueServer = (o: unknown) => {
+      const s = origFactory(o);
+      s.start.mockImplementation(() => {
+        i.onUnload(callback);
+        return Promise.resolve();
+      });
+      return s;
+    };
+    await i.onReady();
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(servers[0].stop).toHaveBeenCalled();
+    expect(ssdps[0].start).not.toHaveBeenCalled();
+    expect(i.subscribeStates).not.toHaveBeenCalled();
   });
 
   it("is safe before onReady (no servers constructed yet)", async () => {

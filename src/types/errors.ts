@@ -166,6 +166,17 @@ export class HueApiError extends Error {
   }
 
   /**
+   * Create a "parameter not available" error — the bridge's answer to an
+   * attribute no light state has (`{"foo": 1}` → `parameter, foo, not available`).
+   *
+   * @param parameter - The unknown attribute name
+   * @param address - API endpoint address
+   */
+  static parameterNotAvailable(parameter: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.PARAMETER_NOT_AVAILABLE, address, [parameter]);
+  }
+
+  /**
    * Create a missing parameters error
    *
    * @param address - API endpoint address

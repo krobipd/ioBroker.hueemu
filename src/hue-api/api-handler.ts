@@ -17,27 +17,7 @@ import { errText, oneLine } from "../types/utils";
 import { MAX_DEVICETYPE_LENGTH, MAX_USERNAME_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
-
-// Hue light-state attributes a group action may legitimately set. The success
-// echo is built from these known keys instead of reflecting arbitrary body keys
-// straight back to the client.
-const GROUP_ACTION_KEYS = new Set([
-  "on",
-  "bri",
-  "hue",
-  "sat",
-  "ct",
-  "xy",
-  "transitiontime",
-  "bri_inc",
-  "sat_inc",
-  "hue_inc",
-  "ct_inc",
-  "xy_inc",
-  "effect",
-  "alert",
-  "colormode",
-]);
+import { LIGHT_STATE_KEYS } from "./light-state-keys";
 
 /**
  * Combined adapter interface for the API handler
@@ -123,6 +103,16 @@ export class ApiHandler implements HueApiHandler {
   }
 
   /**
+   * A subscribed state was deleted — a light bound to it must not keep serving
+   * the last value (v1.18.0).
+   *
+   * @param id - Full state ID that was deleted
+   */
+  public forgetState(id: string): void {
+    this.deviceBinding.forgetState(id);
+  }
+
+  /**
    * Create a new user
    *
    * @param _req - Incoming HTTP request (unused; username now read from the typed body)
@@ -177,8 +167,13 @@ export class ApiHandler implements HueApiHandler {
     }
     this.logger.info(`Paired client "${oneLine(devicetype)}" as user ${oneLine(username)}`);
 
-    // Disable pairing after successful user creation (like real Hue bridge — link button resets after use)
-    this.adapter.pairingEnabled = false;
+    // Disable pairing after successful user creation (like real Hue bridge — link
+    // button resets after use). Only when it was on: the setter writes the
+    // startPairing datapoint, and with authentication disabled every discovery
+    // creates a user (v1.18.0, audit 2026-09-15 C3).
+    if (this.adapter.pairingEnabled) {
+      this.adapter.pairingEnabled = false;
+    }
 
     return username;
   }
@@ -283,22 +278,20 @@ export class ApiHandler implements HueApiHandler {
     // Fan out to every configured light using the cheap id list, not
     // getAllLights() (which rebuilds every light's full state) — a flood of
     // group writes shouldn't multiply state reads on top of the writes.
+    // setLightState never rejects for a listed light: a failed write is logged
+    // there (error level) and answered per light — a group has no slot for it.
     const lightIds = this.deviceBinding.getLightIds();
-    await Promise.all(
-      lightIds.map(lightId =>
-        this.deviceBinding.setLightState(lightId, state).catch((err: unknown) => {
-          this.logger.warn(`Group action: failed to set light ${lightId}: ${errText(err)}`);
-        }),
-      ),
-    );
+    await Promise.all(lightIds.map(lightId => this.deviceBinding.setLightState(lightId, state)));
 
-    // Return a group-addressed success response (Hue API format) built only
-    // from known light-state attributes — don't reflect arbitrary body keys.
-    return Object.entries(state)
-      .filter(([key]) => GROUP_ACTION_KEYS.has(key))
-      .map(([key, value]) => ({
-        success: { [`/groups/${groupId}/action/${key}`]: value },
-      }));
+    // The group response is per attribute, like the bridge's: success for every
+    // light-state attribute, error 6 for anything else (v1.18.0 — unknown keys
+    // used to be dropped silently here and acknowledged on the single-light path).
+    return Object.entries(state).map(([key, value]) => {
+      const address = `/groups/${groupId}/action/${key}`;
+      return LIGHT_STATE_KEYS.has(key)
+        ? { success: { [address]: value } }
+        : HueApiError.parameterNotAvailable(key, address).toResponse();
+    });
   }
 
   /**

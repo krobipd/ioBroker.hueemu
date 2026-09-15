@@ -1141,13 +1141,40 @@ describe("DeviceBindingService", () => {
       expect(firstResult.success).toHaveProperty("/lights/1/state/on");
     });
 
-    it("should still report success for unmapped states", async () => {
+    it("should still report success for a known attribute the light does not map", async () => {
       const { service } = createService(
         [{ name: "Test", lightType: "onoff" }], // no onState mapped
       );
       const results = await service.setLightState("1", { on: true });
       expect(results).toHaveLength(1);
       expect(results[0]).toHaveProperty("success");
+    });
+
+    // v1.18.0 (audit 2026-09-15 C4): an attribute no light state has used to be
+    // acknowledged as success — the bridge answers error 6.
+    it("answers an attribute that is not a light-state attribute with error 6 and writes nothing", async () => {
+      const { service, adapter } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
+      const results = await service.setLightState("1", { foo: 1, on: true } as unknown as Record<string, unknown>);
+      expect(results).toEqual([
+        {
+          error: {
+            type: HueErrorType.PARAMETER_NOT_AVAILABLE,
+            address: "/lights/1/state/foo",
+            description: "parameter, foo, not available",
+          },
+        },
+        { success: { "/lights/1/state/on": true } },
+      ]);
+      expect([...adapter.writtenStates.keys()]).toEqual(["test.on"]);
+    });
+
+    it("still acknowledges the bridge's own optional attributes", async () => {
+      const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }]);
+      const results = await service.setLightState("1", { transitiontime: 4, alert: "select" });
+      expect(results).toEqual([
+        { success: { "/lights/1/state/transitiontime": 4 } },
+        { success: { "/lights/1/state/alert": "select" } },
+      ]);
     });
 
     it("should throw for invalid light ID", async () => {
@@ -1774,5 +1801,40 @@ describe("v1.17.0 — a light whose driving state does not exist is not reachabl
     expect((await svc.getLightById("1")).state.reachable).toBe(false);
     svc.updateStateCache("late.0.on", true);
     expect((await svc.getLightById("1")).state.reachable).toBe(true);
+  });
+
+  // v1.18.0 (audit 2026-09-15 C2): a deleted datapoint never reached the cache —
+  // the light kept serving the last value and reported itself reachable.
+  it("forgets a deleted driving state: defaults and reachable:false from then on", async () => {
+    const adapter = createMockDeviceBindingAdapter({ "hm.0.ON": true, "hm.0.LEVEL": 100 });
+    const svc = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "Gone", lightType: "dimmable", onState: "hm.0.ON", briState: "hm.0.LEVEL" }],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    expect((await svc.getLightById("1")).state).toMatchObject({ on: true, reachable: true });
+
+    // The object is gone: the broker answers null from now on.
+    adapter.getForeignStateAsync = () => Promise.resolve(null);
+    svc.forgetState("hm.0.ON");
+
+    const light = await svc.getLightById("1");
+    expect(light.state.reachable).toBe(false);
+    expect(light.state.on).toBe(false);
+    // ...until the subscription reports a value again.
+    svc.updateStateCache("hm.0.ON", true);
+    expect((await svc.getLightById("1")).state).toMatchObject({ on: true, reachable: true });
+  });
+
+  it("forgets nothing for an id no light maps", () => {
+    const svc = new DeviceBindingService({
+      adapter: createMockDeviceBindingAdapter({}),
+      devices: [{ name: "L", lightType: "onoff", onState: "hm.0.ON" }],
+      logger: createMockLogger(),
+    });
+    svc.forgetState("hueemu.0.startPairing");
+    const missing = (svc as unknown as { missingStates: Set<string> }).missingStates;
+    expect(missing.size).toBe(0);
   });
 });

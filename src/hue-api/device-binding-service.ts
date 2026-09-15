@@ -20,6 +20,7 @@ import { HueApiError } from "../types/errors";
 import { errText } from "../types/utils";
 import { coerceBool, coerceFiniteNumber } from "../lib/coerce";
 import { assignDeviceIds } from "../lib/device-ids";
+import { LIGHT_STATE_KEYS } from "./light-state-keys";
 import {
   HUE_BRI_MAX,
   INCREMENT_ATTRIBUTES,
@@ -392,6 +393,23 @@ export class DeviceBindingService {
   }
 
   /**
+   * Forget a bound datapoint that was deleted: its light reports defaults and
+   * `reachable: false` from now on instead of the last value seen (v1.18.0).
+   * Only mapped ids matter, like {@link updateStateCache}. If the datapoint
+   * comes back, the subscription's next value clears the mark again.
+   *
+   * @param id - Full state ID
+   */
+  public forgetState(id: string): void {
+    if (!this.mappedIds.has(id)) {
+      return;
+    }
+    this.stateCache.delete(id);
+    this.lastNonZeroSource.delete(id);
+    this.missingStates.add(id);
+  }
+
+  /**
    * Remember the last non-zero value of a source state — the write path's only
    * evidence for an undecided scale (see {@link scaleValueForState}). Zero is
    * skipped on purpose: every scale has a zero, so it says nothing.
@@ -450,19 +468,12 @@ export class DeviceBindingService {
     const built = await Promise.all(
       this.devices.map(async device => {
         const lightId = DeviceBindingService.lightIdOf(device);
-        try {
-          const light = await this.getLightById(lightId);
-          return [lightId, light] as const;
-        } catch (error) {
-          this.logger.warn(`Could not load device "${device.name}": ${errText(error)}`);
-          return null;
-        }
+        // Never rejects for a listed device: every read inside is caught.
+        return [lightId, await this.getLightById(lightId)] as const;
       }),
     );
-    for (const entry of built) {
-      if (entry) {
-        lights[entry[0]] = entry[1];
-      }
+    for (const [lightId, light] of built) {
+      lights[lightId] = light;
     }
 
     return lights;
@@ -511,11 +522,6 @@ export class DeviceBindingService {
         // Provide default values for unmapped states
         (state as Record<string, unknown>)[stateName] = getDefaultValue(stateName);
       }
-    }
-
-    // Ensure 'on' state exists
-    if (state.on === undefined) {
-      state.on = false;
     }
 
     const colormode = this.detectColorMode(mappedColorStates, state);
@@ -600,6 +606,12 @@ export class DeviceBindingService {
 
     for (const [key, value] of Object.entries(effective)) {
       const address = `/lights/${lightId}/state/${key}`;
+      if (!LIGHT_STATE_KEYS.has(key)) {
+        // Not a light-state attribute at all — the bridge says so (error 6)
+        // rather than acknowledging whatever a client made up (v1.18.0).
+        results.push(HueApiError.parameterNotAvailable(key, address).toResponse());
+        continue;
+      }
       const stateId = this.getStateId(device, key);
 
       if (switchedOffViaBrightness && key === "bri") {
@@ -622,7 +634,9 @@ export class DeviceBindingService {
           continue;
         }
         this.logger.debug(`No mapping for ${key} on device ${device.name}`);
-        // Still report success for unmapped states (some clients expect this)
+        // A known attribute this light does not map (ct on a dimmer) is still
+        // acknowledged — some clients expect it. Deliberate deviation from the
+        // bridge, which answers error 6 here as well.
         results.push({ success: { [address]: value } });
         continue;
       }

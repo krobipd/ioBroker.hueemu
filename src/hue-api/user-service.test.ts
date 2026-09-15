@@ -480,6 +480,102 @@ describe("UserService", () => {
   });
 });
 
+// v1.18.0 (audit 2026-09-15 B1/B2): the first requests after a start arrive in
+// parallel — Alexa's discovery fires several at once, and during pairing every
+// Echo auto-adds itself with the same burst.
+describe("v1.18.0 — parallel requests on a cold cache", () => {
+  const tick = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 5));
+
+  it("reads the client list from the broker once, however many requests arrive together", async () => {
+    const { service, adapter } = createService(["alexa-1"]);
+    let calls = 0;
+    const original = adapter.getStatesOfAsync;
+    adapter.getStatesOfAsync = async (...args) => {
+      calls += 1;
+      await tick();
+      return original.apply(adapter, args);
+    };
+    const results = await Promise.all([1, 2, 3, 4, 5].map(() => service.isUserAuthenticated("alexa-1")));
+    expect(results).toEqual([true, true, true, true, true]);
+    expect(calls).toBe(1);
+  });
+
+  it("keeps a client paired during the cold load when the first broker answer arrives last", async () => {
+    // Measured before the fix: key-A's slow read overwrote the cache key-B had
+    // just been added to — key-B was refused until the next start although its
+    // object was in the database.
+    const { service, adapter } = createService([]);
+    let slowOnce = true;
+    const original = adapter.getStatesOfAsync;
+    adapter.getStatesOfAsync = async (...args) => {
+      const snapshot = await original.apply(adapter, args);
+      if (slowOnce) {
+        slowOnce = false;
+        for (let i = 0; i < 8; i++) {
+          await tick();
+        }
+      }
+      return snapshot;
+    };
+    adapter.setObjectNotExistsAsync = async (id, obj) => {
+      await tick();
+      adapter.writtenObjects.set(id, obj);
+      return { id };
+    };
+    await Promise.all([service.addUser("key-A", "auto-paired", true), service.addUser("key-B", "auto-paired", true)]);
+    expect(await service.isUserAuthenticated("key-A")).toBe(true);
+    expect(await service.isUserAuthenticated("key-B")).toBe(true);
+  });
+
+  it("retries the broker on the next request when the shared load failed", async () => {
+    const { service, adapter } = createService(["alexa-1"]);
+    adapter.getStatesShouldFail = true;
+    expect(await service.isUserAuthenticated("alexa-1")).toBe(false);
+    adapter.getStatesShouldFail = false;
+    expect(await service.isUserAuthenticated("alexa-1")).toBe(true);
+  });
+
+  it("books one client once when its first burst adds it in parallel", async () => {
+    const { service, adapter } = createService([]);
+    adapter.setObjectNotExistsAsync = async (id, obj) => {
+      await tick();
+      adapter.writtenObjects.set(id, obj);
+      return { id };
+    };
+    let objectWrites = 0;
+    const original = adapter.setObjectNotExistsAsync;
+    adapter.setObjectNotExistsAsync = async (id, obj) => {
+      if (id !== "clients") {
+        objectWrites += 1;
+      }
+      return original(id, obj);
+    };
+    service.resetAutoAddBudget();
+    await Promise.all([
+      service.addUser("echo-key", "auto-paired", true),
+      service.addUser("echo-key", "auto-paired", true),
+      service.addUser("echo-key", "auto-paired", true),
+    ]);
+    const internals = service as unknown as { autoAddedThisWindow: number; createWindow: { count: number } };
+    expect(internals.autoAddedThisWindow).toBe(1);
+    expect(internals.createWindow.count).toBe(1);
+    expect(objectWrites).toBe(1);
+  });
+
+  it("lets a second parallel add of the same key share the first one's rejection", async () => {
+    const { service, adapter } = createService([]);
+    adapter.setObjectShouldFail = true;
+    const results = await Promise.allSettled([
+      service.addUser("echo-key", "x", true),
+      service.addUser("echo-key", "x", true),
+    ]);
+    expect(results.map(r => r.status)).toEqual(["rejected", "rejected"]);
+    // The guard is released afterwards — a later add is a new attempt.
+    adapter.setObjectShouldFail = false;
+    await expect(service.addUser("echo-key", "x", true)).resolves.toBeUndefined();
+  });
+});
+
 describe("v1.15.1 — the client name is a translation object", () => {
   it("writes the device type under every one of the eleven languages", async () => {
     // `common.name` is a translation object for EVERY object type, even where the

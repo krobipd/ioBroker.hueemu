@@ -8,6 +8,7 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
+import type { Mock } from "vitest";
 import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
 import type { HueRequest, CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";
@@ -149,6 +150,21 @@ describe("ApiHandler", () => {
       const { handler } = createHandler([], { disableAuth: true });
       const username = await handler.createUser(makeRequest({ devicetype: "free-pass" }), { devicetype: "free-pass" });
       expect(username.length).toBeGreaterThan(0);
+    });
+
+    // v1.18.0 (audit 2026-09-15 C3): the setter writes the startPairing datapoint
+    // — with authentication disabled every discovery created a user and wrote it.
+    it("does not touch the pairing flag when pairing was not on", async () => {
+      const { handler, adapter } = createHandler([], { disableAuth: true });
+      let writes = 0;
+      Object.defineProperty(adapter, "pairingEnabled", {
+        get: () => false,
+        set: () => {
+          writes += 1;
+        },
+      });
+      await handler.createUser(makeRequest({ devicetype: "free-pass" }), { devicetype: "free-pass" });
+      expect(writes).toBe(0);
     });
   });
 
@@ -405,7 +421,12 @@ describe("ApiHandler", () => {
     function createHandlerWithDevices(
       stateValues: Record<string, unknown>,
       opts: { pairingEnabled?: boolean } = {},
-    ): { handler: ApiHandler; adapter: MockApiAdapter; foreignWrites: Map<string, unknown> } {
+    ): {
+      handler: ApiHandler;
+      adapter: MockApiAdapter;
+      foreignWrites: Map<string, unknown>;
+      logger: { debug: Mock; info: Mock; warn: Mock; error: Mock };
+    } {
       const adapter = createMockAdapter([], opts);
       const foreignWrites = new Map<string, unknown>();
       adapter.getForeignStateAsync = (id: string) =>
@@ -414,6 +435,7 @@ describe("ApiHandler", () => {
         foreignWrites.set(id, (state as { val?: unknown }).val);
         return Promise.resolve();
       };
+      const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
       const handler = new ApiHandler({
         adapter,
         configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
@@ -421,9 +443,9 @@ describe("ApiHandler", () => {
           { name: "Kitchen", lightType: "dimmable", onState: "test.on", briState: "test.bri" },
           { name: "Lounge", lightType: "onoff", onState: "test2.on" },
         ],
-        logger: createMockLogger(),
+        logger,
       });
-      return { handler, adapter, foreignWrites };
+      return { handler, adapter, foreignWrites, logger };
     }
 
     const req = makeRequest(undefined);
@@ -469,8 +491,11 @@ describe("ApiHandler", () => {
       expect(results).toEqual([{ success: { "/groups/0/action/on": false } }]);
     });
 
-    it("setGroupAction tolerates a failing light (warn, others still set)", async () => {
-      const { handler, adapter, foreignWrites } = createHandlerWithDevices({});
+    // A group action is answered per attribute, like the bridge does — there is
+    // no slot for a light in it. A light whose write fails is logged by the
+    // light path (error level) and the other lights are still set.
+    it("setGroupAction tolerates a failing light: logs it, sets the others, answers per attribute", async () => {
+      const { handler, adapter, foreignWrites, logger } = createHandlerWithDevices({});
       const origSet = adapter.setForeignStateAsync;
       adapter.setForeignStateAsync = async (id: string, state: ioBroker.SettableState) => {
         if (id === "test.on") {
@@ -480,17 +505,31 @@ describe("ApiHandler", () => {
       };
       const results = await handler.setGroupAction(req, "user", "0", { on: true });
       expect(foreignWrites.get("test2.on")).toBe(true); // second light unaffected
-      expect(results).toHaveLength(1); // group response shape regardless
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("test.on"));
+      expect(results).toEqual([{ success: { "/groups/0/action/on": true } }]);
     });
 
-    it("setGroupAction echoes only known light-state keys, not arbitrary body keys", async () => {
-      const { handler } = createHandlerWithDevices({});
+    // v1.18.0 (audit 2026-09-15 C4): an attribute no light state has is answered
+    // like the bridge answers it — error 6 — on the group and the single-light
+    // path alike (the group used to drop it silently, the light acknowledged it).
+    it("setGroupAction answers an unknown attribute with error 6 and still sets the known ones", async () => {
+      const { handler, foreignWrites } = createHandlerWithDevices({});
       const results = await handler.setGroupAction(req, "user", "0", {
         on: true,
         garbage: 1,
-        evilKey: "x",
       } as unknown as Record<string, unknown>);
-      expect(results).toEqual([{ success: { "/groups/0/action/on": true } }]);
+      expect(results).toEqual([
+        { success: { "/groups/0/action/on": true } },
+        {
+          error: {
+            type: HueErrorType.PARAMETER_NOT_AVAILABLE,
+            address: "/groups/0/action/garbage",
+            description: "parameter, garbage, not available",
+          },
+        },
+      ]);
+      expect(foreignWrites.get("test.on")).toBe(true);
+      expect(foreignWrites.get("test2.on")).toBe(true);
     });
 
     it("onStateChange updates the binding cache so the next read sees the new value", async () => {

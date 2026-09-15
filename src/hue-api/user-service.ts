@@ -85,6 +85,25 @@ export class UserService {
   private clientKeysCache: Set<string> | null = null;
 
   /**
+   * v1.18.0: the ONE broker read that fills the cache, shared by everyone who
+   * arrives while it is in flight. Without it every request during a cold start
+   * read the client list itself, and each answer replaced the cache with its own
+   * snapshot: an answer that arrived late overwrote a cache another request had
+   * meanwhile added a freshly paired client to — that client was then refused
+   * until the next start (measured, audit 2026-09-15 B1).
+   */
+  private cacheLoad: Promise<Set<string>> | null = null;
+
+  /**
+   * v1.18.0: the `addUser` in flight per client key. A client's first burst of
+   * parallel requests during pairing used to run the whole add path once per
+   * request — and booked the auto-add budget and the hourly ceiling once per
+   * request too (measured, audit 2026-09-15 B2). The second caller now simply
+   * shares the first one's outcome.
+   */
+  private readonly pendingAdds: Map<string, Promise<void>> = new Map();
+
+  /**
    * Which real key owns which sanitized object id. Two different keys can
    * sanitize to the same id; the second one would silently take over the first
    * one's object, so it is refused instead.
@@ -168,7 +187,26 @@ export class UserService {
    *   path — counts against the per-window cap. `false` for explicit
    *   `POST /api` createUser calls (gated by the link button and the hourly ceiling).
    */
-  public async addUser(username: string, devicetype = "unknown", viaAutoAdd = false): Promise<void> {
+  public addUser(username: string, devicetype = "unknown", viaAutoAdd = false): Promise<void> {
+    const pending = this.pendingAdds.get(username);
+    if (pending) {
+      return pending;
+    }
+    const run = this.addUserOnce(username, devicetype, viaAutoAdd).finally(() => {
+      this.pendingAdds.delete(username);
+    });
+    this.pendingAdds.set(username, run);
+    return run;
+  }
+
+  /**
+   * The add path proper — see {@link addUser} for the per-key in-flight guard.
+   *
+   * @param username - Username (real key) to add
+   * @param devicetype - Device type string, stored as the object's display name
+   * @param viaAutoAdd - True when this add was triggered by pairing-window auto-add
+   */
+  private async addUserOnce(username: string, devicetype: string, viaAutoAdd: boolean): Promise<void> {
     // Every path — the ceiling is what bounds the object DB when nothing else does.
     this.enforceCreateCeiling();
 
@@ -314,10 +352,21 @@ export class UserService {
    * built by hand — falls back to its own id, which for a generated UUID key is
    * the same string anyway.
    */
-  private async ensureCache(): Promise<Set<string>> {
+  private ensureCache(): Promise<Set<string>> {
     if (this.clientKeysCache) {
-      return this.clientKeysCache;
+      return Promise.resolve(this.clientKeysCache);
     }
+    // One read for everyone waiting — see {@link cacheLoad}.
+    this.cacheLoad ??= this.loadCache().finally(() => {
+      this.cacheLoad = null;
+    });
+    return this.cacheLoad;
+  }
+
+  /**
+   * Read the paired clients from the broker into the cache.
+   */
+  private async loadCache(): Promise<Set<string>> {
     const cache = new Set<string>();
     const owners = new Map<string, string>();
     try {
