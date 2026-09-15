@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { vi } from "vitest";
 
 /** The options the adapter hands to adapter-core — recorded by the stub. */
-const adapterOptions = vi.hoisted(() => ({ last: undefined as unknown }));
+const adapterOptions = vi.hoisted((): { last: unknown } => ({ last: undefined }));
 
 // Stub the adapter-core base so HueEmu can be instantiated without the
 // ioBroker runtime.
