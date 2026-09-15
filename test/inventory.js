@@ -118,8 +118,42 @@ async function feedFixtures(harness) {
   });
   const body = await res.json();
   assert.ok(Array.isArray(body) && body[0] && body[0].success, `pairing did not succeed: ${JSON.stringify(body)}`);
-  // The object is written asynchronously right after the response.
+  // The object is written asynchronously right after the response — wait for the tree to
+  // stop growing rather than trusting a fixed moment.
   await new Promise(resolve => setTimeout(resolve, 1000));
+  await waitForStableTree(harness);
+}
+
+/**
+ * Wait until the object tree has stopped growing for a second. The fire-and-forget writes
+ * above have no completion signal the harness could wait on; on the GitHub runner a sibling
+ * harness (homewizard, 2026-09-15) dumped while such writes were still in flight and lost
+ * two objects. A quiet window is the settle check beszel and govee-smart already use.
+ *
+ * @param {import("@iobroker/testing").TestHarness} harness The harness.
+ */
+async function waitForStableTree(harness) {
+  const count = async () => (await harness.objects.getObjectList({ startkey: NS, endkey: `${NS}香` })).rows.length;
+  const deadline = Date.now() + 60000;
+  let previous = await count();
+  for (;;) {
+    let stable = true;
+    for (let i = 0; i < 4; i++) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+      const now = await count();
+      if (now !== previous) {
+        previous = now;
+        stable = false;
+        break;
+      }
+    }
+    if (stable) {
+      return;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`object tree did not settle (last count ${previous})`);
+    }
+  }
 }
 
 /**
