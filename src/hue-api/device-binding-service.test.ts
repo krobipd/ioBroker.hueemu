@@ -522,9 +522,8 @@ describe("DeviceBindingService", () => {
           { "test.bri": 1 },
         );
         const light = await service.getLightById("1");
-        // 1 % of 254 = 2.54 → clampRound to min=1
-        expect(light.state.bri).toBeLessThanOrEqual(3);
-        expect(light.state.bri).toBeGreaterThanOrEqual(1);
+        // 1 % of 254 = 2.54, rounded — a range here would let the rounding rule drift.
+        expect(light.state.bri).toBe(3);
       });
 
       it("briScale=percent: 50 → ~127 (Hue mid-range)", async () => {

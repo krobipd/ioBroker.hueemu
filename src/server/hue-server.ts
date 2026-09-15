@@ -11,6 +11,46 @@ import { apiV1Routes } from "./routes/api-v1-routes";
 import { createHueErrorHandler } from "./middleware/error-handler";
 
 /**
+ * The Fastify options every listener of the bridge is built with — exported so
+ * the route tests run against the production router, not a bare instance.
+ *
+ * v1.4.3 (SV1): trustProxy is opt-in via admin config — was unconditional
+ * true. With trustProxy=true any client can spoof `req.ip`/`req.protocol`
+ * by sending X-Forwarded-* headers, which then ends up in our debug logs.
+ * Only safe behind a TLS-terminating reverse proxy that strips those
+ * headers from inbound traffic. Mirrors the hassemu C11 (v1.25.0) decision.
+ *
+ * v1.4.3 (SV3): bodyLimit reduced from 1 MiB to 64 KiB. Hue API request
+ * bodies are tiny (light state JSON ~200 bytes). 1 MiB invited DoS via
+ * large POSTs.
+ *
+ * v1.4.3 (SV5): forceCloseConnections so keepalive Hue clients don't
+ * wedge the server during shutdown.
+ *
+ * @param trustProxy - Whether X-Forwarded-* headers are honoured
+ */
+export function fastifyOptions(trustProxy: boolean): {
+  logger: false;
+  trustProxy: boolean;
+  bodyLimit: number;
+  routerOptions: { caseSensitive: boolean; ignoreTrailingSlash: boolean };
+  forceCloseConnections: true;
+} {
+  return {
+    logger: false,
+    trustProxy,
+    bodyLimit: 65536,
+    // v1.10.0 (M2): router options moved under `routerOptions` (Fastify 5.9+);
+    // the top-level form is deprecated (FSTDEP022) and removed in fastify@6.
+    routerOptions: {
+      caseSensitive: false,
+      ignoreTrailingSlash: true,
+    },
+    forceCloseConnections: true,
+  };
+}
+
+/**
  * Options for creating the Hue server
  */
 export interface HueServerOptions {
@@ -104,30 +144,7 @@ export class HueServer {
    * @param https - Whether to create an HTTPS server
    */
   private async createServer(https: boolean): Promise<FastifyInstance> {
-    // v1.4.3 (SV1): trustProxy is opt-in via admin config — was unconditional
-    // true. With trustProxy=true any client can spoof `req.ip`/`req.protocol`
-    // by sending X-Forwarded-* headers, which then ends up in our debug logs.
-    // Only safe behind a TLS-terminating reverse proxy that strips those
-    // headers from inbound traffic. Mirrors the hassemu C11 (v1.25.0) decision.
-    //
-    // v1.4.3 (SV3): bodyLimit reduced from 1 MiB to 64 KiB. Hue API request
-    // bodies are tiny (light state JSON ~200 bytes). 1 MiB invited DoS via
-    // large POSTs.
-    //
-    // v1.4.3 (SV5): forceCloseConnections so keepalive Hue clients don't
-    // wedge the server during shutdown.
-    const baseOptions = {
-      logger: false as const,
-      trustProxy: this.config.trustProxy === true,
-      bodyLimit: 65536,
-      // v1.10.0 (M2): router options moved under `routerOptions` (Fastify 5.9+);
-      // the top-level form is deprecated (FSTDEP022) and removed in fastify@6.
-      routerOptions: {
-        caseSensitive: false,
-        ignoreTrailingSlash: true,
-      },
-      forceCloseConnections: true as const,
-    };
+    const baseOptions = fastifyOptions(this.config.trustProxy === true);
 
     let server: FastifyInstance;
     if (https && this.config.https) {

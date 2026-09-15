@@ -4,6 +4,7 @@
 
 import Fastify, { type FastifyInstance } from "fastify";
 import { apiV1Routes } from "./api-v1-routes";
+import { fastifyOptions } from "../hue-server";
 import { hueErrorHandler } from "../middleware/error-handler";
 import type {
   HueApiHandler,
@@ -100,7 +101,9 @@ function createMockHandler(
 }
 
 async function buildApp(handler: HueApiHandler): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+  // The production options (router, body limit) — a bare instance would route
+  // differently from the bridge the clients talk to (audit 2026-09-15 F11).
+  const app = Fastify(fastifyOptions(false));
   app.setErrorHandler(hueErrorHandler);
   await app.register(apiV1Routes, { handler });
   return app;
@@ -301,6 +304,17 @@ describe("apiV1Routes — GET full state and single light (v1.8.1)", () => {
     expect(res.statusCode).toBe(200);
     expect(handler.calls.getLightById).toEqual(["3"]);
     expect(JSON.parse(res.body)).toHaveProperty("state");
+  });
+
+  // The router the bridge runs with tolerates what Hue clients send: a trailing
+  // slash and upper-case path segments both reach the light route.
+  it("serves the light route with a trailing slash and in upper case (production router options)", async () => {
+    const handler = createMockHandler({ isAuthenticated: true });
+    const app = await buildApp(handler);
+    expect((await app.inject({ method: "GET", url: "/api/valid-user/lights/3/" })).statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/API/valid-user/LIGHTS/3" })).statusCode).toBe(200);
+    expect(handler.calls.getLightById).toEqual(["3", "3"]);
+    expect(handler.calls.fallback).toHaveLength(0);
   });
 });
 

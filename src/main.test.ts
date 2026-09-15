@@ -6,6 +6,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import type * as os from "node:os";
 import { join } from "node:path";
 import { vi } from "vitest";
 
@@ -47,6 +48,17 @@ vi.mock("@iobroker/adapter-core", () => {
       translate: (k: string) => k,
     },
   };
+});
+
+// node:os passes through except for a fixed interface list: the advertise
+// address the adapter picks must be one the TEST decides on, not whatever the
+// machine running the suite happens to have (a runner without a routable
+// address would fail a test that never asserted anything about the adapter).
+const osMock = vi.hoisted(() => ({ interfaces: null as Record<string, unknown[]> | null }));
+vi.mock("node:os", async importOriginal => {
+  const actual = await importOriginal<typeof os>();
+  const networkInterfaces = (): unknown => osMock.interfaces ?? actual.networkInterfaces();
+  return { ...actual, default: { ...actual, networkInterfaces }, networkInterfaces };
 });
 
 // Mock node-forge: real 2048-bit keygen takes ~1s per call and is not the
@@ -234,12 +246,21 @@ describe("HueEmu buildConfig", () => {
     );
   });
 
-  it("treats a blank bind as listen-all and auto-resolves a routable advertise IP", async () => {
-    const { adapter } = setup({ bind: "  " });
-    const config = await internalOf(adapter).buildConfig();
-    expect(config.bind).toBe("0.0.0.0");
-    expect(config.advertiseHost).toBeTruthy();
-    expect(config.advertiseHost).not.toBe("0.0.0.0");
+  it("treats a blank bind as listen-all and announces the routable interface, not loopback", async () => {
+    osMock.interfaces = {
+      lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
+      eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
+    };
+    try {
+      const { adapter } = setup({ bind: "  " });
+      const i = internalOf(adapter);
+      const config = await i.buildConfig();
+      expect(config.bind).toBe("0.0.0.0");
+      expect(config.advertiseHost).toBe("192.168.1.20");
+      expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Announcing 192.168.1.20 (interface eth0)"));
+    } finally {
+      osMock.interfaces = null;
+    }
   });
 
   it("advertises the explicit advertiseHost when set", async () => {
@@ -472,6 +493,24 @@ describe("HueEmu onReady", () => {
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Hue Emulator running"));
     expect(i.log.error).not.toHaveBeenCalled();
+  });
+
+  // F10 (audit 2026-09-15): the cleanup's wiring to the adapter — the object read,
+  // the delete, the range query for an emptied parent — ran in no test at all.
+  it("removes an object from an earlier version and its emptied parent on start", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "info.configuredDevices" ? { type: "state" } : null),
+    );
+    i.getObjectListAsync.mockImplementation((query: { startkey: string }) =>
+      Promise.resolve({ rows: query.startkey.startsWith("hueemu.0.info.") ? [] : [{ id: "x" }] }),
+    );
+    await i.onReady();
+    expect(i.delObjectAsync).toHaveBeenCalledWith("info.configuredDevices");
+    expect(i.delObjectAsync).toHaveBeenCalledWith("info");
+    expect(i.getObjectListAsync).toHaveBeenCalledWith({ startkey: "hueemu.0.info.", endkey: "hueemu.0.info.\uffff" });
+    expect(i.subscribeStates).toHaveBeenCalledWith("*");
   });
 
   it("catches a failing boot (e.g. invalid config) instead of crashing", async () => {

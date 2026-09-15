@@ -250,7 +250,9 @@ describe("HueServer lifecycle (real listen)", () => {
       expect(httpsInstance).not.toBeNull();
       const address = httpsInstance.server.address() as { port: number };
       expect(address.port).toBeGreaterThan(0);
-      // Round-trip over real TLS (self-signed → skip verification).
+      // inject() bypasses the socket — this proves the HTTPS instance is wired
+      // and answering, not the TLS handshake (the material itself is proven in
+      // tls-material.test.ts against Node's TLS).
       const res = await httpsInstance.inject({ method: "GET", url: "/health" });
       expect(res.statusCode).toBe(200);
     } finally {
