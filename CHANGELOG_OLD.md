@@ -1,5 +1,9 @@
 # Older Changes
 
+## 1.15.1 (2026-09-03)
+
+- Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.
+
 ## 1.15.0 (2026-09-03)
 
 - New: The light assistant now works out how brightness, colour and colour temperature are stored, so the lights it adds show and set the right values.

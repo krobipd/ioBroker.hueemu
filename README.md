@@ -180,7 +180,8 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+
+### 1.18.0 (2026-09-15)
 
 - Changed: The listen address and port are now stored under the standard keys the admin's port-conflict check reads — another adapter set to the bridge's port is warned before it collides.
 - Improved: Your configured Host / IP address survives the update unchanged — nothing to re-enter, and the bridge keeps listening where it did before.
@@ -191,7 +192,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 - Fixed: A client that pairs while the bridge is still loading its client list no longer risks being refused until the next restart.
 - Fixed: A light whose datapoint was deleted now reports itself unreachable with default values instead of serving the last value it had seen.
 - Changed: A state attribute no Hue light has is answered with the bridge's own error 6 instead of a success — for single lights and groups alike.
-
 
 ### 1.17.1 (2026-09-07)
 
@@ -216,10 +216,6 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### 1.15.2 (2026-09-03)
 
 - Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.
-
-### 1.15.1 (2026-09-03)
-
-- Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

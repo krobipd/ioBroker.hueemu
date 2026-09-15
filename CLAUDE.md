@@ -91,9 +91,9 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500 oder Kelvin (`ctScale`, I2), **xy**: Array oder CSV → [x,y]
 - **on**: via shared `coerceBool` (Allowlist `true/1/yes/on`, case-insensitiv; `"off"`/`"no"`/`"false"`/`""` → aus) (v1.10.0 M1)
 
-## Tests (758 vitest inkl. Repo-Standard-Prüfungen + 58 Package-Tests + 1 Integration + Objekt-Inventar)
+## Tests (759 vitest inkl. Repo-Standard-Prüfungen + 60 Package-Tests + 1 Integration + Objekt-Inventar)
 
-Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: 9/9 grün, `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22 und 24.
+Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22, 24 und 26 (9/9 grün, seit v1.18.0 mit 26.x — der Prüfbot verlangt die Matrix `[22.x, 24.x, 26.x]`, W3026; der Deploy-Step läuft auf 26.x).
 
 **WICHTIG:** `.gitignore` ignoriert seit v1.17.0 `build/` (nogit-Regel, der Bau-Ausgang gehört nicht ins Repo). Ein früherer `*.js`-Eintrag mit Ausnahmen für `test/package.js`/`test/integration.js` existiert **nicht mehr** — die Behauptung stand bis zum Audit 2026-09-06 falsch hier (F9).
 
@@ -113,10 +113,10 @@ Aktuelle Version: `io-package.json`. **User-facing Changelog:** `README.md` + `i
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (711 inkl. Repo-Standard-Prüfungen)
+npm run test:ts          # Unit-Tests via vitest (759 inkl. Repo-Standard-Prüfungen)
 npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
 npm run coverage         # vitest --coverage (v8)
-npm run test:package     # Standard Package-Tests (58)
+npm run test:package     # Standard Package-Tests (60 mit @iobroker/testing 6.2.1 — die Flotte bleibt auf 6.2.1, 6.2.2 weist `news.NEXT` ab)
 npm run test:integration # Standard Integration-Tests (1, CI only)
 npm run test:inventory   # Objekt-Inventar aus Fixtures → test/objects.inventory.json (echte Kopplung über die HTTP-API); läuft seit 2026-09-15 auch in der CI (Gate-Job adapter-inventory) — der Abzug wartet per waitForStableTree auf einen 4×250 ms ruhigen Objektsatz, eine feste Pause ist am Mac kalibriert, nicht am ubuntu-Runner
 npm test                 # test:ts + test:package (lokal)
