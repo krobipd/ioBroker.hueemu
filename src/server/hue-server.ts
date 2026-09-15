@@ -52,10 +52,10 @@ export class HueServer {
     this.httpServer = await this.createServer(false);
     await this.httpServer.listen({
       port: this.config.port,
-      host: this.config.host || "0.0.0.0",
+      host: this.config.bind || "0.0.0.0",
     });
 
-    this.logger.debug(`HTTP server listening on ${this.config.host}:${this.config.port}`);
+    this.logger.debug(`HTTP server listening on ${this.config.bind}:${this.config.port}`);
 
     // Start HTTPS server if configured
     if (this.config.https) {
@@ -63,7 +63,7 @@ export class HueServer {
         this.httpsServer = await this.createServer(true);
         await this.httpsServer.listen({
           port: this.config.https.port,
-          host: this.config.host || "0.0.0.0",
+          host: this.config.bind || "0.0.0.0",
         });
       } catch (err) {
         // v1.10.0 (L3): keep start() atomic — if the HTTPS listen fails (e.g. its
@@ -76,7 +76,7 @@ export class HueServer {
         throw err;
       }
 
-      this.logger.debug(`HTTPS server listening on ${this.config.host}:${this.config.https.port}`);
+      this.logger.debug(`HTTPS server listening on ${this.config.bind}:${this.config.https.port}`);
     }
   }
 

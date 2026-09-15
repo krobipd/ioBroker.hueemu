@@ -139,7 +139,7 @@ function internalOf(adapter: HueEmu): {
   getForeignObjectAsync: ReturnType<typeof vi.fn>;
   onStateChange: (id: string, state: ioBroker.State | null | undefined) => void;
   buildConfig: () => Promise<{
-    host: string;
+    bind: string;
     port: number;
     advertiseHost: string;
     identity: { udn: string; mac: string };
@@ -160,7 +160,7 @@ function setup(configOverrides: Record<string, unknown> = {}): {
   const adapter = new HueEmu();
   const i = internalOf(adapter);
   Object.assign(i.config, {
-    host: "192.168.1.10",
+    bind: "192.168.1.10",
     port: 8080,
     advertiseHost: "",
     httpsPort: undefined,
@@ -210,10 +210,10 @@ const PERSISTED_CERT = "-----BEGIN CERTIFICATE-----\nPERSISTED\n-----END CERTIFI
 const PERSISTED_KEY = "-----BEGIN RSA PRIVATE KEY-----\nPERSISTED\n-----END RSA PRIVATE KEY-----";
 
 describe("HueEmu buildConfig", () => {
-  it("resolves host/ports and derives the bridge identity from UDN/MAC", async () => {
+  it("resolves bind/ports and derives the bridge identity from UDN/MAC", async () => {
     const { adapter } = setup();
     const config = await internalOf(adapter).buildConfig();
-    expect(config.host).toBe("192.168.1.10");
+    expect(config.bind).toBe("192.168.1.10");
     expect(config.port).toBe(8080);
     expect(config.identity.udn).toBe("12345678-1234-1234-1234-123456789abc");
     expect(config.identity.mac).toBe("AA:BB:CC:DD:EE:FF");
@@ -231,22 +231,22 @@ describe("HueEmu buildConfig", () => {
     );
   });
 
-  it("treats a blank host as bind-all and auto-resolves a routable advertise IP", async () => {
-    const { adapter } = setup({ host: "  " });
+  it("treats a blank bind as listen-all and auto-resolves a routable advertise IP", async () => {
+    const { adapter } = setup({ bind: "  " });
     const config = await internalOf(adapter).buildConfig();
-    expect(config.host).toBe("0.0.0.0");
+    expect(config.bind).toBe("0.0.0.0");
     expect(config.advertiseHost).toBeTruthy();
     expect(config.advertiseHost).not.toBe("0.0.0.0");
   });
 
   it("advertises the explicit advertiseHost when set", async () => {
-    const { adapter } = setup({ host: "0.0.0.0", advertiseHost: "10.1.2.3" });
+    const { adapter } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
     const config = await internalOf(adapter).buildConfig();
     expect(config.advertiseHost).toBe("10.1.2.3");
   });
 
-  it("advertises a concrete bind host when advertiseHost is empty", async () => {
-    const { adapter } = setup({ host: "192.168.5.5", advertiseHost: "" });
+  it("advertises a concrete bind address when advertiseHost is empty", async () => {
+    const { adapter } = setup({ bind: "192.168.5.5", advertiseHost: "" });
     const config = await internalOf(adapter).buildConfig();
     expect(config.advertiseHost).toBe("192.168.5.5");
   });
@@ -669,6 +669,26 @@ describe("HueEmu onUnload", () => {
     expect(manifest.common.supportedMessages?.deviceManager).toBe(true);
   });
 
+  it("stores the listen address and port under the keys the admin's port-conflict check reads", () => {
+    // v1.18.0 — `native.bind` (a string) + `native.port` (a number) is the pair the admin
+    // compares across instances; the form field for the address is `bind` of type `ip`,
+    // offering 0.0.0.0, and nothing writes the pre-1.18 key `host` any more.
+    const manifest = JSON.parse(readFileSync(join(__dirname, "..", "io-package.json"), "utf8")) as {
+      native: Record<string, unknown>;
+    };
+    expect(manifest.native.bind).toBe("0.0.0.0");
+    expect(manifest.native.port).toBe(8080);
+    expect("host" in manifest.native).toBe(false);
+
+    const form = JSON.parse(readFileSync(join(__dirname, "..", "admin", "jsonConfig.json"), "utf8")) as {
+      items: { networkTab: { items: Record<string, Record<string, unknown>> } };
+    };
+    const fields = form.items.networkTab.items;
+    expect(fields.bind).toMatchObject({ type: "ip", label: "bind", tooltip: "bindTooltip", listenOnAllPorts: true });
+    expect(fields.port).toMatchObject({ type: "port", min: 1, max: 65535 });
+    expect(fields.host).toBeUndefined();
+  });
+
   it("switches off a leftover stopInstance flag and stops the start there", async () => {
     const { adapter, servers } = setup();
     const i = internalOf(adapter);
@@ -699,6 +719,40 @@ describe("HueEmu onUnload", () => {
     const i = internalOf(adapter);
     i.getForeignObjectAsync.mockResolvedValue({
       common: { supportedMessages: { stopInstance: false, deviceManager: true } },
+    });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith("system.adapter.hueemu.0", expect.anything());
+    expect(servers).toHaveLength(1);
+  });
+
+  // v1.18.0: the listen address moved from `host` to the standard key `bind`, the port
+  // became a number. The update leaves both keys behind — `bind` with the manifest
+  // default, `host` with the user's address — and the first start moves the value.
+  it("carries a legacy host/port into the standard keys and stops the start for the restart", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockResolvedValue({
+      common: { supportedMessages: { deviceManager: true } },
+      native: { host: "192.168.1.10", bind: "0.0.0.0", port: "8080" },
+    });
+
+    await i.onReady();
+
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      native: { bind: "192.168.1.10", host: null, port: 8080 },
+    });
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("restarts once"));
+    expect(servers).toHaveLength(0);
+  });
+
+  it("starts normally on an installation that already uses bind and a numeric port", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockResolvedValue({
+      common: { supportedMessages: { deviceManager: true } },
+      native: { bind: "0.0.0.0", port: 8080, host: null },
     });
 
     await i.onReady();

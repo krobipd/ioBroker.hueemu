@@ -29,6 +29,7 @@ src/hue-api/user-service.ts       → Auth/Pairing (auto-add-cap 64/window, in-m
 src/device-management.ts          → v1.11.0 Geräte-Manager-Backend (DeviceManagement-Subklasse: loadDevices/getInstanceInfo, Aktionen add/edit/delete/search, buildDeviceForm, cleanDevice; new HueEmuDeviceManagement(this) im main.ts-Konstruktor). guardAction umschließt JEDEN registrierten Handler, loadDevices fängt selbst — ein Handler antwortet immer (Entscheidung 19)
 src/lib/device-scan.ts            → v1.11.0 reine Licht-Discovery (ChannelDetector → DeviceConfig-Mapping; adapter-agnostisch, gegen echten type-detector getestet). v1.15.0: Skalen-Ableitung (deriveLevelScale/deriveHueScale/deriveCtScale aus common.min/max/unit), Schreibbarkeitsprüfung am echten Objekt (stateFactsOf), TEMPERATURE auch bei hue/cie, MapOutcome mit UnmappedReason
 src/lib/migrations.ts             → + runDeviceScaleBackfill (v1.15.0): füllt LEERE Skalen bestehender native.devices nach, einmalig in onReady, Neustart-Kurzschluss wie die Legacy-Migration
+src/lib/native-key-migration.ts   → v1.18.0 Umzug von Instanz-Einstellungsschlüsseln (`host` → `bind`, `port` String → Zahl) beim ersten Start nach dem Update — reiner Helfer (`buildNativeKeyPatch`) + getippte Adapter-Schnittstelle, EIN Merge, Neustart-Kurzschluss; wortgleich für hassemu/govee-smart/fakeroku vorgesehen
 src/lib/hue-scales.ts             → v1.17.0 ALLES über Hue-Werteskalen an EINER Stelle: Bereiche, beide Umrechnungsrichtungen, Ableitung aus common.min/max/unit (aus device-scan gezogen), Inkremente. Rein — Logger als Parameter
 src/lib/tls-material.ts           → v1.17.0 selbstsigniertes TLS (aus main.ts gezogen, Form wie migrations.ts: reiner Helfer + getippte Abhängigkeits-Schnittstelle)
 src/lib/coerce.ts                 → coerceBool + coerceFiniteNumber + parseLightIndex + parsePort (shared boundary helpers)
@@ -44,7 +45,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 
 1. **Fastify** statt Express — schneller, besseres TypeScript-Support
 2. **SSDP Port 1900 hardcoded** — UPnP-Standard, alle Clients scannen fix diesen Port
-3. **host = bind + advertise** — IP wird für SSDP-Location UND Server-Bind verwendet → kein 0.0.0.0
+3. **`bind` = Bind + Advertise** — EIN `type:ip`-Feld (v1.12.0): eine konkrete IP wird gebunden UND angekündigt (SSDP-Location, description.xml); `0.0.0.0` = auf allen Schnittstellen lauschen, angekündigt wird dann eine automatisch erkannte routbare IP. **Der Schlüssel heißt seit v1.18.0 `bind`** (bis 1.17.1 `host`) — Flotten-Standard „Listen-Port-Deklaration“ (`Entwicklung/CLAUDE_PATTERNS.md`): `native.bind` (String) + `native.port` (Zahl) sind das Paar, das die Admin-Portprüfung (`ConfigPort`) über alle Instanzen desselben Hosts vergleicht — vorher war die Bridge für „Port is already used by …“ unsichtbar. `fleet.json:listenPorts` deklariert `port` (primary), `httpsPort` (secondary) und das Etikett `ssdp` (1900, shared — nie `native.port`, der Port ist absichtlich geteilt); das Prüfpaket-Gate `listen-port-declaration` hält Manifest und Formular daran fest. Bestehende Anlagen: `migrateNativeKeys` zieht `host` → `bind` und `"8080"` → `8080` beim ersten Start (alter Wert gewinnt über den vom Update injizierten Default, alter Schlüssel wird genullt, EIN Merge, Instanz startet einmal neu). Ein Lese-Fallback `bind || host` wäre FALSCH: js-controller ergänzt beim Update den neuen Schlüssel mit dem Default, der Fallback fände also immer den Default.
 4. **Port 8080 Default** — Harmony funktioniert mit 8080. Alexa neuere FW braucht Port 80 (User-Sache, README dokumentiert).
 5. **onoff → LWB007/Dimmable** — Harmony kennt "On/Off light" nicht, fällt sonst auf Farb-Controls zurück
 6. **capabilities-Feld weggelassen** — ha-bridge-kompatibel
@@ -84,7 +85,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500 oder Kelvin (`ctScale`, I2), **xy**: Array oder CSV → [x,y]
 - **on**: via shared `coerceBool` (Allowlist `true/1/yes/on`, case-insensitiv; `"off"`/`"no"`/`"false"`/`""` → aus) (v1.10.0 M1)
 
-## Tests (684 vitest inkl. Repo-Standard-Prüfungen + 57 Package-Tests + 1 Integration + Objekt-Inventar)
+## Tests (711 vitest inkl. Repo-Standard-Prüfungen + 58 Package-Tests + 1 Integration + Objekt-Inventar)
 
 Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: 9/9 grün, `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22 und 24.
 
@@ -106,10 +107,10 @@ Aktuelle Version: `io-package.json`. **User-facing Changelog:** `README.md` + `i
 ```bash
 npm run build            # Production (esbuild via build-adapter)
 npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (684 inkl. Repo-Standard-Prüfungen)
+npm run test:ts          # Unit-Tests via vitest (711 inkl. Repo-Standard-Prüfungen)
 npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
 npm run coverage         # vitest --coverage (v8)
-npm run test:package     # Standard Package-Tests (57)
+npm run test:package     # Standard Package-Tests (58)
 npm run test:integration # Standard Integration-Tests (1, CI only)
 npm run test:inventory   # Objekt-Inventar aus Fixtures → test/objects.inventory.json (echte Kopplung über die HTTP-API); läuft seit 2026-09-15 auch in der CI (Gate-Job adapter-inventory) — der Abzug wartet per waitForStableTree auf einen 4×250 ms ruhigen Objektsatz, eine feste Pause ist am Mac kalibriert, nicht am ubuntu-Runner
 npm test                 # test:ts + test:package (lokal)

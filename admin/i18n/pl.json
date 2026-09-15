@@ -1,8 +1,8 @@
 {
   "networkSettings": "Sieć",
   "serverSettings": "Serwer",
-  "host": "Host / Adres IP",
-  "hostTooltip": "IP, do którego mostek się wiąże i który ogłasza klientom (Alexa, Harmony). Wybierz '0.0.0.0', aby nasłuchiwać na wszystkich interfejsach — ogłaszany IP zostanie wykryty automatycznie.",
+  "bind": "Host / Adres IP",
+  "bindTooltip": "IP, do którego mostek się wiąże i który ogłasza klientom (Alexa, Harmony). Wybierz '0.0.0.0', aby nasłuchiwać na wszystkich interfejsach — ogłaszany IP zostanie wykryty automatycznie.",
   "port": "Port",
   "portTooltip": "Port HTTP dla API Hue (domyślnie: 8080)",
   "advancedSettings": "Zaawansowane (opcjonalne)",

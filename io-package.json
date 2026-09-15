@@ -3,6 +3,19 @@
     "name": "hueemu",
     "version": "1.17.1",
     "news": {
+      "NEXT": {
+        "en": "The listen address and port are now stored under the standard keys the admin's port-conflict check reads — another adapter set to the bridge's port is warned before it collides.\nYour configured Host / IP address survives the update unchanged — nothing to re-enter, and the bridge keeps listening where it did before.",
+        "de": "Listen-Adresse und Port liegen jetzt unter den Standardschlüsseln, die die Portprüfung des Admin liest — ein anderer Adapter auf dem Port der Bridge bekommt die Warnung, bevor es kollidiert.\nDie eingestellte Host-/IP-Adresse bleibt beim Update unverändert erhalten — nichts neu eintragen, die Bridge lauscht weiter wie zuvor.",
+        "ru": "Адрес прослушивания и порт теперь хранятся под стандартными ключами, которые читает проверка конфликтов портов админки — другой адаптер на порту моста получит предупреждение заранее.\nНастроенный адрес Host / IP сохраняется при обновлении без изменений — ничего вводить заново не нужно, мост продолжает слушать там же, где раньше.",
+        "pt": "O endereço de escuta e a porta ficam agora nas chaves padrão que a verificação de conflitos de porta do admin lê — outro adaptador na porta da bridge é avisado antes de colidir.\nO endereço Host / IP configurado mantém-se inalterado na atualização — nada a reintroduzir, a bridge continua a escutar onde escutava.",
+        "nl": "Luisteradres en poort staan nu onder de standaardsleutels die de poortconflictcontrole van de admin leest — een andere adapter op de poort van de bridge krijgt een waarschuwing voordat het botst.\nHet ingestelde Host / IP-adres blijft bij de update ongewijzigd — niets opnieuw invoeren, de bridge luistert verder waar hij al luisterde.",
+        "fr": "L'adresse d'écoute et le port sont désormais stockés sous les clés standard lues par le contrôle de conflit de ports de l'admin — un autre adaptateur sur le port du pont est averti avant la collision.\nL'adresse Host / IP configurée est conservée telle quelle lors de la mise à jour — rien à ressaisir, le pont continue d'écouter au même endroit.",
+        "it": "Indirizzo di ascolto e porta sono ora salvati sotto le chiavi standard lette dal controllo conflitti di porta dell'admin — un altro adattatore sulla porta del bridge viene avvisato in anticipo.\nL'indirizzo Host / IP configurato resta invariato con l'aggiornamento — niente da reinserire, il bridge continua ad ascoltare dove ascoltava.",
+        "es": "La dirección de escucha y el puerto se guardan ahora bajo las claves estándar que lee el control de conflictos de puerto del admin — otro adaptador en el puerto del bridge recibe el aviso a tiempo.\nLa dirección Host / IP configurada se conserva sin cambios tras la actualización — nada que volver a introducir, el bridge sigue escuchando donde antes.",
+        "pl": "Adres nasłuchu i port są teraz zapisane pod standardowymi kluczami, które odczytuje kontrola konfliktów portów admina — inny adapter na porcie mostka otrzyma ostrzeżenie, zanim dojdzie do kolizji.\nSkonfigurowany adres Host / IP pozostaje po aktualizacji bez zmian — nic nie trzeba wpisywać ponownie, mostek nasłuchuje tam, gdzie dotychczas.",
+        "uk": "Адреса прослуховування та порт тепер зберігаються під стандартними ключами, які читає перевірка конфліктів портів адмінки — інший адаптер на порту моста отримає попередження заздалегідь.\nНалаштована адреса Host / IP зберігається після оновлення без змін — нічого вводити заново, міст і далі слухає там само, де й раніше.",
+        "zh-cn": "监听地址和端口现在保存在管理界面端口冲突检查所读取的标准键下——其他适配器若设置为桥接器的端口，会在冲突前收到警告。\n已配置的 Host / IP 地址在更新后保持不变——无需重新输入，桥接器继续在原来的地址监听。"
+      },
       "1.17.1": {
         "en": "The switch that turns off authentication now warns what it really does: every client on the network is then served without a key and can pair itself.",
         "de": "Der Schalter, der die Authentifizierung abschaltet, warnt jetzt vor seiner Wirkung: Jeder Client im Netzwerk wird dann ohne Schlüssel bedient und kann sich selbst koppeln.",
@@ -178,8 +191,8 @@
     "nogit": true
   },
   "native": {
-    "host": "0.0.0.0",
-    "port": "8080",
+    "bind": "0.0.0.0",
+    "port": 8080,
     "httpsPort": "",
     "tlsCert": "",
     "tlsKey": "",

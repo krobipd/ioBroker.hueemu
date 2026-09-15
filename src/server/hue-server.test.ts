@@ -68,7 +68,7 @@ dGlxE9spFWzvVJpQghYsgldpPTDSQD+7b0cirusNND+qnXUCr0kE+6uOow==
 
 function makeConfig(overrides: Partial<HueEmulatorConfig> = {}): HueEmulatorConfig {
   return {
-    host: "127.0.0.1",
+    bind: "127.0.0.1",
     port: 0, // ephemeral — only used by the listen tests
     advertiseHost: "127.0.0.1",
     identity: createTestIdentity(),

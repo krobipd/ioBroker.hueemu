@@ -1,8 +1,8 @@
 {
   "networkSettings": "Red",
   "serverSettings": "Servidor",
-  "host": "Host / Dirección IP",
-  "hostTooltip": "IP a la que se vincula el puente y que anuncia a los clientes (Alexa, Harmony). Elige '0.0.0.0' para escuchar en todas las interfaces — la IP anunciada se detecta automáticamente.",
+  "bind": "Host / Dirección IP",
+  "bindTooltip": "IP a la que se vincula el puente y que anuncia a los clientes (Alexa, Harmony). Elige '0.0.0.0' para escuchar en todas las interfaces — la IP anunciada se detecta automáticamente.",
   "port": "Puerto",
   "portTooltip": "Puerto HTTP para la API Hue (por defecto: 8080)",
   "advancedSettings": "Avanzado (opcional)",

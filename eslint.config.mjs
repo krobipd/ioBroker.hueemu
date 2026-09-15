@@ -25,6 +25,9 @@ export default [
       "build",
       // Generated coverage report (npm run coverage) — never lint it.
       "coverage",
+      // The note-taking hook's session files (git-ignored, one of them ends in `.ts`) —
+      // they turned the lint red whenever they existed (fleet precedent govee-smart, 2026-09-08).
+      ".remember/**",
       "admin",
       "node_modules",
       "**/adapter-config.d.ts",

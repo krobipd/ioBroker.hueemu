@@ -37,8 +37,8 @@ export interface BridgeIdentity {
  * Main configuration for the Hue Emulator
  */
 export interface HueEmulatorConfig {
-  /** Host address to bind the server (may be 0.0.0.0 to listen on all interfaces) */
-  host: string;
+  /** Address to bind the server to (may be 0.0.0.0 to listen on all interfaces) */
+  bind: string;
   /** HTTP port (used both for binding and for the advertised description URL) */
   port: number;
   /** Concrete IP advertised to clients (SSDP location / description.xml / config). Never 0.0.0.0. */

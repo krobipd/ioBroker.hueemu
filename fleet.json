@@ -19,5 +19,24 @@
       "clients": "clientsFolderDesc"
     }
   },
-  "forumThread": "https://forum.iobroker.net/topic/84300/test-adapter-hueemu"
+  "forumThread": "https://forum.iobroker.net/topic/84300/test-adapter-hueemu",
+  "_listenPorts": "Fleet standard since 2026-09-15 (Entwicklung/CLAUDE_PATTERNS.md, section listen-port declaration; enforced by the check listen-port-declaration): the primary port lives in native.port as a number, the listen address in native.bind — the pair the admin's port-conflict check reads. httpsPort is the optional second listener of this bridge. `ssdp` is a label, not a native key: the SSDP port 1900 (SSDP_PORT in src/discovery/ssdp-server.ts) is shared with every other UPnP adapter on the host by design and is therefore never native.port. httpsPort stays a text field with its own validator: ConfigPort reads native.port only, so a secondary listener cannot take part in the admin's conflict detection anyway.",
+  "listenPorts": [
+    {
+      "key": "port",
+      "protocol": "tcp",
+      "role": "primary"
+    },
+    {
+      "key": "httpsPort",
+      "protocol": "tcp",
+      "role": "secondary"
+    },
+    {
+      "key": "ssdp",
+      "protocol": "udp",
+      "role": "shared",
+      "fixed": 1900
+    }
+  ]
 }

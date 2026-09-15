@@ -11,10 +11,10 @@
           "text": "serverSettings",
           "size": 4
         },
-        "host": {
+        "bind": {
           "type": "ip",
-          "label": "host",
-          "tooltip": "hostTooltip",
+          "label": "bind",
+          "tooltip": "bindTooltip",
           "onlyIp4": true,
           "noInternal": true,
           "listenOnAllPorts": true,

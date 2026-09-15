@@ -32,6 +32,7 @@ import {
   validateNetworkConfig,
 } from "./types/config";
 import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
+import { migrateNativeKeys, type NativeKeyMigration } from "./lib/native-key-migration";
 import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -39,7 +40,9 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace ioBroker {
     interface AdapterConfig {
-      host: string;
+      // The listen address — the fleet-standard key the admin's port-conflict check reads
+      // together with `port` (v1.18.0; `host` until v1.17.1, migrated on the first start).
+      bind: string;
       port: number;
       // Legacy (v1.11 and earlier): a separate "advertised IP" field. The single
       // Host/IP selector is now bind + advertise; this is still read for
@@ -67,6 +70,14 @@ export class HueEmu extends utils.Adapter {
   // server (v1.13.0) settles deterministically, so this is now defense in depth
   // (fakeroku keeps the same belt-and-braces bound). 5s is far above a local bind.
   private static readonly SSDP_START_TIMEOUT_MS = 5_000;
+  /**
+   * v1.18.0: `host` → `bind` (an empty legacy value meant "all interfaces"), and the
+   * manifest default `"8080"` (a string until v1.17.1) → the number the port field writes.
+   */
+  private static readonly NATIVE_KEY_MIGRATIONS: NativeKeyMigration[] = [
+    { from: "host", to: "bind", coerce: v => (typeof v === "string" && v.trim()) || "0.0.0.0" },
+    { key: "port", coerce: v => (typeof v === "string" ? Number.parseInt(v, 10) : v) },
+  ];
   // The ssdp:alive pulse cadence — node-ssdp's adInterval option, now an
   // adapter-managed interval (fleet timer rule).
   private static readonly SSDP_AD_INTERVAL_MS = 10_000;
@@ -242,6 +253,13 @@ export class HueEmu extends utils.Adapter {
       // can fail, so a crash between here and the listen leaves the truth behind.
       this.setConnected(false, REASON_UNKNOWN);
 
+      // v1.18.0: the listen address moved from `host` to the standard key `bind` and
+      // the port became a number, so the admin's port-conflict check sees this bridge.
+      // A write restarts the instance — stop here like every other native migration.
+      if (await migrateNativeKeys(this, HueEmu.NATIVE_KEY_MIGRATIONS)) {
+        return;
+      }
+
       // Migrate legacy devices (created via createLight) to admin config format
       const migrated = await this.migrateLegacyDevices();
       if (migrated) {
@@ -370,21 +388,21 @@ export class HueEmu extends utils.Adapter {
    */
   private async buildConfig(): Promise<HueEmulatorConfig> {
     // Parse configuration values
-    const host = this.config.host?.trim() || "0.0.0.0";
+    const bind = this.config.bind?.trim() || "0.0.0.0";
     const port = this.toPort(this.config.port);
-    // v1.12.0: one Host/IP selector is bind AND advertise. A concrete host is
+    // v1.12.0: one Host/IP selector is bind AND advertise. A concrete address is
     // announced as-is (SSDP location / description.xml / config); "0.0.0.0"
     // (listen on all interfaces) auto-detects a routable IP to announce, never
     // advertising 0.0.0.0. Legacy configs that still carry a separate
-    // advertiseHost keep working — honoured only when the host is 0.0.0.0.
+    // advertiseHost keep working — honoured only when the bind is 0.0.0.0.
     const legacyAdvertise = typeof this.config.advertiseHost === "string" ? this.config.advertiseHost.trim() : "";
     const advertiseHost =
-      host !== "0.0.0.0"
-        ? host
+      bind !== "0.0.0.0"
+        ? bind
         : legacyAdvertise && legacyAdvertise !== "0.0.0.0"
           ? legacyAdvertise
           : detectPrimaryIPv4();
-    if (host === "0.0.0.0" && advertiseHost) {
+    if (bind === "0.0.0.0" && advertiseHost) {
       // The address clients are told to use is a choice the adapter made — say
       // which one, so a wrong pick (a docker bridge, a VPN tunnel) is visible in
       // the log instead of only in "Alexa cannot find the bridge".
@@ -433,12 +451,12 @@ export class HueEmu extends utils.Adapter {
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
     );
     this.log.debug(
-      `Network: bind=${host}:${port}, advertise=${advertiseHost}, SSDP=:${SSDP_PORT}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`,
+      `Network: bind=${bind}:${port}, advertise=${advertiseHost}, SSDP=:${SSDP_PORT}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`,
     );
     this.log.debug(`UDN: ${identity.udn}`);
 
     return {
-      host,
+      bind,
       port,
       advertiseHost,
       https,

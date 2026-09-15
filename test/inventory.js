@@ -34,7 +34,7 @@ const FIXTURE_CLIENT_KEY = "inventory-fixture-client";
  * would stop the start and the inventory would come out empty.
  */
 const FIXTURE_NATIVE = {
-  host: "0.0.0.0",
+  bind: "0.0.0.0",
   port: FIXTURE_PORT,
   httpsPort: "",
   udn: "12345678-1234-1234-1234-123456789abc",

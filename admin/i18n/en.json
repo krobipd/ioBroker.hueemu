@@ -1,8 +1,8 @@
 {
   "networkSettings": "Network",
   "serverSettings": "Server",
-  "host": "Host / IP Address",
-  "hostTooltip": "IP the bridge binds to and announces to clients (Alexa, Harmony). Choose '0.0.0.0' to listen on all interfaces — the announced IP is auto-detected.",
+  "bind": "Host / IP Address",
+  "bindTooltip": "IP the bridge binds to and announces to clients (Alexa, Harmony). Choose '0.0.0.0' to listen on all interfaces — the announced IP is auto-detected.",
   "port": "Port",
   "portTooltip": "HTTP port for the Hue API (default: 8080)",
   "advancedSettings": "Advanced (optional)",
