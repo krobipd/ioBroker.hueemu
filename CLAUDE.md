@@ -111,7 +111,7 @@ npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-
 npm run coverage         # vitest --coverage (v8)
 npm run test:package     # Standard Package-Tests (57)
 npm run test:integration # Standard Integration-Tests (1, CI only)
-npm run test:inventory   # Objekt-Inventar aus Fixtures → test/objects.inventory.json (echte Kopplung über die HTTP-API)
+npm run test:inventory   # Objekt-Inventar aus Fixtures → test/objects.inventory.json (echte Kopplung über die HTTP-API); läuft seit 2026-09-15 auch in der CI (Gate-Job adapter-inventory) — der Abzug wartet per waitForStableTree auf einen 4×250 ms ruhigen Objektsatz, eine feste Pause ist am Mac kalibriert, nicht am ubuntu-Runner
 npm test                 # test:ts + test:package (lokal)
 npm run lint             # ESLint
 npm run lint:fix         # ESLint --fix
