@@ -15,7 +15,6 @@
   "trustProxy": "Fidati delle intestazioni X-Forwarded-*",
   "trustProxyTooltip": "Attiva solo se l'adapter è dietro un reverse proxy AFFIDABILE (Traefik, nginx) che rimuove le intestazioni inviate dal client. Per impostazione predefinita viene usato l'IP reale del socket.",
   "deviceConfiguration": "Dispositivi",
-  "configuredDevices": "Dispositivi configurati",
   "deviceConfigHelp": "Aggiungi una luce con \"Aggiungi luce\" oppure usa \"Cerca luci\" per rilevare automaticamente i dispositivi ioBroker compatibili.",
   "deviceName": "Nome",
   "lightNameFallback": "Luce %s",

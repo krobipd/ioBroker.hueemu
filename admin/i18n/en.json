@@ -15,7 +15,6 @@
   "trustProxy": "Trust X-Forwarded-* headers",
   "trustProxyTooltip": "Only enable if this adapter sits behind a TRUSTED reverse proxy (e.g. Traefik, nginx) that strips client-supplied forwarding headers. With this off, the adapter uses the real socket IP.",
   "deviceConfiguration": "Devices",
-  "configuredDevices": "Configured Devices",
   "deviceConfigHelp": "Add a light with \"Add light\", or use \"Search lights\" to auto-detect mappable ioBroker devices.",
   "deviceName": "Name",
   "lightNameFallback": "Light %s",

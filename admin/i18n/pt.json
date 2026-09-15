@@ -15,7 +15,6 @@
   "trustProxy": "Confiar nos cabeçalhos X-Forwarded-*",
   "trustProxyTooltip": "Ative apenas se o adaptador estiver atrás de um proxy reverso CONFIÁVEL (Traefik, nginx) que remove cabeçalhos enviados pelo cliente. Por padrão é usado o IP real do socket.",
   "deviceConfiguration": "Dispositivos",
-  "configuredDevices": "Dispositivos configurados",
   "deviceConfigHelp": "Adicione uma luz com \"Adicionar luz\" ou use \"Procurar luzes\" para detectar automaticamente dispositivos ioBroker compatíveis.",
   "deviceName": "Nome",
   "lightNameFallback": "Luz %s",

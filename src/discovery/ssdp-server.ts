@@ -43,7 +43,10 @@ export interface SsdpServerConfig {
   host: string;
   /** HTTP port where description.xml is served */
   port: number;
-  /** SSDP port (default: 1900) */
+  /**
+   * SSDP port (default: 1900). A test seam only — production always uses the
+   * standard port, the tests need an unprivileged one they can bind.
+   */
   ssdpPort?: number;
   /** Logger */
   logger: Logger;

@@ -41,17 +41,6 @@ describe("Description XML", () => {
       expect(xml).toContain("<URLBase>http://192.168.1.100:8080/</URLBase>");
     });
 
-    it("should use custom urlBase when provided", () => {
-      const xml = generateDescriptionXml({
-        identity,
-        host: "192.168.1.100",
-        port: 8080,
-        urlBase: "https://custom.host:9999/",
-      });
-
-      expect(xml).toContain("<URLBase>https://custom.host:9999/</URLBase>");
-    });
-
     it("should include serial number from identity", () => {
       const xml = generateDescriptionXml({
         identity,

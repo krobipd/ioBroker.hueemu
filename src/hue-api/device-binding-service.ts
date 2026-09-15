@@ -281,60 +281,66 @@ export class DeviceBindingService {
    * scale stays undecided and the heuristic applies — in BOTH directions now.
    *
    * Resolved in memory only: the stored configuration is the user's, and a
-   * write to it would restart the instance on every start.
+   * write to it would restart the instance on every start. v1.18.0: this is
+   * the ONE place scales are derived — the persisted start-up backfill of
+   * v1.15.0 did the same derivation a second time, read four objects per light
+   * on every start whether anything was undecided or not, and froze a derived
+   * scale into the configuration (audit 2026-09-15 D1/D2). Only undecided
+   * fields are read here, all of them in parallel; a scale the backfill stored
+   * on an older installation is honoured like any user decision.
    *
    * @param devices The stored device configurations.
    * @returns the same list with the scales it could prove filled in.
    */
   private async resolveScales(devices: DeviceConfig[]): Promise<DeviceConfig[]> {
-    const factsCache = new Map<string, Awaited<ReturnType<typeof stateFactsOf>>>();
-    /**
-     * Read the facts of one source state once, tolerating a missing object.
-     *
-     * @param id The state id to look up.
-     */
-    const factsFor = async (id: string): Promise<ReturnType<typeof stateFactsOf>> => {
-      if (factsCache.has(id)) {
-        return factsCache.get(id);
-      }
-      let facts: ReturnType<typeof stateFactsOf>;
-      try {
-        facts = stateFactsOf(await this.adapter.getForeignObjectAsync(id));
-      } catch (error) {
-        this.logger.debug(`Could not read the object of ${id}: ${errText(error)}`);
-        facts = undefined;
-      }
-      factsCache.set(id, facts);
-      return facts;
-    };
-
-    const resolved: DeviceConfig[] = [];
-    for (const device of devices) {
-      const patch: ScaledDevice = {};
+    // Every field still open: which device, which scale, which source decides it.
+    const open: Array<{ index: number; scale: (typeof SCALE_FIELDS)[number]["scale"]; stateId: string }> = [];
+    devices.forEach((device, index) => {
       for (const { state, scale } of SCALE_FIELDS) {
         const stateId = device[state];
-        if (typeof stateId !== "string" || !stateId || !isUndecidedScale(device[scale])) {
-          continue;
-        }
-        const facts = await factsFor(stateId);
-        const derived =
-          scale === "hueScale"
-            ? deriveHueScale(facts)
-            : scale === "ctScale"
-              ? deriveCtScale(facts)
-              : deriveLevelScale(facts);
-        if (derived) {
-          (patch as Record<string, string>)[scale] = derived;
+        if (typeof stateId === "string" && stateId && isUndecidedScale(device[scale])) {
+          open.push({ index, scale, stateId });
         }
       }
-      if (Object.keys(patch).length > 0) {
-        this.logger.debug(`Value scales for "${device.name}" resolved from the bound states: ${JSON.stringify(patch)}`);
-        resolved.push({ ...device, ...patch });
-      } else {
-        resolved.push(device);
+    });
+
+    // The source objects those fields need — each read once, all at the same time.
+    const facts = new Map<string, ReturnType<typeof stateFactsOf>>();
+    await Promise.all(
+      [...new Set(open.map(entry => entry.stateId))].map(async id => {
+        try {
+          facts.set(id, stateFactsOf(await this.adapter.getForeignObjectAsync(id)));
+        } catch (error) {
+          this.logger.debug(`Could not read the object of ${id}: ${errText(error)}`);
+          facts.set(id, undefined);
+        }
+      }),
+    );
+
+    const patches = new Map<number, ScaledDevice>();
+    for (const { index, scale, stateId } of open) {
+      const sourceFacts = facts.get(stateId);
+      const derived =
+        scale === "hueScale"
+          ? deriveHueScale(sourceFacts)
+          : scale === "ctScale"
+            ? deriveCtScale(sourceFacts)
+            : deriveLevelScale(sourceFacts);
+      if (derived) {
+        const patch = patches.get(index) ?? {};
+        (patch as Record<string, string>)[scale] = derived;
+        patches.set(index, patch);
       }
     }
-    return resolved;
+
+    return devices.map((device, index) => {
+      const patch = patches.get(index);
+      if (!patch) {
+        return device;
+      }
+      this.logger.debug(`Value scales for "${device.name}" resolved from the bound states: ${JSON.stringify(patch)}`);
+      return { ...device, ...patch };
+    });
   }
 
   /**
@@ -787,9 +793,10 @@ export class DeviceBindingService {
 
   /**
    * Read the RAW source value of a mapped state (cache first), without any Hue
-   * conversion. The converted read path defaults a missing value to a sensible
-   * Hue value (bri → 254), which is exactly wrong when the question is
-   * "is there any brightness at all?".
+   * conversion — `null` for a source that is missing or unreadable. The
+   * converted read path defaults such a value to a sensible Hue value
+   * (bri → 254), which is exactly wrong when the question is "is there any
+   * brightness at all?".
    *
    * @param stateId - Full ioBroker state ID
    */
@@ -829,35 +836,14 @@ export class DeviceBindingService {
 
   /**
    * Get state value from cache or adapter, converted into the Hue API's shape.
+   * A missing or unreadable source converts to the attribute's Hue default.
    *
    * @param stateId - Full ioBroker state ID
    * @param stateName - Hue state name (on, bri, ct, etc.)
    * @param device - Device configuration for scale settings
    */
   private async getStateValue(stateId: string, stateName: string, device: DeviceConfig): Promise<unknown> {
-    // Try cache first
-    if (this.stateCache.has(stateId)) {
-      return convertValueFromState(stateName, this.stateCache.get(stateId), device, this.logger);
-    }
-
-    // Fetch from adapter
-    try {
-      const state = await this.adapter.getForeignStateAsync(stateId);
-      if (state !== null && state !== undefined) {
-        this.rememberSourceValue(stateId, state.val);
-        this.stateCache.set(stateId, state.val);
-        return convertValueFromState(stateName, state.val, device, this.logger);
-      }
-      // v1.10.0 (I1): negatively cache a missing mapped state so repeated
-      // full-state polls don't re-hit the broker on every read. The foreign-state
-      // subscription calls updateStateCache() if the state later appears, so this
-      // self-heals (a real state with val=null caches identically).
-      this.stateCache.set(stateId, null);
-    } catch (error) {
-      this.logger.debug(`Could not get state ${stateId}: ${errText(error)}`);
-    }
-
-    return getDefaultValue(stateName);
+    return convertValueFromState(stateName, await this.rawSourceValue(stateId), device, this.logger);
   }
 
   /**

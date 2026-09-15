@@ -20,7 +20,6 @@ import {
   runObsoleteStateCleanup,
   runLegacyDeviceMigration,
   runDeviceIdMigration,
-  runDeviceScaleBackfill,
 } from "./lib/migrations";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
@@ -287,13 +286,6 @@ export class HueEmu extends utils.Adapter {
       // creates them only where they are missing).
       await this.refreshInstanceObjects();
       if (this.unloaded) {
-        return;
-      }
-
-      // v1.15.0: derive the value scales the assistant used to leave empty.
-      // Writing native restarts the instance (jsonConfig semantics), so stop
-      // here exactly like the legacy migration does.
-      if (await this.backfillDeviceScales()) {
         return;
       }
 
@@ -755,25 +747,6 @@ export class HueEmu extends utils.Adapter {
     if (converted > 0) {
       this.log.debug(`Brought ${converted} paired client object(s) up to the current name/description standard`);
     }
-  }
-
-  /**
-   * v1.15.0: fill in the per-device value scales the v1.11.0 assistant never
-   * wrote. Only empty fields, only where the bound source proves the scale.
-   * Logic + guard rails in {@link runDeviceScaleBackfill}.
-   *
-   * @returns true when the config was rewritten and the instance is restarting.
-   */
-  private async backfillDeviceScales(): Promise<boolean> {
-    return runDeviceScaleBackfill(
-      {
-        namespace: this.namespace,
-        getForeignObjectAsync: id => this.getForeignObjectAsync(id),
-        extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
-        log: { info: msg => this.log.info(msg), debug: msg => this.log.debug(msg) },
-      },
-      this.config.devices || [],
-    );
   }
 
   /**

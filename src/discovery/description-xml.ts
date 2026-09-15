@@ -14,13 +14,11 @@ export interface DescriptionXmlOptions {
   host: string;
   /** HTTP port */
   port: number;
-  /** URL base override (optional) */
-  urlBase?: string;
 }
 
 /**
  * Minimal XML escaping for interpolated values. Applied to every value that can
- * originate from configuration — host/urlBase and the mac-derived
+ * originate from configuration — the host and the mac-derived
  * serialNumber/udn — so a stray metacharacter cannot break or inject XML.
  *
  * @param s - Raw string to escape.
@@ -40,12 +38,11 @@ function escapeXml(s: string): string {
  * @param options - Description XML generation options
  */
 export function generateDescriptionXml(options: DescriptionXmlOptions): string {
-  const { identity, host, port, urlBase } = options;
-  const baseUrl = urlBase || `http://${host}:${port}/`;
+  const { identity, host, port } = options;
   const safeHost = escapeXml(host);
-  const safeBaseUrl = escapeXml(baseUrl);
+  const safeBaseUrl = escapeXml(`http://${host}:${port}/`);
   // serialNumber derives from the admin-typed `mac` (free text), udn from a
-  // uuid/persisted value — escape both as well, not just host/urlBase.
+  // uuid/persisted value — escape both as well, not just the host.
   const safeSerial = escapeXml(identity.serialNumber);
   const safeUdn = escapeXml(identity.udn);
 

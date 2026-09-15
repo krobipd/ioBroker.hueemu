@@ -205,6 +205,16 @@ describe("Config utilities", () => {
     it("throws when the HTTPS port equals the HTTP port", () => {
       expect(() => validateNetworkConfig("192.168.1.5", 8080, 8080)).toThrow(/equals HTTP port/i);
     });
+
+    // v1.18.0 (audit 2026-09-15 E7): only the admin form kept a port in range —
+    // a hand-edited instance object could carry 0 or 70000 into listen().
+    it("throws for a port outside 1..65535 or not an integer", () => {
+      expect(() => validateNetworkConfig("192.168.1.5", 0, undefined)).toThrow(/HTTP port 0 is not a port number/);
+      expect(() => validateNetworkConfig("192.168.1.5", 70000, undefined)).toThrow(/not a port number/);
+      expect(() => validateNetworkConfig("192.168.1.5", 8080.5, undefined)).toThrow(/not a port number/);
+      expect(() => validateNetworkConfig("192.168.1.5", 8080, 65536)).toThrow(/HTTPS port 65536 is not a port number/);
+      expect(() => validateNetworkConfig("192.168.1.5", 1, 65535)).not.toThrow();
+    });
   });
 });
 

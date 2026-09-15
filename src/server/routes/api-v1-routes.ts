@@ -4,7 +4,6 @@
 
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
 import type { HueApiHandler, HueRequest, CreateUserRequest, LightStateUpdate } from "../../types";
-import type { Logger } from "../../types/config";
 import { HueApiError } from "../../types/errors";
 import { createSuccessResponse } from "../middleware/error-handler";
 
@@ -14,13 +13,6 @@ import { createSuccessResponse } from "../middleware/error-handler";
 export interface ApiRoutesOptions extends FastifyPluginOptions {
   /** API handler implementation */
   handler: HueApiHandler;
-  /**
-   * Optional adapter logger. When provided, `handleErrors` emits a `debug`
-   * line for every error converged via the route-level catch — production
-   * wires this in `hue-server.ts`. Tests omit it for backward compatibility
-   * (no log assertions in existing tests).
-   */
-  logger?: Logger;
 }
 
 /**
@@ -52,42 +44,18 @@ function toHueRequest(request: FastifyRequest): HueRequest {
 }
 
 /**
- * Error handler wrapper for async route handlers.
+ * Run a route body and send its result.
  *
- * v1.4.5 (D + E): the optional `logger` parameter emits a debug trace for every
- * converged error — requireAuth throws, route-handler throws, body validation.
- * Without it the route-level error convergence was completely silent. The logger
- * is optional (tests pass a handler without one).
- *
- * @param request - Fastify request object
  * @param reply - Fastify reply object
  * @param handler - Async route handler function
- * @param logger - Optional logger for debug output
  */
-async function handleErrors(
-  request: FastifyRequest,
-  reply: FastifyReply,
-  handler: () => unknown,
-  logger?: Logger,
-): Promise<void> {
-  try {
-    const result = await handler();
-    if (!reply.sent) {
-      reply.send(result);
-    }
-  } catch (error) {
-    if (error instanceof HueApiError) {
-      logger?.debug(`Hue API error: ${request.method} ${request.url} → ${String(error.type)} (${error.message})`);
-      reply.status(200).send([error.toResponse()]);
-    } else if (error instanceof Error) {
-      logger?.debug(`Hue API error: ${request.method} ${request.url} → internal_error (${error.message})`);
-      const hueError = HueApiError.internalError(error.message, request.url);
-      reply.status(200).send([hueError.toResponse()]);
-    } else {
-      logger?.debug(`Hue API error: ${request.method} ${request.url} → unknown (${String(error)})`);
-      const hueError = HueApiError.internalError("Unknown error", request.url);
-      reply.status(200).send([hueError.toResponse()]);
-    }
+async function sendResult(reply: FastifyReply, handler: () => unknown): Promise<void> {
+  // A rejection propagates to the server-level error handler (`hueErrorHandler`),
+  // which maps HueApiError → its Hue error entry and anything else → 901 — the
+  // same mapping this function used to repeat (audit 2026-09-15 E1).
+  const result = await handler();
+  if (!reply.sent) {
+    reply.send(result);
   }
 }
 
@@ -110,16 +78,10 @@ async function requireAuth(handler: HueApiHandler, username: string, address: st
  * Fastify plugin that registers all Hue API v1 routes
  *
  * @param fastify - Fastify instance to register routes on
- * @param options - Plugin options with handler and logger
+ * @param options - Plugin options with the handler
  */
 export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions): void {
-  const { handler, logger } = options;
-
-  // Local helper closure that captures `logger` from plugin options — saves
-  // passing the logger through all call-sites of `handleErrors`.
-  async function runWithLog(req: FastifyRequest, rep: FastifyReply, fn: () => unknown): Promise<void> {
-    return handleErrors(req, rep, fn, logger);
-  }
+  const { handler } = options;
 
   /**
    * Run a route body that requires a paired client: read the params, build the
@@ -137,7 +99,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
     suffix: (params: LightParams) => string,
     fn: (hueReq: HueRequest, params: LightParams) => unknown,
   ): Promise<void> {
-    return runWithLog(req, rep, async () => {
+    return sendResult(rep, async () => {
       const params = req.params as LightParams;
       await requireAuth(handler, params.username, `/api/${params.username}${suffix(params)}`);
       return fn(toHueRequest(req), params);
@@ -161,7 +123,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
 
   // POST /api - Create user
   fastify.post("/api", async (request: FastifyRequest, reply: FastifyReply) => {
-    await runWithLog(request, reply, async () => {
+    await sendResult(reply, async () => {
       const hueReq = toHueRequest(request);
       const raw = request.body;
 
@@ -187,7 +149,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   // the static route wins over /api/:username, so "config" is never taken
   // for a username.
   fastify.get("/api/config", async (request: FastifyRequest, reply: FastifyReply) => {
-    await runWithLog(request, reply, () => handler.getConfig(toHueRequest(request), ""));
+    await sendResult(reply, () => handler.getConfig(toHueRequest(request), ""));
   });
 
   // GET /api/:username - Get full state
@@ -207,7 +169,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   // pairing window — discovery apps poll /api/nouser/config while waiting, and
   // the well-known probe name would become a valid key.
   fastify.get<{ Params: UsernameParams }>("/api/:username/config", async (request, reply) => {
-    await runWithLog(request, reply, async () => {
+    await sendResult(reply, async () => {
       const hueReq = toHueRequest(request);
       const { username } = request.params;
       const authed = handler.isAuthDisabled() || (await handler.isKnownUser(username));
@@ -275,7 +237,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
 
   // Fallback for unhandled API routes
   fastify.all("/api/*", async (request: FastifyRequest, reply: FastifyReply) => {
-    await runWithLog(request, reply, () => {
+    await sendResult(reply, () => {
       const hueReq = toHueRequest(request);
       return handler.fallback(hueReq);
     });

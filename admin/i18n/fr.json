@@ -15,7 +15,6 @@
   "trustProxy": "Faire confiance aux en-têtes X-Forwarded-*",
   "trustProxyTooltip": "À activer uniquement si l'adaptateur est derrière un proxy inverse DE CONFIANCE (Traefik, nginx) qui nettoie les en-têtes client. Par défaut l'IP réelle du socket est utilisée.",
   "deviceConfiguration": "Appareils",
-  "configuredDevices": "Appareils configurés",
   "deviceConfigHelp": "Ajoutez une lumière avec « Ajouter une lumière » ou utilisez « Rechercher des lumières » pour détecter automatiquement les appareils ioBroker compatibles.",
   "deviceName": "Nom",
   "lightNameFallback": "Lumière %s",

@@ -15,7 +15,6 @@
   "trustProxy": "X-Forwarded-* headers vertrouwen",
   "trustProxyTooltip": "Schakel alleen in als de adapter achter een VERTROUWDE reverse-proxy (Traefik, nginx) staat die client-headers verwijdert. Standaard wordt het echte socket-IP gebruikt.",
   "deviceConfiguration": "Apparaten",
-  "configuredDevices": "Geconfigureerde apparaten",
   "deviceConfigHelp": "Voeg een lamp toe met \"Lamp toevoegen\" of gebruik \"Lampen zoeken\" om geschikte ioBroker-apparaten automatisch te detecteren.",
   "deviceName": "Naam",
   "lightNameFallback": "Lamp %s",

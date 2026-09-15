@@ -175,12 +175,9 @@ export class HueServer {
       },
     });
 
-    // Register API routes (v1.4.5 (I): logger pass-through enables
-    // handleErrors debug-trace for route-level exceptions)
-    await server.register(apiV1Routes, {
-      handler: this.handler,
-      logger: this.logger,
-    });
+    // Register API routes — errors thrown inside them reach the server-level
+    // error handler registered above.
+    await server.register(apiV1Routes, { handler: this.handler });
 
     // Health check endpoint
     server.get("/health", () => ({ status: "ok" }));

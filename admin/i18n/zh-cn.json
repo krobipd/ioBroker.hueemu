@@ -15,7 +15,6 @@
   "trustProxy": "信任 X-Forwarded-* 头",
   "trustProxyTooltip": "仅当适配器位于受信任的反向代理（如 Traefik、nginx）之后并由代理清除客户端提供的转发头时启用。默认使用真实的套接字 IP。",
   "deviceConfiguration": "设备",
-  "configuredDevices": "已配置设备",
   "deviceConfigHelp": "使用“添加灯”手动添加灯，或使用“搜索灯”自动检测可映射的 ioBroker 设备。",
   "deviceName": "名称",
   "lightNameFallback": "灯 %s",

@@ -186,6 +186,16 @@ export function validateNetworkConfig(advertiseHost: string, port: number, https
       "Could not determine a routable IP to advertise — set the Host/IP in admin config to the concrete address clients should reach",
     );
   }
+  // The admin form keeps a port within 1..65535; an instance object edited by
+  // hand does not, and a listen() on port 0 or 70000 fails far from the cause.
+  for (const [label, value] of [
+    ["HTTP", port],
+    ["HTTPS", httpsPort],
+  ] as const) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > 65535)) {
+      throw new ConfigurationError(`${label} port ${value} is not a port number (1–65535)`);
+    }
+  }
   if (httpsPort !== undefined && httpsPort === port) {
     throw new ConfigurationError(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
   }

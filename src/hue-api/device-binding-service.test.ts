@@ -1754,6 +1754,61 @@ describe("v1.17.0 — the value scale is settled at start, from the bound object
     const light = await svc.getLightById("1");
     expect(light.state.bri).toBe(127);
   });
+
+  // v1.18.0 (audit 2026-09-15 D1/D2): the start used to read four objects per
+  // light whether anything was undecided or not — now only the undecided
+  // fields' sources are read, each once, all at the same time.
+  describe("reads only what is undecided", () => {
+    function colourLights(count: number, scales: Record<string, string>): DeviceConfig[] {
+      return Array.from({ length: count }, (_, i) => ({
+        name: `L${i}`,
+        lightType: "color" as const,
+        onState: `z.0.l${i}.on`,
+        briState: `z.0.l${i}.bri`,
+        hueState: `z.0.l${i}.hue`,
+        satState: `z.0.l${i}.sat`,
+        ctState: `z.0.l${i}.ct`,
+        ...scales,
+      }));
+    }
+
+    async function objectReadsDuringStart(devices: DeviceConfig[]): Promise<string[]> {
+      // Every bound state carries a value, so the cache warm-up has no reason
+      // to look at an object — every object read left is the scale resolution's.
+      const values: Record<string, unknown> = {};
+      for (const device of devices) {
+        for (const id of [device.onState, device.briState, device.hueState, device.satState, device.ctState]) {
+          values[id as string] = 1;
+        }
+      }
+      const adapter = createMockDeviceBindingAdapter(values);
+      const reads: string[] = [];
+      const original = adapter.getForeignObjectAsync;
+      adapter.getForeignObjectAsync = (id: string) => {
+        reads.push(id);
+        return original(id);
+      };
+      const svc = new DeviceBindingService({ adapter, devices, logger: createMockLogger() });
+      await svc.initialize();
+      return reads;
+    }
+
+    it("reads nothing for lights whose scales are all decided", async () => {
+      const devices = colourLights(10, {
+        briScale: "percent",
+        hueScale: "degrees",
+        satScale: "percent",
+        ctScale: "kelvin",
+      });
+      expect(await objectReadsDuringStart(devices)).toEqual([]);
+    });
+
+    it("reads exactly the undecided sources, once each", async () => {
+      const devices = colourLights(3, { briScale: "percent", hueScale: "degrees", satScale: "percent" });
+      const reads = await objectReadsDuringStart(devices);
+      expect(reads.sort()).toEqual(["z.0.l0.ct", "z.0.l1.ct", "z.0.l2.ct"]);
+    });
+  });
 });
 
 describe("v1.17.0 — a light whose driving state does not exist is not reachable", () => {

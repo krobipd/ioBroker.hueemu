@@ -15,7 +15,6 @@
   "trustProxy": "X-Forwarded-* Header vertrauen",
   "trustProxyTooltip": "Nur aktivieren, wenn der Adapter HINTER einem vertrauenswürdigen Reverse-Proxy (z.B. Traefik, nginx) läuft, der Client-Header bereinigt. Standardmäßig wird die echte Socket-IP verwendet.",
   "deviceConfiguration": "Geräte",
-  "configuredDevices": "Konfigurierte Geräte",
   "deviceConfigHelp": "Ein Licht über \"Licht hinzufügen\" anlegen oder mit \"Lichter suchen\" passende ioBroker-Geräte automatisch erkennen.",
   "deviceName": "Name",
   "lightNameFallback": "Licht %s",
