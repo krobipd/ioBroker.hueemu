@@ -181,7 +181,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
     ### **WORK IN PROGRESS**
 -->
 
-### 1.18.0 (2026-09-15)
+### 1.18.0 (2026-09-15) — stable
 
 - Changed: The listen address and port are now stored under the standard keys the admin's port-conflict check reads — another adapter set to the bridge's port is warned before it collides.
 - Improved: Your configured Host / IP address survives the update unchanged — nothing to re-enter, and the bridge keeps listening where it did before.
