@@ -205,4 +205,4 @@ jede Lampe jetzt direkt auf den Gerätedatenpunkt zeigen lassen und dieses Skrip
 Der Adapter spricht ausschließlich mit Geräten in deinem eigenen Netz; er hat keine
 Cloud-Anbindung und schickt von sich aus nichts ins Internet.
 
-Die Fehlermeldung über Sentry ist ab Werk aktiv; was sie sendet und wie man sie abschaltet, steht im [Abschnitt Sentry der Haupt-README](../../README.md#sentry).
+Die Fehlermeldung über Sentry ist ab Werk aktiv; was sie sendet und wie man sie abschaltet, steht im [Abschnitt Sentry der Haupt-README](../../README.md#sentry--error-reporting).

@@ -197,4 +197,4 @@ state and drop that script.
 The adapter speaks only to devices on your own network; it has no cloud connection and
 sends nothing to the internet on its own.
 
-Error reporting via Sentry is active by default; what it sends and how to switch it off is described in the [Sentry section of the main README](../../README.md#sentry).
+Error reporting via Sentry is active by default; what it sends and how to switch it off is described in the [Sentry section of the main README](../../README.md#sentry--error-reporting).
