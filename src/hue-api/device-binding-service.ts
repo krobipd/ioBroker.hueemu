@@ -832,18 +832,6 @@ export class DeviceBindingService {
   }
 
   /**
-   * Derive the Hue `colormode` from the colour states the device actually
-   * maps, not from defaulted placeholders. Priority xy > ct > hs matches real
-   * Hue. A `color` light always carries a defaulted `xy`, so without the
-   * "mapped" distinction every colour light would report `xy` even when the
-   * user only bound hue/sat — a client honouring colormode would then render
-   * the [0.5,0.5] default instead of the actual hue/sat colour. Falls back to
-   * whichever colour state carries a (default) value when nothing is mapped.
-   *
-   * @param mapped Colour state names (xy/ct/hue/sat) that have a configured stateId.
-   * @param state The assembled light state (carries defaulted values).
-   */
-  /**
    * Remember which colour model the last command of a light used — v1.19.0 (audit
    * 2026-09-25 Q11). The bridge reports the mode last set; the mapped datapoints
    * alone always said `xy` or `ct` for a lamp that has them, even right after a
@@ -860,6 +848,18 @@ export class DeviceBindingService {
     }
   }
 
+  /**
+   * Derive the Hue `colormode` from the colour states the device actually
+   * maps, not from defaulted placeholders. Priority xy > ct > hs matches real
+   * Hue. A `color` light always carries a defaulted `xy`, so without the
+   * "mapped" distinction every colour light would report `xy` even when the
+   * user only bound hue/sat — a client honouring colormode would then render
+   * the [0.5,0.5] default instead of the actual hue/sat colour. Falls back to
+   * whichever colour state carries a (default) value when nothing is mapped.
+   *
+   * @param mapped Colour state names (xy/ct/hue/sat) that have a configured stateId.
+   * @param state The assembled light state (carries defaulted values).
+   */
   private detectColorMode(mapped: Set<string>, state: Partial<LightState>): ColorMode | undefined {
     if (mapped.has("xy")) {
       return "xy";
