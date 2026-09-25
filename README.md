@@ -202,6 +202,19 @@ Going back to a version below 1.18.0 is not supported: the older version no long
     ### **WORK IN PROGRESS**
 -->
 
+### **WORK IN PROGRESS**
+
+- Fixed: With an HTTPS port the instance no longer restarts endlessly — the certificate key is now really stored encrypted, and a key that does not fit its certificate is replaced.
+- Fixed: Clients that send no or another content type (phue, curl) can pair and switch again instead of getting error 901 from the bridge.
+- Fixed: The number of a deleted light is never handed out again, not even the highest one — Alexa no longer mistakes a new lamp for the old one.
+- New: Color temperature in percent (e.g. tradfri) and brightness from 0 to 255 are recognized and converted, and both can be chosen by hand on the light's card.
+- Improved: Values are fitted to the target datapoint — clamped to its range, never written into a read-only state, and a text switch gets its own ON/OFF.
+- Fixed: Switching off with a brightness in the same command now stays off for every light, and a group the bridge does not have no longer switches all lights.
+- Fixed: Deleting a paired client in the admin now revokes its access at once instead of only at the next restart of the instance.
+- Improved: The light search also finds relays and dimmers assigned to the function Light, and offers a lamp with a device and channel level only once.
+- Improved: Clients get the bridge's own error answers, time format and the color mode of the last command; a malformed discovery packet can no longer stop the adapter.
+- Changed: Settings earlier versions left behind in the instance are removed on the first start after the update — the instance restarts once for it.
+
 ### 1.18.0 (2026-09-15) — stable
 
 - Changed: The listen address and port are now stored under the standard keys the admin's port-conflict check reads — another adapter set to the bridge's port is warned before it collides.
