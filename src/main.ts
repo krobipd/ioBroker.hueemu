@@ -287,8 +287,8 @@ export class HueEmu extends utils.Adapter {
         return;
       }
 
-      // Carry the manifest's own objects into an EXISTING tree (js-controller
-      // creates them only where they are missing).
+      // Carry the names of the manifest's own objects into an EXISTING tree
+      // (js-controller merges instanceObjects on every start but keeps common.name).
       await this.refreshInstanceObjects();
       if (this.unloaded) {
         return;
