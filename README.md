@@ -202,7 +202,7 @@ Going back to a version below 1.18.0 is not supported: the older version no long
     ### **WORK IN PROGRESS**
 -->
 
-### **WORK IN PROGRESS**
+### 1.19.0 (2026-09-25)
 
 - Fixed: With an HTTPS port the instance no longer restarts endlessly — the certificate key is now really stored encrypted, and a key that does not fit its certificate is replaced.
 - Fixed: Clients that send no or another content type (phue, curl) can pair and switch again instead of getting error 901 from the bridge.
@@ -245,10 +245,6 @@ Going back to a version below 1.18.0 is not supported: the older version no long
 ### 1.16.0 (2026-09-03)
 
 - Fixed: If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.
-
-### 1.15.2 (2026-09-03)
-
-- Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

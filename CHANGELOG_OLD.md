@@ -1,5 +1,9 @@
 # Older Changes
 
+## 1.15.2 (2026-09-03)
+
+- Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.
+
 ## 1.15.1 (2026-09-03)
 
 - Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.
