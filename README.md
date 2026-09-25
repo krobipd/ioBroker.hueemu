@@ -212,8 +212,7 @@ Going back to a version below 1.18.0 is not supported: the older version no long
 - Fixed: Switching off with a brightness in the same command now stays off for every light, and a group the bridge does not have no longer switches all lights.
 - Fixed: Deleting a paired client in the admin now revokes its access at once instead of only at the next restart of the instance.
 - Improved: The light search also finds relays and dimmers assigned to the function Light, and offers a lamp with a device and channel level only once.
-- Improved: Clients get the bridge's own error answers, time format and the color mode of the last command; a malformed discovery packet can no longer stop the adapter.
-- Changed: Settings earlier versions left behind in the instance are removed on the first start after the update — the instance restarts once for it.
+- Fixed: openHAB's Hue binding can read the bridge again (time stamps in the bridge's format), and a color set by hue and saturation is shown as such in apps.
 
 ### 1.18.0 (2026-09-15) — stable
 
