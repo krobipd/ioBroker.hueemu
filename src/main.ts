@@ -630,15 +630,12 @@ export class HueEmu extends utils.Adapter {
     await this.extendObject("info.error", {
       common: { name: tName("infoErrorName"), desc: tName("infoErrorDesc") },
     });
-    // v1.17.0: a `folder`, not a `meta` object. The paired clients are states,
-    // and repochecker's object-structure rule counts `meta` as a NON-hierarchy
-    // type — a state under it makes the whole branch an E2001 ("hierarchy
-    // contains non-hierarchy object types", `HIERARCHY_TYPES` in
-    // config_StateRoles.js is device/channel/state/folder). The object type is
-    // part of that migration, not of the shape copy: it stays here until no
-    // installation older than v1.17.0 is left.
+    // The object type (`folder`, a `meta` until v1.17.0 — decision 24) comes from the
+    // manifest alone: js-controller 7.2.2 merges every instanceObjects entry, `type`
+    // included, into the existing object on each start (`_extendObjects` →
+    // `extendForeignObjectAsync(task._id, task, …)`). Only the stale `common.type` of
+    // the old meta object needs removing, below.
     await this.extendObject("clients", {
-      type: "folder",
       common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
     });
     await this.dropClientsFolderType();

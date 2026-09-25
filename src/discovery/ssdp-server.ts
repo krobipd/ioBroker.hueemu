@@ -259,7 +259,7 @@ export class HueSsdpServer {
    * @param err - The socket error
    */
   private onSocketError(err: Error): void {
-    this.config.logger.error(`SSDP socket error: ${err.message}`);
+    this.config.logger.error(`SSDP socket error: ${errText(err)}`);
     const socket = this.socket;
     this.socket = null;
     if (socket) {

@@ -985,6 +985,16 @@ describe("HueEmu onUnload", () => {
     expect(manifest.common.supportedMessages?.deviceManager).toBe(true);
   });
 
+  it("the manifest declares the clients container as a folder (decision 24)", () => {
+    // js-controller merges the manifest's object type into the existing object on every
+    // start — the manifest is the only place that keeps `clients` from being a `meta`
+    // again (a state under a meta object is repochecker E2001).
+    const manifest = JSON.parse(readFileSync(join(__dirname, "..", "io-package.json"), "utf8")) as {
+      instanceObjects: { _id: string; type: string }[];
+    };
+    expect(manifest.instanceObjects.find(o => o._id === "clients")?.type).toBe("folder");
+  });
+
   it("stores the listen address and port under the keys the admin's port-conflict check reads", () => {
     // v1.18.0 — `native.bind` (a string) + `native.port` (a number) is the pair the admin
     // compares across instances; the form field for the address is `bind` of type `ip`,
@@ -1438,11 +1448,11 @@ describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
         id,
       ).toBe(true);
     }
-    // v1.17.0: the clients container is a `folder` — that type is part of the
-    // meta→folder migration, not of a shape copy. The old `meta.folder` is NOT
-    // removed via a null in this patch (js-controller warns on it every start);
-    // the cleanup runs as a separate read + setForeignObject (own tests above).
-    expect(byId.get("clients")?.type).toBe("folder");
+    // The object type comes from the manifest, which js-controller merges into the
+    // existing object on each start — the refresh writes names only. The old
+    // `meta.folder` is NOT removed via a null in this patch (js-controller warns on
+    // it every start); the cleanup runs as a separate read + setForeignObject.
+    expect(byId.get("clients")).not.toHaveProperty("type");
     expect(byId.get("clients")?.common).not.toHaveProperty("type");
     // Every object carries an explanation, the folder included.
     expect(byId.get("clients")?.common?.desc).toEqual({ en: "clientsFolderDesc" });
