@@ -1398,9 +1398,9 @@ describe("HueEmu device numbering (v1.18.0)", () => {
 
 describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
   it("re-applies all three manifest objects on every start", async () => {
-    // js-controller creates instanceObjects only where they are MISSING, so a
-    // changed name or description would otherwise reach fresh installs only —
-    // the manifest looks right while every existing tree keeps the old text.
+    // js-controller merges instanceObjects on every start but keeps common.name, so a
+    // changed name would otherwise reach fresh installs only — the manifest looks
+    // right while every existing tree keeps the old text.
     const { adapter } = setup();
     const i = internalOf(adapter);
     await i.onReady();
