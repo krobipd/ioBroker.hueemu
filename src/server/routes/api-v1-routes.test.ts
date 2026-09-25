@@ -155,6 +155,8 @@ describe("apiV1Routes — POST /api", () => {
     });
     const parsed = JSON.parse(res.body);
     expect(parsed[0].error.type).toBe(5); // MISSING_PARAMETERS
+    // The bridge names no address for a pairing request (Burgestrand, Q8 v1.19.0).
+    expect(parsed[0].error.address).toBe("");
     expect(handler.calls.createUser).toHaveLength(0);
   });
 

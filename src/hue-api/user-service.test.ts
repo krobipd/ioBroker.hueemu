@@ -635,6 +635,16 @@ describe("UserService.listPairedClients", () => {
     });
   });
 
+  it("keeps the first pairing time when the same client is added again", async () => {
+    const { service } = createService();
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    await service.addUser("key-1", "Echo#Kitchen");
+    now.mockReturnValue(1_800_000_000_000);
+    await service.addUser("key-1", "Echo#Kitchen");
+    now.mockRestore();
+    expect(service.listPairedClients()[0].created).toBe(1_700_000_000_000);
+  });
+
   it("reads name and pairing time (the object's own time) back from stored clients", async () => {
     const { service, adapter } = createService();
     adapter.stateObjects.push(

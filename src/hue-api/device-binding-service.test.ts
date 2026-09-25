@@ -2045,6 +2045,33 @@ describe("v1.19.0 — writes keep to what the target datapoint declares", () => 
     expect(results).toEqual([{ success: { "/lights/1/state/on": true } }]);
   });
 
+  it("reads a target's declaration once, not on every command", async () => {
+    const adapter = createMockDeviceBindingAdapter(
+      { "d.bri": 50 },
+      { "d.bri": { type: "number", min: 0, max: 100, unit: "%" } },
+    );
+    const service = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "D", lightType: "dimmable", briState: "d.bri", briScale: "percent" }],
+      logger: createMockLogger(),
+    });
+    const reads = vi.spyOn(adapter, "getForeignObjectAsync");
+    await service.setLightState("1", { bri: 100 });
+    await service.setLightState("1", { bri: 200 });
+    expect(reads.mock.calls.filter(([id]) => id === "d.bri")).toHaveLength(1);
+  });
+
+  it("does not switch a light through a read-only brightness datapoint", async () => {
+    const adapter = createMockDeviceBindingAdapter({ "h.level": 0 }, { "h.level": { type: "number", write: false } });
+    const service = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "H", lightType: "dimmable", briState: "h.level", briScale: "percent" }],
+      logger: createMockLogger(),
+    });
+    await service.setLightState("1", { on: true });
+    expect(adapter.writtenStates.has("h.level")).toBe(false);
+  });
+
   it("switches an MQTT text switch with its own keys", async () => {
     const adapter = createMockDeviceBindingAdapter(
       { "m.power": "OFF" },

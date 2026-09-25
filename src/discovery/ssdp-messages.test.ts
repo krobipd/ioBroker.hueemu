@@ -114,6 +114,11 @@ describe("parseMSearchTarget", () => {
     expect(parseMSearchTarget(msg)).toBe("upnp:rootdevice");
   });
 
+  it("takes no header whose value still holds a line break", () => {
+    const msg = msearch(["M-SEARCH * HTTP/1.1", 'MAN: "ssdp:discover"', "MX: 3", "ST: upnp:rootdevice\nX-Injected: 1"]);
+    expect(parseMSearchTarget(msg)).toBeUndefined();
+  });
+
   // v1.19.0 (audit 2026-09-25 Q1): the header pattern backtracked quadratically on a
   // long run of blanks — a 60 KB line held the event loop for 6–8 s.
   it("parses a 60 KB hostile header line in linear time", () => {
