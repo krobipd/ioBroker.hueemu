@@ -61,6 +61,9 @@ export function buildUsnTable(udn: string): SsdpTarget[] {
   ];
 }
 
+/** What `.` in a regular expression does not match — a header value holding one is no header. */
+const LINE_TERMINATOR = /[\n\r\u2028\u2029]/;
+
 /**
  * Extract the search target from a datagram, applying node-ssdp's acceptance
  * rules: the method must be M-SEARCH (case-insensitive) and the MAN, MX and ST
@@ -79,10 +82,20 @@ export function parseMSearchTarget(message: string): string | undefined {
   }
   const headers: Record<string, string> = {};
   for (const line of lines.slice(1)) {
-    const match = /^([^:]+):\s*(.*)$/.exec(line);
-    if (match) {
-      headers[match[1].toUpperCase()] = match[2];
+    // v1.19.0: split at the first colon instead of `/^([^:]+):\s*(.*)$/` — that
+    // pattern backtracked quadratically on a long run of blanks (a 60 KB line held
+    // the event loop 6–8 s, audit 2026-09-25 Q1). Same acceptance: a non-empty
+    // name, leading blanks dropped from the value, and a value that still holds a
+    // line break is no header.
+    const colon = line.indexOf(":");
+    if (colon <= 0) {
+      continue;
     }
+    const value = line.slice(colon + 1).trimStart();
+    if (LINE_TERMINATOR.test(value)) {
+      continue;
+    }
+    headers[line.slice(0, colon).toUpperCase()] = value;
   }
   if (!headers.MAN || !headers.MX || !headers.ST) {
     return undefined;

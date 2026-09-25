@@ -25,7 +25,7 @@ import {
 } from "@iobroker/dm-utils";
 import type { DeviceConfig } from "./hue-api";
 import { isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./lib/device-ids";
-import { scanForLightDevices } from "./lib/device-scan";
+import { boundStateIds, scanForLightDevices } from "./lib/device-scan";
 import { t } from "./lib/i18n";
 import { errText } from "./types/utils";
 
@@ -560,8 +560,8 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       // to look at the on/off state only, so a light without one (a dimmer with
       // nothing but a level) was offered — and stored — again on every scan
       // (audit 2026-09-15 A1).
-      const mappedIds = new Set(existing.flatMap(HueEmuDeviceManagement.boundStateIds));
-      const fresh = found.filter(d => !HueEmuDeviceManagement.boundStateIds(d).some(id => mappedIds.has(id)));
+      const mappedIds = new Set(existing.flatMap(boundStateIds));
+      const fresh = found.filter(d => !boundStateIds(d).some(id => mappedIds.has(id)));
       await closeProgress();
 
       if (!fresh.length) {
@@ -592,17 +592,6 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       await context.showMessage(t("dmScanFailed", errText(e)));
     }
     return { refresh: true };
-  }
-
-  /**
-   * The state ids a device binds, in a fixed order.
-   *
-   * @param device The stored (or freshly detected) mapping.
-   */
-  private static boundStateIds(device: DeviceConfig): string[] {
-    return [device.onState, device.briState, device.ctState, device.hueState, device.satState, device.xyState].filter(
-      (id): id is string => typeof id === "string" && id.length > 0,
-    );
   }
 
   /**
@@ -656,6 +645,19 @@ export class HueEmuDeviceManagement extends DeviceManagement {
         if (row.value && !row.id.startsWith(ownPrefix)) {
           objects[row.id] = row.value;
         }
+      }
+    }
+    // v1.19.0 (audit 2026-09-25 H8): the function enums. type-detector 6.0.1 counts a
+    // relay (`switch`) or a `level.brightness` dimmer as a light only when it sits in
+    // `enum.functions.light` (roleOrEnumLight → getFunctionEnums reads them from this
+    // very map) — without them the scan never found those lights.
+    const enums = await this.adapter.getObjectViewAsync("system", "enum", {
+      startkey: "enum.functions.",
+      endkey: "enum.functions.\u9999",
+    });
+    for (const row of enums?.rows ?? []) {
+      if (row.value) {
+        objects[row.id] = row.value;
       }
     }
     return objects;

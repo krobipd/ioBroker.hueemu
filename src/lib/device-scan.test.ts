@@ -315,3 +315,66 @@ describe("v1.15.0 regressions — shapes measured on real hardware (2026-09-03 a
     expect(devices[0].briState).toBe("knx.0.dim.level");
   });
 });
+
+describe("v1.19.0 — one light per lamp, lights found by their function (audit 2026-09-25)", () => {
+  // H7: a lamp laid out as device → channel → state was detected at the device AND at
+  // the channel — the scan offered it twice with identical bindings.
+  it("offers a HomeMatic lamp laid out as device → channel → state once, under the device name", () => {
+    const objs: Record<string, ioBroker.Object> = {
+      "hm-rpc.0.ABC": { _id: "hm-rpc.0.ABC", type: "device", common: { name: "BDT" }, native: {} },
+      "hm-rpc.0.ABC.4": { _id: "hm-rpc.0.ABC.4", type: "channel", common: { name: "BDT:4" }, native: {} },
+      ...state("hm-rpc.0.ABC.4.LEVEL", "level.dimmer", "number", { min: 0, max: 100, unit: "%" }),
+    };
+    const { devices } = scanForLightDevices(objs, nameOf);
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({ name: "BDT", briState: "hm-rpc.0.ABC.4.LEVEL" });
+  });
+
+  it("offers a tradfri bulb (device → lightbulb channel) once, with its percent colour temperature", () => {
+    const objs: Record<string, ioBroker.Object> = {
+      "tradfri.0.L-65537": { _id: "tradfri.0.L-65537", type: "device", common: { name: "Tradfri" }, native: {} },
+      "tradfri.0.L-65537.lightbulb": {
+        _id: "tradfri.0.L-65537.lightbulb",
+        type: "channel",
+        common: { name: "lightbulb" },
+        native: {},
+      },
+      ...state("tradfri.0.L-65537.lightbulb.state", "switch", "boolean"),
+      ...state("tradfri.0.L-65537.lightbulb.brightness", "level.dimmer", "number", { min: 0, max: 100, unit: "%" }),
+      ...state("tradfri.0.L-65537.lightbulb.colorTemperature", "level.color.temperature", "number", {
+        min: 0,
+        max: 100,
+        unit: "%",
+      }),
+    };
+    const { devices } = scanForLightDevices(objs, nameOf);
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({
+      name: "Tradfri",
+      ctState: "tradfri.0.L-65537.lightbulb.colorTemperature",
+      ctScale: "percent",
+    });
+  });
+
+  // H8: type-detector counts a relay or a level.brightness dimmer as a light only when
+  // it sits in enum.functions.light — the scan must hand it that enum.
+  it("finds a relay that is a light only by its function enum", () => {
+    const relay: Record<string, ioBroker.Object> = {
+      "shelly.0.relay": { _id: "shelly.0.relay", type: "channel", common: { name: "Garden" }, native: {} },
+      ...state("shelly.0.relay.Switch", "switch", "boolean"),
+    };
+    expect(scanForLightDevices(relay, nameOf).devices).toHaveLength(0);
+    const withEnum: Record<string, ioBroker.Object> = {
+      ...relay,
+      "enum.functions.light": {
+        _id: "enum.functions.light",
+        type: "enum",
+        common: { name: "Light", members: ["shelly.0.relay"] },
+        native: {},
+      } as unknown as ioBroker.Object,
+    };
+    const { devices } = scanForLightDevices(withEnum, nameOf);
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({ name: "Garden", onState: "shelly.0.relay.Switch" });
+  });
+});

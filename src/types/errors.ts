@@ -177,6 +177,40 @@ export class HueApiError extends Error {
   }
 
   /**
+   * Create a "method not available" error — the bridge's answer to a method a
+   * resource does not offer (`GET /api` → `method, GET, not available for resource, /`).
+   *
+   * @param method - The HTTP method
+   * @param resource - The resource path
+   * @param address - API endpoint address
+   */
+  static methodNotAvailable(method: string, resource: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.METHOD_NOT_AVAILABLE, address, [method, resource]);
+  }
+
+  /**
+   * Create an "invalid value" error (`invalid value, <value>, for parameter, <name>`).
+   *
+   * @param value - The value the client sent, as text
+   * @param parameter - The parameter name
+   * @param address - API endpoint address
+   */
+  static invalidParameterValue(value: string, parameter: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.INVALID_PARAMETER_VALUE, address, [value, parameter]);
+  }
+
+  /**
+   * Create the "device is set to off" error — the bridge's answer to a light
+   * attribute sent to a light that is (being switched) off.
+   *
+   * @param parameter - The attribute name
+   * @param address - API endpoint address
+   */
+  static deviceIsOff(parameter: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.DEVICE_IS_OFF, address, [parameter]);
+  }
+
+  /**
    * Create a missing parameters error
    *
    * @param address - API endpoint address

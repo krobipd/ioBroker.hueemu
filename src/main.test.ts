@@ -37,6 +37,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public extendObjectAsync = vi.fn(async () => {});
     public extendObject = vi.fn(async () => {});
     public subscribeStates = vi.fn();
+    public subscribeObjects = vi.fn();
     public setTimeout = vi.fn(() => ({}));
     public clearTimeout = vi.fn();
     public setInterval = vi.fn(() => ({}));
@@ -123,6 +124,7 @@ interface FakeSsdp {
 interface FakeApiHandler {
   initialize: ReturnType<typeof vi.fn>;
   onStateChange: ReturnType<typeof vi.fn>;
+  forgetClient: ReturnType<typeof vi.fn>;
   forgetState: ReturnType<typeof vi.fn>;
   resetAutoAddBudget: ReturnType<typeof vi.fn>;
   options: unknown;
@@ -147,6 +149,8 @@ function internalOf(adapter: HueEmu): {
   setInterval: ReturnType<typeof vi.fn>;
   clearInterval: ReturnType<typeof vi.fn>;
   subscribeStates: ReturnType<typeof vi.fn>;
+  subscribeObjects: ReturnType<typeof vi.fn>;
+  onObjectChange: (id: string, obj: ioBroker.Object | null | undefined) => void;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
   extendObject: ReturnType<typeof vi.fn>;
   getStateAsync: ReturnType<typeof vi.fn>;
@@ -219,6 +223,7 @@ function setup(configOverrides: Record<string, unknown> = {}): {
       initialize: vi.fn(async () => {}),
       onStateChange: vi.fn(),
       forgetState: vi.fn(),
+      forgetClient: vi.fn(),
       resetAutoAddBudget: vi.fn(),
       options,
     };
@@ -646,8 +651,9 @@ describe("HueEmu onStateChange", () => {
   it("forwards acked changes into the API handler's state cache (device binding)", async () => {
     const { adapter, handlers } = await ready();
     const i = internalOf(adapter);
-    i.onStateChange("hue.0.light.bri", { val: 80, ack: true } as ioBroker.State);
-    expect(handlers[0].onStateChange).toHaveBeenCalledWith("hue.0.light.bri", 80);
+    i.onStateChange("hue.0.light.bri", { val: 80, ack: true, from: "system.adapter.hue.0" } as ioBroker.State);
+    // v1.19.0 (H6): the writer goes along — the binding's scale anchor ignores its own writes.
+    expect(handlers[0].onStateChange).toHaveBeenCalledWith("hue.0.light.bri", 80, "system.adapter.hue.0");
     // Acked changes never trigger the command paths.
     expect(adapter.pairingEnabled).toBe(false);
   });
@@ -661,7 +667,7 @@ describe("HueEmu onStateChange", () => {
     // commands were cached optimistically all along. The device's acked answer
     // still corrects the cache afterwards.
     i.onStateChange("hue.0.light.bri", { val: 80, ack: false } as ioBroker.State);
-    expect(handlers[0].onStateChange).toHaveBeenCalledWith("hue.0.light.bri", 80);
+    expect(handlers[0].onStateChange).toHaveBeenCalledWith("hue.0.light.bri", 80, undefined);
     // A foreign unacked change is data, never a command for the adapter's own states.
     expect(adapter.pairingEnabled).toBe(false);
   });
@@ -672,6 +678,28 @@ describe("HueEmu onStateChange", () => {
     i.onStateChange("hue.0.light.bri", null);
     expect(handlers[0].forgetState).toHaveBeenCalledWith("hue.0.light.bri");
     expect(handlers[0].onStateChange).not.toHaveBeenCalled();
+  });
+
+  // v1.19.0 (audit 2026-09-25 H12): deleting a paired client in the admin revokes it at
+  // once — the key used to stay valid until the next adapter start.
+  it("revokes a client whose state was deleted", async () => {
+    const { adapter, handlers } = await ready();
+    const i = internalOf(adapter);
+    i.onStateChange("hueemu.0.clients.living_room", null);
+    expect(handlers[0].forgetClient).toHaveBeenCalledWith("living_room");
+    expect(handlers[0].forgetState).not.toHaveBeenCalled();
+  });
+
+  it("revokes a client whose object was deleted, and watches the client objects for it", async () => {
+    const { adapter, handlers } = await ready();
+    const i = internalOf(adapter);
+    expect(i.subscribeObjects).toHaveBeenCalledWith("clients.*");
+    i.onObjectChange("hueemu.0.clients.echo", null);
+    expect(handlers[0].forgetClient).toHaveBeenCalledWith("echo");
+    // A changed (not deleted) client object and a foreign object revoke nothing.
+    i.onObjectChange("hueemu.0.clients.other", { _id: "x" } as unknown as ioBroker.Object);
+    i.onObjectChange("zigbee.0.lamp", null);
+    expect(handlers[0].forgetClient).toHaveBeenCalledTimes(1);
   });
 
   it("does not ack an already-acked own state (no write feedback loop)", async () => {

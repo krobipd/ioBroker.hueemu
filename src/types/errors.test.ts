@@ -6,6 +6,22 @@ import { HueApiError, HueErrorType } from "./errors";
 import { createSuccessResponse } from "../server/middleware/error-handler";
 
 describe("HueApiError", () => {
+  it("builds the three bridge answers v1.19.0 added (4, 7, 201)", () => {
+    expect(HueApiError.methodNotAvailable("GET", "/", "/api").toResponse()).toEqual({
+      error: { type: 4, address: "/api", description: "method, GET, not available for resource, /" },
+    });
+    expect(HueApiError.invalidParameterValue("abc", "scene", "/groups/0/action/scene").message).toBe(
+      "invalid value, abc, for parameter, scene",
+    );
+    expect(HueApiError.deviceIsOff("bri", "/lights/1/state/bri").toResponse()).toEqual({
+      error: {
+        type: 201,
+        address: "/lights/1/state/bri",
+        description: "parameter, bri, is not modifiable. Device is set to off.",
+      },
+    });
+  });
+
   describe("factory methods", () => {
     it("should create unauthorizedUser error", () => {
       const err = HueApiError.unauthorizedUser("/api/test");

@@ -468,6 +468,28 @@ describe("HueEmuDeviceManagement", () => {
       );
     });
 
+    // v1.19.0 (audit 2026-09-25 H8): the function enums go to the detector too — a relay
+    // is a light only by its membership in enum.functions.light.
+    it("finds a light that only its function enum makes one", async () => {
+      const objs: Record<string, unknown> = {
+        ...channel("shelly.0.relay", [["Switch", "switch", "boolean"]]),
+        "enum.functions.light": {
+          _id: "enum.functions.light",
+          type: "enum",
+          common: { name: "Light", members: ["shelly.0.relay"] },
+          native: {},
+        },
+      };
+      const adapter = make([], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true } }));
+      expect(adapter.getObjectViewAsync).toHaveBeenCalledWith(
+        "system",
+        "enum",
+        expect.objectContaining({ startkey: "enum.functions." }),
+      );
+      expect(adapter._stored()[0]).toMatchObject({ onState: "shelly.0.relay.Switch" });
+    });
+
     it("adds nothing when the user unticks everything", async () => {
       const objs = channel("lampe.0.kueche", [
         ["on", "switch.light", "boolean"],

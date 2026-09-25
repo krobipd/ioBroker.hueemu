@@ -32,6 +32,11 @@ export const SSDP_PORT = 1900;
 
 /** Multicast hop limit node-ssdp used (its ssdpTtl default). */
 const MULTICAST_TTL = 4;
+/**
+ * The largest datagram the listener reads. An M-SEARCH is a few hundred bytes; the
+ * limit keeps a crafted 60 KB datagram from costing parse time (audit 2026-09-25 Q1).
+ */
+const MAX_SEARCH_DATAGRAM_BYTES = 2048;
 
 /**
  * Configuration for the SSDP discovery server
@@ -115,7 +120,7 @@ export class HueSsdpServer {
           // Like node-ssdp: discovery must not keep an otherwise-done process alive.
           socket.unref();
           socket.on("error", (err: Error) => this.onSocketError(err));
-          socket.on("message", (msg, rinfo) => this.onMessage(msg.toString("utf8"), rinfo.address, rinfo.port));
+          socket.on("message", (msg, rinfo) => this.onDatagram(msg, rinfo.address, rinfo.port));
           resolve();
         });
       });
@@ -172,6 +177,28 @@ export class HueSsdpServer {
   }
 
   /**
+   * Guard in front of {@link onMessage}: nothing a datagram carries may take the
+   * process down. v1.19.0 (audit 2026-09-25 H1): a source port of 0 — legal on the
+   * wire (RFC 768) — made the synchronous `send` throw `ERR_SOCKET_BAD_PORT` inside
+   * this listener, an uncaught exception that ended the adapter. A real M-SEARCH is a
+   * few hundred bytes; anything far larger is dropped before it is even decoded.
+   *
+   * @param msg - The raw datagram
+   * @param address - Sender address
+   * @param port - Sender port
+   */
+  private onDatagram(msg: Buffer, address: string, port: number): void {
+    if (port <= 0 || port > 65535 || msg.length > MAX_SEARCH_DATAGRAM_BYTES) {
+      return;
+    }
+    try {
+      this.onMessage(msg.toString("utf8"), address, port);
+    } catch (e) {
+      this.config.logger.debug(`SSDP: ignored a datagram from ${address}:${port} (${errText(e)})`);
+    }
+  }
+
+  /**
    * Answer an incoming datagram when it is an M-SEARCH for one of our targets.
    *
    * @param text - The datagram text
@@ -190,11 +217,17 @@ export class HueSsdpServer {
     const dateUtc = new Date().toUTCString();
     for (const answer of answers) {
       const response = Buffer.from(buildSearchResponse(answer, this.bridge, dateUtc), "ascii");
-      this.socket?.send(response, port, address, err => {
-        if (err) {
-          this.config.logger.warn(`SSDP response send failed: ${err.message}`);
-        }
-      });
+      try {
+        this.socket?.send(response, port, address, err => {
+          if (err) {
+            this.config.logger.warn(`SSDP response send failed: ${err.message}`);
+          }
+        });
+      } catch (e) {
+        // `send` validates address and port synchronously — a throw here must not
+        // escape the socket's event handler.
+        this.config.logger.debug(`SSDP response to ${address}:${port} not sent: ${errText(e)}`);
+      }
     }
     // The diagnostically useful "device asked, we answered" pulse.
     this.config.logger.debug(`SSDP M-SEARCH response → ${address}`);

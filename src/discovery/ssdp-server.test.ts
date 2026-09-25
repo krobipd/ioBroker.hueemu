@@ -32,7 +32,7 @@ const h = vi.hoisted(() => {
     emit: (ev: string, ...args: unknown[]) => void;
   }
   const sockets: FakeSocket[] = [];
-  const fail = { bind: false, join: false, ttl: false, send: false, holdSendCallbacks: false };
+  const fail = { bind: false, join: false, ttl: false, send: false, sendThrows: false, holdSendCallbacks: false };
   const heldSendCallbacks: Array<() => void> = [];
   const make = (): FakeSocket => {
     const s: FakeSocket = {
@@ -74,6 +74,10 @@ const h = vi.hoisted(() => {
         s.ttl.push(ttl);
       },
       send: (...args) => {
+        if (fail.sendThrows) {
+          // What node's dgram does synchronously for a port it refuses (ERR_SOCKET_BAD_PORT).
+          throw new RangeError("Port should be > 0 and < 65536. Received type number (0).");
+        }
         const cb = args[args.length - 1];
         if (!fail.send) {
           s.sent.push({ text: String(args[0]), port: args[1] as number, address: args[2] as string });
@@ -284,6 +288,38 @@ describe("HueSsdpServer", () => {
       h.sockets[0].emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51000 });
 
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("response send failed"));
+    });
+
+    // v1.19.0 (audit 2026-09-25 H1): source port 0 is legal on the wire (RFC 768); node's
+    // `send` refuses it synchronously, and the throw inside the socket handler used to
+    // end the process. Such a datagram is dropped before anything is sent.
+    it("drops a search from source port 0 instead of letting send throw", async () => {
+      const server = makeServer();
+      await server.start();
+      const socket = h.sockets[0];
+      expect(() =>
+        socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 0 }),
+      ).not.toThrow();
+      expect(socket.sent).toEqual([]);
+    });
+
+    it("survives a send that throws synchronously", async () => {
+      h.fail.sendThrows = true;
+      const logger = spyLogger();
+      const server = makeServer(logger);
+      await server.start();
+      expect(() =>
+        h.sockets[0].emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51000 }),
+      ).not.toThrow();
+      expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("not sent"));
+    });
+
+    it("drops an oversized datagram unread", async () => {
+      const server = makeServer();
+      await server.start();
+      const big = MSEARCH_BASIC.replace("MX: 3", `MX: 3\r\nX-PAD: ${"a".repeat(3000)}`);
+      h.sockets[0].emit("message", Buffer.from(big, "ascii"), { address: "10.0.0.7", port: 51000 });
+      expect(h.sockets[0].sent).toEqual([]);
     });
   });
 

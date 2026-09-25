@@ -532,6 +532,39 @@ describe("ApiHandler", () => {
       expect(foreignWrites.get("test2.on")).toBe(true);
     });
 
+    // v1.19.0 (audit 2026-09-25 H2): the emulator has one group, 0. Any other id used
+    // to switch every light — a stored "living room" group took the whole house with it.
+    it("setGroupAction refuses a group that does not exist and writes nothing", async () => {
+      const { handler, foreignWrites } = createHandlerWithDevices({});
+      await expect(handler.setGroupAction(req, "user", "7", { on: false })).rejects.toMatchObject({
+        type: HueErrorType.RESOURCE_NOT_AVAILABLE,
+        address: "/groups/7/action",
+        message: "resource, /groups/7, not available",
+      });
+      expect(foreignWrites.size).toBe(0);
+    });
+
+    // v1.19.0 (Q10): `scene` belongs to the group, and the emulator has no scenes —
+    // error 7 like emulated_hue, never forwarded to the lights (error 6 per light).
+    it("setGroupAction answers a scene recall with error 7 and still sets the rest", async () => {
+      const { handler, foreignWrites } = createHandlerWithDevices({});
+      const results = await handler.setGroupAction(req, "user", "0", {
+        on: true,
+        scene: "abc",
+      } as unknown as Record<string, unknown>);
+      expect(results).toEqual([
+        { success: { "/groups/0/action/on": true } },
+        {
+          error: {
+            type: HueErrorType.INVALID_PARAMETER_VALUE,
+            address: "/groups/0/action/scene",
+            description: "invalid value, abc, for parameter, scene",
+          },
+        },
+      ]);
+      expect(foreignWrites.get("test.on")).toBe(true);
+    });
+
     it("onStateChange updates the binding cache so the next read sees the new value", async () => {
       const { handler } = createHandlerWithDevices({ "test.on": false });
       await handler.initialize();

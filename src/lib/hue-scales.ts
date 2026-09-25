@@ -121,6 +121,10 @@ export interface StateFacts {
   max?: number;
   /** `common.unit`, when the source declares one. */
   unit?: string;
+  /** `common.type`, when declared (v1.19.0 — the write path shapes a switch value for it). */
+  type?: string;
+  /** `common.states` as an id → label map, when declared as one (v1.19.0). */
+  states?: Record<string, unknown>;
 }
 
 /** Resolve the facts of a state id, or `undefined` when the object is unknown. */
@@ -144,7 +148,58 @@ export function stateFactsOf(obj: ioBroker.Object | null | undefined): StateFact
     min: typeof common.min === "number" ? common.min : undefined,
     max: typeof common.max === "number" ? common.max : undefined,
     unit: typeof common.unit === "string" ? common.unit : undefined,
+    type: typeof common.type === "string" ? common.type : undefined,
+    states:
+      common.states && typeof common.states === "object" && !Array.isArray(common.states) ? common.states : undefined,
   };
+}
+
+/** Tokens a text switch uses for "on" and for "off" — compared case-insensitively. */
+const ON_TOKENS: ReadonlySet<string> = new Set(["on", "true", "1", "yes", "an", "ein"]);
+const OFF_TOKENS: ReadonlySet<string> = new Set(["off", "false", "0", "no", "aus"]);
+
+/**
+ * Shape a value the way the target datapoint declares it before it is written —
+ * v1.19.0 (audit 2026-09-25 H9, krobi's decision E8). js-controller does not correct
+ * a write: a value outside `common.min`/`max` lands as it is (plus a warning in the
+ * user's log on every command), a write to a `write: false` state is a warning too,
+ * and a boolean in a text switch reaches no device.
+ *
+ * - `write: false` → nothing is written.
+ * - a number is clamped to the declared `min`/`max` (the declared bound is the bound).
+ * - a boolean going into a `string` datapoint takes the `common.states` key that
+ *   reads as on / off (`"ON"`/`"OFF"`, `"true"`/`"false"`, …); without such a pair it
+ *   stays boolean — no text is invented.
+ *
+ * @param value The converted value
+ * @param facts The target's facts, `undefined` when unknown (then written as it is)
+ * @returns whether to write, and what
+ */
+export function fitToTarget(value: unknown, facts: StateFacts | undefined): { write: boolean; value: unknown } {
+  if (!facts) {
+    return { write: true, value };
+  }
+  if (!facts.writable) {
+    return { write: false, value };
+  }
+  if (typeof value === "number") {
+    let v = value;
+    if (facts.min !== undefined && v < facts.min) {
+      v = facts.min;
+    }
+    if (facts.max !== undefined && v > facts.max) {
+      v = facts.max;
+    }
+    return { write: true, value: v };
+  }
+  if (typeof value === "boolean" && facts.type === "string" && facts.states) {
+    const tokens = value ? ON_TOKENS : OFF_TOKENS;
+    const key = Object.keys(facts.states).find(k => tokens.has(k.trim().toLowerCase()));
+    if (key !== undefined) {
+      return { write: true, value: key };
+    }
+  }
+  return { write: true, value };
 }
 
 /** Tolerance for matching a declared max against a well-known scale bound. */
@@ -503,7 +558,10 @@ function invertHeuristicForState(hueValue: number, max: number, lastSourceValue:
   if (last <= 1) {
     return Math.round((hueValue / max) * 1000) / 1000;
   }
-  return Math.round((hueValue / max) * 100 * 10) / 10;
+  // v1.19.0 (audit 2026-09-25 H6): a whole percent, and never below 2 once the
+  // light is on — 1 and anything under it read back as the 0..1 branch, so the
+  // value written here must stay out of that range or it flips the source's scale.
+  return hueValue > 0 ? Math.max(2, Math.round((hueValue / max) * 100)) : 0;
 }
 
 /**

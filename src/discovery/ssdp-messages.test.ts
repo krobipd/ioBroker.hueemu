@@ -101,6 +101,28 @@ describe("parseMSearchTarget", () => {
     ]);
     expect(parseMSearchTarget(msg)).toBe("upnp:rootdevice");
   });
+
+  it("keeps the header rules of the old pattern: leading blanks dropped, a colon-free or nameless line ignored", () => {
+    const msg = msearch([
+      "M-SEARCH * HTTP/1.1",
+      'MAN:\t  "ssdp:discover"',
+      "MX:3",
+      ": nameless",
+      "no colon here",
+      "ST:   upnp:rootdevice",
+    ]);
+    expect(parseMSearchTarget(msg)).toBe("upnp:rootdevice");
+  });
+
+  // v1.19.0 (audit 2026-09-25 Q1): the header pattern backtracked quadratically on a
+  // long run of blanks — a 60 KB line held the event loop for 6–8 s.
+  it("parses a 60 KB hostile header line in linear time", () => {
+    const hostile = `A:${" \t".repeat(30_000)}x\ny`;
+    const msg = msearch(["M-SEARCH * HTTP/1.1", hostile, 'MAN: "ssdp:discover"', "MX: 3", "ST: ssdp:all"]);
+    const started = performance.now();
+    expect(parseMSearchTarget(msg)).toBe("ssdp:all");
+    expect(performance.now() - started).toBeLessThan(200);
+  });
 });
 
 describe("matchSearch", () => {

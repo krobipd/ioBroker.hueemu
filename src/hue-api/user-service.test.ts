@@ -617,3 +617,72 @@ describe("v1.15.1 — every client object carries an explanation", () => {
     expect(adapter.writtenObjects.get("clients")?.common?.desc).toBeDefined();
   });
 });
+
+// v1.19.0 (audit 2026-09-25 H5): the whitelist names a client by the device type it
+// paired with and shows when it paired and when it was last seen — it used to show
+// the key twice and "now" as both dates.
+describe("UserService.listPairedClients", () => {
+  it("keeps the device type and the pairing time of a new client", async () => {
+    const { service, adapter } = createService();
+    const before = Date.now();
+    await service.addUser("key-1", "Echo#Kitchen");
+    const [entry] = service.listPairedClients();
+    expect(entry).toMatchObject({ key: "key-1", name: "Echo#Kitchen" });
+    expect(entry.created).toBeGreaterThanOrEqual(before);
+    // Nothing time-dependent goes into the tree — the object's own ts is the record.
+    expect((adapter.writtenObjects.get("clients.key-1") as unknown as { native: object }).native).toEqual({
+      username: "key-1",
+    });
+  });
+
+  it("reads name and pairing time (the object's own time) back from stored clients", async () => {
+    const { service, adapter } = createService();
+    adapter.stateObjects.push(
+      {
+        _id: "hueemu.0.clients.new",
+        type: "state",
+        ts: 1_700_000_000_000,
+        common: { name: { en: "harmony#hub", de: "harmony#hub" } },
+        native: { username: "new" },
+      } as unknown as ioBroker.StateObject,
+      {
+        _id: "hueemu.0.clients.old",
+        type: "state",
+        ts: 1_600_000_000_000,
+        common: { name: "Echo" },
+        native: { username: "old" },
+      } as unknown as ioBroker.StateObject,
+    );
+    await service.isUserAuthenticated("nobody");
+    const byKey = new Map(service.listPairedClients().map(c => [c.key, c]));
+    expect(byKey.get("new")).toMatchObject({ name: "harmony#hub", created: 1_700_000_000_000 });
+    expect(byKey.get("old")).toMatchObject({ name: "Echo", created: 1_600_000_000_000 });
+  });
+
+  it("moves the last-use time on every successful authentication", async () => {
+    const { service } = createService([{ id: "k", username: "k" }]);
+    await service.isUserAuthenticated("k");
+    const first = service.listPairedClients()[0].lastUse;
+    await new Promise(resolve => setTimeout(resolve, 5));
+    await service.isUserAuthenticated("k");
+    expect(service.listPairedClients()[0].lastUse).toBeGreaterThan(first);
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 H12): a deleted client object revokes that client at once.
+describe("UserService.forgetClient", () => {
+  it("revokes the real key behind a sanitized object id (decision 22)", async () => {
+    const { service } = createService([{ id: "living_room", username: "living.room" }]);
+    expect(await service.isUserAuthenticated("living.room")).toBe(true);
+    expect(service.forgetClient("living_room")).toBe(true);
+    expect(await service.isUserAuthenticated("living.room")).toBe(false);
+    expect(service.listPairedClients()).toEqual([]);
+  });
+
+  it("revokes nothing for an id nobody paired", async () => {
+    const { service } = createService(["a"]);
+    await service.isUserAuthenticated("a");
+    expect(service.forgetClient("b")).toBe(false);
+    expect(await service.isUserAuthenticated("a")).toBe(true);
+  });
+});

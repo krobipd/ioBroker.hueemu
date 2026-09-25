@@ -17,7 +17,7 @@ import type {
   ColorMode,
 } from "../types/light";
 import { HueApiError } from "../types/errors";
-import { errText } from "../types/utils";
+import { errText, oneLine } from "../types/utils";
 import { coerceBool, coerceFiniteNumber } from "../lib/coerce";
 import { assignDeviceIds } from "../lib/device-ids";
 import { LIGHT_STATE_KEYS } from "./light-state-keys";
@@ -34,6 +34,8 @@ import {
   isUndecidedScale,
   scaleValueForState,
   stateFactsOf,
+  fitToTarget,
+  type StateFacts,
   type CtScale,
   type HueScale,
   type LightStateScale,
@@ -186,6 +188,8 @@ export class DeviceBindingService {
    * 0 right now (a lamp that is off) still remembers what it used to be.
    */
   private readonly lastNonZeroSource: Map<string, number> = new Map();
+  /** The facts of each write target, read on its first write (`null` = no usable object). */
+  private readonly targetFactCache: Map<string, StateFacts | null> = new Map();
 
   /**
    * Create a new device binding service
@@ -356,6 +360,9 @@ export class DeviceBindingService {
         try {
           const state = await this.adapter.getForeignStateAsync(stateId);
           if (state !== null && state !== undefined) {
+            // At start the stored value counts whoever wrote it: it is what the
+            // read side interprets, and without it an undecided percent source
+            // would get raw Hue numbers again (audit 2026-09-06 F1).
             this.rememberSourceValue(stateId, state.val);
             this.stateCache.set(stateId, state.val);
           } else {
@@ -383,8 +390,9 @@ export class DeviceBindingService {
    *
    * @param id - Full state ID
    * @param value - New state value
+   * @param from - Who wrote it (`state.from`) — this adapter's own writes are no evidence
    */
-  public updateStateCache(id: string, value: unknown): void {
+  public updateStateCache(id: string, value: unknown, from?: string): void {
     // The adapter forwards every acked change it is subscribed to — its own
     // startPairing/disableAuth/clients.* included. Only mapped ids are ever
     // read, so only those are kept; the cache would otherwise grow by one
@@ -394,7 +402,7 @@ export class DeviceBindingService {
     }
     // A state that reports a value proves its object exists after all.
     this.missingStates.delete(id);
-    this.rememberSourceValue(id, value);
+    this.rememberSourceValue(id, value, from);
     this.stateCache.set(id, value);
   }
 
@@ -420,13 +428,48 @@ export class DeviceBindingService {
    * evidence for an undecided scale (see {@link scaleValueForState}). Zero is
    * skipped on purpose: every scale has a zero, so it says nothing.
    *
+   * v1.19.0 (audit 2026-09-25 H6): while running, only what the SOURCE reports
+   * moves the anchor — neither the adapter's own write nor its echo through the
+   * subscription. On a source without min/max/unit, dimming to bri 1 wrote 0.4 (%),
+   * the echo made that the anchor, and the next write went out as 0..1 — the light
+   * stayed at ≤1 % for good. At start the stored value counts whoever wrote it (see
+   * {@link refreshStateCache}); the percent branch never writes below 2 any more, so
+   * it cannot flip the reading either.
+   *
    * @param id - Full state ID
    * @param value - The value the state reported
+   * @param from - Who wrote it (`state.from`); a value written by this adapter is skipped
    */
-  private rememberSourceValue(id: string, value: unknown): void {
+  private rememberSourceValue(id: string, value: unknown, from?: string): void {
+    if (from !== undefined && from === `system.adapter.${this.adapter.namespace}`) {
+      return;
+    }
     const n = coerceFiniteNumber(value);
     if (n !== null && n !== 0) {
       this.lastNonZeroSource.set(id, n);
+    }
+  }
+
+  /**
+   * What a write target declares (writable, min/max, type, states), read once per
+   * datapoint on its first write and kept (v1.19.0, audit 2026-09-25 H9). Read lazily:
+   * the start reads objects only for scales that are still open (decision 27), and a
+   * light that is never commanded costs nothing. A failed read is not kept, so the next
+   * write asks again; until then the value is written as converted.
+   *
+   * @param stateId - Full state ID
+   */
+  private async targetFacts(stateId: string): Promise<StateFacts | undefined> {
+    if (this.targetFactCache.has(stateId)) {
+      return this.targetFactCache.get(stateId) ?? undefined;
+    }
+    try {
+      const facts = stateFactsOf(await this.adapter.getForeignObjectAsync(stateId));
+      this.targetFactCache.set(stateId, facts ?? null);
+      return facts;
+    } catch (error) {
+      this.logger.debug(`Could not read the object of ${stateId}: ${errText(error)}`);
+      return undefined;
     }
   }
 
@@ -494,7 +537,7 @@ export class DeviceBindingService {
   public async getLightById(lightId: string): Promise<Light> {
     const device = this.findDevice(lightId);
     if (!device) {
-      throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}`);
+      throw HueApiError.resourceNotAvailable(`/lights/${lightId}`, `/lights/${lightId}`);
     }
 
     const lightTypeConfig = LIGHT_TYPES[device.lightType] || LIGHT_TYPES.color;
@@ -587,14 +630,15 @@ export class DeviceBindingService {
   public async setLightState(lightId: string, stateUpdate: LightStateUpdate): Promise<LightStateResult[]> {
     const device = this.findDevice(lightId);
     if (!device) {
-      throw HueApiError.resourceNotAvailable(lightId, `/lights/${lightId}/state`);
+      throw HueApiError.resourceNotAvailable(`/lights/${lightId}`, `/lights/${lightId}/state`);
     }
 
     const results: LightStateResult[] = [];
 
     this.logger.debug(
       `Light ${lightId} "${device.name}": set ${Object.entries(stateUpdate)
-        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+        // v1.19.0 (audit 2026-09-25 Q3): the key comes from the client — one line.
+        .map(([k, v]) => `${oneLine(k)}=${JSON.stringify(v)}`)
         .join(", ")}`,
     );
 
@@ -603,12 +647,15 @@ export class DeviceBindingService {
     // about one kind of attribute only.
     const effective = await this.resolveIncrements(device, stateUpdate);
 
-    // A light without its own switch is turned off by writing brightness 0 — so
-    // a brightness in the SAME request would immediately switch it back on and
-    // "off" would silently do nothing. Off wins; the brightness is acknowledged
-    // (a real bridge stores it for the next on, which a bare level state cannot).
+    // Off wins over a brightness in the SAME request, for every light. A light
+    // without its own switch is turned off by writing brightness 0, so the
+    // brightness would switch it straight back on (v1.15.0). v1.19.0 (audit
+    // 2026-09-25 H3): a light WITH a switch has the same problem one step later —
+    // many targets switch on when their level is set (a Zigbee level-with-on/off, a
+    // HmIP LEVEL). The real bridge takes no brightness while a light is off and
+    // answers error 201 (deconz-rest-plugin #6454, homebridge-hue #57).
     const body = effective as Record<string, unknown>;
-    const switchedOffViaBrightness = !device.onState && !!device.briState && "on" in body && !coerceBool(body.on);
+    const switchingOff = "on" in body && !coerceBool(body.on);
 
     for (const [key, value] of Object.entries(effective)) {
       const address = `/lights/${lightId}/state/${key}`;
@@ -620,9 +667,9 @@ export class DeviceBindingService {
       }
       const stateId = this.getStateId(device, key);
 
-      if (switchedOffViaBrightness && key === "bri") {
+      if (switchingOff && key === "bri") {
         this.logger.debug(`"${device.name}": ignoring bri — the same request switches the light off`);
-        results.push({ success: { [address]: value } });
+        results.push(HueApiError.deviceIsOff("bri", address).toResponse());
         continue;
       }
 
@@ -635,7 +682,7 @@ export class DeviceBindingService {
             results.push({ success: { [address]: value } });
           } catch (error) {
             this.logger.error(`Failed to switch "${device.name}" via brightness: ${errText(error)}`);
-            results.push(HueApiError.resourceNotAvailable(lightId, address).toResponse());
+            results.push(HueApiError.resourceNotAvailable(`/lights/${lightId}`, address).toResponse());
           }
           continue;
         }
@@ -662,17 +709,22 @@ export class DeviceBindingService {
           results.push({ success: { [address]: value } });
           continue;
         }
+        const fit = fitToTarget(convertedValue, await this.targetFacts(stateId));
+        if (!fit.write) {
+          this.logger.debug(`"${device.name}": ${stateId} is read-only — ${key} not written`);
+          results.push({ success: { [address]: value } });
+          continue;
+        }
         await this.adapter.setForeignStateAsync(stateId, {
-          val: convertedValue,
+          val: fit.value as ioBroker.StateValue,
           ack: false,
         });
-        this.rememberSourceValue(stateId, convertedValue);
-        this.stateCache.set(stateId, convertedValue);
+        this.stateCache.set(stateId, fit.value);
         results.push({ success: { [address]: value } });
         this.logger.debug(`Set ${stateId} to ${convertedValue}`);
       } catch (error) {
         this.logger.error(`Failed to set ${stateId}: ${errText(error)}`);
-        results.push(HueApiError.resourceNotAvailable(lightId, address).toResponse());
+        results.push(HueApiError.resourceNotAvailable(`/lights/${lightId}`, address).toResponse());
       }
     }
 
@@ -751,11 +803,17 @@ export class DeviceBindingService {
       this.logger.debug(`"${device.name}": on handled by the bri in the same request`);
       return;
     }
-    const target = on
+    const scaled = on
       ? scaleValueForState(HUE_BRI_MAX, device.briScale, HUE_BRI_MAX, this.lastNonZeroSource.get(briState))
       : 0;
+    const fit = fitToTarget(scaled, await this.targetFacts(briState));
+    if (!fit.write) {
+      this.logger.debug(`"${device.name}": ${briState} is read-only — not switched`);
+      return;
+    }
+    const target = fit.value as number;
     await this.adapter.setForeignStateAsync(briState, { val: target, ack: false });
-    this.rememberSourceValue(briState, target);
+
     this.stateCache.set(briState, target);
     this.logger.debug(`"${device.name}": switched ${on ? "on" : "off"} via brightness → ${target}`);
   }

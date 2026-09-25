@@ -62,6 +62,37 @@ export const MAX_USERNAME_LENGTH = 64;
 /** The devicetype is stored as the client object's display name. */
 export const MAX_DEVICETYPE_LENGTH = 100;
 
+/** What the whitelist shows for one paired client (times in ms since the epoch). */
+export interface PairedClient {
+  /** The device type the client paired with. */
+  name: string;
+  /** When it paired. */
+  created: number;
+  /** When it was last authenticated. */
+  lastUse: number;
+}
+
+/**
+ * The display name of a stored client object: the device type it paired with. The
+ * name is a translation object (`tRaw`) carrying the same text in every language,
+ * or a plain string on objects from before v1.15.1.
+ *
+ * @param name The object's `common.name`.
+ * @param fallback What to show when there is nothing readable.
+ */
+function clientDisplayName(name: unknown, fallback: string): string {
+  if (typeof name === "string" && name) {
+    return name;
+  }
+  if (name && typeof name === "object") {
+    const en = (name as Record<string, unknown>).en;
+    if (typeof en === "string" && en) {
+      return en;
+    }
+  }
+  return fallback;
+}
+
 /**
  * Service for managing Hue API users
  */
@@ -109,6 +140,13 @@ export class UserService {
    * one's object, so it is refused instead.
    */
   private idOwners: Map<string, string> = new Map();
+
+  /**
+   * v1.19.0 (audit 2026-09-25 H5): what the whitelist shows per paired key — the
+   * device type the client paired with, when it paired, when it was last seen. The
+   * whitelist used to carry the key as its name and "now" as both dates.
+   */
+  private clientInfo: Map<string, PairedClient> = new Map();
 
   /**
    * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
@@ -299,6 +337,10 @@ export class UserService {
     }
     this.clientKeysCache?.add(username);
     this.idOwners.set(safeUsername, username);
+    if (!this.clientInfo.has(username)) {
+      const now = Date.now();
+      this.clientInfo.set(username, { name: devicetype.slice(0, MAX_DEVICETYPE_LENGTH), created: now, lastUse: now });
+    }
   }
 
   /**
@@ -309,6 +351,38 @@ export class UserService {
    */
   public listCachedClientIds(): readonly string[] {
     return this.clientKeysCache ? [...this.clientKeysCache] : [];
+  }
+
+  /**
+   * Revoke a paired client whose object was deleted — v1.19.0 (audit 2026-09-25 H12):
+   * the cache used to keep the key until the next adapter start, so deleting a client
+   * in the admin did not lock it out. The event carries the SANITIZED object id; the
+   * key is resolved through the owner map (decision 22 — `living.room` must go, not a
+   * `living_room` nobody paired).
+   *
+   * @param objectSuffix The part of the object id after `clients.`
+   * @returns whether a paired key was removed
+   */
+  public forgetClient(objectSuffix: string): boolean {
+    const key = this.idOwners.get(objectSuffix) ?? objectSuffix;
+    this.idOwners.delete(objectSuffix);
+    this.clientInfo.delete(key);
+    const removed = this.clientKeysCache?.delete(key) ?? false;
+    if (removed) {
+      this.logger.info(`Client "${oneLine(key)}" removed — it has no access any more`);
+    }
+    return removed;
+  }
+
+  /**
+   * The paired clients as the whitelist lists them — key, device type, pairing and
+   * last-use time (ms). Empty until the first auth check has loaded the cache.
+   */
+  public listPairedClients(): readonly (PairedClient & { key: string })[] {
+    return this.listCachedClientIds().map(key => {
+      const info = this.clientInfo.get(key);
+      return { key, name: info?.name ?? key, created: info?.created ?? 0, lastUse: info?.lastUse ?? 0 };
+    });
   }
 
   /**
@@ -340,6 +414,10 @@ export class UserService {
     const found = cache.has(username);
     if (found) {
       this.logger.debug(`Client authenticated: ${oneLine(username)}`);
+      const info = this.clientInfo.get(username);
+      if (info) {
+        info.lastUse = Date.now();
+      }
     }
     return found;
   }
@@ -369,6 +447,7 @@ export class UserService {
   private async loadCache(): Promise<Set<string>> {
     const cache = new Set<string>();
     const owners = new Map<string, string>();
+    const info = new Map<string, PairedClient>();
     try {
       const stateObjects = (await this.adapter.getStatesOfAsync("clients", undefined)) || [];
       const offset = this.adapter.namespace.length + 1 + "clients.".length;
@@ -381,6 +460,11 @@ export class UserService {
         const key = typeof stored === "string" && stored ? stored : id;
         cache.add(key);
         owners.set(id, key);
+        // A client object is written once (setObjectNotExists) — its own time is the
+        // pairing time. Nothing extra is stored: a timestamp in the tree would make
+        // every object inventory differ.
+        const created = typeof state.ts === "number" ? state.ts : Date.now();
+        info.set(key, { name: clientDisplayName(state.common?.name, key), created, lastUse: created });
       }
     } catch (err) {
       // Do NOT cache on failure: caching the empty set here would permanently
@@ -392,6 +476,7 @@ export class UserService {
     }
     this.clientKeysCache = cache;
     this.idOwners = owners;
+    this.clientInfo = info;
     return cache;
   }
 

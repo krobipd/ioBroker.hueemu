@@ -132,6 +132,7 @@ export class HueEmu extends utils.Adapter {
 
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
+    this.on("objectChange", this.onObjectChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
 
     this.deviceManagement = new HueEmuDeviceManagement(this);
@@ -391,7 +392,9 @@ export class HueEmu extends utils.Adapter {
 
       // Subscribe to state changes (own states)
       this.subscribeStates("*");
-      this.log.debug("Subscribed to own states (pattern: *)");
+      // …and to the client objects: deleting one in the admin revokes it (v1.19.0, H12).
+      this.subscribeObjects("clients.*");
+      this.log.debug("Subscribed to own states (pattern: *) and client objects");
 
       this.setConnected(true, "");
       this.log.info(
@@ -844,6 +847,25 @@ export class HueEmu extends utils.Adapter {
   }
 
   /**
+   * Called if a subscribed object changes — only the client objects are subscribed:
+   * a deleted one revokes that client (v1.19.0, audit 2026-09-25 H12). The state
+   * deletion usually arrives as well; revoking twice is harmless.
+   *
+   * @param id - Full object ID
+   * @param obj - The object, or null/undefined when it was deleted
+   */
+  private onObjectChange(id: string, obj: ioBroker.Object | null | undefined): void {
+    try {
+      const clientPrefix = `${this.namespace}.clients.`;
+      if (!obj && id.startsWith(clientPrefix)) {
+        this.apiHandler?.forgetClient(id.slice(clientPrefix.length));
+      }
+    } catch (error) {
+      this.log.error(`Error handling object change for ${id}: ${errText(error)}`);
+    }
+  }
+
+  /**
    * Called if a subscribed state changes
    *
    * @param id - Full state ID that changed
@@ -853,6 +875,13 @@ export class HueEmu extends utils.Adapter {
     try {
       if (!state) {
         this.log.debug(`State ${id} deleted`);
+        // v1.19.0 (audit 2026-09-25 H12): a deleted client object revokes that client
+        // at once — its key used to stay valid until the next start.
+        const clientPrefix = `${this.namespace}.clients.`;
+        if (id.startsWith(clientPrefix)) {
+          this.apiHandler?.forgetClient(id.slice(clientPrefix.length));
+          return;
+        }
         // A bound light must not keep serving the last value of a datapoint
         // that no longer exists (audit 2026-09-15 C2).
         this.apiHandler?.forgetState(id);
@@ -869,7 +898,7 @@ export class HueEmu extends utils.Adapter {
       // shows what ioBroker shows; the device's confirmed answer still corrects
       // it (audit 2026-09-15 C1, decision 26).
       if (this.apiHandler) {
-        this.apiHandler.onStateChange(id, state.val);
+        this.apiHandler.onStateChange(id, state.val, state.from);
       }
 
       // Only handle non-acked state changes for our own states

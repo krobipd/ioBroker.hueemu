@@ -23,7 +23,19 @@ export interface ConfigServiceConfig {
    * purpose: keeps the rendering path non-async, so the caller can return
    * whatever's cached at the moment without the config build going async.
    */
-  whitelistProvider?: () => readonly string[];
+  whitelistProvider?: () => readonly WhitelistClient[];
+}
+
+/** One paired client as the whitelist renders it (times in ms since the epoch). */
+export interface WhitelistClient {
+  /** The key the client authenticates with. */
+  key: string;
+  /** The device type it paired with. */
+  name: string;
+  /** When it paired. */
+  created: number;
+  /** When it was last seen. */
+  lastUse: number;
 }
 
 /**
@@ -32,7 +44,7 @@ export interface ConfigServiceConfig {
 export class ConfigService {
   private readonly identity: BridgeIdentity;
   private readonly advertiseHost: string;
-  private readonly whitelistProvider?: () => readonly string[];
+  private readonly whitelistProvider?: () => readonly WhitelistClient[];
 
   // Bridge configuration constants
   private static readonly SW_VERSION = "1941132080";
@@ -85,7 +97,12 @@ export class ConfigService {
   private static readonly formatterCache = new Map<string, Intl.DateTimeFormat>();
 
   /**
-   * v1.4.3 (C3): Hue spec timestamp shape `YYYY-MM-DD HH:MM:SS` in `timezone`.
+   * Hue timestamp `YYYY-MM-DDTHH:MM:SS` in `timezone` — the ISO form without zone
+   * the bridge, diyHue and the Burgestrand reference all use. v1.19.0 (audit
+   * 2026-09-25 H5): it used to carry a blank instead of the `T`, and openHAB's Hue
+   * binding (Gson `yyyy-MM-dd'T'HH:mm:ss`) failed on /config and listed no light.
+   * `hourCycle: "h23"` instead of `hour12: false`: the latter can render midnight
+   * as "24" on some ICU versions (N9).
    *
    * @param date - Date to format
    * @param timezone - IANA timezone string
@@ -102,13 +119,17 @@ export class ConfigService {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
-          hour12: false,
+          hourCycle: "h23",
         });
         ConfigService.formatterCache.set(timezone, fmt);
       }
-      return fmt.format(date).replace(", ", " ").replace(",", " ");
+      const part: Record<string, string> = {};
+      for (const { type, value } of fmt.formatToParts(date)) {
+        part[type] = value;
+      }
+      return `${part.year}-${part.month}-${part.day}T${part.hour}:${part.minute}:${part.second}`;
     } catch {
-      return date.toISOString().replace("T", " ").substring(0, 19);
+      return date.toISOString().substring(0, 19);
     }
   }
 
@@ -143,14 +164,22 @@ export class ConfigService {
     const now = new Date();
     const isIPv4 = IPV4_RE.test(this.advertiseHost);
     const gateway = isIPv4 ? this.advertiseHost.replace(/\.\d+$/, ".1") : this.advertiseHost;
-    const whitelist: Record<string, { name: string; "create date": string; "last use date": string }> = {};
+    let whitelist: Record<string, { name: string; "create date": string; "last use date": string }> = {};
     if (this.whitelistProvider) {
       try {
-        const ids = this.whitelistProvider();
-        const ts = ConfigService.formatHueTimestamp(now, "UTC");
-        for (const id of ids) {
-          whitelist[id] = { name: id, "create date": ts, "last use date": ts };
-        }
+        const clients = this.whitelistProvider();
+        // Own keys only: a client paired as `__proto__` would otherwise replace the
+        // prototype of a `{}` literal and vanish from the list (Q5).
+        whitelist = Object.fromEntries(
+          clients.map(c => [
+            c.key,
+            {
+              name: c.name,
+              "create date": ConfigService.formatHueTimestamp(new Date(c.created || now.getTime()), "UTC"),
+              "last use date": ConfigService.formatHueTimestamp(new Date(c.lastUse || now.getTime()), "UTC"),
+            },
+          ]),
+        );
       } catch {
         /* whitelist remains empty — non-fatal */
       }

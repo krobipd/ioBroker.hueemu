@@ -6,6 +6,7 @@ import { HueApiError, HueErrorType } from "../types/errors";
 import { applyIncrement, DeviceBindingService, type DeviceConfig } from "./device-binding-service";
 import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
+import type { LightStateUpdate } from "../types/light";
 import type { Mock } from "vitest";
 
 // Helper to create service with test devices
@@ -1495,8 +1496,48 @@ describe("v1.15.0 — a light whose only writable target is brightness", () => {
 
   it("still writes zero when off comes together with a brightness", async () => {
     const { service, adapter } = createService([briOnly], { "hm.LEVEL": 80 });
-    await service.setLightState("1", { on: false, bri: 254 });
+    const results = await service.setLightState("1", { on: false, bri: 254 });
     expect(adapter.writtenStates.get("hm.LEVEL")).toBe(0);
+    // Like the bridge: no brightness for a light that is being switched off (201).
+    expect(results).toContainEqual({
+      error: {
+        type: 201,
+        address: "/lights/1/state/bri",
+        description: "parameter, bri, is not modifiable. Device is set to off.",
+      },
+    });
+  });
+
+  // v1.19.0 (audit 2026-09-25 H3): off wins for a light WITH a switch as well — many
+  // targets switch on when their level is set, so writing the brightness after the
+  // off would turn the lamp straight back on. The bridge answers bri with 201.
+  it("does not write a brightness that comes with off on a light with its own switch", async () => {
+    const { service, adapter } = createService(
+      [{ name: "Lamp", lightType: "dimmable", onState: "z.on", briState: "z.bri", briScale: "raw" }],
+      { "z.on": true, "z.bri": 200 },
+    );
+    const results = await service.setLightState("1", { on: false, bri: 127 });
+    expect(adapter.writtenStates.get("z.on")).toBe(false);
+    expect(adapter.writtenStates.has("z.bri")).toBe(false);
+    expect(results).toEqual([
+      { success: { "/lights/1/state/on": false } },
+      {
+        error: {
+          type: 201,
+          address: "/lights/1/state/bri",
+          description: "parameter, bri, is not modifiable. Device is set to off.",
+        },
+      },
+    ]);
+  });
+
+  it("still writes a brightness that comes with on", async () => {
+    const { service, adapter } = createService(
+      [{ name: "Lamp", lightType: "dimmable", onState: "z.on", briState: "z.bri", briScale: "raw" }],
+      { "z.on": false, "z.bri": 1 },
+    );
+    await service.setLightState("1", { on: true, bri: 127 });
+    expect(adapter.writtenStates.get("z.bri")).toBe(127);
   });
 
   it("leaves a light with neither switch nor brightness untouched", async () => {
@@ -1740,7 +1781,9 @@ describe("v1.17.0 — the value scale is settled at start, from the bound object
   });
 
   it("never overrides a scale the user really picked", async () => {
-    const { svc, adapter } = await dimmer({ min: 0, max: 100, unit: "%" }, "raw");
+    // The unit alone would derive percent; bounds are left out so the write is not
+    // clamped to them (v1.19.0 — a declared max is the max, see the H9 block).
+    const { svc, adapter } = await dimmer({ unit: "%" }, "raw");
     await svc.setLightState("1", { bri: 127 });
     expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(127);
   });
@@ -1903,5 +1946,114 @@ describe("v1.17.0 — a light whose driving state does not exist is not reachabl
     svc.forgetState("hueemu.0.startPairing");
     const missing = (svc as unknown as { missingStates: Set<string> }).missingStates;
     expect(missing.size).toBe(0);
+  });
+});
+
+describe("v1.19.0 — bridge-shaped answers and log hygiene", () => {
+  // Audit 2026-09-25 N1/E11: the resource in a type-3 description is its path, the
+  // way the bridge and diyHue name it — not the bare number.
+  it("names an unknown light by its path", async () => {
+    const { service } = createService([{ name: "A", lightType: "onoff", onState: "a.on" }]);
+    await expect(service.getLightById("9")).rejects.toMatchObject({
+      address: "/lights/9",
+      message: "resource, /lights/9, not available",
+    });
+    await expect(service.setLightState("9", { on: true })).rejects.toMatchObject({
+      address: "/lights/9/state",
+      message: "resource, /lights/9, not available",
+    });
+  });
+
+  // Audit 2026-09-25 Q3: a body key comes from the client — it must not forge log lines.
+  it("keeps a client-supplied attribute name on one log line", async () => {
+    const logger = spyLogger();
+    const adapter = createMockDeviceBindingAdapter({});
+    const service = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "A", lightType: "onoff", onState: "a.on" }],
+      logger,
+    });
+    await service.setLightState("1", { "evil\nFAKE LOG LINE": 1 } as unknown as LightStateUpdate);
+    const lines = (logger.debug as unknown as Mock<LogFn>).mock.calls.map(c => String(c[0]));
+    expect(lines.some(l => l.includes("\n"))).toBe(false);
+    expect(lines.some(l => l.includes("evil FAKE LOG LINE"))).toBe(true);
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 H6): on a source without min/max/unit the scale is a guess
+// from the source's own last value. The adapter's own writes and their echo must not
+// move that guess, or one dim to minimum flips a percent source to 0..1 for good.
+describe("v1.19.0 — the scale guess follows the source, not the adapter's own writes", () => {
+  const bare: DeviceConfig = { name: "Bare", lightType: "dimmable", onState: "u.on", briState: "u.bri" };
+
+  it("keeps a percent source in percent after a dim to minimum and its echo", async () => {
+    const { service, adapter } = createService([bare], { "u.on": true, "u.bri": 50 });
+    await service.initialize();
+    await service.setLightState("1", { bri: 1 });
+    expect(adapter.writtenStates.get("u.bri")).toBe(2);
+    // The subscription echoes the adapter's own write.
+    service.updateStateCache("u.bri", 2, "system.adapter.hueemu.0");
+    await service.setLightState("1", { bri: 254 });
+    expect(adapter.writtenStates.get("u.bri")).toBe(100);
+  });
+
+  it("does not let its own echo move the guess", async () => {
+    const { service, adapter } = createService([bare], { "u.on": true, "u.bri": 50 });
+    await service.initialize();
+    service.updateStateCache("u.bri", 0.4, "system.adapter.hueemu.0");
+    await service.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("u.bri")).toBe(50);
+  });
+
+  it("follows a value the source itself reports", async () => {
+    const { service, adapter } = createService([bare], { "u.on": true, "u.bri": 50 });
+    await service.initialize();
+    service.updateStateCache("u.bri", 0.5, "system.adapter.zigbee.0");
+    await service.setLightState("1", { bri: 127 });
+    expect(adapter.writtenStates.get("u.bri")).toBe(0.5);
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 H9, decision E8): the write path reads what the target
+// declares (once, on the first write) and keeps to it.
+describe("v1.19.0 — writes keep to what the target datapoint declares", () => {
+  it("clamps a Kelvin write to the lamp's declared range (yeelight 1700..6500)", async () => {
+    const adapter = createMockDeviceBindingAdapter(
+      { "y.ct": 4000 },
+      { "y.ct": { type: "number", min: 1700, max: 6500, unit: "K" } },
+    );
+    const service = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "Y", lightType: "ct", ctState: "y.ct", ctScale: "kelvin" }],
+      logger: createMockLogger(),
+    });
+    await service.setLightState("1", { ct: 153 }); // 6536 K unclamped
+    expect(adapter.writtenStates.get("y.ct")).toBe(6500);
+  });
+
+  it("does not write into a read-only status datapoint", async () => {
+    const adapter = createMockDeviceBindingAdapter({ "s.on": false }, { "s.on": { type: "boolean", write: false } });
+    const service = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "S", lightType: "onoff", onState: "s.on" }],
+      logger: createMockLogger(),
+    });
+    const results = await service.setLightState("1", { on: true });
+    expect(adapter.writtenStates.has("s.on")).toBe(false);
+    expect(results).toEqual([{ success: { "/lights/1/state/on": true } }]);
+  });
+
+  it("switches an MQTT text switch with its own keys", async () => {
+    const adapter = createMockDeviceBindingAdapter(
+      { "m.power": "OFF" },
+      { "m.power": { type: "string", states: { ON: "On", OFF: "Off" } } },
+    );
+    const service = new DeviceBindingService({
+      adapter,
+      devices: [{ name: "M", lightType: "onoff", onState: "m.power" }],
+      logger: createMockLogger(),
+    });
+    await service.setLightState("1", { on: true });
+    expect(adapter.writtenStates.get("m.power")).toBe("ON");
   });
 });

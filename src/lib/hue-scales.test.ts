@@ -15,6 +15,7 @@ import {
   deriveCtScale,
   deriveHueScale,
   deriveLevelScale,
+  fitToTarget,
   getDefaultValue,
   applyIncrement,
   isUndecidedScale,
@@ -164,7 +165,7 @@ describe("stateFactsOf", () => {
 
   it("passes bounds and unit through, ignoring non-numeric ones", () => {
     const facts = stateFactsOf(state("x", "level", "number", { min: 0, max: 360, unit: "°" }).x) as StateFacts;
-    expect(facts).toEqual({ writable: true, min: 0, max: 360, unit: "°" });
+    expect(facts).toEqual({ writable: true, min: 0, max: 360, unit: "°", type: "number" });
   });
 });
 
@@ -234,6 +235,15 @@ describe("percent-style scales, write direction", () => {
     expect(scaleValueForState(127, "auto", 254, 0)).toBe(127);
   });
 
+  // v1.19.0 (audit 2026-09-25 H6): the percent branch writes whole percents and never
+  // below 2 for a lit lamp — 1 and less read back as the 0..1 branch and flipped the scale.
+  it("writes a lit lamp as at least 2 % so the value cannot read back as 0..1", () => {
+    expect(scaleValueForState(1, "auto", 254, 50)).toBe(2);
+    expect(scaleValueForState(3, "auto", 254, 50)).toBe(2);
+    expect(scaleValueForState(254, "auto", 254, 50)).toBe(100);
+    expect(scaleValueForState(0, "auto", 254, 50)).toBe(0);
+  });
+
   it("round-trips a percent source through both directions", () => {
     const hue = scaleValueFromState(50, "auto", 1, 254, logger);
     expect(scaleValueForState(hue, "auto", 254, 50)).toBe(50);
@@ -300,5 +310,50 @@ describe("applyIncrement", () => {
   it("has no answer for an attribute that has no relative form", () => {
     expect(applyIncrement("effect", 1, 1)).toBeUndefined();
     expect(applyIncrement("on", true, 1)).toBeUndefined();
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 H9, decision E8): a write is shaped the way the target
+// declares it — js-controller writes whatever it gets and only warns.
+describe("fitToTarget", () => {
+  it("writes as converted when nothing is known about the target", () => {
+    expect(fitToTarget(6536, undefined)).toEqual({ write: true, value: 6536 });
+  });
+
+  it("clamps a number to the declared bounds", () => {
+    const facts: StateFacts = { writable: true, min: 1700, max: 6500 };
+    expect(fitToTarget(6536, facts)).toEqual({ write: true, value: 6500 });
+    expect(fitToTarget(1000, facts)).toEqual({ write: true, value: 1700 });
+    expect(fitToTarget(4000, facts)).toEqual({ write: true, value: 4000 });
+  });
+
+  it("writes nothing into a read-only datapoint", () => {
+    expect(fitToTarget(true, { writable: false })).toEqual({ write: false, value: true });
+  });
+
+  it("gives a text switch its own on/off keys", () => {
+    const mqtt: StateFacts = { writable: true, type: "string", states: { ON: "On", OFF: "Off" } };
+    expect(fitToTarget(true, mqtt)).toEqual({ write: true, value: "ON" });
+    expect(fitToTarget(false, mqtt)).toEqual({ write: true, value: "OFF" });
+    const words: StateFacts = { writable: true, type: "string", states: { an: "An", aus: "Aus" } };
+    expect(fitToTarget(false, words)).toEqual({ write: true, value: "aus" });
+  });
+
+  it("invents no text: a string target without an on/off pair keeps the boolean", () => {
+    expect(fitToTarget(true, { writable: true, type: "string" })).toEqual({ write: true, value: true });
+    expect(fitToTarget(true, { writable: true, type: "string", states: { a: "A" } })).toEqual({
+      write: true,
+      value: true,
+    });
+  });
+
+  it("reads type and states from the object", () => {
+    const obj = {
+      _id: "m",
+      type: "state",
+      common: { name: "m", type: "string", role: "switch", read: true, write: true, states: { ON: "On", OFF: "Off" } },
+      native: {},
+    } as unknown as ioBroker.Object;
+    expect(stateFactsOf(obj)).toMatchObject({ type: "string", states: { ON: "On", OFF: "Off" } });
   });
 });

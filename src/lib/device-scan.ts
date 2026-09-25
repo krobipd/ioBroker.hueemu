@@ -221,6 +221,17 @@ const DETECTABLE_LIGHT_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The state ids a device binds, in a fixed order.
+ *
+ * @param device The stored (or freshly detected) mapping.
+ */
+export function boundStateIds(device: DeviceConfig): string[] {
+  return [device.onState, device.briState, device.ctState, device.hueState, device.satState, device.xyState].filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+}
+
+/**
  * Scan an object map for light devices and return hueemu suggestions.
  *
  * @param objects The full ioBroker object map (id → object)
@@ -234,8 +245,13 @@ export function scanForLightDevices(
   const keys = Object.keys(objects).sort();
   const devices: DeviceConfig[] = [];
   const unmapped: UnmappedControl[] = [];
-  const usedIds: string[] = [];
   const lookup: StateLookup = id => stateFactsOf(objects[id]);
+  // v1.19.0 (audit 2026-09-25 H7): one light per set of bound datapoints. A lamp laid
+  // out as device → channel → state is detected at the device AND at the channel;
+  // type-detector 6.0.1 resets `_usedIdsOptional` on every `detect()`, so the shared
+  // list this scan used to pass never deduplicated anything. The sorted keys put the
+  // device first, so the lamp is offered under the device's name.
+  const taken = new Set<string>();
 
   for (const id of keys) {
     const obj = objects[id];
@@ -244,7 +260,7 @@ export function scanForLightDevices(
     }
     let controls;
     try {
-      controls = detector.detect({ objects, id, _keysOptional: keys, _usedIdsOptional: usedIds });
+      controls = detector.detect({ objects, id, _keysOptional: keys });
     } catch {
       continue;
     }
@@ -262,6 +278,11 @@ export function scanForLightDevices(
       }
       const outcome = mapControlToDevice(control.type, control.states || [], nameOf(id, obj), lookup);
       if (outcome.kind === "device") {
+        const bound = boundStateIds(outcome.device);
+        if (bound.some(stateId => taken.has(stateId))) {
+          continue;
+        }
+        bound.forEach(stateId => taken.add(stateId));
         devices.push(outcome.device);
       } else {
         unmapped.push({ id, type: control.type, reason: outcome.reason });

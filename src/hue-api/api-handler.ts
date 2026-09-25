@@ -72,7 +72,7 @@ export class ApiHandler implements HueApiHandler {
     // per Hue spec (C6) without forcing the render path async.
     this.configService = new ConfigService({
       ...config.configServiceConfig,
-      whitelistProvider: () => this.userService.listCachedClientIds(),
+      whitelistProvider: () => this.userService.listPairedClients(),
     });
 
     // Initialize device binding service
@@ -97,9 +97,10 @@ export class ApiHandler implements HueApiHandler {
    *
    * @param id - Full state ID that changed
    * @param value - New state value
+   * @param from - Who wrote it (`state.from`)
    */
-  public onStateChange(id: string, value: unknown): void {
-    this.deviceBinding.updateStateCache(id, value);
+  public onStateChange(id: string, value: unknown, from?: string): void {
+    this.deviceBinding.updateStateCache(id, value, from);
   }
 
   /**
@@ -110,6 +111,15 @@ export class ApiHandler implements HueApiHandler {
    */
   public forgetState(id: string): void {
     this.deviceBinding.forgetState(id);
+  }
+
+  /**
+   * A paired client's object was deleted — revoke its key at once (v1.19.0, H12).
+   *
+   * @param objectSuffix - The part of the object id after `clients.`
+   */
+  public forgetClient(objectSuffix: string): void {
+    this.userService.forgetClient(objectSuffix);
   }
 
   /**
@@ -275,19 +285,35 @@ export class ApiHandler implements HueApiHandler {
   ): Promise<LightStateResult[]> {
     this.logger.debug(`Set group ${oneLine(groupId)} action: ${JSON.stringify(state)}`);
 
+    // v1.19.0 (audit 2026-09-25 H2): the emulator has one group, 0 ("all lights").
+    // Any other id switched every light as well — a client with a stored group id
+    // ("living room off") took the whole house with it. The bridge answers error 3.
+    if (groupId !== "0") {
+      throw HueApiError.resourceNotAvailable(`/groups/${groupId}`, `/groups/${groupId}/action`);
+    }
+
+    // v1.19.0 (Q10): `scene` is a group attribute (recall a scene). The emulator
+    // has no scenes — answered with error 7 like Home Assistant's emulated_hue, and
+    // kept away from the lights, where it would come back as error 6 per light.
+    const { scene, ...lightState } = state as LightStateUpdate & { scene?: unknown };
+
     // Fan out to every configured light using the cheap id list, not
     // getAllLights() (which rebuilds every light's full state) — a flood of
     // group writes shouldn't multiply state reads on top of the writes.
     // setLightState never rejects for a listed light: a failed write is logged
     // there (error level) and answered per light — a group has no slot for it.
     const lightIds = this.deviceBinding.getLightIds();
-    await Promise.all(lightIds.map(lightId => this.deviceBinding.setLightState(lightId, state)));
+    await Promise.all(lightIds.map(lightId => this.deviceBinding.setLightState(lightId, lightState)));
 
     // The group response is per attribute, like the bridge's: success for every
     // light-state attribute, error 6 for anything else (v1.18.0 — unknown keys
     // used to be dropped silently here and acknowledged on the single-light path).
     return Object.entries(state).map(([key, value]) => {
       const address = `/groups/${groupId}/action/${key}`;
+      if (key === "scene") {
+        const shown = typeof scene === "string" ? scene : JSON.stringify(scene);
+        return HueApiError.invalidParameterValue(oneLine(String(shown)), "scene", address).toResponse();
+      }
       return LIGHT_STATE_KEYS.has(key)
         ? { success: { [address]: value } }
         : HueApiError.parameterNotAvailable(key, address).toResponse();

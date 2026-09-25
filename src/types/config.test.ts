@@ -323,18 +323,40 @@ describe("ConfigService", () => {
     });
 
     // C6 v1.4.3 — whitelist filled from the provider (paired clients).
+    // v1.19.0 (audit 2026-09-25 H5): with the device type as name and the real
+    // pairing / last-use time, in the bridge's `YYYY-MM-DDTHH:MM:SS` form.
     it("fills the whitelist from the whitelistProvider (C6)", () => {
       const svc = new ConfigService({
         identity,
         advertiseHost: "192.168.1.100",
-        whitelistProvider: () => ["alexa-1", "harmony-2"],
+        whitelistProvider: () => [
+          {
+            key: "alexa-1",
+            name: "Echo#Kitchen",
+            created: Date.UTC(2026, 0, 2, 3, 4, 5),
+            lastUse: Date.UTC(2026, 8, 25),
+          },
+          { key: "harmony-2", name: "harmony#hub", created: 0, lastUse: 0 },
+        ],
       });
       const full = svc.getFullConfig();
       expect(Object.keys(full.whitelist!)).toEqual(["alexa-1", "harmony-2"]);
       const entry = full.whitelist!["alexa-1"];
-      expect(entry.name).toBe("alexa-1");
-      expect(entry["create date"]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
-      expect(entry["last use date"]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      expect(entry.name).toBe("Echo#Kitchen");
+      expect(entry["create date"]).toBe("2026-01-02T03:04:05");
+      expect(entry["last use date"]).toBe("2026-09-25T00:00:00");
+      // Unknown times fall back to now, still in the bridge's form.
+      expect(full.whitelist!["harmony-2"]["create date"]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    });
+
+    // v1.19.0 (Q5): a client paired as `__proto__` stays an own entry of the list.
+    it("keeps a client named __proto__ in the whitelist", () => {
+      const svc = new ConfigService({
+        identity,
+        advertiseHost: "192.168.1.100",
+        whitelistProvider: () => [{ key: "__proto__", name: "x", created: 1, lastUse: 1 }],
+      });
+      expect(Object.keys(svc.getFullConfig().whitelist!)).toEqual(["__proto__"]);
     });
 
     it("a throwing whitelistProvider leaves the whitelist empty (non-fatal)", () => {
@@ -353,15 +375,15 @@ describe("ConfigService", () => {
       const full = service.getFullConfig();
       expect(full.UTC).toBeTypeOf("string");
       expect(full.localtime).toBeTypeOf("string");
-      // Format: YYYY-MM-DD HH:MM:SS
-      expect(full.UTC).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      // Format: YYYY-MM-DDTHH:MM:SS (the bridge's own form, v1.19.0)
+      expect(full.UTC).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
     });
 
     it("formats UTC as the exact spec timestamp for a fixed instant (C3 — value, not just shape)", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2024-01-15T12:30:45Z"));
       try {
-        expect(service.getFullConfig().UTC).toBe("2024-01-15 12:30:45");
+        expect(service.getFullConfig().UTC).toBe("2024-01-15T12:30:45");
       } finally {
         vi.useRealTimers();
       }
@@ -380,7 +402,18 @@ describe("ConfigService", () => {
     // C3 v1.4.3 — localtime should be in the spec format too.
     it("should produce a spec-shaped localtime string (C3 v1.4.3)", () => {
       const full = service.getFullConfig();
-      expect(full.localtime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      expect(full.localtime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    });
+
+    // N9: midnight is 00, never 24.
+    it("renders midnight as 00, never as 24", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2024-01-15T00:00:05Z"));
+      try {
+        expect(service.getFullConfig().UTC).toBe("2024-01-15T00:00:05");
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     // C1 v1.4.3 — IPv4-only gateway munge. Previously a non-IPv4 host gave
