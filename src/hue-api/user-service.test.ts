@@ -69,9 +69,9 @@ function createMockAdapter(existingClients: ExistingClient[] = []): MockUserAdap
       writtenObjects.set(id, obj);
       return Promise.resolve({ id });
     },
-    setStateAsync: (id, state) => {
+    setState: (id, state) => {
       if (adapter.setStateShouldFail) {
-        return Promise.reject(new Error("setStateAsync failure"));
+        return Promise.reject(new Error("setState failure"));
       }
       writtenStates.set(id, state);
       return Promise.resolve({ id });
@@ -165,10 +165,15 @@ describe("UserService", () => {
       expect(service.listCachedClientIds()).not.toContain("ghost");
     });
 
-    it("does not throw if setStateAsync fails", async () => {
-      const { service, adapter } = createService();
+    it("keeps a stored client paired and warns when only its state write fails", async () => {
+      const adapter = createMockAdapter();
+      const warn = vi.fn();
+      const service = new UserService({ adapter, logger: { ...createMockLogger(), warn } });
       adapter.setStateShouldFail = true;
-      await service.addUser("foo", "bar");
+      await expect(service.addUser("foo", "bar")).resolves.toBeUndefined();
+      // The object reached the database — that is what makes a pairing.
+      expect(await service.isUserAuthenticated("foo")).toBe(true);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Failed to set client state foo"));
     });
   });
 

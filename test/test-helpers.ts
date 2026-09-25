@@ -19,9 +19,12 @@ export function createMockDeviceBindingAdapter(
   stateCommon: Record<string, Record<string, unknown>> = {},
 ): DeviceBindingAdapter & {
   writtenStates: Map<string, unknown>;
+  /** The `ack` flag of the last write per id — a command to a device must go out as `ack: false`. */
+  writtenAcks: Map<string, boolean | undefined>;
   subscribedPatterns: string[];
 } {
   const writtenStates = new Map<string, unknown>();
+  const writtenAcks = new Map<string, boolean | undefined>();
   const subscribedPatterns: string[] = [];
 
   return {
@@ -51,17 +54,26 @@ export function createMockDeviceBindingAdapter(
       // unknown ids = missing object. `stateCommon` lets a test give a source
       // the min/max/unit the runtime scale resolution reads (v1.17.0).
       if (id in stateValues || id in stateCommon) {
-        return { _id: id, type: "state", common: stateCommon[id] ?? {}, native: {} } as unknown as ioBroker.Object;
+        // A copy, like the object store hands out — code that mutates what it read must not
+        // change what the next read returns.
+        return structuredClone({
+          _id: id,
+          type: "state",
+          common: stateCommon[id] ?? {},
+          native: {},
+        }) as unknown as ioBroker.Object;
       }
       return null;
     },
     setForeignStateAsync: async (id: string, state: ioBroker.SettableState) => {
       writtenStates.set(id, (state as { val: unknown }).val);
+      writtenAcks.set(id, (state as { ack?: boolean }).ack);
     },
     subscribeForeignStates: (pattern: string) => {
       subscribedPatterns.push(pattern);
     },
     writtenStates,
+    writtenAcks,
     subscribedPatterns,
   };
 }

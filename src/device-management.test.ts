@@ -29,20 +29,20 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
     on: vi.fn(),
     log: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
     getForeignObjectAsync: vi.fn((id: string) =>
-      Promise.resolve(id === "system.adapter.hueemu.0" ? { native: { devices: stored } } : null),
+      Promise.resolve(id === "system.adapter.hueemu.0" ? { native: { devices: structuredClone(stored) } } : null),
     ),
     extendForeignObjectAsync: vi.fn((_id: string, patch: { native: { devices: DeviceConfig[] } }) => {
       stored = patch.native.devices;
       return Promise.resolve();
     }),
-    getForeignObjectsAsync: vi.fn(() => Promise.resolve(allObjects)),
+    getForeignObjectsAsync: vi.fn(() => Promise.resolve(structuredClone(allObjects))),
     // A1: searchDevices now loads via getObjectView per type. Return the objects
     // of the requested design ("device" | "channel" | "state"), like js-controller.
     getObjectViewAsync: vi.fn((_system: string, design: string) =>
       Promise.resolve({
         rows: Object.entries(allObjects)
           .filter(([, o]) => (o as ioBroker.Object).type === design)
-          .map(([id, value]) => ({ id, value })),
+          .map(([id, value]) => ({ id, value: structuredClone(value) })),
       }),
     ),
     _stored: () => stored,

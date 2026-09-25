@@ -23,10 +23,9 @@ vi.mock("@iobroker/adapter-core", () => {
     public config: Record<string, unknown> = {};
     public on = vi.fn();
     public setState = vi.fn(async () => {});
-    public setStateAsync = vi.fn(() => Promise.resolve({ id: "x" }));
     public getStateAsync = vi.fn(() => Promise.resolve(null));
     public setObjectNotExistsAsync = vi.fn(() => Promise.resolve({ id: "x" }));
-    public setObjectAsync = vi.fn(() => Promise.resolve({ id: "x" }));
+    public setForeignObject = vi.fn(() => Promise.resolve({ id: "x" }));
     public getObjectAsync = vi.fn(() => Promise.resolve(null));
     public delObjectAsync = vi.fn(async () => {});
     public getObjectListAsync = vi.fn(() => Promise.resolve({ rows: [] }));
@@ -147,8 +146,7 @@ function internalOf(adapter: HueEmu): {
   getStatesOfAsync: ReturnType<typeof vi.fn>;
   delObjectAsync: ReturnType<typeof vi.fn>;
   setObjectNotExistsAsync: ReturnType<typeof vi.fn>;
-  setObjectAsync: ReturnType<typeof vi.fn>;
-  setStateAsync: ReturnType<typeof vi.fn>;
+  setForeignObject: ReturnType<typeof vi.fn>;
   pairingTimeoutId: unknown;
   _pairingEnabled: boolean;
   _disableAuth: boolean;
@@ -181,7 +179,6 @@ function setup(configOverrides: Record<string, unknown> = {}): {
   Object.assign(i.config, {
     bind: "192.168.1.10",
     port: 8080,
-    advertiseHost: "",
     httpsPort: undefined,
     udn: "12345678-1234-1234-1234-123456789abc",
     mac: "AA:BB:CC:DD:EE:FF",
@@ -275,14 +272,21 @@ describe("HueEmu buildConfig", () => {
     }
   });
 
-  it("advertises the explicit advertiseHost when set", async () => {
-    const { adapter } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
-    const config = await internalOf(adapter).buildConfig();
-    expect(config.advertiseHost).toBe("10.1.2.3");
+  // v1.19.0: the pre-1.12 advertiseHost is migrated into bind (or dropped) before
+  // buildConfig runs — a leftover value is no longer read.
+  it("ignores a leftover advertiseHost and announces the detected address", async () => {
+    osMock.interfaces = { eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }] };
+    try {
+      const { adapter } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
+      const config = await internalOf(adapter).buildConfig();
+      expect(config.advertiseHost).toBe("192.168.1.20");
+    } finally {
+      osMock.interfaces = null;
+    }
   });
 
-  it("advertises a concrete bind address when advertiseHost is empty", async () => {
-    const { adapter } = setup({ bind: "192.168.5.5", advertiseHost: "" });
+  it("advertises a concrete bind address", async () => {
+    const { adapter } = setup({ bind: "192.168.5.5" });
     const config = await internalOf(adapter).buildConfig();
     expect(config.advertiseHost).toBe("192.168.5.5");
   });
@@ -900,6 +904,36 @@ describe("HueEmu onUnload", () => {
     expect(servers).toHaveLength(0);
   });
 
+  // v1.19.0: a pre-1.12 advertiseHost that still belongs to this host moves into bind
+  // when the instance listens everywhere; keys no version reads are dropped.
+  it("carries a live legacy advertiseHost into bind and drops the obsolete keys", async () => {
+    osMock.interfaces = { eth0: [{ family: "IPv4", address: "10.1.2.3", internal: false }] };
+    try {
+      const { adapter, servers } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
+      const i = internalOf(adapter);
+      i.getForeignObjectAsync.mockResolvedValue({
+        common: { supportedMessages: { deviceManager: true } },
+        native: {
+          bind: "0.0.0.0",
+          port: 8080,
+          advertiseHost: "10.1.2.3",
+          discoveryHost: "192.168.178.10",
+          discoveryPort: 80,
+          upnpPort: 1900,
+        },
+      });
+
+      await i.onReady();
+
+      expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+        native: { bind: "10.1.2.3", advertiseHost: null, discoveryHost: null, discoveryPort: null, upnpPort: null },
+      });
+      expect(servers).toHaveLength(0);
+    } finally {
+      osMock.interfaces = null;
+    }
+  });
+
   it("starts normally on an installation that already uses bind and a numeric port", async () => {
     const { adapter, servers } = setup();
     const i = internalOf(adapter);
@@ -933,7 +967,7 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     await i.migrateUserToClients();
 
     expect(i.setObjectNotExistsAsync).toHaveBeenCalledWith("clients.alexa_echo", expect.anything());
-    expect(i.setStateAsync).toHaveBeenCalledWith("clients.alexa_echo", { val: "alexa.echo", ack: true });
+    expect(i.setState).toHaveBeenCalledWith("clients.alexa_echo", { val: "alexa.echo", ack: true });
     expect(i.delObjectAsync).toHaveBeenCalledWith("user.alexa.echo");
     expect(i.delObjectAsync).toHaveBeenCalledWith("user");
   });
@@ -1173,23 +1207,32 @@ describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
     expect(i.extendObject.mock.invocationCallOrder[0]).toBeLessThan(servers[0].start.mock.invocationCallOrder[0]);
   });
 
-  it("keeps role and type on the switches, so the object stays a valid state", async () => {
+  // v1.19.0: the SHAPE (type, role, read/write, def) lives in the manifest alone —
+  // js-controller applies instanceObjects on every start and keeps only the name.
+  // A copy here could drift from the manifest; the refresh carries texts only.
+  it("carries only name and description — the shape stays in the manifest", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
     await i.onReady();
     const byId = new Map(i.extendObject.mock.calls.map(c => [c[0] as string, c[1] as ioBroker.SettableObject]));
-    expect(byId.get("startPairing")?.common).toMatchObject({ type: "boolean", role: "button", read: false });
-    expect(byId.get("disableAuth")?.common).toMatchObject({ type: "boolean", role: "switch", read: true });
-    // v1.17.0: the clients container is a `folder`. The old `meta.folder` is NOT
-    // removed via a null in this patch — js-controller validates the patch and
-    // logs an "invalid type" warning for `null` on every start, fresh installs
-    // included. The cleanup runs as a separate read+setObject (own tests above).
+    for (const id of ["startPairing", "disableAuth", "info", "info.connection", "info.error"]) {
+      const patch = byId.get(id);
+      expect(patch, id).toBeDefined();
+      expect(Object.keys(patch ?? {}), id).toEqual(["common"]);
+      expect(
+        Object.keys(patch?.common ?? {}).every(k => k === "name" || k === "desc"),
+        id,
+      ).toBe(true);
+    }
+    // v1.17.0: the clients container is a `folder` — that type is part of the
+    // meta→folder migration, not of a shape copy. The old `meta.folder` is NOT
+    // removed via a null in this patch (js-controller warns on it every start);
+    // the cleanup runs as a separate read + setForeignObject (own tests above).
     expect(byId.get("clients")?.type).toBe("folder");
     expect(byId.get("clients")?.common).not.toHaveProperty("type");
     // Every object carries an explanation, the folder included.
     expect(byId.get("clients")?.common?.desc).toEqual({ en: "clientsFolderDesc" });
-    expect(byId.get("info.connection")?.common).toMatchObject({ type: "boolean", role: "indicator.connected" });
-    expect(byId.get("info.error")?.common).toMatchObject({ type: "string", role: "text" });
+    expect(byId.get("info.connection")?.common?.desc).toEqual({ en: "infoConnectionDesc" });
   });
 });
 
@@ -1355,7 +1398,8 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
       ),
     );
     await i.onReady();
-    const written = i.setObjectAsync.mock.calls.find((c: unknown[]) => c[0] === "clients");
+    // The copy goes back under the FULL id — setForeignObject does not prefix the namespace.
+    const written = i.setForeignObject.mock.calls.find((c: unknown[]) => c[0] === "hueemu.0.clients");
     expect(written).toBeDefined();
     expect((written?.[1] as { common: Record<string, unknown> }).common).not.toHaveProperty("type");
     const patches = i.extendObject.mock.calls.filter((c: unknown[]) => c[0] === "clients");
@@ -1369,7 +1413,7 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
       Promise.resolve(id === "clients" ? { _id: "hueemu.0.clients", type: "folder", common: { name: {} } } : null),
     );
     await i.onReady();
-    expect(i.setObjectAsync.mock.calls.filter((c: unknown[]) => c[0] === "clients")).toEqual([]);
+    expect(i.setForeignObject.mock.calls.filter((c: unknown[]) => c[0] === "hueemu.0.clients")).toEqual([]);
   });
 
   it("creates both objects on every start so an update reaches an existing tree", async () => {
@@ -1387,7 +1431,7 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
     const i = internalOf(adapter);
     await i.onReady();
     const order: string[] = [];
-    i.setStateAsync.mockImplementation((id: string) => {
+    i.setState.mockImplementation((id: string) => {
       order.push(id);
       return Promise.resolve();
     });

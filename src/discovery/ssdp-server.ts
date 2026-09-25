@@ -130,7 +130,7 @@ export class HueSsdpServer {
         // already closed
       }
       this.config.logger.error(`Failed to start SSDP server: ${errText(error)}`);
-      throw error instanceof Error ? error : new Error(String(error));
+      throw error instanceof Error ? error : new Error(errText(error), { cause: error });
     }
   }
 

@@ -1,7 +1,9 @@
 /**
  * One-shot migration of instance settings keys (`system.adapter.<ns>.native`) — a key that
  * was renamed or whose value type changed is carried over on the first start after the
- * update, so an existing installation keeps what its user configured.
+ * update, so an existing installation keeps what its user configured; a key an earlier
+ * version declared and this one no longer reads is dropped (nulled), so it does not stay in
+ * every existing installation for good (js-controller never deletes a native key).
  *
  * Why this exists (fleet standard "listen-port declaration", 2026-09-15): the admin's
  * port-conflict check only sees instances carrying `native.port` AND `native.bind`, so a
@@ -23,6 +25,11 @@
  *   falsy, which is all a later read needs.
  * - A write to the own instance object restarts the instance — so the caller aborts its
  *   start when this reports a write, instead of binding a port in a process about to go down.
+ *
+ * Fleet master: `Entwicklung/.consistency-master/src/lib/native-key-migration.ts`. Every adapter
+ * that migrates native keys carries this file and its test byte for byte — the release run
+ * (consistency level 1) reports any difference. Change the master, then copy; never the copy.
+ * The file imports nothing adapter-specific: the caller hands in its own error-text helper.
  */
 
 /** Rename: the old value wins over the freshly added default; the old key is nulled. */
@@ -43,11 +50,17 @@ export interface NativeKeyCoercion {
   coerce: (value: unknown) => unknown;
 }
 
-export type NativeKeyMigration = NativeKeyRename | NativeKeyCoercion;
+/** Drop: a key an earlier version declared and this one no longer reads — nulled when it still holds a value. */
+export interface NativeKeyDrop {
+  /** The obsolete key. */
+  drop: string;
+}
+
+export type NativeKeyMigration = NativeKeyRename | NativeKeyCoercion | NativeKeyDrop;
 
 /** The adapter surface the migration needs — object I/O, logging, the in-memory config. */
 export interface NativeKeyMigrationAdapter {
-  /** Instance namespace, e.g. `hueemu.0`. */
+  /** Instance namespace, e.g. `adapter.0`. */
   namespace: string;
   /** Adapter log — one info line per migration, warnings for a failed read or write. */
   log: { info: (msg: string) => void; warn: (msg: string) => void };
@@ -60,6 +73,8 @@ export interface NativeKeyMigrationAdapter {
 }
 
 const isRename = (m: NativeKeyMigration): m is NativeKeyRename => "from" in m;
+
+const isDrop = (m: NativeKeyMigration): m is NativeKeyDrop => "drop" in m;
 
 const isPresent = (v: unknown): boolean => v !== undefined && v !== null;
 
@@ -97,7 +112,8 @@ const isStorable = (v: unknown): boolean => v !== undefined && !(typeof v === "n
  * Renames targeting the same key are evaluated together, in order: the first source whose
  * value is meaningful wins; when none is, the first present one (its coercion may still turn
  * an empty legacy value into a sensible one). Every present source is nulled. A coercion
- * writes only when the coerced value differs from the stored one.
+ * writes only when the coerced value differs from the stored one. A drop nulls its key when it
+ * still holds a value — an absent or already nulled key writes nothing.
  *
  * @param native the instance's current native settings
  * @param migrations the renames and coercions to apply
@@ -136,7 +152,13 @@ export function buildNativeKeyPatch(
   }
 
   for (const m of migrations) {
-    if (isRename(m) || !isPresent(native[m.key])) {
+    if (isDrop(m) && isPresent(native[m.drop])) {
+      patch[m.drop] = null;
+    }
+  }
+
+  for (const m of migrations) {
+    if (isRename(m) || isDrop(m) || !isPresent(native[m.key])) {
       continue;
     }
     const coerced = m.coerce(native[m.key]);
@@ -152,6 +174,8 @@ export function buildNativeKeyPatch(
  *
  * @param adapter the adapter (object I/O, log, in-memory config)
  * @param migrations the renames and coercions to apply
+ * @param describeError the adapter's error-text helper (one per repository) — renders whatever
+ *   the object store threw, so a rejected plain object never reads `[object Object]`
  * @returns true when the instance object was written — the caller must abort its start,
  *   the host restarts the instance with the migrated settings. false when nothing had to
  *   change, or when the write failed: then the in-memory config already carries the
@@ -160,6 +184,7 @@ export function buildNativeKeyPatch(
 export async function migrateNativeKeys(
   adapter: NativeKeyMigrationAdapter,
   migrations: NativeKeyMigration[],
+  describeError: (err: unknown) => string,
 ): Promise<boolean> {
   const id = `system.adapter.${adapter.namespace}`;
   let native: Record<string, unknown> | undefined;
@@ -167,7 +192,7 @@ export async function migrateNativeKeys(
     const obj = (await adapter.getForeignObjectAsync(id)) as { native?: Record<string, unknown> } | null | undefined;
     native = obj?.native;
   } catch (err) {
-    adapter.log.warn(`Settings migration skipped — could not read ${id}: ${String(err)}`);
+    adapter.log.warn(`Settings migration skipped — could not read ${id}: ${describeError(err)}`);
     return false;
   }
   if (!native) {
@@ -182,12 +207,19 @@ export async function migrateNativeKeys(
     .filter(k => patch[k] !== null)
     .map(k => `${k} = ${JSON.stringify(patch[k])}`)
     .join(", ");
+  const removed = touched.filter(k => patch[k] === null).join(", ");
   try {
     await adapter.extendForeignObjectAsync(id, { native: patch });
-    adapter.log.info(`Settings migrated to the standard keys (${summary}) — this instance restarts once`);
+    adapter.log.info(
+      summary
+        ? `Settings migrated to the standard keys (${summary}) — this instance restarts once`
+        : `Obsolete settings removed (${removed}) — this instance restarts once`,
+    );
     return true;
   } catch (err) {
-    adapter.log.warn(`Settings migration could not be stored (${String(err)}) — using ${summary} for this run`);
+    adapter.log.warn(
+      `Settings migration could not be stored (${describeError(err)}) — ${summary ? `using ${summary}` : `ignoring ${removed}`} for this run`,
+    );
     const config = adapter.config as Record<string, unknown>;
     for (const k of touched) {
       if (patch[k] === null) {

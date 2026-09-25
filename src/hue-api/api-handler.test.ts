@@ -47,7 +47,7 @@ function createMockAdapter(
       writtenObjects.set(id, obj);
       return Promise.resolve({ id });
     },
-    setStateAsync: (id, state) => {
+    setState: (id, state) => {
       const stateObj = writtenStates;
       stateObj.set(id, (state as { val?: unknown }).val);
       // Track as existing client after creation

@@ -32,7 +32,8 @@ import {
   validateNetworkConfig,
 } from "./types/config";
 import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
-import { migrateNativeKeys, type NativeKeyMigration } from "./lib/native-key-migration";
+import { migrateNativeKeys } from "./lib/native-key-migration";
+import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText, sanitizeId } from "./types/utils";
 
 // Augment the adapter.config object with the actual types
@@ -44,10 +45,6 @@ declare global {
       // together with `port` (v1.18.0; `host` until v1.17.1, migrated on the first start).
       bind: string;
       port: number;
-      // Legacy (v1.11 and earlier): a separate "advertised IP" field. The single
-      // Host/IP selector is now bind + advertise; this is still read for
-      // back-compat so existing configs keep their announced IP.
-      advertiseHost?: string;
       httpsPort: number | undefined;
       tlsCert?: string;
       tlsKey?: string;
@@ -70,14 +67,6 @@ export class HueEmu extends utils.Adapter {
   // server (v1.13.0) settles deterministically, so this is now defense in depth
   // (fakeroku keeps the same belt-and-braces bound). 5s is far above a local bind.
   private static readonly SSDP_START_TIMEOUT_MS = 5_000;
-  /**
-   * v1.18.0: `host` → `bind` (an empty legacy value meant "all interfaces"), and the
-   * manifest default `"8080"` (a string until v1.17.1) → the number the port field writes.
-   */
-  private static readonly NATIVE_KEY_MIGRATIONS: NativeKeyMigration[] = [
-    { from: "host", to: "bind", coerce: v => (typeof v === "string" && v.trim()) || "0.0.0.0" },
-    { key: "port", coerce: v => (typeof v === "string" ? Number.parseInt(v, 10) : v) },
-  ];
   // The ssdp:alive pulse cadence — node-ssdp's adInterval option, now an
   // adapter-managed interval (fleet timer rule).
   private static readonly SSDP_AD_INTERVAL_MS = 10_000;
@@ -263,8 +252,14 @@ export class HueEmu extends utils.Adapter {
 
       // v1.18.0: the listen address moved from `host` to the standard key `bind` and
       // the port became a number, so the admin's port-conflict check sees this bridge.
+      // v1.19.0: keys no version reads any more are dropped (advertiseHost is carried
+      // into bind first where that keeps the announced address — native-key-list.ts).
       // A write restarts the instance — stop here like every other native migration.
-      if (await migrateNativeKeys(this, HueEmu.NATIVE_KEY_MIGRATIONS)) {
+      const migrations = buildNativeKeyMigrations(
+        this.config as unknown as Record<string, unknown>,
+        listIPv4Addresses().map(a => a.address),
+      );
+      if (await migrateNativeKeys(this, migrations, errText)) {
         return;
       }
 
@@ -416,15 +411,9 @@ export class HueEmu extends utils.Adapter {
     // v1.12.0: one Host/IP selector is bind AND advertise. A concrete address is
     // announced as-is (SSDP location / description.xml / config); "0.0.0.0"
     // (listen on all interfaces) auto-detects a routable IP to announce, never
-    // advertising 0.0.0.0. Legacy configs that still carry a separate
-    // advertiseHost keep working — honoured only when the bind is 0.0.0.0.
-    const legacyAdvertise = typeof this.config.advertiseHost === "string" ? this.config.advertiseHost.trim() : "";
-    const advertiseHost =
-      bind !== "0.0.0.0"
-        ? bind
-        : legacyAdvertise && legacyAdvertise !== "0.0.0.0"
-          ? legacyAdvertise
-          : detectPrimaryIPv4();
+    // advertising 0.0.0.0. (The pre-1.12 advertiseHost field is migrated into bind
+    // or dropped on the first start of v1.19.0 — native-key-list.ts.)
+    const advertiseHost = bind !== "0.0.0.0" ? bind : detectPrimaryIPv4();
     if (bind === "0.0.0.0" && advertiseHost) {
       // The address clients are told to use is a choice the adapter made — say
       // which one, so a wrong pick (a docker bridge, a VPN tunnel) is visible in
@@ -577,22 +566,22 @@ export class HueEmu extends utils.Adapter {
           }
           settled = true;
           this.clearTimeout(timer);
-          reject(err instanceof Error ? err : new Error(String(err)));
+          reject(err instanceof Error ? err : new Error(errText(err), { cause: err }));
         },
       );
     });
   }
 
   /**
-   * Re-apply the adapter's OWN objects — the two switches and the clients folder
-   * — on every start.
+   * Re-apply the NAME and DESCRIPTION of the adapter's own objects on every start.
    *
-   * js-controller creates the manifest's `instanceObjects` only where they are
-   * MISSING, so a changed name or description never reaches an installation that
-   * already has them: the manifest would be correct and the real tree unchanged
-   * (`reference_iobroker_bestehende_objekte_erreichen` — a green gate is not a
-   * green tree). `extendObject` is what carries the change into an existing tree,
-   * so an update always lands on every datapoint, not just on fresh installs.
+   * js-controller (7.2.2, `_createInstancesObjects`) applies the manifest's
+   * `instanceObjects` on every start — type, role, read/write, def all reach an
+   * existing tree from the manifest — but with `preserve: { common: ['name'] }`:
+   * a changed NAME never reaches an installation that already has the object
+   * (`reference_iobroker_bestehende_objekte_erreichen`). `extendObject` carries
+   * the translated name and the description; the shape itself lives in the
+   * manifest alone (fleet rule), so nothing here can drift from it.
    *
    * This replaces the v1.4.0 name migration, which only ever patched an object
    * whose name was still the exact pre-1.4.0 English default — every later text
@@ -601,72 +590,30 @@ export class HueEmu extends utils.Adapter {
    */
   private async refreshInstanceObjects(): Promise<void> {
     await this.extendObject("startPairing", {
-      type: "state",
-      common: {
-        name: tName("startPairingName"),
-        desc: tName("startPairingDesc"),
-        type: "boolean",
-        role: "button",
-        read: false,
-        write: true,
-      },
-      native: {},
+      common: { name: tName("startPairingName"), desc: tName("startPairingDesc") },
     });
     await this.extendObject("disableAuth", {
-      type: "state",
-      common: {
-        name: tName("disableAuthName"),
-        desc: tName("disableAuthDesc"),
-        type: "boolean",
-        role: "switch",
-        read: true,
-        write: true,
-      },
-      native: {},
+      common: { name: tName("disableAuthName"), desc: tName("disableAuthDesc") },
+    });
+    await this.extendObject("info", { common: { name: tName("infoFolder") } });
+    await this.extendObject("info.connection", {
+      common: { name: tName("infoConnectionName"), desc: tName("infoConnectionDesc") },
+    });
+    await this.extendObject("info.error", {
+      common: { name: tName("infoErrorName"), desc: tName("infoErrorDesc") },
     });
     // v1.17.0: a `folder`, not a `meta` object. The paired clients are states,
     // and repochecker's object-structure rule counts `meta` as a NON-hierarchy
     // type — a state under it makes the whole branch an E2001 ("hierarchy
     // contains non-hierarchy object types", `HIERARCHY_TYPES` in
-    // config_StateRoles.js is device/channel/state/folder). It went unseen until
-    // the adapter got an object inventory to check.
+    // config_StateRoles.js is device/channel/state/folder). The object type is
+    // part of that migration, not of the shape copy: it stays here until no
+    // installation older than v1.17.0 is left.
     await this.extendObject("clients", {
       type: "folder",
       common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
-      native: {},
     });
     await this.dropClientsFolderType();
-    await this.extendObject("info", {
-      type: "channel",
-      common: { name: tName("infoFolder") },
-      native: {},
-    });
-    await this.extendObject("info.connection", {
-      type: "state",
-      common: {
-        name: tName("infoConnectionName"),
-        desc: tName("infoConnectionDesc"),
-        type: "boolean",
-        role: "indicator.connected",
-        read: true,
-        write: false,
-        def: false,
-      },
-      native: {},
-    });
-    await this.extendObject("info.error", {
-      type: "state",
-      common: {
-        name: tName("infoErrorName"),
-        desc: tName("infoErrorDesc"),
-        type: "string",
-        role: "text",
-        read: true,
-        write: false,
-        def: "",
-      },
-      native: {},
-    });
     this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
     await this.refreshClientNames();
   }
@@ -685,9 +632,12 @@ export class HueEmu extends utils.Adapter {
    * (measured against js-controller 7.2.3, 2026-09-06). The value did get deleted,
    * but at the price of a warning in every user's log and an announced hard error.
    *
-   * So: read first, and rewrite only when the field is really there. `setObject`
-   * replaces the object outright — no merge, nothing to validate — and on an
-   * installation that never had a meta object nothing happens at all.
+   * So: read first, and rewrite only when the field is really there — the copy
+   * without the key, written back whole with `setForeignObject` under the full id
+   * (v1.19.0; `setObject`/`setObjectAsync` is the whole-object write the repository
+   * checker refuses, and delete + recreate would drop the enum memberships). No
+   * merge, nothing to validate — and on an installation that never had a meta
+   * object nothing happens at all.
    */
   private async dropClientsFolderType(): Promise<void> {
     try {
@@ -697,7 +647,10 @@ export class HueEmu extends utils.Adapter {
       }
       const common = { ...clients.common } as Record<string, unknown>;
       delete common.type;
-      await this.setObjectAsync("clients", { ...clients, common } as unknown as ioBroker.SettableObject);
+      await this.setForeignObject(`${this.namespace}.clients`, {
+        ...clients,
+        common,
+      } as unknown as ioBroker.SettableFolderObject);
       this.log.debug("Removed the stale common.type from the clients folder");
     } catch (error) {
       // Cosmetic cleanup — a failure here must never stop the start.
@@ -819,7 +772,7 @@ export class HueEmu extends utils.Adapter {
             native: obj.native || {},
           });
           if (state?.val !== undefined && state?.val !== null) {
-            await this.setStateAsync(newId, { val: state.val, ack: true });
+            await this.setState(newId, { val: state.val, ack: true });
           }
 
           await this.delObjectAsync(oldId);
@@ -867,8 +820,8 @@ export class HueEmu extends utils.Adapter {
       await this.hueServer?.stop();
       // The bridge is gone — say so before the callback, or the write never
       // reaches the database (the host allows one second, then kills).
-      await this.setStateAsync("info.connection", { ack: true, val: false });
-      await this.setStateAsync("info.error", { ack: true, val: REASON_UNKNOWN });
+      await this.setState("info.connection", { ack: true, val: false });
+      await this.setState("info.error", { ack: true, val: REASON_UNKNOWN });
     })()
       .catch((error: unknown) => {
         this.log.error(`Error during shutdown: ${errText(error)}`);

@@ -18,7 +18,7 @@ export interface UserServiceAdapter {
   /** Create an object if it does not exist */
   setObjectNotExistsAsync(id: string, obj: ioBroker.SettableObject): Promise<unknown>;
   /** Set a state value */
-  setStateAsync(id: string, state: ioBroker.SettableState): Promise<unknown>;
+  setState(id: string, state: ioBroker.SettableState): Promise<unknown>;
   /** Get all state objects under a parent */
   getStatesOfAsync(parentDevice?: string, parentChannel?: string): Promise<ioBroker.StateObject[]>;
 }
@@ -277,7 +277,7 @@ export class UserService {
     }
 
     try {
-      await this.adapter.setStateAsync(`clients.${safeUsername}`, {
+      await this.adapter.setState(`clients.${safeUsername}`, {
         ack: true,
         val: username,
       });

@@ -912,6 +912,17 @@ describe("DeviceBindingService", () => {
       expect(adapter.writtenStates.get("test.on")).toBe(false);
     });
 
+    // A command is a wish, not a fact: written with ack:true it would be a status report
+    // and no device would act on it (audit 2026-09-25 H11 — the suite kept only `.val`).
+    it("sends every command unacknowledged", async () => {
+      const { service, adapter } = createService([
+        { name: "Test", lightType: "dimmable", onState: "test.on", briState: "test.bri", briScale: "raw" },
+      ]);
+      await service.setLightState("1", { on: true, bri: 200 });
+      expect(adapter.writtenAcks.get("test.on")).toBe(false);
+      expect(adapter.writtenAcks.get("test.bri")).toBe(false);
+    });
+
     it("should clamp bri to 1-254 range", async () => {
       const { service, adapter } = createService([{ name: "Test", lightType: "dimmable", briState: "test.bri" }]);
       await service.setLightState("1", { bri: 300 });
@@ -1470,6 +1481,8 @@ describe("v1.15.0 — a light whose only writable target is brightness", () => {
     const { service, adapter } = createService([briOnly], { "hm.LEVEL": 0 });
     await service.setLightState("1", { on: true });
     expect(adapter.writtenStates.get("hm.LEVEL")).toBe(100);
+    // Switching over the brightness is a command too — unacknowledged.
+    expect(adapter.writtenAcks.get("hm.LEVEL")).toBe(false);
   });
 
   it("lets an explicit brightness in the same request do the switching on", async () => {
