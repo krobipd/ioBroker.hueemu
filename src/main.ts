@@ -34,6 +34,7 @@ import {
 } from "./types/config";
 import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
 import { migrateNativeKeys } from "./lib/native-key-migration";
+import { moveWithEnums } from "./lib/enum-carry";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText, sanitizeId } from "./types/utils";
 
@@ -770,42 +771,44 @@ export class HueEmu extends utils.Adapter {
         native: {},
       });
 
-      // v1.4.3 (M7): per-client migration in parallel — sequential for-loop
-      // on a fresh-from-legacy install with many paired Alexa accounts
-      // caused noticeable startup delay.
-      await Promise.all(
-        children.rows.map(async row => {
-          const oldId = row.id.replace(`${this.namespace}.`, "");
-          const username = oldId.replace("user.", "");
-          const newId = `clients.${sanitizeId(username)}`;
+      // One client after the other since v1.19.0 (it ran in parallel since v1.4.3, M7):
+      // each move now carries the client's room and function assignments, and two
+      // moves writing the same enum at once would each put back a copy without the
+      // other's id.
+      for (const row of children.rows) {
+        const oldId = row.id.replace(`${this.namespace}.`, "");
+        const username = oldId.replace("user.", "");
+        const newId = `clients.${sanitizeId(username)}`;
 
-          const state = await this.getStateAsync(oldId);
+        const state = await this.getStateAsync(oldId);
 
-          const obj = row.value;
-          // The old object's `common` is carried over, but its name and
-          // description are lifted to the current standard right here. The
-          // client refresh in `refreshInstanceObjects` has already run by this
-          // point (it sits early in onReady, this migration late), so without
-          // this the migrated object would carry a bare string until the NEXT
-          // start — one restart of nothing but wrong text in the tree.
-          const legacyCommon = obj.common as ioBroker.StateCommon;
-          await this.setObjectNotExistsAsync(newId, {
-            type: "state",
-            common: {
-              ...legacyCommon,
-              name: typeof legacyCommon.name === "string" ? tRaw(legacyCommon.name) : legacyCommon.name,
-              desc: tName("clientDesc"),
-            },
-            native: obj.native || {},
-          });
-          if (state?.val !== undefined && state?.val !== null) {
-            await this.setState(newId, { val: state.val, ack: true });
-          }
+        const obj = row.value;
+        // The old object's `common` is carried over, but its name and
+        // description are lifted to the current standard right here. The
+        // client refresh in `refreshInstanceObjects` has already run by this
+        // point (it sits early in onReady, this migration late), so without
+        // this the migrated object would carry a bare string until the NEXT
+        // start — one restart of nothing but wrong text in the tree.
+        const legacyCommon = obj.common as ioBroker.StateCommon;
+        await this.setObjectNotExistsAsync(newId, {
+          type: "state",
+          common: {
+            ...legacyCommon,
+            name: typeof legacyCommon.name === "string" ? tRaw(legacyCommon.name) : legacyCommon.name,
+            desc: tName("clientDesc"),
+          },
+          native: obj.native || {},
+        });
+        if (state?.val !== undefined && state?.val !== null) {
+          await this.setState(newId, { val: state.val, ack: true });
+        }
 
-          await this.delObjectAsync(oldId);
-          this.log.debug(`Migrated client ${username}: user → clients`);
-        }),
-      );
+        // The fleet order: read the assignments, delete the old object, then write
+        // the new id into them (enum-carry.ts — the delete rewrites every enum it
+        // touches from the adapter's cache).
+        await moveWithEnums(this, row.id, `${this.namespace}.${newId}`, () => this.delObjectAsync(oldId), errText);
+        this.log.debug(`Migrated client ${username}: user → clients`);
+      }
     }
 
     // Remove old "user" folder

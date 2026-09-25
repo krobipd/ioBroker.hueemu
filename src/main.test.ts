@@ -34,6 +34,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public getStatesOfAsync = vi.fn(() => Promise.resolve([]));
     public extendForeignObjectAsync = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
+    public getForeignObjectsAsync = vi.fn((): Promise<unknown> => Promise.resolve({}));
     public extendObjectAsync = vi.fn(async () => {});
     public extendObject = vi.fn(async () => {});
     public subscribeStates = vi.fn();
@@ -168,6 +169,7 @@ function internalOf(adapter: HueEmu): {
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
   getForeignObjectAsync: ReturnType<typeof vi.fn>;
+  getForeignObjectsAsync: ReturnType<typeof vi.fn>;
   onStateChange: (id: string, state: ioBroker.State | null | undefined) => void;
   buildConfig: () => Promise<{
     bind: string;
@@ -1127,6 +1129,33 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     expect(i.setState).toHaveBeenCalledWith("clients.alexa_echo", { val: "alexa.echo", ack: true });
     expect(i.delObjectAsync).toHaveBeenCalledWith("user.alexa.echo");
     expect(i.delObjectAsync).toHaveBeenCalledWith("user");
+  });
+
+  // v1.19.0: the move carries the client's room and function assignments — read
+  // first, delete second, write last (enum-carry.ts).
+  it("carries the room assignment of a moved client after deleting the old object", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [{ id: "hueemu.0.user.echo", value: { common: { name: "Echo", type: "string", role: "text" } } }],
+    });
+    const room = { type: "enum", common: { name: "Living", members: ["hueemu.0.user.echo", "zigbee.0.lamp"] } };
+    i.getForeignObjectsAsync.mockImplementation(() => Promise.resolve(structuredClone({ "enum.rooms.living": room })));
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "enum.rooms.living" ? structuredClone(room) : null),
+    );
+
+    await i.migrateUserToClients();
+
+    expect(i.setForeignObject).toHaveBeenCalledWith(
+      "enum.rooms.living",
+      expect.objectContaining({
+        common: expect.objectContaining({ members: ["zigbee.0.lamp", "hueemu.0.clients.echo"] }),
+      }),
+    );
+    const deleted = i.delObjectAsync.mock.invocationCallOrder[0];
+    expect(deleted).toBeLessThan(i.setForeignObject.mock.invocationCallOrder[0]);
   });
 
   it("is a no-op when no user folder exists", async () => {
