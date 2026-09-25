@@ -794,9 +794,23 @@ export function convertValueForState(
       // xy. Anything else (object, bare number) would serialize to junk like
       // "[object Object]".
       if (Array.isArray(value) && value.length >= 2) {
-        const x = coerceFiniteNumber(value[0]);
-        const y = coerceFiniteNumber(value[1]);
-        if (x !== null && y !== null) {
+        const rawX = coerceFiniteNumber(value[0]);
+        const rawY = coerceFiniteNumber(value[1]);
+        if (rawX !== null && rawY !== null) {
+          // v1.19.0 (audit 2026-09-25 Q13): CIE coordinates live in 0..1 — the
+          // bridge refuses anything else (error 7); here it is clamped.
+          const x = clampXyComponent(rawX);
+          const y = clampXyComponent(rawY);
+          // v1.19.0 (Q12): written in the form the source holds. A "x,y" source
+          // (ioBroker.hue's `level.color.xy`, which splits at the comma) cannot
+          // read "[x,y]"; the JSON form stays the default (`level.color.cie`).
+          if (
+            typeof lastSourceValue === "string" &&
+            !lastSourceValue.trim().startsWith("[") &&
+            lastSourceValue.includes(",")
+          ) {
+            return `${x},${y}`;
+          }
           return JSON.stringify([x, y]);
         }
       }

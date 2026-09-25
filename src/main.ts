@@ -282,7 +282,7 @@ export class HueEmu extends utils.Adapter {
       // v1.18.0: every light gets its permanent number once (its Hue id and
       // uniqueid used to be its position — deleting one light re-identified all
       // the others for Alexa). Same restart contract as the migrations above.
-      if (await runDeviceIdMigration(this, this.config.devices || [])) {
+      if (await runDeviceIdMigration(this, this.config.devices)) {
         return;
       }
 
@@ -312,7 +312,7 @@ export class HueEmu extends utils.Adapter {
       const logger = this.createLogger();
 
       // Get device configurations from admin UI
-      const devices: DeviceConfig[] = this.config.devices || [];
+      const devices: DeviceConfig[] = this.config.devices;
 
       // Initialize SSDP discovery server
       this.ssdpServer = this.makeSsdpServer({
@@ -371,6 +371,12 @@ export class HueEmu extends utils.Adapter {
       }
       try {
         await this.startSsdpWithTimeout();
+        if (this.unloaded) {
+          // v1.19.0 (audit 2026-09-25 Q18): the stop came while SSDP was binding —
+          // release the socket and go, before an interval nobody clears is set up.
+          await this.ssdpServer?.stop();
+          return;
+        }
         // Wake-up advertise + the periodic pulse (node-ssdp's internal ad loop,
         // now adapter-owned so unload can clear it synchronously).
         this.ssdpServer?.announce();
@@ -396,6 +402,10 @@ export class HueEmu extends utils.Adapter {
       this.subscribeObjects("clients.*");
       this.log.debug("Subscribed to own states (pattern: *) and client objects");
 
+      // Q18: a stop during the cleanup above must not be followed by "connected".
+      if (this.unloaded) {
+        return;
+      }
       this.setConnected(true, "");
       this.log.info(
         `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
@@ -910,7 +920,8 @@ export class HueEmu extends utils.Adapter {
         this.handleStartPairing(state);
       } else if (id === `${this.namespace}.disableAuth`) {
         this.disableAuth = coerceBool(state.val);
-      } else if (id.startsWith(this.namespace)) {
+      } else if (id.startsWith(`${this.namespace}.`)) {
+        // With the dot: `hueemu.1` must not claim `hueemu.10.*` (v1.19.0, N4).
         // Acknowledge other own state changes
         this.ackState(id, state.val);
       }
@@ -959,6 +970,7 @@ export class HueEmu extends utils.Adapter {
       configuredDevices: this.config.devices,
       getDevicesAsync: () => this.getDevicesAsync(),
       getStateAsync: id => this.getStateAsync(id),
+      getObjectAsync: id => this.getObjectAsync(id),
       getStatesOfAsync: (device, channel) => this.getStatesOfAsync(device, channel),
       extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
       delObjectAsync: id => this.delObjectAsync(id),

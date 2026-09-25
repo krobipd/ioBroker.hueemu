@@ -20,7 +20,7 @@ import { HueApiError } from "../types/errors";
 import { errText, oneLine } from "../types/utils";
 import { coerceBool, coerceFiniteNumber } from "../lib/coerce";
 import { assignDeviceIds } from "../lib/device-ids";
-import { LIGHT_STATE_KEYS } from "./light-state-keys";
+import { LIGHT_STATE_KEYS, READ_ONLY_STATE_KEYS } from "./light-state-keys";
 import {
   HUE_BRI_MAX,
   INCREMENT_ATTRIBUTES,
@@ -188,6 +188,8 @@ export class DeviceBindingService {
    * 0 right now (a lamp that is off) still remembers what it used to be.
    */
   private readonly lastNonZeroSource: Map<string, number> = new Map();
+  /** The colour model of each light's last colour command (Q11). */
+  private readonly lastColorMode: Map<string, ColorMode> = new Map();
   /** The facts of each write target, read on its first write (`null` = no usable object). */
   private readonly targetFactCache: Map<string, StateFacts | null> = new Map();
 
@@ -242,12 +244,11 @@ export class DeviceBindingService {
   public async initialize(): Promise<void> {
     this.logger.debug(`Initializing device binding service with ${this.devices.length} devices`);
 
-    // Subscribe to all mapped states
-    for (const device of this.devices) {
-      for (const stateId of this.getAllStateIds(device)) {
-        this.adapter.subscribeForeignStates(stateId);
-        this.logger.debug(`Subscribed to state: ${stateId}`);
-      }
+    // Subscribe to all mapped states — once each. v1.19.0 (audit 2026-09-25 Q21): two
+    // lights on one source subscribed it twice.
+    for (const stateId of new Set(this.devices.flatMap(device => this.getAllStateIds(device)))) {
+      this.adapter.subscribeForeignStates(stateId);
+      this.logger.debug(`Subscribed to state: ${stateId}`);
     }
 
     // Warn once if a colour-capable light has no colour state mapped — it would
@@ -573,7 +574,7 @@ export class DeviceBindingService {
       }
     }
 
-    const colormode = this.detectColorMode(mappedColorStates, state);
+    const colormode = this.lastColorMode.get(lightId) ?? this.detectColorMode(mappedColorStates, state);
     if (colormode) {
       state.colormode = colormode;
     }
@@ -617,6 +618,11 @@ export class DeviceBindingService {
    * @param device - Device configuration
    */
   private isReachable(device: DeviceConfig): boolean {
+    // v1.19.0 (audit 2026-09-25 Q13): a light bound to nothing controls nothing — it
+    // used to report itself reachable and acknowledge every command.
+    if (this.getAllStateIds(device).length === 0) {
+      return false;
+    }
     const driving = device.onState ?? device.briState;
     return !driving || !this.missingStates.has(driving);
   }
@@ -659,6 +665,10 @@ export class DeviceBindingService {
 
     for (const [key, value] of Object.entries(effective)) {
       const address = `/lights/${lightId}/state/${key}`;
+      if (READ_ONLY_STATE_KEYS.has(key)) {
+        results.push(HueApiError.parameterNotModifiable(key, address).toResponse());
+        continue;
+      }
       if (!LIGHT_STATE_KEYS.has(key)) {
         // Not a light-state attribute at all — the bridge says so (error 6)
         // rather than acknowledging whatever a client made up (v1.18.0).
@@ -700,7 +710,9 @@ export class DeviceBindingService {
           value,
           device,
           this.logger,
-          this.lastNonZeroSource.get(stateId),
+          // xy keeps the form its source holds (Q12); every other attribute scales
+          // by the source's last non-zero number.
+          key === "xy" ? this.stateCache.get(stateId) : this.lastNonZeroSource.get(stateId),
         );
         if (convertedValue === undefined) {
           // Invalid payload for this attribute (a non-array xy, a non-numeric
@@ -720,6 +732,7 @@ export class DeviceBindingService {
           ack: false,
         });
         this.stateCache.set(stateId, fit.value);
+        this.rememberColorMode(lightId, key);
         results.push({ success: { [address]: value } });
         this.logger.debug(`Set ${stateId} to ${convertedValue}`);
       } catch (error) {
@@ -830,6 +843,23 @@ export class DeviceBindingService {
    * @param mapped Colour state names (xy/ct/hue/sat) that have a configured stateId.
    * @param state The assembled light state (carries defaulted values).
    */
+  /**
+   * Remember which colour model the last command of a light used — v1.19.0 (audit
+   * 2026-09-25 Q11). The bridge reports the mode last set; the mapped datapoints
+   * alone always said `xy` or `ct` for a lamp that has them, even right after a
+   * hue/sat command, and a client that draws by `colormode` showed white.
+   *
+   * @param lightId - The light's id
+   * @param key - The attribute just written
+   */
+  private rememberColorMode(lightId: string, key: string): void {
+    const mode: ColorMode | undefined =
+      key === "xy" ? "xy" : key === "ct" ? "ct" : key === "hue" || key === "sat" ? "hs" : undefined;
+    if (mode) {
+      this.lastColorMode.set(lightId, mode);
+    }
+  }
+
   private detectColorMode(mapped: Set<string>, state: Partial<LightState>): ColorMode | undefined {
     if (mapped.has("xy")) {
       return "xy";

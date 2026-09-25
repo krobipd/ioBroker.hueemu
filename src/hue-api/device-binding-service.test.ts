@@ -356,7 +356,9 @@ describe("DeviceBindingService", () => {
 
     describe("state includes reachable and mode", () => {
       it("should set reachable to true", async () => {
-        const { service } = createService([{ name: "Test", lightType: "onoff" }]);
+        const { service } = createService([{ name: "Test", lightType: "onoff", onState: "test.on" }], {
+          "test.on": true,
+        });
         const light = await service.getLightById("1");
         expect(light.state.reachable).toBe(true);
       });
@@ -2055,5 +2057,85 @@ describe("v1.19.0 — writes keep to what the target datapoint declares", () => 
     });
     await service.setLightState("1", { on: true });
     expect(adapter.writtenStates.get("m.power")).toBe("ON");
+  });
+});
+
+describe("v1.19.0 — colour mode, xy form and reachability (audit 2026-09-25)", () => {
+  const colour: DeviceConfig = {
+    name: "Colour",
+    lightType: "color",
+    onState: "c.on",
+    hueState: "c.hue",
+    satState: "c.sat",
+    ctState: "c.ct",
+    xyState: "c.xy",
+  };
+
+  // Q11: the bridge reports the mode last set; the mapped datapoints alone said xy.
+  it("reports the colour model of the last command", async () => {
+    const { service } = createService([colour], {
+      "c.on": true,
+      "c.hue": 0,
+      "c.sat": 0,
+      "c.ct": 300,
+      "c.xy": "[0.3,0.3]",
+    });
+    expect((await service.getLightById("1")).state.colormode).toBe("xy");
+    await service.setLightState("1", { hue: 21845, sat: 254 });
+    expect((await service.getLightById("1")).state.colormode).toBe("hs");
+    await service.setLightState("1", { ct: 250 });
+    expect((await service.getLightById("1")).state.colormode).toBe("ct");
+  });
+
+  // Q12: an "x,y" source (ioBroker.hue's level.color.xy) cannot read "[x,y]".
+  it("writes xy in the form its source holds", async () => {
+    const { service, adapter } = createService([{ name: "H", lightType: "color", xyState: "h.xy" }], {
+      "h.xy": "0.3,0.3",
+    });
+    await service.initialize();
+    await service.setLightState("1", { xy: [0.4, 0.5] });
+    expect(adapter.writtenStates.get("h.xy")).toBe("0.4,0.5");
+  });
+
+  it("keeps the JSON form for a JSON source and clamps out-of-range coordinates (Q13)", async () => {
+    const { service, adapter } = createService([colour], { "c.xy": "[0.3,0.3]" });
+    await service.initialize();
+    await service.setLightState("1", { xy: [2, -1] });
+    expect(adapter.writtenStates.get("c.xy")).toBe("[1,0]");
+  });
+
+  // Q13: a light bound to nothing controls nothing.
+  it("reports a light without any binding as unreachable", async () => {
+    const { service } = createService([{ name: "Empty", lightType: "dimmable" }]);
+    expect((await service.getLightById("1")).state.reachable).toBe(false);
+  });
+
+  // Q21: two lights on one source subscribe it once.
+  it("subscribes a shared source once", async () => {
+    const { service, adapter } = createService([
+      { name: "A", lightType: "onoff", onState: "s.on" },
+      { name: "B", lightType: "onoff", onState: "s.on" },
+    ]);
+    await service.initialize();
+    expect(adapter.subscribedPatterns.filter(p => p === "s.on")).toHaveLength(1);
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 N3): colormode is read-only (the result of xy/ct/hue/sat);
+// the bridge answers a write to it with error 8.
+describe("v1.19.0 — a read-only attribute", () => {
+  it("answers colormode with error 8 and writes nothing", async () => {
+    const { service, adapter } = createService([{ name: "C", lightType: "color", onState: "c.on" }]);
+    const results = await service.setLightState("1", { colormode: "ct" } as unknown as LightStateUpdate);
+    expect(results).toEqual([
+      {
+        error: {
+          type: 8,
+          address: "/lights/1/state/colormode",
+          description: "parameter, colormode, is not modifiable",
+        },
+      },
+    ]);
+    expect(adapter.writtenStates.size).toBe(0);
   });
 });

@@ -6,7 +6,7 @@
  */
 
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
-import { hueErrorHandler, createHueErrorHandler, createSuccessResponse } from "./error-handler";
+import { hueAddress, hueErrorHandler, createHueErrorHandler, createSuccessResponse } from "./error-handler";
 import { HueApiError, HueErrorType } from "../../types/errors";
 import type { Logger } from "../../types/config";
 
@@ -42,14 +42,22 @@ describe("hueErrorHandler", () => {
     expect(err.address).toBe("/lights/5");
   });
 
-  it("wraps a generic Error as INTERNAL_ERROR (901) with the message + request url", () => {
+  it("wraps a generic Error as INTERNAL_ERROR (901) with the message + the resource below the user", () => {
     const { reply, sent } = mockReply();
-    hueErrorHandler(new Error("boom"), req("/api/x"), reply);
+    hueErrorHandler(new Error("boom"), req("/api/x/lights/1/state?debug=1"), reply);
     expect(sent.status).toBe(200);
     const err = firstError(sent.body);
     expect(err.type).toBe(HueErrorType.INTERNAL_ERROR);
-    expect(err.address).toBe("/api/x");
+    // v1.19.0 (Q8): the bridge names the resource below /api/<user>, without a query.
+    expect(err.address).toBe("/lights/1/state");
     expect(err.description).toContain("boom");
+  });
+
+  it("names the API root as '/'", () => {
+    expect(hueAddress("/api")).toBe("/");
+    expect(hueAddress("/api/someone")).toBe("/");
+    expect(hueAddress("/API/someone/groups/0/action")).toBe("/groups/0/action");
+    expect(hueAddress(undefined)).toBe("/");
   });
 
   it("maps a Fastify validation error to INVALID_JSON (2)", () => {

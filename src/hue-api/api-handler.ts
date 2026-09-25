@@ -17,7 +17,7 @@ import { errText, oneLine } from "../types/utils";
 import { MAX_DEVICETYPE_LENGTH, MAX_USERNAME_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
-import { LIGHT_STATE_KEYS } from "./light-state-keys";
+import { LIGHT_STATE_KEYS, READ_ONLY_STATE_KEYS } from "./light-state-keys";
 
 /**
  * Combined adapter interface for the API handler
@@ -142,7 +142,7 @@ export class ApiHandler implements HueApiHandler {
     );
 
     if (!this.adapter.disableAuth && !this.adapter.pairingEnabled) {
-      throw HueApiError.linkButtonNotPressed("/api");
+      throw HueApiError.linkButtonNotPressed("");
     }
 
     // Use provided username only if it's a non-empty string; otherwise generate.
@@ -173,7 +173,7 @@ export class ApiHandler implements HueApiHandler {
       // clients (UserService warns once per window) — answer like a bridge whose
       // link button is not pressed, so the client simply retries later.
       this.logger.debug(`Pairing rejected for "${oneLine(devicetype)}": ${errText(err)}`);
-      throw HueApiError.linkButtonNotPressed("/api");
+      throw HueApiError.linkButtonNotPressed("");
     }
     this.logger.info(`Paired client "${oneLine(devicetype)}" as user ${oneLine(username)}`);
 
@@ -313,6 +313,9 @@ export class ApiHandler implements HueApiHandler {
       if (key === "scene") {
         const shown = typeof scene === "string" ? scene : JSON.stringify(scene);
         return HueApiError.invalidParameterValue(oneLine(String(shown)), "scene", address).toResponse();
+      }
+      if (READ_ONLY_STATE_KEYS.has(key)) {
+        return HueApiError.parameterNotModifiable(key, address).toResponse();
       }
       return LIGHT_STATE_KEYS.has(key)
         ? { success: { [address]: value } }

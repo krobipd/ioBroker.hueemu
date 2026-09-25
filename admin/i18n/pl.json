@@ -22,7 +22,7 @@
   "lightTypeOnOff": "Włącz/Wyłącz",
   "lightTypeDimmable": "Ściemnialne",
   "lightTypeCT": "Temperatura barwowa",
-  "lightTypeColor": "Kolor (RGB)",
+  "lightTypeColor": "Kolor",
   "stateOn": "Stan Włącz/Wyłącz",
   "stateOnTooltip": "Stan boolowski dla włącz/wyłącz",
   "stateBri": "Stan jasności",

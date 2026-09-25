@@ -5,6 +5,7 @@
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
 import type { HueApiHandler, HueRequest, CreateUserRequest, LightStateUpdate } from "../../types";
 import { HueApiError } from "../../types/errors";
+import { randomBytes } from "node:crypto";
 import { createSuccessResponse } from "../middleware/error-handler";
 
 /**
@@ -111,7 +112,8 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   ): Promise<void> {
     return sendResult(rep, async () => {
       const params = req.params as LightParams;
-      await requireAuth(handler, params.username, `/api/${params.username}${suffix(params)}`);
+      // The bridge names the resource below the user (Q8, v1.19.0).
+      await requireAuth(handler, params.username, suffix(params) || "/");
       return fn(toHueRequest(req), params);
     });
   }
@@ -145,11 +147,17 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
         typeof (raw as Record<string, unknown>).devicetype !== "string" ||
         ((raw as Record<string, unknown>).devicetype as string).length === 0
       ) {
-        throw HueApiError.missingParameters("/api");
+        throw HueApiError.missingParameters("");
       }
 
       const body = raw as CreateUserRequest;
       const username = await handler.createUser(hueReq, body);
+      // v1.19.0 (audit 2026-09-25 Q7): a client that asks for a client key gets one,
+      // like from the bridge and diyHue. The emulator offers no Entertainment
+      // streaming, the only thing the key is used for — but the answer is complete.
+      if (body.generateclientkey === true) {
+        return createSuccessResponse({ username, clientkey: randomBytes(16).toString("hex").toUpperCase() });
+      }
       return createSuccessResponse({ username });
     });
   });
@@ -214,7 +222,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       reply,
       p => `/lights/${p.id}/state`,
       (hueReq, p) => {
-        const address = `/api/${p.username}/lights/${p.id}/state`;
+        const address = `/lights/${p.id}/state`;
         return handler.setLightState(hueReq, p.username, p.id, requireObjectBody(request.body, address));
       },
     );
@@ -227,7 +235,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       reply,
       p => `/groups/${p.id}/action`,
       (hueReq, p) => {
-        const address = `/api/${p.username}/groups/${p.id}/action`;
+        const address = `/groups/${p.id}/action`;
         return handler.setGroupAction(hueReq, p.username, p.id, requireObjectBody(request.body, address));
       },
     );
@@ -245,11 +253,34 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
     });
   }
 
-  // Fallback for unhandled API routes
-  fastify.all("/api/*", async (request: FastifyRequest, reply: FastifyReply) => {
+  // GET /api without a user — the bridge answers error 4 (diyHue: `method, GET, not
+  // available for resource, /`); it used to be Fastify's own 404 page (Q9, v1.19.0).
+  fastify.get("/api", async (_request: FastifyRequest, reply: FastifyReply) => {
     await sendResult(reply, () => {
+      throw HueApiError.methodNotAvailable("GET", "/", "/api");
+    });
+  });
+
+  // Fallback for unhandled API routes. v1.19.0 (audit 2026-09-25 Q9): it answered `{}`
+  // to anyone, on any method. Now like the bridge: an unknown user gets error 1, a
+  // known one error 3 for a resource the emulator does not have. The check is the pure
+  // lookup (never the auto-adding path): a probe on `/api/nouser/…` during the pairing
+  // window must not become a paired client (decision 10). A CORS preflight still gets
+  // its empty answer — the headers come from the server's onSend hook.
+  fastify.all("/api/*", async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.method === "OPTIONS") {
+      reply.code(204).send();
+      return;
+    }
+    await sendResult(reply, async () => {
       const hueReq = toHueRequest(request);
-      return handler.fallback(hueReq);
+      const [username = "", ...rest] = (request.url.split("?")[0] ?? "").replace(/^\/api\/?/i, "").split("/");
+      const resource = `/${rest.filter(Boolean).join("/")}`;
+      if (!handler.isAuthDisabled() && !(await handler.isKnownUser(username))) {
+        throw HueApiError.unauthorizedUser("/");
+      }
+      handler.fallback(hueReq); // the debug line naming the unhandled request
+      throw HueApiError.resourceNotAvailable(resource, resource);
     });
   });
 }

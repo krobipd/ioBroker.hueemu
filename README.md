@@ -23,10 +23,10 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 ## Features
 
 - **Hue API v1** — Bridge model BSB002 (Hue Bridge v2)
-- **UPnP/SSDP Discovery** — Automatic detection by any Hue-compatible client
+- **UPnP/SSDP Discovery** — found automatically by clients that search via SSDP (Alexa, Harmony); any other client connects by the bridge's IP address
 - **Direct state mapping** — Point to any ioBroker state, no bridge scripts
 - **Device assistant** — scan ioBroker for mappable lights and add them automatically, or add and edit each light by hand
-- **Light types** — On/Off, Dimmable, Color Temperature, RGB
+- **Light types** — On/Off, Dimmable, Color Temperature, Color
 - **Per-device value scale** — detected from the source state where it is declared, and always adjustable by hand
 - **Lights without a switch** — a dimmer that only offers a brightness state is driven by that state
 - **Relative commands** — "a bit darker", "a bit warmer" and dimmer rockers adjust the current value
@@ -38,7 +38,7 @@ Modern voice assistants all support Matter directly. Use the [ioBroker Matter ad
 
 ## Sentry / Error reporting
 
-**This adapter uses Sentry libraries to automatically report exceptions and code errors to the developers.** Reporting only happens if you have enabled error reporting in the ioBroker diagnostics (**System settings → Diagnostics and error reporting**). Only an anonymous installation ID is transmitted — no name, e-mail address or IP address.
+**This adapter uses Sentry libraries to automatically report exceptions and code errors to the developers.** Reporting is active by default. It stays off when the ioBroker diagnostics setting is `none` (`diag` in the system configuration), when data reporting is disabled for this instance or its host (`disableDataReporting`), and on CI systems. A report contains the error with its stack trace and technical context such as versions and platform, plus an anonymous installation ID.
 
 For details and how to disable it, see the [Sentry plugin documentation](https://github.com/ioBroker/plugin-sentry#plugin-sentry). Error reporting requires js-controller 3.0 or newer.
 
@@ -56,11 +56,11 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ## Ports
 
-| Port | Protocol  | Purpose                      | Configurable                        |
-| ---- | --------- | ---------------------------- | ----------------------------------- |
-| 8080 | TCP/HTTP  | Hue Bridge API               | Yes — clients are informed via SSDP |
-| 1900 | UDP       | SSDP/UPnP Discovery          | No — fixed by the UPnP standard     |
-| —    | TCP/HTTPS | Optional TLS (if configured) | Yes                                 |
+| Port | Protocol  | Purpose                                        | Configurable                        |
+| ---- | --------- | ---------------------------------------------- | ----------------------------------- |
+| 8080 | TCP/HTTP  | Hue Bridge API (Alexa needs 80)                | Yes — clients are informed via SSDP |
+| 1900 | UDP       | SSDP/UPnP Discovery                            | No — fixed by the UPnP standard     |
+| —    | TCP/HTTPS | Optional TLS, off unless set (Alexa tries 443) | Yes                                 |
 
 ---
 
@@ -68,22 +68,25 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ### Network Settings
 
-| Option          | Description                                                                                                                                            | Default |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| **Host / IP**   | The IP the bridge binds to and announces to clients (Alexa, Harmony). Choose `0.0.0.0` to listen on all interfaces — the announced IP is auto-detected | 0.0.0.0 |
-| **HTTP Port**   | Port for the Hue API                                                                                                                                   | 8080    |
-| **HTTPS Port**  | Only needed if a client insists on TLS; leave empty otherwise                                                                                          | —       |
-| **MAC Address** | Bridge MAC (auto-generated if empty)                                                                                                                   | —       |
+The instance is created stopped: choose the Host / IP and the port first, then start it.
+
+| Option                           | Description                                                                                                                                                  | Default |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| **Host / IP Address**            | The IP the bridge binds to and announces to clients (Alexa, Harmony). Choose `0.0.0.0` to listen on all interfaces — the announced IP is auto-detected       | 0.0.0.0 |
+| **Port**                         | HTTP port for the Hue API                                                                                                                                    | 8080    |
+| **HTTPS Port**                   | Empty = no HTTPS. Current Echo devices try `443` first — see "Connecting with Alexa"                                                                         | —       |
+| **MAC Address**                  | Bridge MAC (auto-generated if empty)                                                                                                                         | —       |
+| **Trust X-Forwarded-\* headers** | Only behind a trusted reverse proxy that strips client-supplied forwarding headers; the forwarded address then shows in the debug log instead of the proxy's | off     |
 
 ### Adding Devices
 
-Open the **Device Configuration** tab. There are two ways to add lights:
+Open the **Devices** tab. There are two ways to add lights:
 
 **Manually** — click **Add light**, enter a name, choose a light type, and map the ioBroker states with the object browser.
 
-**Automatically** — click **Search lights**. The adapter scans your objects for things that look like lights (on/off, dimmers, colour-temperature and colour lights) and shows the mappable ones as a checklist — tick the ones you want and only those are added. Whatever it finds but cannot map is counted in the result message, so nothing disappears without a word.
+**Automatically** — click **Search lights**. The adapter scans your objects for things that look like lights (on/off, dimmers, color-temperature and color lights) and shows the mappable ones as a checklist — tick the ones you want and only those are added. Whatever it finds but cannot map is counted in the result message, so nothing disappears without a word.
 
-The assistant also fills in the value scale wherever the source state declares one: a hue that runs 0–360 is read as degrees, a brightness with `%` or a 0–100 range as percent. Where a source declares neither a unit nor a range, the scale field is left empty and the adapter's default applies — check it on the light's card if a colour or brightness looks off, and set it by hand.
+The assistant also fills in the value scale wherever the source state declares one: a hue that runs 0–360 is read as degrees, a brightness with `%` or a 0–100 range as percent. Where a source declares neither a unit nor a range, the scale field is left empty and the adapter's default applies — check it on the light's card if a color or brightness looks off, and set it by hand.
 
 Each light shows as a card — use **Edit** to change its mapping or **Delete** to remove it.
 
@@ -95,7 +98,7 @@ Some dimmers expose only a brightness state and no separate switch (a HomeMatic 
 
 | Type                  | States                                | Hue Model |
 | --------------------- | ------------------------------------- | --------- |
-| **On/Off**            | `on`                                  | LWB007    |
+| **On/Off**            | `on` (clients see a dimmable light)   | LWB007    |
 | **Dimmable**          | `on`, `bri`                           | LWB010    |
 | **Color Temperature** | `on`, `bri`, `ct`                     | LTW001    |
 | **Color Light**       | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003    |
@@ -114,16 +117,24 @@ New clients are limited to 100 per hour across all pairing paths; a single warni
 
 > If you have a current Echo, use the [Matter adapter](https://github.com/ioBroker/ioBroker.matter) instead.
 
-> **Tip:** If Alexa cannot find the bridge, try changing the HTTP port to **80** in the adapter settings — some Alexa firmware versions only discover bridges on port 80.
+Alexa is strict about how it reaches a Hue bridge:
+
+- Set the **Port** to `80` — current Echo devices only look for the bridge there.
+- Set the **HTTPS Port** to `443` as well — current Echo firmware tries HTTPS first and reports the lights as unresponsive when nothing answers there. The bridge serves its own self-signed certificate.
+- A port below 1024 needs the right to bind it; the ioBroker installer grants that to Node.js on Linux. If the log says the port cannot be bound, that right is missing.
+- First-generation Echo devices no longer support the Hue bridge path.
+- Alexa handles at most 49 lights per bridge — with more, it finds none.
+- Use one emulated bridge per Alexa account: two instances announce lights under the same identifiers and Alexa mixes them up.
 
 1. Activate pairing (see above)
-2. Alexa App → Devices → `+` → Philips Hue
-3. The bridge is discovered automatically
+2. Alexa App → Devices → `+` → Philips Hue → choose **Philips Hue V1**
+3. If you have several Echo devices, let only one of them search
+4. The bridge is discovered automatically
 
 ### Connecting with Logitech Harmony Hub
 
 1. Activate pairing (see above)
-2. In the Harmony setup software: Add Device → Lighting → Philips Hue → search for bridge
+2. In the MyHarmony desktop software: Devices → Add Device → Scan for devices (or Lighting → Philips Hue)
 3. Confirm pairing within 50 seconds
 
 ---
@@ -141,8 +152,10 @@ hueemu.0.
     └── {username}       — Client API key (created during pairing)
 ```
 
-If `info.connection` stays `false` after a start, `info.error` names the cause — a
-port that is already taken, or a host address the adapter could not resolve.
+If `info.connection` stays `false` after a start, look at `info.error`: an error from the
+system (a port that is already taken, for example) appears there as it is; for a problem
+the adapter diagnoses itself (no port set, no usable address) it shows `Unknown` and the
+log carries the explanation.
 
 ---
 
@@ -169,8 +182,16 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### State changes not working
 
 - Verify state IDs in device configuration
-- The scale is normally determined from the datapoint itself (its unit and its range) and applies to reading AND writing. Pick it by hand only for a datapoint that declares neither — Percent (0..100), Normalized (0..1) or Hue-Raw (1..254).
+- The scale is normally determined from the datapoint itself (its unit and its range) and applies to reading AND writing. Pick it by hand only for a datapoint that declares neither — for brightness and saturation `Percent (0..100)`, `Normalized (0..1)`, `Raw (1..254 Hue)` or `Byte (0..255)`; for color temperature `Native (no conversion)` (mired), `Kelvin` or `Percent (0..100, 0 = cold)`.
 - `ct` range is 153–500 (Mireds)
+
+### Deleting a paired client
+
+Delete its entry under `hueemu.0.clients` — the key stops working at once, no restart needed.
+
+### Downgrading
+
+Going back to a version below 1.18.0 is not supported: the older version no longer finds the listen address under its new key and numbers the lights anew, so Alexa sees different lamps.
 
 ---
 

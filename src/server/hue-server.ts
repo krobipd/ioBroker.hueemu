@@ -35,6 +35,7 @@ export function fastifyOptions(trustProxy: boolean): {
   bodyLimit: number;
   routerOptions: { caseSensitive: boolean; ignoreTrailingSlash: boolean };
   forceCloseConnections: true;
+  requestTimeout: number;
 } {
   return {
     logger: false,
@@ -47,6 +48,11 @@ export function fastifyOptions(trustProxy: boolean): {
       ignoreTrailingSlash: true,
     },
     forceCloseConnections: true,
+    // v1.19.0 (audit 2026-09-25 Q2): Fastify's default is 0 — no limit — and it
+    // overrides Node's own 300 s. A request whose body never completes held its
+    // connection for good; the Fastify docs ask for a non-zero value when there is
+    // no reverse proxy in front. A Hue body is a few hundred bytes.
+    requestTimeout: 10_000,
   };
 }
 

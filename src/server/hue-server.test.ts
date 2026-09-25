@@ -7,7 +7,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import { HueServer } from "./hue-server";
+import { fastifyOptions, HueServer } from "./hue-server";
 import type { HueEmulatorConfig } from "../types/config";
 import type { HueApiHandler } from "../types/hue-api";
 import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
@@ -149,17 +149,17 @@ describe("HueServer wiring (inject)", () => {
     expect(res.headers["access-control-allow-headers"]).toBe("Content-Type");
   });
 
-  it("answers OPTIONS preflight with CORS headers (204 outside /api, 200 via the /api/* fallback)", async () => {
+  it("answers OPTIONS preflight with CORS headers and 204, under /api/* as well", async () => {
     app = await buildInstance();
     // Outside /api/* the dedicated OPTIONS wildcard answers 204.
     const outside = await app.inject({ method: "OPTIONS", url: "/anything" });
     expect(outside.statusCode).toBe(204);
     expect(outside.headers["access-control-allow-origin"]).toBe("*");
-    // Under /api/* the `all("/api/*")` fallback wins route precedence and
-    // answers 200 — still carrying the CORS headers from the onSend hook,
-    // which is what a browser preflight actually needs.
+    // Under /api/* the `all("/api/*")` fallback wins route precedence; since
+    // v1.19.0 it answers a preflight with 204 and no body (every other method gets
+    // a Hue error) — the CORS headers come from the onSend hook.
     const api = await app.inject({ method: "OPTIONS", url: "/api/user/lights" });
-    expect(api.statusCode).toBe(200);
+    expect(api.statusCode).toBe(204);
     expect(api.headers["access-control-allow-origin"]).toBe("*");
     expect(api.headers["access-control-allow-methods"]).toContain("PUT");
   });
@@ -222,6 +222,15 @@ describe("HueServer wiring (inject)", () => {
     // v1.19.0 (Q6): as "invalid json" (2), the way the bridge answers, not 901.
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)[0].error.type).toBe(2);
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 Q2): Fastify's default request timeout is 0 (none) and
+// overrides Node's 300 s — a body that never completes held its connection for good.
+describe("fastifyOptions", () => {
+  it("bounds how long a request may take", () => {
+    expect(fastifyOptions(false).requestTimeout).toBeGreaterThan(0);
+    expect(fastifyOptions(false).requestTimeout).toBeLessThanOrEqual(30_000);
   });
 });
 

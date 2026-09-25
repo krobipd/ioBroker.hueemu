@@ -1,5 +1,5 @@
 import { buildNativeKeyMigrations } from "./native-key-list";
-import { buildNativeKeyPatch } from "./native-key-migration";
+import { buildCommonKeyPatch, buildNativeKeyPatch } from "./native-key-migration";
 
 const LOCAL = ["192.168.1.20", "10.1.2.3"];
 
@@ -65,6 +65,35 @@ describe("buildNativeKeyMigrations", () => {
     expect(
       patchFor({ bind: "0.0.0.0", port: 8080, discoveryHost: "192.168.178.10", discoveryPort: 80, upnpPort: 1900 }),
     ).toEqual({ discoveryHost: null, discoveryPort: null, upnpPort: null });
+  });
+
+  it("nulls the common keys earlier manifests declared, and only the misspelt connectionType", () => {
+    const common = {
+      name: "hueemu",
+      title: "Hue Emulator",
+      license: "MIT",
+      main: "build/main.js",
+      supportCustoms: false,
+      materialize: true,
+      connectionType: "local",
+      "connectionType ": "local",
+    };
+    expect(buildCommonKeyPatch(common, buildNativeKeyMigrations({}, LOCAL))).toEqual({
+      license: null,
+      main: null,
+      supportCustoms: null,
+      materialize: null,
+      "connectionType ": null,
+    });
+  });
+
+  it("touches no common key on a current installation", () => {
+    expect(
+      buildCommonKeyPatch(
+        { name: "hueemu", title: "Hue Emulator", connectionType: "local", licenseInformation: { license: "MIT" } },
+        buildNativeKeyMigrations({}, LOCAL),
+      ),
+    ).toEqual({});
   });
 
   it("leaves already nulled keys alone — the second start writes nothing", () => {

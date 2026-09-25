@@ -37,6 +37,19 @@ function isInvalidJsonError(error: FastifyError | HueApiError | Error): boolean 
 }
 
 /**
+ * The address a Hue error names: the resource path below the user, the way the
+ * bridge reports it (`/lights/1/state`, or `/` for the API root) — v1.19.0 (audit
+ * 2026-09-25 Q8). It used to carry `/api/<username>` and the query string.
+ *
+ * @param url - The request URL
+ */
+export function hueAddress(url: string | undefined): string {
+  const path = (url ?? "").split("?")[0];
+  const below = path.replace(/^\/api(?:\/[^/]*)?/i, "");
+  return below || "/";
+}
+
+/**
  * Fastify error handler that converts errors to Hue API format (no logging).
  *
  * @param error - Error thrown during request handling
@@ -49,7 +62,7 @@ export function hueErrorHandler(
   reply: FastifyReply,
 ): void {
   // Extract the path for the error response
-  const address = request.url || "/";
+  const address = hueAddress(request.url);
 
   if (error instanceof HueApiError) {
     // Return the Hue-formatted error

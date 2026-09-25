@@ -22,7 +22,7 @@
   "lightTypeOnOff": "开/关",
   "lightTypeDimmable": "可调光",
   "lightTypeCT": "色温",
-  "lightTypeColor": "颜色（RGB）",
+  "lightTypeColor": "颜色",
   "stateOn": "开/关状态",
   "stateOnTooltip": "开/关的布尔状态",
   "stateBri": "亮度状态",

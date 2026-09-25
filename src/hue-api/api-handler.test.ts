@@ -126,6 +126,8 @@ describe("ApiHandler", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(HueApiError);
         expect((error as HueApiError).type).toBe(HueErrorType.LINK_BUTTON_NOT_PRESSED);
+        // v1.19.0 (Q8): the bridge's registration error names no address (Burgestrand).
+        expect((error as HueApiError).address).toBe("");
       }
     });
 

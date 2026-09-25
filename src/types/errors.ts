@@ -200,6 +200,17 @@ export class HueApiError extends Error {
   }
 
   /**
+   * Create a "parameter not modifiable" error (`parameter, <name>, is not modifiable`) —
+   * the bridge's answer to a read-only attribute such as `colormode`.
+   *
+   * @param parameter - The attribute name
+   * @param address - API endpoint address
+   */
+  static parameterNotModifiable(parameter: string, address = ""): HueApiError {
+    return new HueApiError(HueErrorType.PARAMETER_NOT_MODIFIABLE, address, [parameter]);
+  }
+
+  /**
    * Create the "device is set to off" error — the bridge's answer to a light
    * attribute sent to a light that is (being switched) off.
    *

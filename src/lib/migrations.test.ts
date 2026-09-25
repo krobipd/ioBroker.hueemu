@@ -196,6 +196,8 @@ describe("migrations", () => {
         configuredDevices: [],
         getDevicesAsync: () => Promise.resolve([]),
         getStateAsync: () => Promise.resolve(null),
+        // A legacy device that was never migrated still carries its `.name` wrapper.
+        getObjectAsync: (id: string) => Promise.resolve(id.endsWith(".name") ? { _id: `hueemu.0.${id}` } : null),
         getStatesOfAsync: () => Promise.resolve([]),
         extendForeignObjectAsync: () => Promise.resolve(null),
         delObjectAsync: () => Promise.resolve(null),
@@ -264,6 +266,104 @@ describe("migrations", () => {
         briState: "hueemu.0.lamp.state.bri",
         ctState: "hueemu.0.lamp.state.ct",
       });
+    });
+
+    // v1.19.0 (audit 2026-09-25 Q17): the migration keeps the device, channel and leaves
+    // (the bindings point at the leaves) and deletes only `.name`/`.data`. A device
+    // without them was migrated before — taking it again brought back lights the user
+    // had deleted, as soon as the list was empty.
+    it("does not migrate a device again once its wrappers are gone", async () => {
+      let written: any = null;
+      const adapter = mkAdapter({
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getObjectAsync: () => Promise.resolve(null),
+        getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
+        extendForeignObjectAsync: (_id: string, obj: any) => {
+          written = obj;
+          return Promise.resolve(null);
+        },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(false);
+      expect(written).toBeNull();
+    });
+
+    it("still migrates a device that only has its .data wrapper left", async () => {
+      const adapter = mkAdapter({
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getObjectAsync: (id: string) => Promise.resolve(id === "lamp.data" ? { _id: "hueemu.0.lamp.data" } : null),
+        getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(true);
+    });
+
+    // Audit 2026-09-25 Q34: the legacy paths had one test for the mapping — the name
+    // fallbacks, xy, a device that fails and "all failed" were never run.
+    it("takes the name from the legacy .name state first, then common.name, then the id", async () => {
+      let written: any;
+      const adapter = mkAdapter({
+        getDevicesAsync: () =>
+          Promise.resolve([
+            { _id: "hueemu.0.a", common: { name: "Common A" } },
+            { _id: "hueemu.0.b", common: { name: "Common B" } },
+            { _id: "hueemu.0.c", common: { name: { en: "translated" } } },
+          ]),
+        getStateAsync: (id: string) => Promise.resolve(id === "a.name" ? { val: "State A" } : { val: 42 }),
+        getStatesOfAsync: (device: string) => Promise.resolve([{ _id: `hueemu.0.${device}.state.on` }]),
+        extendForeignObjectAsync: (_id: string, obj: any) => {
+          written = obj;
+          return Promise.resolve(null);
+        },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(true);
+      expect(written.native.devices.map((d: any) => d.name)).toEqual(["State A", "Common B", "c"]);
+    });
+
+    it("maps a legacy xy state and copes with a channel without states", async () => {
+      let written: any;
+      const adapter = mkAdapter({
+        getDevicesAsync: () =>
+          Promise.resolve([
+            { _id: "hueemu.0.x", common: { name: "X" } },
+            { _id: "hueemu.0.e", common: { name: "E" } },
+          ]),
+        getStatesOfAsync: (device: string) =>
+          Promise.resolve(device === "x" ? [{ _id: "hueemu.0.x.state.on" }, { _id: "hueemu.0.x.state.xy" }] : null),
+        extendForeignObjectAsync: (_id: string, obj: any) => {
+          written = obj;
+          return Promise.resolve(null);
+        },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(true);
+      expect(written.native.devices[0]).toMatchObject({ name: "X", xyState: "hueemu.0.x.state.xy" });
+      expect(written.native.devices[1]).toMatchObject({ name: "E" });
+      expect(written.native.devices[1].onState).toBeUndefined();
+    });
+
+    it("skips a device that fails, and writes nothing when every device failed", async () => {
+      const warnings: string[] = [];
+      let written: any = null;
+      const adapter = mkAdapter({
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.bad", common: { name: "Bad" } }]),
+        getStatesOfAsync: () => Promise.reject(new Error("broker hiccup")),
+        extendForeignObjectAsync: (_id: string, obj: any) => {
+          written = obj;
+          return Promise.resolve(null);
+        },
+        log: { info: () => {}, warn: (m: string) => warnings.push(m) },
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(false);
+      expect(written).toBeNull();
+      expect(warnings.some(w => w.includes("Could not migrate legacy device bad") && w.includes("broker hiccup"))).toBe(
+        true,
+      );
+    });
+
+    it("treats an unreadable wrapper as absent", async () => {
+      const adapter = mkAdapter({
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getObjectAsync: () => Promise.reject(new Error("db down")),
+      });
+      expect(await runLegacyDeviceMigration(adapter)).toBe(false);
     });
 
     it("deletes only the obsolete .name/.data wrappers, keeps the containers (L2)", async () => {

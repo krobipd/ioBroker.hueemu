@@ -110,6 +110,27 @@ async function buildApp(handler: HueApiHandler): Promise<FastifyInstance> {
 }
 
 describe("apiV1Routes — POST /api", () => {
+  // v1.19.0 (audit 2026-09-25 Q7): a client that asks for a client key gets one.
+  it("hands out a client key when asked for one", async () => {
+    const handler = createMockHandler();
+    const app = await buildApp(handler);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api",
+      payload: { devicetype: "Hyperion#ambilight", generateclientkey: true },
+    });
+    const success = JSON.parse(res.body)[0].success;
+    expect(success.username).toBe("generated-user-123");
+    expect(success.clientkey).toMatch(/^[0-9A-F]{32}$/);
+  });
+
+  it("gives no client key to a client that did not ask", async () => {
+    const handler = createMockHandler();
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "POST", url: "/api", payload: { devicetype: "Echo" } });
+    expect(JSON.parse(res.body)[0].success).not.toHaveProperty("clientkey");
+  });
+
   it("creates user with valid body", async () => {
     const handler = createMockHandler();
     const app = await buildApp(handler);
@@ -458,15 +479,42 @@ describe("apiV1Routes — PUT /groups/:id/action (Harmony)", () => {
 });
 
 describe("apiV1Routes — fallback & empty collections", () => {
-  it("falls through to handler.fallback for unknown API path", async () => {
+  // v1.19.0 (audit 2026-09-25 Q9): the fallback answered `{}` to anyone on any method.
+  // Now like the bridge: a known user gets error 3 for a resource the emulator lacks…
+  it("answers a known user's unknown resource with error 3", async () => {
     const handler = createMockHandler();
     const app = await buildApp(handler);
-    const res = await app.inject({
-      method: "GET",
-      url: "/api/user1/something-unknown",
-    });
+    const res = await app.inject({ method: "GET", url: "/api/user1/something-unknown/7?x=1" });
     expect(handler.calls.fallback).toHaveLength(1);
     expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)[0].error).toEqual({
+      type: 3,
+      address: "/something-unknown/7",
+      description: "resource, /something-unknown/7, not available",
+    });
+  });
+
+  // …an unknown one error 1 — through the pure lookup, never the auto-adding path: a
+  // probe during the pairing window must not become a paired client (decision 10).
+  it("answers an unknown user with error 1 without ever pairing it", async () => {
+    const handler = createMockHandler({ isAuthenticated: false });
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "DELETE", url: "/api/nouser/config/whitelist/abc" });
+    expect(JSON.parse(res.body)[0].error.type).toBe(1);
+    expect(handler.calls.isUserAuthenticated).toBe(0);
+    expect(handler.calls.isKnownUser).toBe(1);
+  });
+
+  it("answers GET /api without a user with error 4, like the bridge", async () => {
+    const handler = createMockHandler();
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "GET", url: "/api" });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)[0].error).toEqual({
+      type: 4,
+      address: "/api",
+      description: "method, GET, not available for resource, /",
+    });
   });
 
   it("returns empty object for unimplemented collections (groups)", async () => {
@@ -498,5 +546,7 @@ describe("apiV1Routes — fallback & empty collections", () => {
     });
     const parsed = JSON.parse(res.body);
     expect(parsed[0].error.type).toBe(1); // UNAUTHORIZED_USER
+    // v1.19.0 (Q8): the address is the resource below the user, as on the bridge.
+    expect(parsed[0].error.address).toBe("/groups");
   });
 });

@@ -22,7 +22,7 @@
   "lightTypeOnOff": "On/Off",
   "lightTypeDimmable": "Dimmable",
   "lightTypeCT": "Color Temperature",
-  "lightTypeColor": "Color (RGB)",
+  "lightTypeColor": "Color",
   "stateOn": "On/Off State",
   "stateOnTooltip": "Boolean state for on/off",
   "stateBri": "Brightness State",

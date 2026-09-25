@@ -116,6 +116,8 @@ export interface LegacyDeviceMigrationAdapter {
   getDevicesAsync(): Promise<ioBroker.DeviceObject[]>;
   /** Read a state by (namespace-relative) id */
   getStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
+  /** Read an object by (namespace-relative) id — tells a pending legacy device from a migrated one */
+  getObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
   /** List the state objects of a device's channel */
   getStatesOfAsync(parentDevice: string, parentChannel: string): Promise<ioBroker.StateObject[]>;
   /** Persist the migrated device list into native (triggers a restart) */
@@ -142,7 +144,22 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
     return false;
   }
 
-  const devices = await adapter.getDevicesAsync();
+  // v1.19.0 (audit 2026-09-25 Q17): only a device that still carries its legacy
+  // wrappers (`.name` / `.data`) is pending. The migration deletes those and keeps
+  // the device, channel and leaves (the bindings point at the leaves) — so after a
+  // user deleted every light, the kept containers were migrated AGAIN on the next
+  // start and the deleted lights came back.
+  const devices: ioBroker.DeviceObject[] = [];
+  for (const device of await adapter.getDevicesAsync()) {
+    const deviceId = device._id.substring(adapter.namespace.length + 1);
+    const [name, data] = await Promise.all([
+      adapter.getObjectAsync(`${deviceId}.name`).catch(() => null),
+      adapter.getObjectAsync(`${deviceId}.data`).catch(() => null),
+    ]);
+    if (name || data) {
+      devices.push(device);
+    }
+  }
   if (devices.length === 0) {
     return false;
   }

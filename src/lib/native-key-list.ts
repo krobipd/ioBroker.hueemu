@@ -16,6 +16,13 @@
  * make the server bind to nothing. In every other case it is dropped. A static rename would be
  * wrong: the fleet helper lets the first MEANINGFUL source win, so a leftover `advertiseHost`
  * would overwrite an address the user chose later.
+ *
+ * The `common` keys earlier manifests declared and this one no longer does are nulled as well
+ * (v1.19.0): js-controller merges the manifest's `common` into the instance object on every update
+ * and never removes a key, so `license`, `main` and `supportCustoms` (up to v1.0.4) still sit in
+ * every installation from that time. The pre-release manifests (0.0.x) also carried `materialize`
+ * and `connectionType` with a trailing space — a different key from the `connectionType` the
+ * manifest still declares, which is therefore never nulled.
  */
 
 import type { NativeKeyMigration } from "./native-key-migration";
@@ -54,5 +61,12 @@ export function buildNativeKeyMigrations(
   }
 
   migrations.push({ drop: "discoveryHost" }, { drop: "discoveryPort" }, { drop: "upnpPort" });
+  migrations.push(
+    { commonDrop: "license" },
+    { commonDrop: "main" },
+    { commonDrop: "supportCustoms" },
+    { commonDrop: "materialize" },
+    { commonDrop: "connectionType " },
+  );
   return migrations;
 }

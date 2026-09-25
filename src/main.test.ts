@@ -488,6 +488,10 @@ describe("HueEmu onReady", () => {
     const i = internalOf(adapter);
     // One legacy device object with an `on` state child.
     i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.legacylight", common: { name: "Old Lamp" } }]);
+    // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "legacylight.name" ? { type: "state" } : null),
+    );
     i.getStatesOfAsync.mockResolvedValue([{ _id: "hueemu.0.legacylight.state.on" }]);
     await i.onReady();
 
@@ -702,6 +706,25 @@ describe("HueEmu onStateChange", () => {
     expect(handlers[0].forgetClient).toHaveBeenCalledTimes(1);
   });
 
+  it("logs instead of throwing when revoking a deleted client fails", async () => {
+    const { adapter, handlers } = await ready();
+    const i = internalOf(adapter);
+    handlers[0].forgetClient.mockImplementation(() => {
+      throw new Error("boom");
+    });
+    expect(() => i.onObjectChange("hueemu.0.clients.echo", null)).not.toThrow();
+    expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("boom"));
+  });
+
+  // N4: `hueemu.1` must not take `hueemu.10.*` for its own and acknowledge it.
+  it("does not treat another instance's states as its own", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.setState.mockClear();
+    i.onStateChange("hueemu.00.something", { val: 1, ack: false } as ioBroker.State);
+    expect(i.setState).not.toHaveBeenCalled();
+  });
+
   it("does not ack an already-acked own state (no write feedback loop)", async () => {
     const { adapter } = await ready();
     const i = internalOf(adapter);
@@ -819,6 +842,95 @@ describe("HueEmu onUnload", () => {
     expect(servers[0].stop).toHaveBeenCalled();
     expect(ssdps[0].start).not.toHaveBeenCalled();
     expect(i.subscribeStates).not.toHaveBeenCalled();
+  });
+
+  // v1.19.0 (audit 2026-09-25 Q18): the stop can also come while SSDP binds — the
+  // socket is released and no announce interval is left behind.
+  it("releases SSDP and sets up no pulse when the unload arrives while SSDP binds", async () => {
+    const { adapter, ssdps } = setup();
+    const i = internalOf(adapter);
+    const internal = adapter as unknown as { makeSsdpServer: (o: unknown) => FakeSsdp };
+    const origFactory = internal.makeSsdpServer.bind(adapter);
+    const callback = vi.fn();
+    internal.makeSsdpServer = (o: unknown) => {
+      const s = origFactory(o);
+      s.start.mockImplementation(() => {
+        i.onUnload(callback);
+        return Promise.resolve();
+      });
+      return s;
+    };
+    await i.onReady();
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(ssdps[0].stop).toHaveBeenCalled();
+    expect(ssdps[0].announce).not.toHaveBeenCalled();
+    expect(i.setInterval).not.toHaveBeenCalled();
+    expect(i.setState).not.toHaveBeenCalledWith("info.connection", expect.objectContaining({ val: true }));
+  });
+
+  // Q18: a stop during the cleanup of earlier versions' objects must not be followed
+  // by "connected".
+  it("does not report connected when the unload arrives during the cleanup", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    const callback = vi.fn();
+    i.getObjectAsync.mockImplementation((id: string) => {
+      // The last read of the start: the check for the pre-1.2 "user" folder.
+      if (id === "user") {
+        i.onUnload(callback);
+      }
+      return Promise.resolve(null);
+    });
+    await i.onReady();
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(i.setState).not.toHaveBeenCalledWith("info.connection", expect.objectContaining({ val: true }));
+  });
+
+  // Audit 2026-09-25 Q34: the other two stop points of the start — right after the
+  // own objects were refreshed, and right after the handler came up.
+  it("stops after refreshing the own objects when the unload arrives there", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    const callback = vi.fn();
+    i.extendObject.mockImplementation((id: string) => {
+      if (id === "clients") {
+        i.onUnload(callback);
+      }
+      return Promise.resolve();
+    });
+    await i.onReady();
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(servers).toHaveLength(0);
+  });
+
+  it("stops after the handler came up when the unload arrives there", async () => {
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    const internal = adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler };
+    const origFactory = internal.makeApiHandler.bind(adapter);
+    const callback = vi.fn();
+    internal.makeApiHandler = (o: unknown) => {
+      const h = origFactory(o);
+      h.initialize.mockImplementation(() => {
+        i.onUnload(callback);
+        return Promise.resolve();
+      });
+      return h;
+    };
+    await i.onReady();
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(servers).toHaveLength(0);
+  });
+
+  it("stops the start when the light numbering wrote the configuration", async () => {
+    const { adapter, servers } = setup({ devices: [{ name: "Unnumbered", lightType: "onoff", onState: "x.on" }] });
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
+      "system.adapter.hueemu.0",
+      expect.objectContaining({ native: { devices: [expect.objectContaining({ id: 1 })] } }),
+    );
+    expect(servers).toHaveLength(0);
   });
 
   it("is safe before onReady (no servers constructed yet)", async () => {
@@ -1024,6 +1136,26 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     expect(i.delObjectAsync).not.toHaveBeenCalled();
   });
 
+  // Audit 2026-09-25 Q34: a legacy client without native and without a value.
+  it("moves a client whose legacy object has no native and whose state is empty", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [{ id: "hueemu.0.user.bare", value: { common: { name: { en: "Bare" }, type: "string", role: "text" } } }],
+    });
+    i.getStateAsync.mockResolvedValue(null);
+
+    await i.migrateUserToClients();
+
+    const created = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients.bare");
+    expect((created?.[1] as { native: object }).native).toEqual({});
+    // A translation-object name is kept as it is.
+    expect((created?.[1] as { common: { name: unknown } }).common.name).toEqual({ en: "Bare" });
+    expect(i.setState).not.toHaveBeenCalledWith("clients.bare", expect.anything());
+    expect(i.delObjectAsync).toHaveBeenCalledWith("user");
+  });
+
   it("lifts the migrated client to the current name/description standard right away", async () => {
     // This migration runs LATE in onReady, the client refresh runs early — so a
     // migrated object would otherwise carry its bare legacy name until the NEXT
@@ -1112,6 +1244,10 @@ describe("HueEmu migrateLegacyDevices", () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
     i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.colorlamp", common: { name: "Color Lamp" } }]);
+    // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "colorlamp.name" ? { type: "state" } : null),
+    );
     i.getStatesOfAsync.mockResolvedValue([
       { _id: "hueemu.0.colorlamp.state.on" },
       { _id: "hueemu.0.colorlamp.state.bri" },
@@ -1134,6 +1270,10 @@ describe("HueEmu migrateLegacyDevices", () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
     i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.legacylamp", common: { name: "Legacy" } }]);
+    // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "legacylamp.name" ? { type: "state" } : null),
+    );
     i.getStatesOfAsync.mockResolvedValue([{ _id: "hueemu.0.legacylamp.state.on" }]);
 
     expect(await i.migrateLegacyDevices()).toBe(true);
