@@ -1,7 +1,7 @@
 /**
  * The fleet-wide reason text for "the adapter itself has nothing to report":
  * off, or started and not serving yet. One word, identical in every adapter —
- * krobi 2026-08-27: "ich will nicht in jeden adapter eine andere meldung sehen".
+ * krobi 2026-08-27: "I don't want to see a different message in every adapter".
  * Defined once here and used at every lifecycle point.
  */
 export const REASON_UNKNOWN = "Unknown";

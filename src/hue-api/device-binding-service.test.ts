@@ -1745,10 +1745,10 @@ describe("v1.17.0 — the value scale is settled at start, from the bound object
     expect(adapter.writtenStates.get("hm.0.LEVEL")).toBe(100);
   });
 
-  // Mutationswelle v1.17.0 (X5): eine Quelle, bei der Ableitung und Heuristik
-  // AUSEINANDERGEHEN — nur so ist messbar, ob die Skala wirklich aus dem Objekt
-  // kommt. Der Datenpunkt sagt "Hue-nativ" (max 254), sein aktueller Wert 50
-  // sähe für die Heuristik wie Prozent aus.
+  // Mutation wave v1.17.0 (X5): a source where derivation and heuristic DISAGREE —
+  // only then is it measurable whether the scale really comes from the object. The
+  // datapoint says "Hue native" (max 254), its current value 50 would look like a
+  // percentage to the heuristic.
   it("takes the scale from the object even where the value would suggest another", async () => {
     const { svc, adapter } = await dimmer({ min: 0, max: 254 }, "auto", 50);
     await svc.setLightState("1", { bri: 127 });

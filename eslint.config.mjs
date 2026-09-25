@@ -20,7 +20,7 @@ export default [
       ".dev-server/",
       ".vscode/",
       "*.test.js",
-      "test/**",
+      "test/*.js",
       "*.config.mjs",
       "build",
       // Generated coverage report (npm run coverage) — never lint it.

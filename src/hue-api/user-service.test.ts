@@ -239,9 +239,9 @@ describe("UserService", () => {
       await expect(service.addUser("living+room", "Impostor")).rejects.toThrow(/already/i);
     });
 
-    // Mutationswelle v1.17.0 (X9): ein Client, dessen echter Schlüssel sich von
-    // seiner bereinigten Objekt-ID unterscheidet — nur so lässt sich messen, aus
-    // welchem der beiden der Anmeldespeicher wirklich gebaut wird.
+    // Mutation wave v1.17.0 (X9): a client whose real key differs from its sanitized
+    // object id — only then is it measurable which of the two the login store is
+    // really built from.
     it("builds the cache from the stored key, not from the object id", async () => {
       const { service } = createService([{ id: "living_room", username: "living.room" }]);
       expect(await service.isUserAuthenticated("living.room")).toBe(true);
