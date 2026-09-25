@@ -9,6 +9,8 @@
 import {
   clampScaleForState,
   convertValueForState,
+  ctForState,
+  ctFromState,
   convertValueFromState,
   deriveCtScale,
   deriveHueScale,
@@ -78,7 +80,12 @@ describe("scale derivation", () => {
   it("reads a normalized and a Hue-native brightness", () => {
     expect(deriveLevelScale({ writable: true, min: 0, max: 1 })).toBe("normalized");
     expect(deriveLevelScale({ writable: true, min: 0, max: 254 })).toBe("raw");
-    expect(deriveLevelScale({ writable: true, min: 0, max: 255 })).toBe("raw");
+  });
+
+  // v1.19.0 (audit 2026-09-25 Q13): a 0..255 source was taken as Hue-native and
+  // never reached its own 255 — full brightness stopped one step short.
+  it("reads a 0..255 brightness as byte, not as Hue-native", () => {
+    expect(deriveLevelScale({ writable: true, min: 0, max: 255 })).toBe("byte");
   });
 
   it("reads a hue in degrees and a Hue-native one", () => {
@@ -100,6 +107,40 @@ describe("scale derivation", () => {
     // correct binding into a wrong one (2026-09-03 audit).
     expect(deriveCtScale({ writable: true })).toBeUndefined();
     expect(deriveCtScale({ writable: true, unit: "mired" })).toBe("raw");
+  });
+
+  // v1.19.0 (audit 2026-09-25 K4): ioBroker.tradfri's colorTemperature is 0..100 %
+  // ("0% = cold, 100% = warm") — it was read and written as mired.
+  it("reads a colour temperature in percent from the unit", () => {
+    expect(deriveCtScale({ writable: true, min: 0, max: 100, unit: "%" })).toBe("percent");
+    // The range alone proves nothing — only the unit counts.
+    expect(deriveCtScale({ writable: true, min: 0, max: 100 })).toBeUndefined();
+  });
+});
+
+describe("colour temperature scales", () => {
+  it("maps percent linearly across Hue's range, 0 % = coldest", () => {
+    expect(ctFromState(0, "percent")).toBe(153);
+    expect(ctFromState(100, "percent")).toBe(500);
+    expect(ctFromState(50, "percent")).toBe(327);
+    expect(ctFromState(150, "percent")).toBe(500);
+    expect(ctFromState(-5, "percent")).toBe(153);
+  });
+
+  it("writes percent back, and round-trips", () => {
+    expect(ctForState(153, "percent")).toBe(0);
+    expect(ctForState(500, "percent")).toBe(100);
+    expect(ctForState(327, "percent")).toBe(50);
+    for (let pct = 0; pct <= 100; pct++) {
+      expect(ctForState(ctFromState(pct, "percent"), "percent")).toBe(pct);
+    }
+  });
+
+  it("keeps kelvin and mired as they were", () => {
+    expect(ctFromState(4000, "kelvin")).toBe(250);
+    expect(ctForState(250, "kelvin")).toBe(4000);
+    expect(ctFromState(300, undefined)).toBe(300);
+    expect(ctForState(300, "raw")).toBe(300);
   });
 });
 
@@ -148,6 +189,8 @@ describe("percent-style scales, read direction", () => {
     expect(scaleValueFromState(50, "percent", 1, 254, logger)).toBe(127);
     expect(scaleValueFromState(0.5, "normalized", 1, 254, logger)).toBe(127);
     expect(scaleValueFromState(127, "raw", 1, 254, logger)).toBe(127);
+    expect(scaleValueFromState(255, "byte", 1, 254, logger)).toBe(254);
+    expect(scaleValueFromState(128, "byte", 1, 254, logger)).toBe(127); // 128/255 × 254 = 127.498
   });
 
   it("falls back to the heuristic when nothing is decided", () => {
@@ -168,6 +211,9 @@ describe("percent-style scales, write direction", () => {
     expect(scaleValueForState(127, "percent", 254)).toBe(50);
     expect(scaleValueForState(127, "normalized", 254)).toBe(0.5);
     expect(scaleValueForState(127, "raw", 254)).toBe(127);
+    // Byte reaches its own full scale.
+    expect(scaleValueForState(254, "byte", 254)).toBe(255);
+    expect(scaleValueForState(1, "byte", 254)).toBe(1);
   });
 
   // v1.17.0 (audit 2026-09-06 F1): the undecided scale used to write the raw Hue

@@ -24,17 +24,23 @@ import type { DeviceConfig } from "./hue-api";
  */
 function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, unknown> = {}): any {
   let stored = devices;
+  let lastLightId: number | undefined;
   return {
     namespace: "hueemu.0",
     on: vi.fn(),
     log: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
     getForeignObjectAsync: vi.fn((id: string) =>
-      Promise.resolve(id === "system.adapter.hueemu.0" ? { native: { devices: structuredClone(stored) } } : null),
+      Promise.resolve(
+        id === "system.adapter.hueemu.0" ? structuredClone({ native: { devices: stored, lastLightId } }) : null,
+      ),
     ),
-    extendForeignObjectAsync: vi.fn((_id: string, patch: { native: { devices: DeviceConfig[] } }) => {
-      stored = patch.native.devices;
-      return Promise.resolve();
-    }),
+    extendForeignObjectAsync: vi.fn(
+      (_id: string, patch: { native: { devices: DeviceConfig[]; lastLightId?: number } }) => {
+        stored = patch.native.devices;
+        lastLightId = patch.native.lastLightId;
+        return Promise.resolve();
+      },
+    ),
     getForeignObjectsAsync: vi.fn(() => Promise.resolve(structuredClone(allObjects))),
     // A1: searchDevices now loads via getObjectView per type. Return the objects
     // of the requested design ("device" | "channel" | "state"), like js-controller.
@@ -46,6 +52,7 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
       }),
     ),
     _stored: () => stored,
+    _lastLightId: () => lastLightId,
     _setStored: (devices: DeviceConfig[]) => {
       stored = devices;
     },
@@ -265,6 +272,26 @@ describe("HueEmuDeviceManagement", () => {
       expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ name: { key: "lightNameFallback", args: [3] } });
     });
 
+    // v1.19.0 (audit 2026-09-25 Q16): a hand-edited or restored instance object — the
+    // list still loads, a null entry is skipped instead of breaking the whole view.
+    it("skips entries that are no object and still lists the rest", async () => {
+      const adapter = make();
+      adapter.getForeignObjectAsync.mockResolvedValueOnce({
+        native: { devices: [null, { id: 2, name: "B", lightType: "onoff", onState: "b" }] },
+      });
+      const ctx = { addDevice: vi.fn() };
+      await internalOf(dm).loadDevices(ctx);
+      expect(ctx.addDevice.mock.calls.map(c => (c[0] as { id: string }).id)).toEqual(["2"]);
+    });
+
+    it("lists nothing when native.devices is no list", async () => {
+      const adapter = make();
+      adapter.getForeignObjectAsync.mockResolvedValueOnce({ native: { devices: { 0: { name: "A" } } } });
+      const ctx = { addDevice: vi.fn() };
+      await internalOf(dm).loadDevices(ctx);
+      expect(ctx.addDevice).not.toHaveBeenCalled();
+    });
+
     it("adds nothing when native.devices is missing", async () => {
       const adapter = make();
       adapter.getForeignObjectAsync.mockResolvedValueOnce({ native: {} });
@@ -283,15 +310,36 @@ describe("HueEmuDeviceManagement", () => {
       expect(adapter._stored()).toEqual([{ id: 1, name: "New", lightType: "onoff", onState: "x.on" }]);
     });
 
-    // A deleted light's number is never handed out again — Alexa would otherwise
-    // treat the new light as the old one.
-    it("numbers a new light above every number ever used, not into a gap", async () => {
+    // A gap in the middle is never filled.
+    it("numbers a new light above every number in use, not into a gap", async () => {
       const adapter = make([
         { id: 1, name: "A", lightType: "onoff", onState: "a" },
         { id: 3, name: "C", lightType: "onoff", onState: "c" },
       ]);
       await internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } }));
       expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([1, 3, 4]);
+    });
+
+    // v1.19.0 (audit 2026-09-25 K3): a deleted light's number is never handed out
+    // again — not even the HIGHEST one, which max+1 over the remaining list used to
+    // hand straight back. Alexa would take the new lamp for the old one.
+    it("never hands out the number of the deleted highest light again", async () => {
+      const adapter = make([
+        { id: 1, name: "A", lightType: "onoff", onState: "a" },
+        { id: 2, name: "B", lightType: "onoff", onState: "b" },
+        { id: 3, name: "C", lightType: "onoff", onState: "c" },
+      ]);
+      await internalOf(dm).deleteDevice("3", mockContext({ confirm: true }));
+      expect(adapter._lastLightId()).toBe(3);
+      await internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } }));
+      expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([1, 2, 4]);
+      expect(adapter._lastLightId()).toBe(4);
+    });
+
+    it("keeps the mark on every write, an edit included", async () => {
+      const adapter = make([{ id: 5, name: "A", lightType: "onoff", onState: "a" }]);
+      await internalOf(dm).editDevice("5", mockContext({ form: { name: "A2", lightType: "onoff", onState: "a" } }));
+      expect(adapter._lastLightId()).toBe(5);
     });
 
     it("ignores a number the form tries to smuggle in", async () => {
@@ -413,6 +461,11 @@ describe("HueEmuDeviceManagement", () => {
       expect(stored[0].id).toBe(1);
       expect(stored.some((d: DeviceConfig) => d.onState?.startsWith("hueemu.0"))).toBe(false);
       expect(ctx.showMessage).toHaveBeenCalled();
+      // v1.19.0 (audit 2026-09-25 H13): the result message goes out BEFORE the write —
+      // the write restarts the instance, and a reply after that restart is lost.
+      expect(ctx.showMessage.mock.invocationCallOrder[0]).toBeLessThan(
+        adapter.extendForeignObjectAsync.mock.invocationCallOrder[0],
+      );
     });
 
     it("adds nothing when the user unticks everything", async () => {

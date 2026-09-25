@@ -57,12 +57,19 @@ const HUE_HUE_SPAN = HUE_HUE_MAX + 1;
  * `percent` = 0..100 ↔ 1..254
  * `normalized` = 0..1 ↔ 1..254
  * `raw` = 1..254 (Hue native), value passed through with clamp
+ * `byte` = 0..255 ↔ 1..254 (v1.19.0 — a source declaring max 255 was taken as
+ * Hue-native and never reached its own 255; audit 2026-09-25 Q13)
  */
-export type LightStateScale = "auto" | "percent" | "normalized" | "raw";
+export type LightStateScale = "auto" | "percent" | "normalized" | "raw" | "byte";
 /** Scale for the hue source state: 'raw' = 0..65535 (Hue native), 'degrees' = 0..360. */
 export type HueScale = "raw" | "degrees";
-/** Scale for the ct source state: 'raw' = 153..500 mired (Hue native), 'kelvin' = Kelvin. */
-export type CtScale = "raw" | "kelvin";
+/**
+ * Scale for the ct source state: 'raw' = 153..500 mired (Hue native), 'kelvin' = Kelvin,
+ * 'percent' = 0..100 % across the lamp's range, 0 % = coldest (v1.19.0 — ioBroker.tradfri's
+ * `colorTemperature`, "0% = cold, 100% = warm", the only percent source among the public
+ * adapters checked; audit 2026-09-25 K4).
+ */
+export type CtScale = "raw" | "kelvin" | "percent";
 
 /**
  * What the conversion needs to know about a device: its scales, and its name for
@@ -200,8 +207,11 @@ export function deriveLevelScale(facts: StateFacts | undefined): LightStateScale
   if (isAbout(facts.max, 1)) {
     return "normalized";
   }
-  if (isAbout(facts.max, 254) || isAbout(facts.max, 255)) {
+  if (isAbout(facts.max, 254)) {
     return "raw";
+  }
+  if (isAbout(facts.max, 255)) {
+    return "byte";
   }
   return undefined;
 }
@@ -245,6 +255,12 @@ export function deriveCtScale(facts: StateFacts | undefined): CtScale | undefine
     return undefined;
   }
   const unit = normalizeUnit(facts.unit);
+  // v1.19.0: a percent source (tradfri) was read and written as mired — 50 % showed
+  // as the coldest white, and every command wrote 153..454 into a 0..100 datapoint.
+  // Only the unit counts: a 0..100 range alone could still be anything.
+  if (unit === "%") {
+    return "percent";
+  }
   if (KELVIN_UNITS.has(unit)) {
     return "kelvin";
   }
@@ -319,11 +335,17 @@ export function hueForState(n: number, scale: HueScale | undefined): number {
  * 'kelvin' maps Kelvin → mired (1e6/K); 'raw' (default) is already Hue-native mired.
  *
  * @param n Raw finite source value
- * @param scale Per-device ct scale ('raw' | 'kelvin')
+ * @param scale Per-device ct scale ('raw' | 'kelvin' | 'percent')
  */
 export function ctFromState(n: number, scale: CtScale | undefined): number {
   if (scale === "kelvin") {
     return n > 0 ? clampRound(1_000_000 / n, HUE_CT_MIN, HUE_CT_MAX) : HUE_CT_DEFAULT;
+  }
+  if (scale === "percent") {
+    // 0 % = coldest (153 mired), 100 % = warmest (500) — linear across Hue's range, the
+    // same relative reading the percent source makes across its own lamp's range.
+    const pct = Math.min(100, Math.max(0, n));
+    return clampRound(HUE_CT_MIN + (pct / 100) * (HUE_CT_MAX - HUE_CT_MIN), HUE_CT_MIN, HUE_CT_MAX);
   }
   return clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
 }
@@ -332,11 +354,17 @@ export function ctFromState(n: number, scale: CtScale | undefined): number {
  * Inverse of {@link ctFromState}: a Hue mired (153..500) value back into the source scale.
  *
  * @param n Incoming Hue mired value (153..500 from the client)
- * @param scale Per-device ct scale ('raw' | 'kelvin')
+ * @param scale Per-device ct scale ('raw' | 'kelvin' | 'percent')
  */
 export function ctForState(n: number, scale: CtScale | undefined): number {
   const mired = clampRound(n, HUE_CT_MIN, HUE_CT_MAX);
-  return scale === "kelvin" ? Math.round(1_000_000 / mired) : mired;
+  if (scale === "kelvin") {
+    return Math.round(1_000_000 / mired);
+  }
+  if (scale === "percent") {
+    return Math.round(((mired - HUE_CT_MIN) / (HUE_CT_MAX - HUE_CT_MIN)) * 100);
+  }
+  return mired;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -403,6 +431,8 @@ export function scaleValueFromState(
       return clampRound(n * max, min, max);
     case "raw":
       return clampRound(n, min, max);
+    case "byte":
+      return clampRound((n / 255) * max, min, max);
     default: {
       const { value: result, branch } = heuristicFromState(n, min, max);
       logger.debug(`scale-auto[${deviceName ?? "?"}/${stateName ?? "?"}/${branch}]: n=${n} → ${result}`);
@@ -442,6 +472,8 @@ export function scaleValueForState(
       return Math.round((hueValue / max) * 1000) / 1000;
     case "raw":
       return hueValue;
+    case "byte":
+      return Math.round((hueValue / max) * 255);
     default:
       return invertHeuristicForState(hueValue, max, lastSourceValue);
   }

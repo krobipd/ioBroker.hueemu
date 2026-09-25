@@ -1,4 +1,4 @@
-import { assignDeviceIds, isDeviceId, nextDeviceId } from "./device-ids";
+import { assignDeviceIds, isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./device-ids";
 import type { DeviceConfig } from "../hue-api";
 
 const light = (name: string, id?: number): DeviceConfig => ({
@@ -80,5 +80,47 @@ describe("nextDeviceId", () => {
     // The start-up migration will give those entries their positions 1..n.
     expect(nextDeviceId([light("A"), light("B")])).toBe(3);
     expect(nextDeviceId([])).toBe(1);
+  });
+
+  // v1.19.0 (audit 2026-09-25 K3): the highest number ever handed out is a floor —
+  // deleting the top light must not hand its number to the next one.
+  it("stays above the stored mark after the highest light was deleted", () => {
+    expect(nextDeviceId([light("A", 1), light("B", 2)], 3)).toBe(4);
+  });
+
+  it("ignores an unusable mark", () => {
+    expect(nextDeviceId([light("A", 1)], 0)).toBe(2);
+    expect(nextDeviceId([light("A", 1)], Number.NaN)).toBe(2);
+  });
+});
+
+describe("lightIdHighWater", () => {
+  it("carries the highest number of the stored mark and both lists", () => {
+    expect(lightIdHighWater(0, [light("A", 1), light("C", 3)], [light("A", 1)])).toBe(3);
+    expect(lightIdHighWater(9, [light("A", 1)], [])).toBe(9);
+  });
+
+  it("treats a missing or broken mark as 0", () => {
+    expect(lightIdHighWater(undefined, [light("A", 2)])).toBe(2);
+    expect(lightIdHighWater("7", [])).toBe(0);
+  });
+});
+
+describe("normalizeDevices", () => {
+  it("keeps a proper list", () => {
+    const list = [light("A", 1), light("B", 2)];
+    expect(normalizeDevices(list)).toEqual(list);
+  });
+
+  // A hand-edited instance object or a restored backup: no list, or null entries —
+  // both used to stop the start with a TypeError text in info.error (Q16).
+  it("turns anything that is no list into an empty one", () => {
+    expect(normalizeDevices(undefined)).toEqual([]);
+    expect(normalizeDevices({ 0: light("A", 1) })).toEqual([]);
+    expect(normalizeDevices("x")).toEqual([]);
+  });
+
+  it("drops entries that are no object", () => {
+    expect(normalizeDevices([null, light("A", 1), 7, "x", [light("B", 2)]])).toEqual([light("A", 1)]);
   });
 });

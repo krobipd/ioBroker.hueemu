@@ -83,6 +83,16 @@ async function requireAuth(handler: HueApiHandler, username: string, address: st
 export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions): void {
   const { handler } = options;
 
+  // v1.19.0 (audit 2026-09-25 K2): a Hue body is JSON whatever the request calls it.
+  // Clients built on phue send no Content-Type at all, curl -d sends
+  // application/x-www-form-urlencoded — Fastify answered both with "Unsupported Media
+  // Type" (Hue error 901), so pairing and switching failed. The real bridge, diyHue
+  // (get_json(force=True)), Home Assistant's emulated_hue, Tasmota and Espalexa all
+  // read the body regardless. `*` also catches a request without the header; Fastify's
+  // own JSON parser keeps the prototype-poisoning guard.
+  fastify.removeAllContentTypeParsers();
+  fastify.addContentTypeParser("*", { parseAs: "string" }, fastify.getDefaultJsonParser("error", "error"));
+
   /**
    * Run a route body that requires a paired client: read the params, build the
    * Hue address the error would name, verify the username, then hand the body

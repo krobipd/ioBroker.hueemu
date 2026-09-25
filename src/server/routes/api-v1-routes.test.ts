@@ -196,8 +196,66 @@ describe("apiV1Routes — POST /api", () => {
       payload: "",
     });
     const parsed = JSON.parse(res.body);
-    expect(parsed[0]).toHaveProperty("error");
+    // v1.19.0 (Q6): an empty body is "invalid json" (2), not an internal error (901).
+    expect(parsed[0].error.type).toBe(2);
     expect(handler.calls.createUser).toHaveLength(0);
+  });
+});
+
+// v1.19.0 (audit 2026-09-25 K2): the body is JSON whatever the request calls it. phue
+// sends no Content-Type, curl -d sends form-urlencoded — both used to get 901 and
+// could neither pair nor switch. The real bridge and every reference emulator read
+// the body regardless.
+describe("apiV1Routes — any Content-Type (or none) carries a JSON body", () => {
+  const body = JSON.stringify({ devicetype: "phue#script" });
+  const headerVariants: [label: string, headers: Record<string, string>][] = [
+    ["no Content-Type at all", {}],
+    ["application/x-www-form-urlencoded (curl -d)", { "content-type": "application/x-www-form-urlencoded" }],
+    ["text/plain", { "content-type": "text/plain" }],
+    ["application/json; charset=utf-8", { "content-type": "application/json; charset=utf-8" }],
+  ];
+
+  for (const [label, headers] of headerVariants) {
+    it(`pairs with ${label}`, async () => {
+      const handler = createMockHandler();
+      const app = await buildApp(handler);
+      const res = await app.inject({ method: "POST", url: "/api", headers, payload: body });
+      expect(JSON.parse(res.body)[0]).toHaveProperty("success");
+      expect(handler.calls.createUser).toHaveLength(1);
+    });
+
+    it(`switches a light with ${label}`, async () => {
+      const handler = createMockHandler();
+      const app = await buildApp(handler);
+      const res = await app.inject({
+        method: "PUT",
+        url: "/api/user1/lights/1/state",
+        headers,
+        payload: JSON.stringify({ on: true }),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(handler.calls.setLightState).toEqual([{ lightId: "1", state: { on: true } }]);
+    });
+  }
+
+  it("answers a body that is no JSON with Hue error 2", async () => {
+    const handler = createMockHandler();
+    const app = await buildApp(handler);
+    const res = await app.inject({ method: "POST", url: "/api", payload: "devicetype=x" });
+    expect(JSON.parse(res.body)[0].error.type).toBe(2);
+    expect(handler.calls.createUser).toHaveLength(0);
+  });
+
+  it("keeps the prototype-poisoning guard", async () => {
+    const handler = createMockHandler();
+    const app = await buildApp(handler);
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/user1/lights/1/state",
+      payload: '{"__proto__":{"polluted":true},"on":true}',
+    });
+    expect(JSON.parse(res.body)[0].error.type).toBe(2);
+    expect(handler.calls.setLightState).toHaveLength(0);
   });
 });
 

@@ -7,6 +7,7 @@
 
 import { readFileSync } from "node:fs";
 import type * as os from "node:os";
+import type * as tls from "node:tls";
 import { join } from "node:path";
 import { vi } from "vitest";
 
@@ -40,6 +41,9 @@ vi.mock("@iobroker/adapter-core", () => {
     public clearTimeout = vi.fn();
     public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
+    // js-controller's own form is `$/aes-192-cbc:<iv>:<ciphertext>` — the prefix is what
+    // its start-up decryption keys on; anything without it is decrypted as garbage.
+    public encrypt = vi.fn((v: string) => `$/aes-192-cbc:ENC(${v})`);
     constructor(opts: unknown) {
       adapterOptions.last = opts;
     }
@@ -94,6 +98,12 @@ vi.mock("node-forge", () => ({
   },
   md: { sha256: { create: vi.fn(() => ({})) } },
 }));
+// The fake PEM blocks above are no material OpenSSL loads — the pair check in
+// tls-material (v1.19.0) is proven against real certificates in its own suite.
+vi.mock("node:tls", async importOriginal => {
+  const actual = await importOriginal<typeof tls>();
+  return { ...actual, createSecureContext: vi.fn(() => ({})) };
+});
 
 import { HueEmu } from "./main";
 
@@ -322,9 +332,13 @@ describe("HueEmu buildConfig", () => {
         udn: config.identity.udn,
         mac: config.identity.mac,
         tlsCert: expect.stringContaining("GENERATED"),
-        tlsKey: expect.stringContaining("GENERATED"),
+        // v1.19.0 (audit 2026-09-25 K1): stored encrypted — tlsKey is in encryptedNative.
+        tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
       },
     });
+    // …while this run serves with the plaintext key.
+    expect(config.https?.key).toContain("GENERATED");
+    expect(config.https?.key).not.toContain("aes-192-cbc");
     expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("persisted self-signed TLS certificate"));
     expect(i.nativePersistPending).toBe(true);
   });
@@ -337,7 +351,10 @@ describe("HueEmu buildConfig", () => {
     expect(config.https?.cert).toContain("GENERATED");
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("expired"));
     expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
-      native: { tlsCert: expect.stringContaining("GENERATED"), tlsKey: expect.stringContaining("GENERATED") },
+      native: {
+        tlsCert: expect.stringContaining("GENERATED"),
+        tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
+      },
     });
   });
 

@@ -7,18 +7,32 @@ import type { Logger } from "../../types/config";
 import { HueApiError } from "../../types/errors";
 
 /**
+ * The body-parser failures a real bridge answers with "body contains invalid json"
+ * (type 2): a malformed, an empty, an oversized body, an unreadable media type or
+ * length. v1.19.0 (audit 2026-09-25 Q6): only the first was recognised, the others
+ * came back as "internal error" (901).
+ */
+const INVALID_BODY_CODES: ReadonlySet<string> = new Set([
+  "FST_ERR_CTP_INVALID_JSON_BODY",
+  "FST_ERR_CTP_EMPTY_JSON_BODY",
+  "FST_ERR_CTP_BODY_TOO_LARGE",
+  "FST_ERR_CTP_INVALID_MEDIA_TYPE",
+  "FST_ERR_CTP_INVALID_CONTENT_LENGTH",
+]);
+
+/**
  * True for a Fastify body-parse / schema-validation failure that should map to
  * the Hue "invalid JSON" error (type 2) rather than a generic internal error.
  * v1.10.0 (L4): covers both ajv schema validation (`.validation`) and the body
- * parser's FST_ERR_CTP_INVALID_JSON_BODY (which carries no `.validation`, so the
- * old `.validation`-only check misrouted a malformed body to internal_error/901).
+ * parser's failure codes (which carry no `.validation`, so the old
+ * `.validation`-only check misrouted a malformed body to internal_error/901).
  *
  * @param error - Error thrown during request handling
  */
 function isInvalidJsonError(error: FastifyError | HueApiError | Error): boolean {
+  const code = (error as FastifyError).code;
   return (
-    ("validation" in error && Boolean(error.validation)) ||
-    (error as FastifyError).code === "FST_ERR_CTP_INVALID_JSON_BODY"
+    ("validation" in error && Boolean(error.validation)) || (typeof code === "string" && INVALID_BODY_CODES.has(code))
   );
 }
 

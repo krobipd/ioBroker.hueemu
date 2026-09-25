@@ -186,6 +186,7 @@
     "udn": "",
     "mac": "",
     "devices": [],
+    "lastLightId": 0,
     "trustProxy": false
   },
   "encryptedNative": [

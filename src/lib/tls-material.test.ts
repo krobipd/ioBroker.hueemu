@@ -14,7 +14,7 @@
 import type { Mock } from "vitest";
 import type * as NodeForge from "node-forge";
 import { createSecureContext } from "node:tls";
-import { CERT_VALIDITY_YEARS, generateCertificate, getOrCreateTlsMaterial } from "./tls-material";
+import { CERT_VALIDITY_YEARS, generateCertificate, getOrCreateTlsMaterial, tlsPairUsable } from "./tls-material";
 
 const forgeControl = vi.hoisted(() => ({
   notAfter: new Date("2090-01-01T00:00:00Z"),
@@ -75,9 +75,19 @@ beforeEach(() => {
 describe("getOrCreateTlsMaterial", () => {
   it("reuses a persisted, still-valid certificate without regenerating", () => {
     const log = makeLog();
-    const material = getOrCreateTlsMaterial(PERSISTED_CERT, PERSISTED_KEY, log);
+    const material = getOrCreateTlsMaterial(PERSISTED_CERT, PERSISTED_KEY, log, () => true);
     expect(material).toEqual({ cert: PERSISTED_CERT, key: PERSISTED_KEY, generated: false });
     expect(log.warn).not.toHaveBeenCalled();
+  });
+
+  // v1.19.0 (audit 2026-09-25 Q4): a key from another pair or a truncated key used to
+  // be reused, and the HTTPS listen took the whole bridge down with it.
+  it("regenerates when the persisted key does not fit the certificate", () => {
+    const log = makeLog();
+    const material = getOrCreateTlsMaterial(PERSISTED_CERT, PERSISTED_KEY, log, () => false);
+    expect(material.cert).toContain("GENERATED");
+    expect(material.generated).toBe(true);
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("does not fit"));
   });
 
   it("regenerates when the persisted certificate is expired", () => {
@@ -127,5 +137,14 @@ describe("generateCertificate (real node-forge)", () => {
     expect(parseInt(cert.serialNumber.slice(0, 2), 16) & 0x80).toBe(0);
     // A parsed persisted pair is what the next start reuses.
     expect(getOrCreateTlsMaterial(material.cert, material.key, makeLog()).generated).toBe(false);
+  });
+
+  it("tells a fitting pair from a foreign or a truncated key", () => {
+    forgeControl.mocked = false;
+    const a = generateCertificate();
+    const b = generateCertificate();
+    expect(tlsPairUsable(a.cert, a.key)).toBe(true);
+    expect(tlsPairUsable(a.cert, b.key)).toBe(false);
+    expect(tlsPairUsable(a.cert, a.key.slice(0, 200))).toBe(false);
   });
 });

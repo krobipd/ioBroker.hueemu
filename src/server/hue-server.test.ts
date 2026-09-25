@@ -218,9 +218,10 @@ describe("HueServer wiring (inject)", () => {
       headers: { "content-type": "application/json" },
       payload: JSON.stringify({ devicetype: "x".repeat(70_000) }),
     });
-    // Fastify converges the too-large error through the Hue error handler.
+    // Fastify converges the too-large error through the Hue error handler —
+    // v1.19.0 (Q6): as "invalid json" (2), the way the bridge answers, not 901.
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body)[0]).toHaveProperty("error");
+    expect(JSON.parse(res.body)[0].error.type).toBe(2);
   });
 });
 

@@ -15,6 +15,7 @@ import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName, tRaw } from "./lib/i18n";
 import { CERT_VALIDITY_YEARS, getOrCreateTlsMaterial } from "./lib/tls-material";
+import { normalizeDevices } from "./lib/device-ids";
 import {
   ID_RANGE_END,
   runObsoleteStateCleanup,
@@ -52,6 +53,9 @@ declare global {
       udn: string;
       mac: string;
       devices: DeviceConfig[];
+      // v1.19.0: the highest light number ever handed out — written by the device
+      // manager so a deleted light's number (and uniqueid) is never reused.
+      lastLightId?: number;
     }
   }
 }
@@ -245,7 +249,11 @@ export class HueEmu extends utils.Adapter {
         return;
       }
       await I18n.init(join(this.adapterDir, "admin"), this);
-      this.log.debug(`onReady: starting (devices in config: ${this.config.devices?.length ?? 0})`);
+      // v1.19.0: a hand-edited instance object or a restored backup can carry
+      // anything here — no list, or `null` entries. Every reader below gets a
+      // clean list instead of a TypeError text in info.error (audit 2026-09-25 Q16).
+      this.config.devices = normalizeDevices(this.config.devices);
+      this.log.debug(`onReady: starting (devices in config: ${this.config.devices.length})`);
       // Nothing to report yet — the listener is not up. Written before anything
       // can fail, so a crash between here and the listen leaves the truth behind.
       this.setConnected(false, REASON_UNKNOWN);
@@ -458,7 +466,13 @@ export class HueEmu extends utils.Adapter {
       const material = getOrCreateTlsMaterial(this.config.tlsCert, this.config.tlsKey, this.log);
       if (material.generated) {
         generated.tlsCert = material.cert;
-        generated.tlsKey = material.key;
+        // v1.19.0: `tlsKey` is in `encryptedNative` — js-controller DECRYPTS it before
+        // `ready` and turns a plaintext PEM into garbage (decryptLegacy). Stored in
+        // plaintext (v1.4.7–v1.18.0) the key was unreadable on the next start, a new
+        // certificate was generated and persisted, the instance restarted — for ever,
+        // and HTTP never bound either (audit 2026-09-25 K1). Encrypt what is stored;
+        // this run serves with the plaintext it holds in memory.
+        generated.tlsKey = this.encrypt(material.key);
       }
       https = { port: httpsPort, cert: material.cert, key: material.key };
     }

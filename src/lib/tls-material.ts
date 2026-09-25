@@ -10,6 +10,7 @@
 
 import * as forge from "node-forge";
 import { randomBytes } from "node:crypto";
+import { createSecureContext } from "node:tls";
 import { errText } from "../types/utils";
 
 /** How long a freshly generated certificate stays valid. */
@@ -91,6 +92,24 @@ function looksLikePem(cert: string, key: string): boolean {
 }
 
 /**
+ * True when Node's TLS accepts the pair as it will be served — the key parses and
+ * belongs to the certificate. v1.19.0: the shape check alone let a key from another
+ * pair or a truncated key through; the HTTPS listen then failed, and with it the
+ * whole bridge, HTTP included, with no way back (audit 2026-09-25 Q4).
+ *
+ * @param cert The certificate PEM.
+ * @param key The private key PEM.
+ */
+export function tlsPairUsable(cert: string, key: string): boolean {
+  try {
+    createSecureContext({ cert, key });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * v1.4.3 (M1+M3+M5): reuse the self-signed TLS material persisted in `native`
  * so it survives restarts. Real Hue clients (Echo, Harmony, Wall Display) don't
  * pin the cert — but regenerating on each restart wasted ~1–2 s of synchronous
@@ -109,12 +128,14 @@ function looksLikePem(cert: string, key: string): boolean {
  * @param persistedCert The `native.tlsCert` value, whatever type it has.
  * @param persistedKey The `native.tlsKey` value, whatever type it has.
  * @param log Where to report a replaced certificate.
+ * @param pairUsable Whether Node's TLS accepts the pair — injectable for tests.
  * @returns the material to serve, and whether it was generated just now.
  */
 export function getOrCreateTlsMaterial(
   persistedCert: unknown,
   persistedKey: unknown,
   log: TlsMaterialLog,
+  pairUsable: (cert: string, key: string) => boolean = tlsPairUsable,
 ): TlsMaterialResult {
   const cert = typeof persistedCert === "string" ? persistedCert.trim() : "";
   const key = typeof persistedKey === "string" ? persistedKey.trim() : "";
@@ -122,11 +143,16 @@ export function getOrCreateTlsMaterial(
   if (looksLikePem(cert, key)) {
     try {
       const parsed = forge.pki.certificateFromPem(cert);
-      if (parsed.validity.notAfter > new Date()) {
+      if (parsed.validity.notAfter <= new Date()) {
+        log.warn(
+          `Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) — regenerating`,
+        );
+      } else if (!pairUsable(cert, key)) {
+        log.warn("Persisted TLS key does not fit the certificate — regenerating");
+      } else {
         log.debug(`Reusing persisted TLS certificate (notAfter=${parsed.validity.notAfter.toISOString()})`);
         return { cert, key, generated: false };
       }
-      log.warn(`Persisted TLS certificate expired (notAfter=${parsed.validity.notAfter.toISOString()}) — regenerating`);
     } catch (err) {
       log.warn(`Persisted TLS certificate invalid (${errText(err)}) — regenerating`);
     }
