@@ -36,7 +36,7 @@
     "@iobroker/adapter-core": "^3.4.3",
     "@iobroker/dm-utils": "^3.2.1",
     "@iobroker/type-detector": "^6.0.3",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.7",
     "node-forge": "^1.4.0",
     "uuid": "^14.0.2"
   },
