@@ -152,6 +152,14 @@ export class UserService {
   private clientInfo: Map<string, PairedClient> = new Map();
 
   /**
+   * The value each client state carries, by object id — the key, written once at pairing. Audit R-33: a client pairing
+   * again under its key wrote the same value again (fleet rule GV-05: a state is written only when it changes); the
+   * comparison is in memory, because a single read of the read-only state is a finding of its own. Filled by the same
+   * bulk read that fills the cache.
+   */
+  private storedValues: Map<string, unknown> = new Map();
+
+  /**
    * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
    * current pairing window. Reset by {@link resetAutoAddBudget} which the
    * adapter calls when pairing flips on.
@@ -314,13 +322,16 @@ export class UserService {
       throw new Error("Client could not be stored");
     }
 
-    try {
-      await this.adapter.setState(`clients.${safeUsername}`, {
-        ack: true,
-        val: username,
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to set client state ${safeUsername}: ${errText(err)}`);
+    if (this.storedValues.get(safeUsername) !== username) {
+      try {
+        await this.adapter.setState(`clients.${safeUsername}`, {
+          ack: true,
+          val: username,
+        });
+        this.storedValues.set(safeUsername, username);
+      } catch (err) {
+        this.logger.warn(`Failed to set client state ${safeUsername}: ${errText(err)}`);
+      }
     }
 
     // Book against the hourly ceiling only for a client that is really new AND
@@ -355,6 +366,7 @@ export class UserService {
   public forgetClient(objectSuffix: string): void {
     const key = this.idOwners.get(objectSuffix) ?? objectSuffix;
     this.idOwners.delete(objectSuffix);
+    this.storedValues.delete(objectSuffix);
     this.clientInfo.delete(key);
     const removed = this.clientKeysCache?.delete(key) ?? false;
     if (removed) {
@@ -451,6 +463,7 @@ export class UserService {
     const cache = new Set<string>();
     const owners = new Map<string, string>();
     const info = new Map<string, PairedClient>();
+    const valueById = new Map<string, unknown>();
     try {
       const stateObjects = (await this.adapter.getStatesOfAsync("clients", undefined)) || [];
       const values = await this.readClientValues();
@@ -470,6 +483,7 @@ export class UserService {
         // object's own `ts` moves with every object write — a name refresh, a rename
         // in the admin — and is only the fallback (audit R-07). Nothing extra is
         // stored: a timestamp in the tree would make every object inventory differ.
+        valueById.set(id, values[state._id]?.val);
         const lc = values[state._id]?.lc;
         const created = typeof lc === "number" ? lc : typeof state.ts === "number" ? state.ts : Date.now();
         info.set(key, { name: clientDisplayName(state.common?.name, key), created, lastUse: created });
@@ -485,6 +499,7 @@ export class UserService {
     this.clientKeysCache = cache;
     this.idOwners = owners;
     this.clientInfo = info;
+    this.storedValues = valueById;
     return cache;
   }
 }

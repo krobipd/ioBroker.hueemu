@@ -143,6 +143,49 @@ describe("UserService", () => {
     // The clients folder is a manifest object that js-controller applies on every
     // start; a runtime copy of its shape is a second source that drifts
     // (iobroker-adapter-checks instance-objects-refresh).
+    // Audit R-33 (fleet rule GV-05, inventory test "rewrites no state unchanged"): the value is the key, written once at
+    // pairing — a client pairing again under the same key changes nothing, so nothing is written. Compared in memory: a
+    // single read of the read-only state (setStateChangedAsync) is red in the run just the same.
+    it("writes a re-pairing client's state no second time", async () => {
+      const { service, adapter } = createService();
+      const setState = vi.spyOn(adapter, "setState");
+      await service.createUser("known-key", "Echo");
+      await service.createUser("known-key", "Echo");
+      expect(setState).toHaveBeenCalledTimes(1);
+    });
+
+    it("writes no state for a client paired before this start that pairs again", async () => {
+      const { service, adapter } = createService([{ id: "known-key", username: "known-key" }]);
+      adapter.stateValues = {
+        "hueemu.0.clients.known-key": {
+          val: "known-key",
+          ack: true,
+          ts: 1,
+          lc: 1,
+          from: "system.adapter.hueemu.0",
+          q: 0,
+        },
+      };
+      const setState = vi.spyOn(adapter, "setState");
+      await service.createUser("known-key", "Echo");
+      expect(setState).not.toHaveBeenCalled();
+    });
+
+    it("gives a stored client without a value its key when it pairs again", async () => {
+      const { service, adapter } = createService([{ id: "known-key", username: "known-key" }]);
+      await service.createUser("known-key", "Echo");
+      expect(adapter.writtenStates.get("clients.known-key")).toEqual({ ack: true, val: "known-key" });
+    });
+
+    it("writes the state again for a client paired anew after its object was deleted", async () => {
+      const { service, adapter } = createService();
+      const setState = vi.spyOn(adapter, "setState");
+      await service.createUser("known-key", "Echo");
+      service.forgetClient("known-key");
+      await service.createUser("known-key", "Echo");
+      expect(setState).toHaveBeenCalledTimes(2);
+    });
+
     it("writes no clients folder — the manifest owns it", async () => {
       const { service, adapter } = createService();
       await service.addUser("foo", "bar");
