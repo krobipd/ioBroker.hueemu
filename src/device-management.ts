@@ -28,6 +28,7 @@ import { isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./
 import { boundStateIds, scanForLightDevices } from "./lib/device-scan";
 import { t } from "./lib/i18n";
 import { errText } from "./lib/err-text";
+import { oneLine } from "./types/utils";
 
 /** Manager directive returned by an instance action — reload the whole view. */
 type InstanceResult = { refresh: boolean };
@@ -471,8 +472,9 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     });
     if (data && typeof data.name === "string" && data.name) {
       const store = await this.readStore();
-      const devices = [...store.devices, { ...cleanDevice(data), id: nextDeviceId(store.devices, store.lastLightId) }];
-      await this.writeDevices(devices, store);
+      const added = { ...cleanDevice(data), id: nextDeviceId(store.devices, store.lastLightId) };
+      await this.writeDevices([...store.devices, added], store);
+      this.adapter.log.info(`Light "${oneLine(added.name)}" added as light ${added.id}`);
     }
     return { refresh: true };
   }
@@ -501,6 +503,9 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       // with the entry, whatever the form sent back.
       devices[index] = { ...cleanDevice(data), id: current.id };
       await this.writeDevices(devices, store);
+      this.adapter.log.info(
+        `Light ${HueEmuDeviceManagement.cardId(current, index)} "${oneLine(devices[index].name)}" saved`,
+      );
     }
     return { refresh: "instance" };
   }
@@ -524,6 +529,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     if (confirmed) {
       devices.splice(index, 1);
       await this.writeDevices(devices, store);
+      this.adapter.log.info(`Light ${HueEmuDeviceManagement.cardId(target, index)} "${oneLine(target.name)}" deleted`);
     }
     return { refresh: "instance" };
   }
@@ -584,7 +590,11 @@ export class HueEmuDeviceManagement extends DeviceManagement {
         );
         if (chosen.length) {
           let next = nextDeviceId(existing, store.lastLightId);
-          await this.writeDevices([...existing, ...chosen.map(device => ({ ...device, id: next++ }))], store);
+          const added = chosen.map(device => ({ ...device, id: next++ }));
+          await this.writeDevices([...existing, ...added], store);
+          for (const light of added) {
+            this.adapter.log.info(`Light "${oneLine(light.name)}" added as light ${light.id}`);
+          }
         }
       }
     } catch (e) {

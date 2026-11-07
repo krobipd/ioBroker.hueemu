@@ -434,6 +434,54 @@ describe("HueEmuDeviceManagement", () => {
       await internalOf(dm).deleteDevice("1", mockContext({ confirm: false }));
       expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
+
+    // What the user triggers in the admin reports its result on info — every card
+    // action (feedback_logging_strategy, krobi 2026-09-30 / 2026-10-16).
+    it("reports an added light on info with its number", async () => {
+      const adapter = make([{ id: 4, name: "A", lightType: "onoff", onState: "a" }]);
+      await internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } }));
+      expect(adapter.log.info).toHaveBeenCalledWith('Light "New" added as light 5');
+    });
+
+    it("reports a saved light on info", async () => {
+      const adapter = make([{ id: 5, name: "Old", lightType: "onoff", onState: "a.on" }]);
+      await internalOf(dm).editDevice(
+        "5",
+        mockContext({ form: { name: "Renamed", lightType: "onoff", onState: "a.on" } }),
+      );
+      expect(adapter.log.info).toHaveBeenCalledWith('Light 5 "Renamed" saved');
+    });
+
+    it("reports a deleted light on info", async () => {
+      const adapter = make([{ id: 2, name: "B", lightType: "onoff", onState: "b" }]);
+      await internalOf(dm).deleteDevice("2", mockContext({ confirm: true }));
+      expect(adapter.log.info).toHaveBeenCalledWith('Light 2 "B" deleted');
+    });
+
+    it("keeps a light name with a line break on one log line", async () => {
+      const adapter = make([]);
+      await internalOf(dm).addDevice(
+        mockContext({ form: { name: "Evil\nFAKE LINE", lightType: "onoff", onState: "n" } }),
+      );
+      expect(adapter.log.info).toHaveBeenCalledWith('Light "Evil FAKE LINE" added as light 1');
+    });
+
+    it("writes no info line when nothing changed", async () => {
+      const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
+      await internalOf(dm).addDevice(mockContext({ form: undefined }));
+      await internalOf(dm).editDevice("1", mockContext({ form: undefined }));
+      await internalOf(dm).deleteDevice("1", mockContext({ confirm: false }));
+      expect(adapter.log.info).not.toHaveBeenCalled();
+    });
+
+    it("writes no info line when the write fails", async () => {
+      const adapter = make([]);
+      adapter.extendForeignObjectAsync = vi.fn(() => Promise.reject(new Error("db down")));
+      await expect(
+        internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } })),
+      ).rejects.toThrow("db down");
+      expect(adapter.log.info).not.toHaveBeenCalled();
+    });
   });
 
   describe("searchDevices (real detector + selection)", () => {
@@ -559,6 +607,24 @@ describe("HueEmuDeviceManagement", () => {
       const adapter = make([{ id: 7, name: "Old", lightType: "onoff", onState: "x.on" }], objs);
       await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true, sel_1: true } }));
       expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([7, 8, 9]);
+    });
+
+    it("reports every light the search added on info", async () => {
+      const objs = {
+        ...channel("lampe.0.a", [["on", "switch.light", "boolean"]]),
+        ...channel("lampe.0.b", [["on", "switch.light", "boolean"]]),
+      };
+      const adapter = make([{ id: 7, name: "Old", lightType: "onoff", onState: "x.on" }], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true, sel_1: true } }));
+      expect(adapter.log.info).toHaveBeenCalledWith('Light "lampe.0.a" added as light 8');
+      expect(adapter.log.info).toHaveBeenCalledWith('Light "lampe.0.b" added as light 9');
+    });
+
+    it("writes no info line when the search adds nothing", async () => {
+      const objs = channel("lampe.0.kueche", [["on", "switch.light", "boolean"]]);
+      const adapter = make([], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: {} }));
+      expect(adapter.log.info).not.toHaveBeenCalled();
     });
 
     // v1.18.0 (audit 2026-09-15 A3): `common.name` is a translation object on more
