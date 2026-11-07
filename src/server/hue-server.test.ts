@@ -1,6 +1,6 @@
 /**
  * Tests for HueServer — the Fastify wiring layer that was previously
- * untested at 0 %: route registration (description.xml, api-v1, /health),
+ * untested at 0 %: route registration (description.xml, api-v1),
  * CORS hooks, OPTIONS handling, error-handler registration, and the real
  * HTTP/HTTPS listen lifecycle. Route *behaviour* lives in
  * api-v1-routes.test.ts; here we assert the server actually wires it all up.
@@ -150,15 +150,16 @@ describe("HueServer wiring (inject)", () => {
     expect(parsed[0].success.username).toBe("test-user");
   });
 
-  it("serves the /health endpoint", async () => {
+  // Audit R-18: no /health route — nothing read it, and a bridge has none.
+  it("serves no /health endpoint", async () => {
     app = await buildInstance();
     const res = await app.inject({ method: "GET", url: "/health" });
-    expect(JSON.parse(res.body)).toEqual({ status: "ok" });
+    expect(res.body).not.toContain('"status":"ok"');
   });
 
   it("adds CORS headers to every response (Hue app compatibility)", async () => {
     app = await buildInstance();
-    const res = await app.inject({ method: "GET", url: "/health" });
+    const res = await app.inject({ method: "GET", url: "/api/config" });
     expect(res.headers["access-control-allow-origin"]).toBe("*");
     expect(res.headers["access-control-allow-methods"]).toContain("PUT");
     expect(res.headers["access-control-allow-headers"]).toBe("Content-Type");
@@ -181,8 +182,9 @@ describe("HueServer wiring (inject)", () => {
 
   it("routes are case-insensitive and trailing-slash tolerant", async () => {
     app = await buildInstance();
-    const res = await app.inject({ method: "GET", url: "/HEALTH/" });
+    const res = await app.inject({ method: "GET", url: "/API/CONFIG/" });
     expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({ bridgeid: "TEST" });
   });
 
   it("converts an unparseable JSON body via the registered error handler (Hue shape, status 200)", async () => {
@@ -263,9 +265,9 @@ describe("HueServer lifecycle (real listen)", () => {
       const address = instance.server.address() as { port: number };
       expect(address.port).toBeGreaterThan(0);
 
-      const res = await fetch(`http://127.0.0.1:${address.port}/health`);
+      const res = await fetch(`http://127.0.0.1:${address.port}/api/config`);
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ status: "ok" });
+      expect(await res.json()).toMatchObject({ name: "Philips hue", bridgeid: "TEST" });
     } finally {
       await server.stop();
     }
@@ -288,7 +290,7 @@ describe("HueServer lifecycle (real listen)", () => {
       // inject() bypasses the socket — this proves the HTTPS instance is wired
       // and answering, not the TLS handshake (the material itself is proven in
       // tls-material.test.ts against Node's TLS).
-      const res = await httpsInstance.inject({ method: "GET", url: "/health" });
+      const res = await httpsInstance.inject({ method: "GET", url: "/api/config" });
       expect(res.statusCode).toBe(200);
     } finally {
       await server.stop();

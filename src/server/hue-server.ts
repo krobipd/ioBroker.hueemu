@@ -217,9 +217,6 @@ export class HueServer {
     // error handler registered above.
     await server.register(apiV1Routes, { handler: this.handler });
 
-    // Health check endpoint
-    server.get("/health", () => ({ status: "ok" }));
-
     return server;
   }
 }
