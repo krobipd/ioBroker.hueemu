@@ -1,5 +1,5 @@
 {
-  "networkSettings": "Netwerk",
+  "tabConfiguration": "Configuratie",
   "serverSettings": "Server",
   "bind": "Host / IP-adres",
   "bindTooltip": "IP waaraan de bridge bindt en dat aan clients (Alexa, Harmony) wordt aangekondigd. Kies '0.0.0.0' om op alle interfaces te luisteren — het aangekondigde IP wordt dan automatisch gedetecteerd.",

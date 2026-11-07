@@ -4,7 +4,7 @@
   "items": {
     "networkTab": {
       "type": "panel",
-      "label": "networkSettings",
+      "label": "tabConfiguration",
       "items": {
         "serverHeader": {
           "type": "header",

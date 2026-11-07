@@ -8,17 +8,9 @@
 
 Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so that ioBroker devices appear as Hue lights to clients that only support the Hue API.
 
+It is meant for older devices and apps that only speak the Hue API — Logitech Harmony Hub, Bosch Smart Home Controller, legacy Echo firmware, in-wall touch panels, old control systems with a Hue plugin. Modern Alexa, Google Home and Apple Home support Matter directly; for them use the [ioBroker Matter adapter](https://github.com/ioBroker/ioBroker.matter).
+
 [🇺🇸 Documentation](./docs/en/README.md) · [🇩🇪 Dokumentation](./docs/de/README.md)
-
----
-
-## When to use this adapter
-
-**Use it if you want to control ioBroker states from an older device or app that only speaks the Hue API.** Examples: Logitech Harmony Hub, Bosch Smart Home Controller, legacy Echo firmware, in-wall touch panels, abandoned dashboard apps, old control systems with a Hue plugin.
-
-### Modern Alexa, Google Home or Apple Home — use the Matter adapter instead
-
-Modern voice assistants all support Matter directly. Use the [ioBroker Matter adapter](https://github.com/ioBroker/ioBroker.matter) — it's the right tool for that. This adapter is only for clients that don't have a Matter option.
 
 ---
 
@@ -78,7 +70,7 @@ The instance is created stopped: choose the Host / IP and the port first, then s
 | **Port**                         | HTTP port for the Hue API                                                                                                                                    | 8080    |
 | **HTTPS Port**                   | Empty = no HTTPS. Current Echo devices try `443` first — see "Connecting with Alexa"                                                                         | —       |
 | **MAC Address**                  | Bridge MAC (auto-generated if empty)                                                                                                                         | —       |
-| **Trust X-Forwarded-\* headers** | Only behind a trusted reverse proxy that strips client-supplied forwarding headers; the forwarded address then shows in the debug log instead of the proxy's | off     |
+| __Trust X-Forwarded-* headers__  | Only behind a trusted reverse proxy that strips client-supplied forwarding headers; the forwarded address then shows in the debug log instead of the proxy's | off     |
 
 ### Adding Devices
 

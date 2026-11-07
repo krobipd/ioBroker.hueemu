@@ -1,5 +1,5 @@
 {
-  "networkSettings": "Sieć",
+  "tabConfiguration": "Konfiguracja",
   "serverSettings": "Serwer",
   "bind": "Host / Adres IP",
   "bindTooltip": "IP, do którego mostek się wiąże i który ogłasza klientom (Alexa, Harmony). Wybierz '0.0.0.0', aby nasłuchiwać na wszystkich interfejsach — ogłaszany IP zostanie wykryty automatycznie.",

@@ -1,5 +1,5 @@
 {
-  "networkSettings": "Netzwerk",
+  "tabConfiguration": "Konfiguration",
   "serverSettings": "Server",
   "bind": "Host / IP-Adresse",
   "bindTooltip": "IP, an die die Bridge bindet und die sie Clients (Alexa, Harmony) ankündigt. '0.0.0.0' wählen, um auf allen Schnittstellen zu lauschen — die angekündigte IP wird dann automatisch ermittelt.",

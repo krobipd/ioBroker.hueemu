@@ -1,5 +1,5 @@
 {
-  "networkSettings": "Réseau",
+  "tabConfiguration": "Configuration",
   "serverSettings": "Serveur",
   "bind": "Hôte / Adresse IP",
   "bindTooltip": "IP sur laquelle le pont écoute et qu'il annonce aux clients (Alexa, Harmony). Choisissez « 0.0.0.0 » pour écouter sur toutes les interfaces — l'IP annoncée est alors détectée automatiquement.",

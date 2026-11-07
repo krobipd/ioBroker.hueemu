@@ -112,25 +112,3 @@ API-Drift-Härtung: incoming Hue-API bodies und foreign-state values werden type
 
 `sanitizeId()` in `types/utils.ts` (shared) — ersetzt `[^A-Za-z0-9-_]` durch `_`.
 Importiert von `user-service.ts` und `main.ts`. Betrifft: Client-Usernames (von Alexa/Harmony), migrierte Legacy-User.
-
-## Versionshistorie
-
-Aktuelle Version: `io-package.json`. **User-facing Changelog:** `README.md` + `io-package.json:common.news` (11 Sprachen, handgeschrieben). **Interne Entwicklungs-Historie** (Findings, Root-Causes, verworfene Wege): `.claude/dev-history.md` — lokal, nicht git-getrackt, bewusst aus dieser Datei ausgelagert um sie schlank zu halten.
-
-## Befehle
-
-```bash
-npm run build            # Production (esbuild via build-adapter)
-npm run check            # tsc --noEmit (Type-Check ohne Build)
-npm run test:ts          # Unit-Tests via vitest (898 inkl. Repo-Standard-Prüfungen, 2026-09-25)
-npm run test:unit        # Alias auf vitest — CI-Trigger der ioBroker testing-action (seit 2026-07-08)
-npm run coverage         # vitest --coverage (v8)
-npm run test:package     # Standard Package-Tests (61 mit @iobroker/testing 6.2.2)
-npm run test:integration # Standard Integration-Tests (1, CI only)
-npm run test:inventory   # Objekt-Inventar aus Fixtures → test/objects.inventory.json (echte Kopplung über die HTTP-API, gegen js-controller `stable` seit 2026-09-25, HTTPS-Port in der Fixture); läuft seit 2026-09-15 auch in der CI (Gate-Job adapter-inventory) — der Abzug wartet per waitForStableTree auf einen 4×250 ms ruhigen Objektsatz, eine feste Pause ist am Mac kalibriert, nicht am ubuntu-Runner
-npm test                 # test:ts + test:package (lokal)
-npm run lint             # ESLint
-npm run lint:fix         # ESLint --fix
-npm run format           # Prettier --write (ohne build/, Manifest, README, alte Historie, Bot-Datei, Master-Datei)
-npm run format:check     # Prettier --check (dieselben Ausnahmen) — grün
-```

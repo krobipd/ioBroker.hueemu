@@ -38,3 +38,5 @@ build/
 
 # Session memory of the note-taking hook — never repository content
 .remember/
+test/states.inventory.json
+test/objects.inventory.de.json
