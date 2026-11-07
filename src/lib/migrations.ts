@@ -7,7 +7,7 @@
  * wrappers that pass `this`.
  */
 
-import { errText } from "../types/utils";
+import { errText } from "./err-text";
 import type { DeviceConfig } from "../hue-api";
 import { assignDeviceIds } from "./device-ids";
 

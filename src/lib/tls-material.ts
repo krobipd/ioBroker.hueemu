@@ -11,7 +11,7 @@
 import * as forge from "node-forge";
 import { randomBytes } from "node:crypto";
 import { createSecureContext } from "node:tls";
-import { errText } from "../types/utils";
+import { errText } from "./err-text";
 
 /** How long a freshly generated certificate stays valid. */
 export const CERT_VALIDITY_YEARS = 10;

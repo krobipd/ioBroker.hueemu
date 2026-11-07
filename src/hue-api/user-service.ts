@@ -5,7 +5,8 @@
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
 import { tName, tRaw } from "../lib/i18n";
-import { errText, oneLine, sanitizeId } from "../types/utils";
+import { errText } from "../lib/err-text";
+import { oneLine, sanitizeId } from "../types/utils";
 
 /**
  * Adapter interface for user service

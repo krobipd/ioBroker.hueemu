@@ -17,7 +17,8 @@ import type {
   ColorMode,
 } from "../types/light";
 import { HueApiError } from "../types/errors";
-import { errText, oneLine } from "../types/utils";
+import { errText } from "../lib/err-text";
+import { oneLine } from "../types/utils";
 import { coerceBool, coerceFiniteNumber } from "../lib/coerce";
 import { assignDeviceIds } from "../lib/device-ids";
 import { LIGHT_STATE_KEYS, READ_ONLY_STATE_KEYS } from "./light-state-keys";

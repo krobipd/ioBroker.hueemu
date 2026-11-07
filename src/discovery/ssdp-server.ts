@@ -13,7 +13,7 @@
 
 import * as dgram from "node:dgram";
 import { listIPv4Addresses, type BridgeIdentity, type Logger } from "../types/config";
-import { errText } from "../types/utils";
+import { errText } from "../lib/err-text";
 import { getDescriptionUrl } from "./description-xml";
 import {
   SSDP_MULTICAST_ADDR,

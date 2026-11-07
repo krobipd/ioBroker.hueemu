@@ -13,7 +13,8 @@ import type {
 } from "../types/hue-api";
 import type { Light, LightsCollection, LightStateUpdate, LightStateResult } from "../types/light";
 import { HueApiError } from "../types/errors";
-import { errText, oneLine } from "../types/utils";
+import { errText } from "../lib/err-text";
+import { oneLine } from "../types/utils";
 import { MAX_DEVICETYPE_LENGTH, MAX_USERNAME_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";

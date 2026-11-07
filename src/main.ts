@@ -34,9 +34,10 @@ import {
 } from "./types/config";
 import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
 import { migrateNativeKeys } from "./lib/native-key-migration";
-import { moveWithEnums } from "./lib/enum-carry";
+import { moveAllWithEnums } from "./lib/enum-carry";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
-import { errText, sanitizeId } from "./types/utils";
+import { errText } from "./lib/err-text";
+import { sanitizeId } from "./types/utils";
 
 /**
  * Hue Emulator Adapter
@@ -742,10 +743,7 @@ class HueEmu extends utils.Adapter {
     if (children?.rows && children.rows.length > 0) {
       // No folder write here: the clients folder is a manifest object (instanceObjects),
       // which js-controller applies on every start — the manifest owns its shape.
-      // One client after the other since v1.19.0 (it ran in parallel since v1.4.3, M7):
-      // each move now carries the client's room and function assignments, and two
-      // moves writing the same enum at once would each put back a copy without the
-      // other's id.
+      const moved = new Map<string, string>();
       for (const row of children.rows) {
         const oldId = row.id.replace(`${this.namespace}.`, "");
         const username = oldId.replace("user.", "");
@@ -773,17 +771,33 @@ class HueEmu extends utils.Adapter {
         if (state?.val !== undefined && state?.val !== null) {
           await this.setState(newId, { val: state.val, ack: true });
         }
-
-        // The fleet order: read the assignments, delete the old object, then write
-        // the new id into them (enum-carry.ts — the delete rewrites every enum it
-        // touches from the adapter's cache).
-        await moveWithEnums(this, row.id, `${this.namespace}.${newId}`, () => this.delObjectAsync(oldId), errText);
+        moved.set(row.id, `${this.namespace}.${newId}`);
         this.log.debug(`Migrated client ${username}: user → clients`);
       }
+
+      // The fleet order (enum-carry.ts): read the room and function assignments
+      // once, delete every old object and then the folder, write each enum once
+      // with all its new ids — the delete rewrites every enum it touches from
+      // the adapter's cache.
+      await moveAllWithEnums(
+        this,
+        memberId => {
+          const successor = moved.get(memberId);
+          return successor ? [successor] : [];
+        },
+        async () => {
+          for (const oldFullId of moved.keys()) {
+            await this.delObjectAsync(oldFullId.replace(`${this.namespace}.`, ""));
+          }
+          await this.delObjectAsync("user");
+        },
+        errText,
+      );
+    } else {
+      // Remove old "user" folder
+      await this.delObjectAsync("user");
     }
 
-    // Remove old "user" folder
-    await this.delObjectAsync("user");
     this.log.info(`Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`);
   }
 

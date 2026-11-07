@@ -27,7 +27,7 @@ import type { DeviceConfig } from "./hue-api";
 import { isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./lib/device-ids";
 import { boundStateIds, scanForLightDevices } from "./lib/device-scan";
 import { t } from "./lib/i18n";
-import { errText } from "./types/utils";
+import { errText } from "./lib/err-text";
 
 /** Manager directive returned by an instance action — reload the whole view. */
 type InstanceResult = { refresh: boolean };

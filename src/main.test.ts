@@ -1190,6 +1190,45 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     expect(deleted).toBeLessThan(i.setForeignObject.mock.invocationCallOrder[0]);
   });
 
+  // The enum-carry master reads the enums once, deletes once and writes each enum once
+  // with all its new ids — a loop around moveWithEnums read and wrote per client.
+  it("writes a room that holds two moved clients once, with both new ids", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [
+        { id: "hueemu.0.user.echo", value: { common: { name: "Echo", type: "string", role: "text" } } },
+        { id: "hueemu.0.user.harmony", value: { common: { name: "Harmony", type: "string", role: "text" } } },
+      ],
+    });
+    const room = {
+      type: "enum",
+      common: { name: "Living", members: ["hueemu.0.user.echo", "zigbee.0.lamp", "hueemu.0.user.harmony"] },
+    };
+    i.getForeignObjectsAsync.mockImplementation(() => Promise.resolve(structuredClone({ "enum.rooms.living": room })));
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "enum.rooms.living" ? structuredClone(room) : null),
+    );
+
+    await i.migrateUserToClients();
+
+    expect(i.getForeignObjectsAsync).toHaveBeenCalledTimes(1);
+    const writes = i.setForeignObject.mock.calls.filter((c: unknown[]) => c[0] === "enum.rooms.living");
+    expect(writes).toHaveLength(1);
+    expect((writes[0][1] as { common: { members: string[] } }).common.members).toEqual([
+      "zigbee.0.lamp",
+      "hueemu.0.clients.echo",
+      "hueemu.0.clients.harmony",
+    ]);
+    // Every old id and the folder go before the first enum write — the folder last.
+    const deletes = i.delObjectAsync.mock.calls.map((c: unknown[]) => c[0]);
+    expect(deletes).toEqual(["user.echo", "user.harmony", "user"]);
+    expect(Math.max(...i.delObjectAsync.mock.invocationCallOrder)).toBeLessThan(
+      i.setForeignObject.mock.invocationCallOrder[0],
+    );
+  });
+
   it("is a no-op when no user folder exists", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);

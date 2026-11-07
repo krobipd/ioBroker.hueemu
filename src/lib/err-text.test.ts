@@ -1,6 +1,8 @@
+// Fleet master — the release run requires this file byte for byte in every adapter; change it in
+// Entwicklung/.consistency-master, never in an adapter.
 import http from "node:http";
 import net from "node:net";
-import { errText } from "./utils";
+import { errText } from "./err-text";
 
 /** A port nothing listens on. */
 async function closedPort(): Promise<number> {
@@ -37,18 +39,25 @@ describe("errText — measured Node errors", () => {
     const srv = http.createServer(q => q.socket.destroy()).listen(0);
     await new Promise(r => srv.once("listening", r));
     const port = (srv.address() as net.AddressInfo).port;
-    const text = errText(await rejection(fetch(`http://127.0.0.1:${port}/`)));
-    await new Promise(r => srv.close(r));
-    expect(text).toBe("fetch failed (other side closed)");
+    try {
+      expect(errText(await rejection(fetch(`http://127.0.0.1:${port}/`)))).toBe("fetch failed (other side closed)");
+    } finally {
+      // round 157 (master audit M18): closed on a red run too — an open server outlived the test
+      await new Promise(r => srv.close(r));
+    }
   });
   it("fetch, timeout: the DOMException's own words, no cause", async () => {
     const srv = http.createServer(() => undefined).listen(0);
     await new Promise(r => srv.once("listening", r));
     const port = (srv.address() as net.AddressInfo).port;
-    const e = await rejection(fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(100) }));
-    srv.closeAllConnections();
-    await new Promise(r => srv.close(r));
-    expect(errText(e)).toBe("The operation was aborted due to timeout");
+    try {
+      // round 157 (master audit M17): the words are the same after 1 ms as after 100 ms
+      const e = await rejection(fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(1) }));
+      expect(errText(e)).toBe("The operation was aborted due to timeout");
+    } finally {
+      srv.closeAllConnections();
+      await new Promise(r => srv.close(r));
+    }
   });
   it("http.get/net.connect to localhost, refused: an empty message says its code", () => {
     // The shape Node 22 rejects with when both ::1 and 127.0.0.1 refuse (built here: whether
@@ -98,6 +107,20 @@ describe("errText — shapes of a cause", () => {
     expect(errText(new Error("x", { cause: new Error("") }))).toBe("x");
     expect(errText(new TypeError(""))).toBe("TypeError");
   });
+  it("a cause with an empty message says its code only when the code is text", () => {
+    expect(errText(new Error("x", { cause: Object.assign(new Error(""), { code: "ENOTFOUND" }) }))).toBe(
+      "x (ENOTFOUND)",
+    );
+    expect(errText(new Error("x", { cause: Object.assign(new Error(""), { code: 42 }) }))).toBe("x");
+  });
+  it("a cause whose message is not text falls back to its code, else adds nothing", () => {
+    const coded = Object.assign(new Error("y"), { code: "ECONNRESET" });
+    Object.defineProperty(coded, "message", { value: 42 });
+    expect(errText(new Error("x", { cause: coded }))).toBe("x (ECONNRESET)");
+    const bare = new Error("y");
+    Object.defineProperty(bare, "message", { value: 42 });
+    expect(errText(new Error("x", { cause: bare }))).toBe("x");
+  });
   it("a cause that is an empty-message AggregateError says its code", () => {
     const agg = Object.assign(new AggregateError([], ""), {
       code: "ECONNREFUSED",
@@ -114,6 +137,7 @@ describe("errText — the non-Error branches stay", () => {
     expect(errText(1n)).toBe("1");
     expect(errText(Symbol("q"))).toBe("Symbol(q)");
     expect(errText({ code: "ECONNRESET" })).toBe('{"code":"ECONNRESET"}');
+    expect(errText({ toJSON: () => undefined })).toBe("[object Object]");
     const cyc: Record<string, unknown> = {};
     cyc.self = cyc;
     expect(errText(cyc)).toBe("[object Object]");

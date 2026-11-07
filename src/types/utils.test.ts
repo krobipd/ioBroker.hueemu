@@ -2,7 +2,7 @@
  * Tests for shared utility functions
  */
 
-import { errText, oneLine, sanitizeId } from "./utils";
+import { oneLine, sanitizeId } from "./utils";
 
 describe("sanitizeId", () => {
   it("should pass through alphanumeric strings unchanged", () => {
@@ -43,66 +43,6 @@ describe("sanitizeId", () => {
 
   it("should preserve uppercase and lowercase", () => {
     expect(sanitizeId("MyDevice")).toBe("MyDevice");
-  });
-});
-
-describe("errText", () => {
-  it("returns the message of an Error instance", () => {
-    expect(errText(new Error("boom"))).toBe("boom");
-  });
-
-  it("returns the message of an Error subclass", () => {
-    class MyErr extends Error {
-      constructor() {
-        super("typed");
-      }
-    }
-    expect(errText(new MyErr())).toBe("typed");
-  });
-
-  it("returns 'null' for null", () => {
-    expect(errText(null)).toBe("null");
-  });
-
-  it("returns 'undefined' for undefined", () => {
-    expect(errText(undefined)).toBe("undefined");
-  });
-
-  it("returns string values as-is", () => {
-    expect(errText("plain")).toBe("plain");
-  });
-
-  it("stringifies number/boolean/bigint", () => {
-    expect(errText(42)).toBe("42");
-    expect(errText(true)).toBe("true");
-    expect(errText(BigInt(99))).toBe("99");
-  });
-
-  // v1.15.0 (fleet defect, first seen in parcelapp 2026-08-22): JSON.stringify
-  // RETURNS `undefined` for these — it does not throw — so the try/catch never
-  // fired and the log line read "… : undefined", losing the whole diagnosis.
-  it("describes a symbol instead of returning undefined", () => {
-    const text = errText(Symbol("nope"));
-    expect(text).toContain("nope");
-    expect(text).not.toBe("undefined");
-  });
-
-  it("describes a function instead of returning undefined", () => {
-    expect(errText(() => "x")).toBe("[object Function]");
-  });
-
-  it("describes an object whose toJSON yields undefined", () => {
-    expect(errText({ toJSON: () => undefined })).toBe("[object Object]");
-  });
-
-  it("JSON.stringifies plain objects", () => {
-    expect(errText({ code: 500, msg: "nope" })).toBe('{"code":500,"msg":"nope"}');
-  });
-
-  it("falls back to Object.prototype.toString for circular objects", () => {
-    const a: Record<string, unknown> = { x: 1 };
-    a.self = a;
-    expect(errText(a)).toBe("[object Object]");
   });
 });
 
