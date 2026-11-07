@@ -8,6 +8,8 @@
 
 Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so that ioBroker devices appear as Hue lights to clients that only support the Hue API.
 
+[🇺🇸 Documentation](./docs/en/README.md) · [🇩🇪 Dokumentation](./docs/de/README.md)
+
 ---
 
 ## When to use this adapter

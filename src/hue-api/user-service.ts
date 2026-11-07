@@ -277,9 +277,6 @@ export class UserService {
       throw new Error("Client id already taken by another key");
     }
 
-    // Ensure clients folder exists
-    await this.ensureClientsFolder();
-
     let persisted = false;
 
     // Create client state (sanitizeId: FORBIDDEN_CHARS compliance)
@@ -478,26 +475,5 @@ export class UserService {
     this.idOwners = owners;
     this.clientInfo = info;
     return cache;
-  }
-
-  /**
-   * Ensure the clients folder exists. io-package.json declares it as
-   * instanceObject with a translation-object name, so this typically skips.
-   * Defensive re-create only triggers when the folder was deleted manually —
-   * we hand the same translation object so the folder name stays localized.
-   */
-  private async ensureClientsFolder(): Promise<void> {
-    try {
-      await this.adapter.setObjectNotExistsAsync("clients", {
-        type: "folder",
-        common: {
-          name: tName("clientsFolder"),
-          desc: tName("clientsFolderDesc"),
-        },
-        native: {},
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to create clients folder: ${errText(err)}`);
-    }
   }
 }

@@ -76,7 +76,9 @@ class HueEmu extends utils.Adapter {
   // (manual add/edit/delete + a "search lights" assistant). Instantiated in the
   // constructor as required by dm-utils; it owns no state, it reads/writes
   // native.devices via this adapter.
-  private readonly deviceManagement: HueEmuDeviceManagement;
+  // Constructed in onReady after I18n.init: dm-utils listens for messages from its
+  // constructor on, and a handler that translates before I18n.init throws.
+  private deviceManagement: HueEmuDeviceManagement | undefined;
 
   /**
    * Factories for the server/discovery/API collaborators — default to the
@@ -112,8 +114,6 @@ class HueEmu extends utils.Adapter {
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("objectChange", this.onObjectChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
-
-    this.deviceManagement = new HueEmuDeviceManagement(this);
   }
 
   /** Whether pairing mode is active */
@@ -222,12 +222,15 @@ class HueEmu extends utils.Adapter {
    */
   private async onReady(): Promise<void> {
     try {
-      // First: without this the whole shutdown path stays dead on an updated install.
+      // First of all: js-controller delivers messages before onReady has finished,
+      // and every handler translates (iobroker-adapter-checks i18n-before-messages).
+      await I18n.init(join(this.adapterDir, "admin"), this);
+      // Next: without this the whole shutdown path stays dead on an updated install.
       // A correction means the host is restarting us — no point binding anything.
       if (await this.clearStopInstanceFlag()) {
         return;
       }
-      await I18n.init(join(this.adapterDir, "admin"), this);
+      this.deviceManagement = new HueEmuDeviceManagement(this);
       // v1.19.0: a hand-edited instance object or a restored backup can carry
       // anything here — no list, or `null` entries. Every reader below gets a
       // clean list instead of a TypeError text in info.error (audit 2026-09-25 Q16).
@@ -737,14 +740,8 @@ class HueEmu extends utils.Adapter {
     });
 
     if (children?.rows && children.rows.length > 0) {
-      // Create clients folder first (instanceObjects already declares it with
-      // a translation-object name; this is defensive in case it was deleted)
-      await this.setObjectNotExistsAsync("clients", {
-        type: "folder",
-        common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
-        native: {},
-      });
-
+      // No folder write here: the clients folder is a manifest object (instanceObjects),
+      // which js-controller applies on every start — the manifest owns its shape.
       // One client after the other since v1.19.0 (it ran in parallel since v1.4.3, M7):
       // each move now carries the client's room and function assignments, and two
       // moves writing the same enum at once would each put back a copy without the

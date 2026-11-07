@@ -107,6 +107,7 @@ vi.mock("node:tls", async importOriginal => {
   return { ...actual, createSecureContext: vi.fn(() => ({})) };
 });
 
+import { I18n } from "@iobroker/adapter-core";
 import * as mainModule from "./main";
 
 // main.ts exports the factory with the class riding along (no `export class`, so esbuild builds it as CommonJS).
@@ -252,6 +253,22 @@ describe("HueEmu constructor", () => {
   it("asks js-controller for the system language (useFormatDate) — detected lights are named in it", () => {
     setup();
     expect(adapterOptions.last).toMatchObject({ name: "hueemu", useFormatDate: true });
+  });
+
+  // dm-utils listens for messages from the DeviceManagement constructor on, and its
+  // handlers translate — built before I18n.init, an early admin message throws.
+  it("builds the device manager only in onReady, after I18n.init has run", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter) as unknown as { deviceManagement: unknown; onReady: () => Promise<void> };
+    expect(i.deviceManagement).toBeUndefined();
+    let builtBeforeInit: boolean | undefined;
+    vi.mocked(I18n.init).mockImplementationOnce(() => {
+      builtBeforeInit = i.deviceManagement !== undefined;
+      return Promise.resolve();
+    });
+    await i.onReady();
+    expect(builtBeforeInit).toBe(false);
+    expect(i.deviceManagement).toBeDefined();
   });
 });
 
@@ -1253,11 +1270,10 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     expect(obj.common?.name).toEqual({ en: "Echo", de: "Echo" });
   });
 
-  it("creates the clients folder WITH its description on this path too", async () => {
+  it("leaves the clients folder to the manifest on this path too", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
     i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    // The folder is only created when there is something to migrate.
     i.getObjectListAsync.mockResolvedValue({
       rows: [{ id: "hueemu.0.user.x", value: { common: { name: "X", type: "string", role: "text" }, native: {} } }],
     });
@@ -1265,11 +1281,8 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
 
     await i.migrateUserToClients();
 
-    const [, folder] = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients") as [
-      string,
-      ioBroker.SettableObject,
-    ];
-    expect(folder.common?.desc).toEqual({ en: "clientsFolderDesc" });
+    expect(i.setObjectNotExistsAsync.mock.calls.some((c: unknown[]) => c[0] === "clients")).toBe(false);
+    expect(i.setObjectNotExistsAsync.mock.calls.some((c: unknown[]) => c[0] === "clients.x")).toBe(true);
   });
 });
 

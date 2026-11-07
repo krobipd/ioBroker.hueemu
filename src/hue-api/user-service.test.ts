@@ -137,15 +137,14 @@ describe("UserService", () => {
       expect((state as { val: unknown } | undefined)?.val).toBe("user.with.dots");
     });
 
-    // v1.17.0: a `folder`, not a `meta` object — repochecker counts `meta` as a
-    // non-hierarchy type, so a client state under it is an E2001.
-    it("creates clients parent folder as a folder object", async () => {
+    // The clients folder is a manifest object that js-controller applies on every
+    // start; a runtime copy of its shape is a second source that drifts
+    // (iobroker-adapter-checks instance-objects-refresh).
+    it("writes no clients folder — the manifest owns it", async () => {
       const { service, adapter } = createService();
       await service.addUser("foo", "bar");
-      const folder = adapter.writtenObjects.get("clients");
-      expect(folder).toBeDefined();
-      expect(folder?.type).toBe("folder");
-      expect(folder?.common).not.toHaveProperty("type");
+      expect(adapter.writtenObjects.has("clients")).toBe(false);
+      expect(adapter.writtenObjects.has("clients.foo")).toBe(true);
     });
 
     // v1.17.0 (audit 2026-09-06 F2): a pairing that never reached the database
@@ -550,9 +549,7 @@ describe("v1.18.0 — parallel requests on a cold cache", () => {
     let objectWrites = 0;
     const original = adapter.setObjectNotExistsAsync;
     adapter.setObjectNotExistsAsync = async (id, obj) => {
-      if (id !== "clients") {
-        objectWrites += 1;
-      }
+      objectWrites += 1;
       return original(id, obj);
     };
     service.resetAutoAddBudget();
@@ -610,12 +607,8 @@ describe("v1.15.1 — every client object carries an explanation", () => {
     expect(adapter.writtenObjects.get("clients.with-desc")?.common?.desc).toBeDefined();
   });
 
-  it("writes a description on the clients folder", async () => {
-    const adapter = createMockAdapter();
-    const service = new UserService({ adapter, logger: createMockLogger() });
-    await service.createUser("folder-check", "Echo");
-    expect(adapter.writtenObjects.get("clients")?.common?.desc).toBeDefined();
-  });
+  // The folder's description comes from the manifest and the start refresh
+  // (main.test.ts, refreshInstanceObjects) — the service writes no folder.
 });
 
 // v1.19.0 (audit 2026-09-25 H5): the whitelist names a client by the device type it
