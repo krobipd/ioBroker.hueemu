@@ -39,6 +39,14 @@ const canonical = v =>
 const FIXTURE_PORT = 18080;
 /** The HTTPS listener — on, so the start proves the stored TLS key is read back (v1.19.0). */
 const FIXTURE_HTTPS_PORT = 18443;
+/**
+ * The address the suites ask the bridge on: the first non-internal IPv4 of this machine (the template's
+ * CHOSEN_ADDRESS). The adapter answers only clients in its own networks (fleet master
+ * src/lib/network-address.ts, `isOwnPeer`: no exception for loopback), so 127.0.0.1 gets a 403.
+ */
+const CHOSEN_ADDRESS = Object.values(require("node:os").networkInterfaces())
+  .flatMap(list => list ?? [])
+  .find(i => i.family === "IPv4" && !i.internal)?.address;
 /** A fixed pairing key — a generated UUID would make the inventory differ per run. */
 const FIXTURE_CLIENT_KEY = "inventory-fixture-client";
 /** Where the fixture's source datapoints live — outside the adapter's namespace, like a real device. */
@@ -223,7 +231,7 @@ async function httpsAnswers() {
   const https = require("node:https");
   return new Promise(resolve => {
     const req = https.get(
-      { host: "127.0.0.1", port: FIXTURE_HTTPS_PORT, path: "/description.xml", rejectUnauthorized: false },
+      { host: CHOSEN_ADDRESS, port: FIXTURE_HTTPS_PORT, path: "/description.xml", rejectUnauthorized: false },
       res => {
         res.resume();
         resolve(res.statusCode);
@@ -246,7 +254,7 @@ async function waitForBridge(timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
-      const res = await fetch(`http://127.0.0.1:${FIXTURE_PORT}/description.xml`);
+      const res = await fetch(`http://${CHOSEN_ADDRESS}:${FIXTURE_PORT}/description.xml`);
       if (res.ok) {
         return;
       }
@@ -277,7 +285,7 @@ async function feedFixtures(harness) {
   await harness.states.setStateAsync(`${NS}startPairing`, { val: true, ack: false });
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  const res = await fetch(`http://127.0.0.1:${FIXTURE_PORT}/api`, {
+  const res = await fetch(`http://${CHOSEN_ADDRESS}:${FIXTURE_PORT}/api`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ devicetype: "inventory#fixture", username: FIXTURE_CLIENT_KEY }),
@@ -417,7 +425,7 @@ tests.integration(ADAPTER_DIR, {
       // scales the start derived from the source objects decide what a client sees.
       it("serves every configured light with the values its source proves", async function () {
         this.timeout(30000);
-        const res = await fetch(`http://127.0.0.1:${FIXTURE_PORT}/api/${FIXTURE_CLIENT_KEY}/lights`);
+        const res = await fetch(`http://${CHOSEN_ADDRESS}:${FIXTURE_PORT}/api/${FIXTURE_CLIENT_KEY}/lights`);
         const lights = await res.json();
         assert.deepStrictEqual(
           Object.keys(lights).sort(),

@@ -21,8 +21,8 @@ Heizungssteuerung.
 ## Voraussetzungen
 
 - Node.js 22 oder neuer
-- js-controller 7.2.2 oder neuer
-- Admin 8.0.11 oder neuer
+- js-controller 7.2.5 oder neuer
+- Admin 8.3.5 oder neuer
 - Client und ioBroker-Rechner im **selben lokalen Netz**
 
 ## Einrichten

@@ -19,8 +19,8 @@ knows, from a Zigbee bulb to a KNX dimmer to a relay in a heating controller.
 ## Requirements
 
 - Node.js 22 or newer
-- js-controller 7.2.2 or newer
-- admin 8.0.11 or newer
+- js-controller 7.2.5 or newer
+- admin 8.3.5 or newer
 - The client and the ioBroker host on the **same local network**
 
 ## Setting it up

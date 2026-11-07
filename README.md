@@ -49,8 +49,8 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 ## Requirements
 
 - **Node.js >= 22**
-- **ioBroker js-controller >= 7.2.2**
-- **ioBroker Admin >= 8.0.11**
+- **ioBroker js-controller >= 7.2.5**
+- **ioBroker Admin >= 8.3.5**
 
 > The adapter CANNOT be installed via GitHub: The adapter must be installed via the ioBroker repository (stable or latest).
 
