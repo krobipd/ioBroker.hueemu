@@ -1827,12 +1827,23 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
     await i.onReady();
-    const order: string[] = [];
-    i.setState.mockImplementation((id: string) => {
-      order.push(id);
+    const writes: [string, unknown][] = [];
+    i.setState.mockImplementation((id: string, state: unknown) => {
+      writes.push([id, state]);
       return Promise.resolve();
     });
-    await new Promise<void>(resolve => i.onUnload(() => resolve()));
-    expect(order).toEqual(["info.connection", "info.error"]);
+    let doneAfter = -1;
+    await new Promise<void>(resolve =>
+      i.onUnload(() => {
+        doneAfter = writes.length;
+        resolve();
+      }),
+    );
+    // Audit R-09: the values too, not only the ids — off and the fleet reason word.
+    expect(writes).toEqual([
+      ["info.connection", { ack: true, val: false }],
+      ["info.error", { ack: true, val: "Unknown" }],
+    ]);
+    expect(doneAfter).toBe(2);
   });
 });

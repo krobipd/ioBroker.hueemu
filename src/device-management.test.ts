@@ -43,11 +43,18 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
     ),
     getForeignObjectsAsync: vi.fn(() => Promise.resolve(structuredClone(allObjects))),
     // A1: searchDevices now loads via getObjectView per type. Return the objects
-    // of the requested design ("device" | "channel" | "state"), like js-controller.
-    getObjectViewAsync: vi.fn((_system: string, design: string) =>
+    // of the requested design ("device" | "channel" | "state") inside the requested
+    // key range, like js-controller (audit R-10: the range used to be ignored, so a
+    // wrong startkey/endkey passed every test).
+    getObjectViewAsync: vi.fn((_system: string, design: string, params?: { startkey?: string; endkey?: string }) =>
       Promise.resolve({
         rows: Object.entries(allObjects)
           .filter(([, o]) => (o as ioBroker.Object).type === design)
+          .filter(
+            ([id]) =>
+              (params?.startkey === undefined || id >= params.startkey) &&
+              (params?.endkey === undefined || id <= params.endkey),
+          )
           .map(([id, value]) => ({ id, value: structuredClone(value) })),
       }),
     ),
@@ -530,11 +537,6 @@ describe("HueEmuDeviceManagement", () => {
       };
       const adapter = make([], objs);
       await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true } }));
-      expect(adapter.getObjectViewAsync).toHaveBeenCalledWith(
-        "system",
-        "enum",
-        expect.objectContaining({ startkey: "enum.functions." }),
-      );
       expect(adapter._stored()[0]).toMatchObject({ onState: "shelly.0.relay.Switch" });
     });
 

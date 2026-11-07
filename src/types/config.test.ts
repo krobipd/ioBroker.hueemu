@@ -405,7 +405,10 @@ describe("ConfigService", () => {
       expect(full.localtime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
     });
 
-    // N9: midnight is 00, never 24.
+    // N9: midnight is 00, never 24 — red for `hourCycle: "h24"` and for a formatter
+    // without an hour cycle ("12"). `hour12: false`, whose "24" N9 was about, renders
+    // "00" on the ICU of every supported Node (measured 2026-11-07, ICU 78.2: h23 in
+    // en-CA/en-US/de-DE/ja-JP), so no output can tell it from h23 here.
     it("renders midnight as 00, never as 24", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2024-01-15T00:00:05Z"));

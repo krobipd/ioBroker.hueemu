@@ -268,11 +268,10 @@ export function scanForLightDevices(
       continue;
     }
     for (const control of controls) {
-      // Shortcut, deliberately without its own test: mapControlToDevice's
-      // default branch reports every non-light type as an rgb channel anyway,
-      // and only the types in this set ever reach it — so removing the filter
-      // changes nothing observable (equivalent mutant, 2026-08-22 test audit).
-      // It stays because it says which types this scan is about.
+      // Only light controls reach the mapper: its default branch reports every
+      // other type as an RGB channel, so without this filter each plug, blind or
+      // thermostat would count as a skipped light in the search result (audit
+      // R-08; the socket test in device-scan.test.ts catches its removal).
       if (!DETECTABLE_LIGHT_TYPES.has(control.type)) {
         continue;
       }

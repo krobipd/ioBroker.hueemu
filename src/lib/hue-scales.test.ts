@@ -163,9 +163,26 @@ describe("stateFactsOf", () => {
     expect(stateFactsOf(null)).toBeUndefined();
   });
 
-  it("passes bounds and unit through, ignoring non-numeric ones", () => {
+  it("passes bounds and unit through", () => {
     const facts = stateFactsOf(state("x", "level", "number", { min: 0, max: 360, unit: "°" }).x) as StateFacts;
     expect(facts).toEqual({ writable: true, min: 0, max: 360, unit: "°", type: "number" });
+  });
+
+  // Audit R-11: the name promised this, but no case carried a non-number.
+  it("ignores bounds that are no number and a unit that is no text", () => {
+    const obj = state("x", "level", "number", {
+      min: "0" as unknown as number,
+      max: null as unknown as number,
+      unit: 7 as unknown as string,
+    }).x;
+    expect(stateFactsOf(obj)).toEqual({
+      writable: true,
+      min: undefined,
+      max: undefined,
+      unit: undefined,
+      type: "number",
+      states: undefined,
+    });
   });
 });
 

@@ -161,8 +161,10 @@ describe("scanForLightDevices", () => {
     // up as a Hue light — and the pairing list would be unusable.
     const objs = channel("x.0.plug", [["state", "switch", "boolean"]]);
     objs["x.0.plug"].common.role = "socket";
-    const { devices } = scanForLightDevices(objs, nameOf);
-    expect(devices).toEqual([]);
+    // Nor into a skipped light (audit R-08): without the filter the mapper's
+    // default branch reports it as an RGB channel, and the search tells the user
+    // that one light was skipped for every plug in the system.
+    expect(scanForLightDevices(objs, nameOf)).toEqual({ devices: [], unmapped: [] });
   });
 
   it("uses the device display name from the object", () => {
