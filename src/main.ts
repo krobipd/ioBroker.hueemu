@@ -462,8 +462,12 @@ class HueEmu extends utils.Adapter {
     // the HTTP port makes the second listen() throw EADDRINUSE far from the
     // cause. Both surfaced up-front via validateNetworkConfig.
     validateNetworkConfig(advertiseHost, port, httpsPort);
-    const udn = this.config.udn?.trim() || uuid.v4();
-    const mac = this.config.mac?.trim() || macFromUdn(udn);
+    // Type guard at the boundary: a hand-edited instance object can carry a number
+    // or null here, and `.trim()` on it stopped the start (audit R-05).
+    const storedUdn = typeof this.config.udn === "string" ? this.config.udn.trim() : "";
+    const storedMac = typeof this.config.mac === "string" ? this.config.mac.trim() : "";
+    const udn = storedUdn || uuid.v4();
+    const mac = storedMac || macFromUdn(udn);
 
     // Everything generated on this start is stored in ONE merge below — the
     // identity and, when HTTPS is on, the certificate. v1.18.0: they used to be
@@ -471,7 +475,7 @@ class HueEmu extends utils.Adapter {
     // for a process that the first write had already committed to restarting
     // (audit 2026-09-15 B4).
     const generated: Record<string, string> = {};
-    if (!this.config.udn?.trim() || !this.config.mac?.trim()) {
+    if (!storedUdn || !storedMac) {
       generated.udn = udn;
       generated.mac = mac;
     }

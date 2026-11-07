@@ -347,6 +347,22 @@ describe("HueEmu buildConfig", () => {
     );
   });
 
+  // Audit R-05: a hand-edited instance object can carry a number or null in
+  // native.udn / native.mac — `.trim()` on it threw and the adapter never started.
+  it("treats a non-text UDN/MAC as missing and generates a fresh identity", async () => {
+    const { adapter } = setup({ udn: 12345 as unknown as string, mac: null as unknown as string });
+    const i = internalOf(adapter);
+    const config = await i.buildConfig();
+    expect(config.identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(config.identity.mac).toMatch(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i);
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
+      "system.adapter.hueemu.0",
+      expect.objectContaining({
+        native: expect.objectContaining({ udn: config.identity.udn, mac: config.identity.mac }),
+      }),
+    );
+  });
+
   it("treats a blank bind as listen-all and announces the routable interface, not loopback", async () => {
     osMock.interfaces = {
       lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
