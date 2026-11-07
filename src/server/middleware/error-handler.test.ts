@@ -93,11 +93,6 @@ describe("hueErrorHandler", () => {
 });
 
 describe("createHueErrorHandler", () => {
-  it("returns the plain handler when no logger is given", () => {
-    expect(createHueErrorHandler()).toBe(hueErrorHandler);
-    expect(createHueErrorHandler(undefined)).toBe(hueErrorHandler);
-  });
-
   it("logs method/url/type and still sends the response when a logger is given", () => {
     const debug = vi.fn();
     const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;

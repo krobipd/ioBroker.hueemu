@@ -81,14 +81,11 @@ export function hueErrorHandler(
 /**
  * Factory returning a Fastify error handler with debug logging.
  *
- * @param logger - Optional logger for debug output
+ * @param logger - Logger for the debug line
  */
 export function createHueErrorHandler(
-  logger?: Logger,
+  logger: Logger,
 ): (error: FastifyError | HueApiError | Error, request: FastifyRequest, reply: FastifyReply) => void {
-  if (!logger) {
-    return hueErrorHandler;
-  }
   return function loggedHueErrorHandler(error, request, reply): void {
     const errorType =
       error instanceof HueApiError ? String(error.type) : isInvalidJsonError(error) ? "invalid_json" : "internal_error";
