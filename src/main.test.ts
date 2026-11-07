@@ -703,7 +703,22 @@ describe("HueEmu onStateChange", () => {
     timeoutCb();
     expect(adapter.pairingEnabled).toBe(false);
     expect(i.setState).toHaveBeenCalledWith("startPairing", { ack: true, val: false });
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("automatically disabled"));
+    expect(i.log.debug).toHaveBeenCalledWith(expect.stringContaining("automatically disabled"));
+  });
+
+  // krobi 2026-10-16 07:49 „feedback ungleich spam“: switching a button datapoint is
+  // routine — its state is the feedback, the log stays at debug.
+  it("writes no info line when pairing or authentication is switched", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.log.info.mockClear();
+    i.onStateChange("hueemu.0.startPairing", { val: true, ack: false } as ioBroker.State);
+    (i.setTimeout.mock.calls.at(-1)![0] as () => void)();
+    i.onStateChange("hueemu.0.startPairing", { val: true, ack: false } as ioBroker.State);
+    i.onStateChange("hueemu.0.startPairing", { val: false, ack: false } as ioBroker.State);
+    i.onStateChange("hueemu.0.disableAuth", { val: true, ack: false } as ioBroker.State);
+    i.onStateChange("hueemu.0.disableAuth", { val: false, ack: false } as ioBroker.State);
+    expect(i.log.info).not.toHaveBeenCalled();
   });
 
   it("startPairing=false disables pairing and clears the timeout", async () => {

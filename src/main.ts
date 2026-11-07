@@ -195,7 +195,7 @@ class HueEmu extends utils.Adapter {
   set disableAuth(value: boolean) {
     this._disableAuth = value;
     this.ackState("disableAuth", value);
-    this.log.info(value ? "Authentication disabled (all requests allowed)" : "Authentication enabled");
+    this.log.debug(value ? "Authentication disabled (all requests allowed)" : "Authentication enabled");
   }
 
   /**
@@ -962,13 +962,13 @@ class HueEmu extends utils.Adapter {
       // virtual "press of the link button" resets the per-window cap.
       this.apiHandler?.resetAutoAddBudget();
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
-      this.log.info(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
+      this.log.debug(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {
         this.pairingEnabled = false;
-        this.log.info(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
+        this.log.debug(`Pairing mode automatically disabled after ${seconds} seconds timeout`);
       }, HueEmu.PAIRING_TIMEOUT_MS);
     } else {
-      this.log.info(`Pairing mode disabled`);
+      this.log.debug(`Pairing mode disabled`);
     }
   }
 

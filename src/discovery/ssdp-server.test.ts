@@ -214,11 +214,14 @@ describe("HueSsdpServer", () => {
       expect(h.sockets[0].closed).toBe(true);
     });
 
-    it("rejects and logs when the bind fails (port busy) — no hang, the H1 fix", async () => {
+    // The caller says it once, as a warning: discovery off, HTTP still serving — an error
+    // line here on top of it told the same failure twice (review R-25).
+    it("rejects without a log line of its own when the bind fails (port busy) — no hang, the H1 fix", async () => {
       h.fail.bind = true;
       const logger = spyLogger();
       await expect(makeServer(logger).start()).rejects.toThrow(/EADDRINUSE/);
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to start SSDP server"));
+      expect(logger.error).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("survives a membership join failure with a warning — one bad interface must not kill discovery", async () => {

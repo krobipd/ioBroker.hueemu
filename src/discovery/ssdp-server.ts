@@ -146,7 +146,7 @@ export class HueSsdpServer {
       } catch {
         // already closed
       }
-      this.config.logger.error(`Failed to start SSDP server: ${errText(error)}`);
+      // No log line here: the caller reports the failure once, as a warning.
       throw error instanceof Error ? error : new Error(errText(error), { cause: error });
     }
   }
