@@ -49,11 +49,6 @@ export interface SsdpServerConfig {
   /** HTTP port where description.xml is served */
   port: number;
   /**
-   * SSDP port (default: 1900). A test seam only — production always uses the
-   * standard port, the tests need an unprivileged one they can bind.
-   */
-  ssdpPort?: number;
-  /**
    * The address chosen in the settings, or undefined for every address (fleet master
    * network-address.ts, `chosenAddress` after the `carriesAddress` fallback). A chosen address
    * is the only interface the group is joined on and the NOTIFYs leave from.
@@ -80,7 +75,6 @@ export interface SsdpServerConfig {
 export class HueSsdpServer {
   private socket: dgram.Socket | null = null;
   private readonly config: SsdpServerConfig;
-  private readonly ssdpPort: number;
   private readonly bridge: SsdpAdvertisedBridge;
   private readonly targets: SsdpTarget[];
   private fatalReported = false;
@@ -92,7 +86,6 @@ export class HueSsdpServer {
    */
   constructor(config: SsdpServerConfig) {
     this.config = config;
-    this.ssdpPort = config.ssdpPort ?? SSDP_PORT;
     this.bridge = {
       bridgeId: config.identity.bridgeId,
       location: getDescriptionUrl(config.host, config.port),
@@ -120,7 +113,7 @@ export class HueSsdpServer {
       await new Promise<void>((resolve, reject) => {
         const onBindError = (err: Error): void => reject(err);
         socket.once("error", onBindError);
-        socket.bind(this.ssdpPort, () => {
+        socket.bind(SSDP_PORT, () => {
           socket.removeListener("error", onBindError);
           this.joinMulticast(socket);
           this.chooseMulticastInterface(socket);
@@ -137,7 +130,7 @@ export class HueSsdpServer {
         });
       });
 
-      this.config.logger.debug(`SSDP server started on port ${this.ssdpPort}, advertising at ${this.bridge.location}`);
+      this.config.logger.debug(`SSDP server started on port ${SSDP_PORT}, advertising at ${this.bridge.location}`);
     } catch (error) {
       this.socket = null;
       // A socket whose bind failed is still an open handle — release it.
@@ -282,7 +275,7 @@ export class HueSsdpServer {
     }
     for (const target of this.targets) {
       const notify = Buffer.from(buildAliveNotify(target, this.bridge), "ascii");
-      socket.send(notify, this.ssdpPort, SSDP_MULTICAST_ADDR, err => {
+      socket.send(notify, SSDP_PORT, SSDP_MULTICAST_ADDR, err => {
         if (err) {
           this.config.logger.debug(`SSDP NOTIFY send failed: ${err.message}`);
         }
@@ -347,7 +340,7 @@ export class HueSsdpServer {
       for (const target of this.targets) {
         const notify = Buffer.from(buildByeNotify(target, this.bridge.bridgeId), "ascii");
         try {
-          socket.send(notify, this.ssdpPort, SSDP_MULTICAST_ADDR, () => {
+          socket.send(notify, SSDP_PORT, SSDP_MULTICAST_ADDR, () => {
             pending--;
             if (pending === 0) {
               closeSocket();

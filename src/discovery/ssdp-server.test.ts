@@ -168,20 +168,9 @@ describe("HueSsdpServer", () => {
   });
 
   describe("start", () => {
-    it("binds UDP port 1900 by default and honours a custom ssdpPort", async () => {
+    it("binds UDP port 1900", async () => {
       await makeServer().start();
       expect(h.sockets[0].bound).toEqual([SSDP_PORT]);
-
-      const custom = new HueSsdpServer({
-        identity,
-        host: "10.0.0.1",
-        port: 80,
-        ssdpPort: 1901,
-        logger: spyLogger(),
-        isClientAllowed: () => true,
-      });
-      await custom.start();
-      expect(h.sockets[1].bound).toEqual([1901]);
     });
 
     it("joins the multicast group on every routable IPv4 interface (node-ssdp behavior)", async () => {
