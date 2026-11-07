@@ -17,7 +17,6 @@ import {
   deriveLevelScale,
   fitToTarget,
   getDefaultValue,
-  applyIncrement,
   isUndecidedScale,
   scaleValueForState,
   scaleValueFromState,
@@ -303,16 +302,6 @@ describe("attribute conversion", () => {
     expect(convertValueFromState("bri", null, device, logger)).toBe(254);
     expect(convertValueFromState("xy", undefined, device, logger)).toEqual([0.5, 0.5]);
     expect(getDefaultValue("ct")).toBe(250);
-    expect(getDefaultValue("nonsense")).toBeNull();
-  });
-
-  it("passes an unknown attribute through untouched in both directions", () => {
-    // `transitiontime`, `effect`, `alert` — accepted, acknowledged, not scaled.
-    expect(convertValueFromState("transitiontime", 4, device, logger)).toBe(4);
-    expect(convertValueForState("effect", "colorloop", device, logger)).toBe("colorloop");
-    expect(convertValueForState("alert", null, device, logger)).toBeNull();
-    // An object has no place in a foreign state — serialise rather than write "[object Object]".
-    expect(convertValueForState("unknown", { a: 1 }, device, logger)).toBe('{"a":1}');
   });
 
   it("skips a write it cannot make sense of instead of inventing one", () => {
@@ -320,13 +309,6 @@ describe("attribute conversion", () => {
     expect(convertValueForState("hue", {}, device, logger)).toBeUndefined();
     expect(convertValueForState("ct", null, device, logger)).toBeUndefined();
     expect(convertValueForState("xy", 5, device, logger)).toBeUndefined();
-  });
-});
-
-describe("applyIncrement", () => {
-  it("has no answer for an attribute that has no relative form", () => {
-    expect(applyIncrement("effect", 1, 1)).toBeUndefined();
-    expect(applyIncrement("on", true, 1)).toBeUndefined();
   });
 });
 

@@ -38,6 +38,7 @@ import {
   fitToTarget,
   type StateFacts,
   type ScaledDevice,
+  type HueStateKey,
 } from "../lib/hue-scales";
 
 /**
@@ -47,25 +48,25 @@ const LIGHT_TYPES = {
   onoff: {
     name: "Dimmable light",
     type: "Dimmable light" as const,
-    states: ["on", "bri"],
+    states: ["on", "bri"] satisfies HueStateKey[],
     modelid: "LWB007",
   },
   dimmable: {
     name: "Dimmable light",
     type: "Dimmable light" as const,
-    states: ["on", "bri"],
+    states: ["on", "bri"] satisfies HueStateKey[],
     modelid: "LWB010",
   },
   ct: {
     name: "Color Temperature Light",
     type: "Color temperature light" as const,
-    states: ["on", "bri", "ct"],
+    states: ["on", "bri", "ct"] satisfies HueStateKey[],
     modelid: "LTW001",
   },
   color: {
     name: "Extended Color Light",
     type: "Extended color light" as const,
-    states: ["on", "bri", "hue", "sat", "ct", "xy"],
+    states: ["on", "bri", "hue", "sat", "ct", "xy"] satisfies HueStateKey[],
     modelid: "LCT003",
   },
 };
@@ -108,7 +109,7 @@ type StateIdField = "onState" | "briState" | "ctState" | "hueState" | "satState"
 /**
  * Maps Hue state names to DeviceConfig property names
  */
-const STATE_TO_CONFIG: Record<string, StateIdField> = {
+const STATE_TO_CONFIG: Record<HueStateKey, StateIdField> = {
   on: "onState",
   bri: "briState",
   ct: "ctState",
@@ -116,6 +117,15 @@ const STATE_TO_CONFIG: Record<string, StateIdField> = {
   sat: "satState",
   xy: "xyState",
 };
+
+/**
+ * Whether a request attribute is one a light maps to a datapoint.
+ *
+ * @param key The attribute name from the request body
+ */
+function isHueStateKey(key: string): key is HueStateKey {
+  return Object.hasOwn(STATE_TO_CONFIG, key);
+}
 
 /** Which scale field belongs to which mapped state, for the start-up resolution. */
 const SCALE_FIELDS = [
@@ -209,12 +219,8 @@ export class DeviceBindingService {
    * @param device - Device configuration
    * @param stateName - Hue state name (on, bri, ct, etc.)
    */
-  private getStateId(device: DeviceConfig, stateName: string): string | undefined {
-    const configKey = STATE_TO_CONFIG[stateName];
-    if (configKey) {
-      return device[configKey];
-    }
-    return undefined;
+  private getStateId(device: DeviceConfig, stateName: HueStateKey): string | undefined {
+    return device[STATE_TO_CONFIG[stateName]];
   }
 
   /**
@@ -670,7 +676,8 @@ export class DeviceBindingService {
         results.push(HueApiError.parameterNotAvailable(key, address).toResponse());
         continue;
       }
-      const stateId = this.getStateId(device, key);
+      const stateKey = isHueStateKey(key) ? key : undefined;
+      const stateId = stateKey && this.getStateId(device, stateKey);
 
       if (switchingOff && key === "bri") {
         this.logger.debug(`"${device.name}": ignoring bri — the same request switches the light off`);
@@ -678,7 +685,7 @@ export class DeviceBindingService {
         continue;
       }
 
-      if (!stateId) {
+      if (!stateId || !stateKey) {
         // v1.15.0: a light whose only writable target is brightness still has to
         // switch. Brightness carries on/off for it (see mapControlToDevice).
         if (key === "on" && device.briState) {
@@ -701,13 +708,13 @@ export class DeviceBindingService {
 
       try {
         const convertedValue = convertValueForState(
-          key,
+          stateKey,
           value,
           device,
           this.logger,
           // xy keeps the form its source holds (Q12); every other attribute scales
           // by the source's last non-zero number.
-          key === "xy" ? this.stateCache.get(stateId) : this.lastNonZeroSource.get(stateId),
+          stateKey === "xy" ? this.stateCache.get(stateId) : this.lastNonZeroSource.get(stateId),
         );
         if (convertedValue === undefined) {
           // Invalid payload for this attribute (a non-array xy, a non-numeric
@@ -925,7 +932,7 @@ export class DeviceBindingService {
    * @param stateName - Hue state name (on, bri, ct, etc.)
    * @param device - Device configuration for scale settings
    */
-  private async getStateValue(stateId: string, stateName: string, device: DeviceConfig): Promise<unknown> {
+  private async getStateValue(stateId: string, stateName: HueStateKey, device: DeviceConfig): Promise<unknown> {
     return convertValueFromState(stateName, await this.rawSourceValue(stateId), device, this.logger);
   }
 

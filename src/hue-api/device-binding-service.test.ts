@@ -1674,10 +1674,6 @@ describe("applyIncrement", () => {
     expect(applyIncrement("xy", [0.9, 0.9], [0.5, 0.5])).toEqual([1, 1]);
   });
 
-  it("has no opinion about an attribute that has no relative form", () => {
-    expect(applyIncrement("on", true, 1)).toBeUndefined();
-  });
-
   it("refuses a non-numeric increment or current value", () => {
     expect(applyIncrement("bri", 100, "more")).toBeUndefined();
     expect(applyIncrement("bri", "bright", 10)).toBeUndefined();

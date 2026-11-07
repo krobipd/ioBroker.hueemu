@@ -599,11 +599,22 @@ export function clampScaleForState(
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The Hue light-state attributes a light maps to ioBroker datapoints. Every
+ * conversion below takes one of these — a request attribute without a datapoint
+ * (`effect`, `alert`, `transitiontime`) is acknowledged without ever reaching
+ * them, so the switches need no default branch (audit R-21).
+ */
+export type HueStateKey = "on" | "bri" | "hue" | "sat" | "ct" | "xy";
+
+/** The attributes with a relative form (`bri_inc` …). */
+export type IncrementBase = Exclude<HueStateKey, "on">;
+
+/**
  * Get the default value the Hue API reports for an unmapped state.
  *
  * @param stateName Hue state name
  */
-export function getDefaultValue(stateName: string): unknown {
+export function getDefaultValue(stateName: HueStateKey): unknown {
   switch (stateName) {
     case "on":
       return false;
@@ -617,8 +628,6 @@ export function getDefaultValue(stateName: string): unknown {
       return HUE_CT_DEFAULT;
     case "xy":
       return HUE_XY_DEFAULT;
-    default:
-      return null;
   }
 }
 
@@ -682,7 +691,7 @@ function parseXy(value: unknown): [number, number] | undefined {
  * @param logger Logger for the diagnostic lines
  */
 export function convertValueFromState(
-  stateName: string,
+  stateName: HueStateKey,
   value: unknown,
   device: ScaledDevice | undefined,
   logger: Logger,
@@ -727,8 +736,6 @@ export function convertValueFromState(
       logger.debug(`Default fallback for xy (device="${device?.name}"): raw=${JSON.stringify(value)} not parsable`);
       return HUE_XY_DEFAULT;
     }
-    default:
-      return value;
   }
 }
 
@@ -744,7 +751,7 @@ export function convertValueFromState(
  * @param lastSourceValue The value the source state last held, when known
  */
 export function convertValueForState(
-  stateName: string,
+  stateName: HueStateKey,
   value: unknown,
   device: ScaledDevice | undefined,
   logger: Logger,
@@ -813,11 +820,6 @@ export function convertValueForState(
       logger.debug(`Ignoring invalid xy write (device="${device?.name}"): raw=${JSON.stringify(value)}`);
       return undefined;
     }
-    default:
-      if (value !== null && typeof value === "object") {
-        return JSON.stringify(value);
-      }
-      return value as ioBroker.StateValue;
   }
 }
 
@@ -840,7 +842,7 @@ export function convertValueForState(
  * only the first), and hue wraps modulo 65536 rather than diyHue's ±65535 —
  * 0..65535 inclusive is 65536 distinct values.
  */
-export const INCREMENT_ATTRIBUTES: Readonly<Record<string, string>> = {
+export const INCREMENT_ATTRIBUTES: Readonly<Record<string, IncrementBase>> = {
   bri_inc: "bri",
   sat_inc: "sat",
   hue_inc: "hue",
@@ -857,7 +859,11 @@ export const INCREMENT_ATTRIBUTES: Readonly<Record<string, string>> = {
  * @param current Current Hue-space value of that attribute
  * @param delta The client-supplied increment
  */
-export function applyIncrement(base: string, current: unknown, delta: unknown): number | [number, number] | undefined {
+export function applyIncrement(
+  base: IncrementBase,
+  current: unknown,
+  delta: unknown,
+): number | [number, number] | undefined {
   if (base === "xy") {
     if (!Array.isArray(delta) || delta.length < 2 || !Array.isArray(current) || current.length < 2) {
       return undefined;
@@ -886,7 +892,5 @@ export function applyIncrement(base: string, current: unknown, delta: unknown): 
       return clampRound(now + step, HUE_CT_MIN, HUE_CT_MAX);
     case "hue":
       return wrapHue(now + step);
-    default:
-      return undefined;
   }
 }
