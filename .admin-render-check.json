@@ -1,0 +1,10 @@
+{
+  "instance": "hueemu.0",
+  "targets": [
+    {
+      "name": "devices-tab-memory",
+      "tab": "Devices|Geräte",
+      "mountSelectors": ["[data-testid=\"hueemu-devices-tab\"]"]
+    }
+  ]
+}

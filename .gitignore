@@ -36,6 +36,10 @@ CLAUDE.local.md
 # Build output is not versioned: the CI builds before test and publish (common.nogit)
 build/
 
+# Admin component build intermediates (admin/custom is versioned — the npm package carries it)
+/src-admin/build
+/src-admin/.__mf__temp
+
 # Session memory of the note-taking hook — never repository content
 .remember/
 test/states.inventory.json

@@ -41,6 +41,7 @@ src/lib/i18n.ts                   → tName + t + tRaw (Rohtext in alle 11 Sprac
 src/server/hue-server.ts          → Fastify HTTP/HTTPS (`fastifyOptions()`: trustProxy opt-in, bodyLimit 64KiB, forceCloseConnections, Router case-insensitiv + trailing slash — exportiert, die Routen-Tests bauen damit)
 src/server/routes/api-v1-routes.ts → Hue API v1 Endpoints (+ GET /api/config ohne Benutzername, v1.14.0); Fehler laufen in den serverweiten `hueErrorHandler`, keine eigene Abbildung mehr (v1.18.0)
 src/types/                        → config (HueEmulatorConfig.trustProxy, validateNetworkConfig), errors (+ REASON_UNKNOWN + ConfigurationError, v1.17.0), hue-api, light, utils (sanitizeId + errText + oneLine über den ganzen C0-Bereich)
+src-admin/                        → Admin-Komponente (Module Federation, Gerüst = Flotten-Master): nur `DevicesConfig` im Reiter „Geräte“, ruft `forgetLastTab` beim Ein- und Aushängen (GV-07 — die Einstellungen öffnen immer auf „Konfiguration“), zeigt nichts; Bau `npm run build:admin` → `admin/custom/` (versioniert, das npm-Paket trägt es)
 docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (common.docs; ohne das Feld zeigt das Portal nur die README)
 ../scripts/sync-iopackage-from-i18n.py → hält io-package.json:instanceObjects synchron mit admin/i18n (zentral, source: admin-i18n)
 ```

@@ -161,6 +161,17 @@
           "md": 12,
           "lg": 12,
           "xl": 12
+        },
+        "_tabMemory": {
+          "type": "custom",
+          "url": "custom/customComponents.js",
+          "name": "ConfigCustomHueemuSet/Components/DevicesConfig",
+          "guiApi": 2,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12
         }
       }
     }
