@@ -39,6 +39,7 @@ import {
   type StateFacts,
   type ScaledDevice,
   type HueStateKey,
+  SCALE_FIELDS,
 } from "../lib/hue-scales";
 
 /**
@@ -126,14 +127,6 @@ const STATE_TO_CONFIG: Record<HueStateKey, StateIdField> = {
 function isHueStateKey(key: string): key is HueStateKey {
   return Object.hasOwn(STATE_TO_CONFIG, key);
 }
-
-/** Which scale field belongs to which mapped state, for the start-up resolution. */
-const SCALE_FIELDS = [
-  { state: "briState", scale: "briScale" },
-  { state: "satState", scale: "satScale" },
-  { state: "hueState", scale: "hueScale" },
-  { state: "ctState", scale: "ctScale" },
-] as const;
 
 /**
  * Adapter interface for device binding service

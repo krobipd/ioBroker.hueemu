@@ -254,7 +254,7 @@ describe("mapControlToDevice", () => {
 });
 
 describe("v1.15.0 regressions — shapes measured on real hardware (2026-09-03 audit)", () => {
-  it("a zigbee colour bulb gets every provable scale AND its colour temperature", () => {
+  it("a zigbee colour bulb gets every state AND its colour temperature, no stored scale", () => {
     // zigbee.0.<id>: hue 0..360, saturation 0..100, brightness 0..100,
     // colortemp with neither unit nor bounds (it is mired).
     const objs: Record<string, ioBroker.Object> = {
@@ -272,18 +272,14 @@ describe("v1.15.0 regressions — shapes measured on real hardware (2026-09-03 a
       lightType: "color",
       onState: "zigbee.0.bulb.state",
       briState: "zigbee.0.bulb.brightness",
-      briScale: "percent",
       hueState: "zigbee.0.bulb.hue",
-      hueScale: "degrees",
       satState: "zigbee.0.bulb.saturation",
-      satScale: "percent",
       // Mapped at last — an unmapped ct made every scanned colour light report
       // the 250-mired placeholder for ever.
       ctState: "zigbee.0.bulb.colortemp",
-      // …and deliberately WITHOUT a ctScale: the source proves nothing, and the
-      // adapter's mired default is what this adapter actually delivers.
+      // No scale at all (audit R-23, decision 20): the start settles each one from
+      // the bound datapoint — percent, degrees, percent here; the ct proves nothing.
     });
-    expect(devices[0].ctScale).toBeUndefined();
   });
 
   it("a HomeMatic dimmer channel without any switch becomes a usable light", () => {
@@ -301,7 +297,6 @@ describe("v1.15.0 regressions — shapes measured on real hardware (2026-09-03 a
         lightType: "dimmable",
         onState: undefined,
         briState: "hm-rpc.1.ABC.4.LEVEL",
-        briScale: "percent",
       },
     ]);
   });
@@ -332,7 +327,7 @@ describe("v1.19.0 — one light per lamp, lights found by their function (audit 
     expect(devices[0]).toMatchObject({ name: "BDT", briState: "hm-rpc.0.ABC.4.LEVEL" });
   });
 
-  it("offers a tradfri bulb (device → lightbulb channel) once, with its percent colour temperature", () => {
+  it("offers a tradfri bulb (device → lightbulb channel) once, with its colour temperature bound", () => {
     const objs: Record<string, ioBroker.Object> = {
       "tradfri.0.L-65537": { _id: "tradfri.0.L-65537", type: "device", common: { name: "Tradfri" }, native: {} },
       "tradfri.0.L-65537.lightbulb": {
@@ -354,8 +349,9 @@ describe("v1.19.0 — one light per lamp, lights found by their function (audit 
     expect(devices[0]).toMatchObject({
       name: "Tradfri",
       ctState: "tradfri.0.L-65537.lightbulb.colorTemperature",
-      ctScale: "percent",
     });
+    // The percent scale is settled at start from the datapoint (audit R-23).
+    expect(devices[0].ctScale).toBeUndefined();
   });
 
   // H8: type-detector counts a relay or a level.brightness dimmer as a light only when

@@ -610,6 +610,17 @@ export type HueStateKey = "on" | "bri" | "hue" | "sat" | "ct" | "xy";
 export type IncrementBase = Exclude<HueStateKey, "on">;
 
 /**
+ * Which scale field belongs to which bound state — the one list the start-up
+ * resolution and the device manager's rebind rule both read (audit R-23).
+ */
+export const SCALE_FIELDS = [
+  { state: "briState", scale: "briScale" },
+  { state: "satState", scale: "satScale" },
+  { state: "hueState", scale: "hueScale" },
+  { state: "ctState", scale: "ctScale" },
+] as const;
+
+/**
  * Get the default value the Hue API reports for an unmapped state.
  *
  * @param stateName Hue state name

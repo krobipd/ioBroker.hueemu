@@ -122,6 +122,10 @@ datapoint)" is the setting that lets the adapter decide:
   `Native (no conversion)` for mired (roughly 153–500), `Percent (0..100, 0 = cold)` for
   a state that runs from coldest to warmest in percent
 
+A scale you set belongs to the state it was set for: bind another state in the card and
+leave the scale as it is, and it goes back to "Automatic" — pick a scale in the same step
+to keep one.
+
 ## Lights that have no on/off state
 
 Some dimmers offer only a brightness state and no separate switch — a HomeMatic dimmer

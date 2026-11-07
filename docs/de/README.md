@@ -127,6 +127,10 @@ springt sie auf volle Helligkeit: öffne ihre Karte und stell die Skala von Hand
   bei Mired (etwa 153–500), `Prozent (0..100, 0 = kalt)` bei einem Datenpunkt, der in
   Prozent von kalt nach warm läuft
 
+Eine eingestellte Skala gehört zu dem Datenpunkt, für den sie gilt: Bindest du in der
+Karte einen anderen Datenpunkt an und lässt die Skala stehen, springt sie auf
+„Automatisch" zurück — wähl im selben Schritt eine Skala, um eine zu behalten.
+
 ## Lampen ohne Ein/Aus-Datenpunkt
 
 Manche Dimmer bieten nur einen Helligkeitswert und keinen eigenen Schalter — ein

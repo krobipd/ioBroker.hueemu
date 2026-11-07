@@ -27,6 +27,7 @@ import type { DeviceConfig } from "./hue-api";
 import { isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./lib/device-ids";
 import { boundStateIds, scanForLightDevices } from "./lib/device-scan";
 import { t } from "./lib/i18n";
+import { SCALE_FIELDS } from "./lib/hue-scales";
 import { errText } from "./lib/err-text";
 import { oneLine } from "./types/utils";
 
@@ -230,6 +231,27 @@ export function cleanDevice(raw: Record<string, unknown>): DeviceConfig {
     out[key] = value;
   }
   return out as unknown as DeviceConfig;
+}
+
+/**
+ * A stored scale belongs to the datapoint it was set for. When an edit binds
+ * another datapoint and leaves the scale as it was, the scale goes back to
+ * "automatic" and the next start settles it from the new datapoint — the old one
+ * read and wrote every value of the new source wrong (audit R-23). A scale the
+ * user picks in the same step stays.
+ *
+ * @param before The stored entry.
+ * @param after The cleaned form result.
+ * @returns `after` without the scales that no longer belong to their datapoint.
+ */
+export function resetReboundScales(before: DeviceConfig, after: DeviceConfig): DeviceConfig {
+  const out = { ...after };
+  for (const { state, scale } of SCALE_FIELDS) {
+    if (after[state] !== before[state] && after[scale] !== undefined && after[scale] === before[scale]) {
+      delete out[scale];
+    }
+  }
+  return out;
 }
 
 /**
@@ -501,7 +523,7 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     if (data && typeof data.name === "string" && data.name) {
       // The number is the light's identity for every paired client — it stays
       // with the entry, whatever the form sent back.
-      devices[index] = { ...cleanDevice(data), id: current.id };
+      devices[index] = resetReboundScales(current, { ...cleanDevice(data), id: current.id });
       await this.writeDevices(devices, store);
       this.adapter.log.info(
         `Light ${HueEmuDeviceManagement.cardId(current, index)} "${oneLine(devices[index].name)}" saved`,

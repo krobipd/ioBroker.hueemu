@@ -378,6 +378,54 @@ describe("HueEmuDeviceManagement", () => {
       ]);
     });
 
+    // Audit R-23: a stored scale belongs to the datapoint it was taken from. A light
+    // rebound to another datapoint kept the old scale (percent on a 0..255 source)
+    // and from then on read and wrote every value wrong.
+    it("resets the scale to automatic when the datapoint changes and the scale was left as it was", async () => {
+      const adapter = make([
+        { id: 5, name: "L", lightType: "dimmable", onState: "a.on", briState: "a.level", briScale: "percent" },
+      ]);
+      await internalOf(dm).editDevice(
+        "5",
+        mockContext({
+          form: { name: "L", lightType: "dimmable", onState: "a.on", briState: "b.level", briScale: "percent" },
+        }),
+      );
+      expect(adapter._stored()[0]).toEqual({
+        id: 5,
+        name: "L",
+        lightType: "dimmable",
+        onState: "a.on",
+        briState: "b.level",
+      });
+    });
+
+    it("keeps a scale chosen in the same step as the new datapoint", async () => {
+      const adapter = make([
+        { id: 5, name: "L", lightType: "dimmable", onState: "a.on", briState: "a.level", briScale: "percent" },
+      ]);
+      await internalOf(dm).editDevice(
+        "5",
+        mockContext({
+          form: { name: "L", lightType: "dimmable", onState: "a.on", briState: "b.level", briScale: "byte" },
+        }),
+      );
+      expect(adapter._stored()[0].briScale).toBe("byte");
+    });
+
+    it("keeps the scale of a datapoint that stays bound", async () => {
+      const adapter = make([
+        { id: 5, name: "L", lightType: "dimmable", onState: "a.on", briState: "a.level", briScale: "percent" },
+      ]);
+      await internalOf(dm).editDevice(
+        "5",
+        mockContext({
+          form: { name: "L2", lightType: "dimmable", onState: "a.on", briState: "a.level", briScale: "percent" },
+        }),
+      );
+      expect(adapter._stored()[0].briScale).toBe("percent");
+    });
+
     it("keeps the number even when the form sends a different one", async () => {
       const adapter = make([{ id: 5, name: "Old", lightType: "onoff", onState: "a.on" }]);
       const ctx = mockContext({ form: { id: 99, name: "Renamed", lightType: "onoff", onState: "a.on" } });
@@ -609,6 +657,21 @@ describe("HueEmuDeviceManagement", () => {
       const adapter = make([{ id: 7, name: "Old", lightType: "onoff", onState: "x.on" }], objs);
       await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true, sel_1: true } }));
       expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([7, 8, 9]);
+    });
+
+    // Audit R-23 / decision 20: the scale is settled at start from the bound datapoint,
+    // not frozen into the configuration — a light the search adds stays "automatic".
+    it("stores no scale for a light the search adds", async () => {
+      const objs = channel("lampe.0.dim", [
+        ["on", "switch.light", "boolean"],
+        ["bri", "level.dimmer"],
+      ]);
+      (objs["lampe.0.dim.bri"].common as ioBroker.StateCommon).min = 0;
+      (objs["lampe.0.dim.bri"].common as ioBroker.StateCommon).max = 100;
+      const adapter = make([], objs);
+      await internalOf(dm).searchDevices(mockContext({ form: { sel_0: true } }));
+      expect(adapter._stored()[0]).toMatchObject({ briState: "lampe.0.dim.bri" });
+      expect(adapter._stored()[0].briScale).toBeUndefined();
     });
 
     it("reports every light the search added on info", async () => {

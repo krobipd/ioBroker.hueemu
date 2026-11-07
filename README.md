@@ -88,7 +88,7 @@ Open the **Devices** tab. There are two ways to add lights:
 
 **Automatically** — click **Search lights**. The adapter scans your objects for things that look like lights (on/off, dimmers, color-temperature and color lights) and shows the mappable ones as a checklist — tick the ones you want and only those are added. Whatever it finds but cannot map is counted in the result message, so nothing disappears without a word.
 
-The assistant also fills in the value scale wherever the source state declares one: a hue that runs 0–360 is read as degrees, a brightness with `%` or a 0–100 range as percent. Where a source declares neither a unit nor a range, the scale field is left empty and the adapter's default applies — check it on the light's card if a color or brightness looks off, and set it by hand.
+A light the assistant adds keeps its value scales on "Automatic": at every start the adapter reads them from the bound state — a hue that runs 0–360 as degrees, a brightness with `%` or a 0–100 range as percent. Where a state declares neither a unit nor a range, the adapter's default applies — check it on the light's card if a color or brightness looks off, and set it by hand.
 
 Each light shows as a card — use **Edit** to change its mapping or **Delete** to remove it.
 

@@ -12,9 +12,10 @@
  *
  * v1.15.0 — three defects the 2026-09-03 audit proved on real objects:
  *   1. The suggestion carried NO value scale, so a source in degrees/percent was
- *      read and written as if it were Hue-native. See {@link deriveScales}.
- *      (v1.17.0: the derivation itself moved to `lib/hue-scales.ts`, where the
- *      runtime uses it too — a scan is not the only thing that needs it.)
+ *      read and written as if it were Hue-native. Since v1.18.0 the runtime
+ *      settles every open scale at start from the bound datapoint (decision 20),
+ *      so the suggestion stores none — a scale frozen into the configuration
+ *      outlived a rebind to another datapoint (audit R-23).
  *   2. The on/off fallback accepted `ON_ACTUAL`, which every detector light
  *      pattern defines as `write: false` — a status mirror, not a switch. Every
  *      candidate is now checked for writability on the real object.
@@ -26,7 +27,7 @@
 
 import ChannelDetector, { Types } from "@iobroker/type-detector";
 import type { DeviceConfig } from "../hue-api";
-import { deriveCtScale, deriveHueScale, deriveLevelScale, stateFactsOf, type StateLookup } from "./hue-scales";
+import { stateFactsOf, type StateLookup } from "./hue-scales";
 
 /** Minimal shape of a detected state — only the fields the mapping consumes. */
 interface DetectedState {
@@ -76,27 +77,6 @@ function statesByName(states: DetectedState[]): Map<string, string> {
     }
   }
   return map;
-}
-
-/**
- * Attach every scale we can prove to a suggestion. Fields with no evidence are
- * left absent so the adapter keeps its documented defaults.
- *
- * @param device The suggestion built from the detected state ids.
- * @param lookup Resolves a state id to its facts.
- */
-function deriveScales(device: DeviceConfig, lookup: StateLookup): DeviceConfig {
-  const briScale = device.briState ? deriveLevelScale(lookup(device.briState)) : undefined;
-  const satScale = device.satState ? deriveLevelScale(lookup(device.satState)) : undefined;
-  const hueScale = device.hueState ? deriveHueScale(lookup(device.hueState)) : undefined;
-  const ctScale = device.ctState ? deriveCtScale(lookup(device.ctState)) : undefined;
-  return {
-    ...device,
-    ...(briScale ? { briScale } : {}),
-    ...(satScale ? { satScale } : {}),
-    ...(hueScale ? { hueScale } : {}),
-    ...(ctScale ? { ctScale } : {}),
-  };
 }
 
 /** The result of mapping one detected control. */
@@ -155,9 +135,7 @@ export function mapControlToDevice(
    * @param device The suggestion to return when the control is drivable.
    */
   const ifDrivable = (device: DeviceConfig): MapOutcome =>
-    device.onState || device.briState
-      ? { kind: "device", device: deriveScales(device, lookup) }
-      : { kind: "unmapped", reason: "noWritableTarget" };
+    device.onState || device.briState ? { kind: "device", device } : { kind: "unmapped", reason: "noWritableTarget" };
 
   switch (type) {
     case Types.light: {
