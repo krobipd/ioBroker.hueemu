@@ -5,6 +5,7 @@
 import { HueApiError, HueErrorType } from "../types/errors";
 import { DeviceBindingService, type DeviceConfig } from "./device-binding-service";
 import { applyIncrement } from "../lib/hue-scales";
+import LIGHT_MODELS from "../lib/light-models.json";
 import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
 import type { LightStateUpdate } from "../types/light";
@@ -179,6 +180,17 @@ describe("DeviceBindingService", () => {
         expect(light.modelid).toBe("LCT003");
         expect(light.type).toBe("Extended color light");
       });
+
+      // The catalog the release holds against diyHue's model list (device-sources.json, gate A15) is the table the
+      // bridge answers with: every line names the model id of its light type.
+      it.each(Object.entries(LIGHT_MODELS.models))(
+        "answers as %s for the light type %s (src/lib/light-models.json)",
+        async (model, lightType) => {
+          const { service } = createService([{ name: "Catalog", lightType: lightType as DeviceConfig["lightType"] }]);
+          const light = await service.getLightById("1");
+          expect(light.modelid).toBe(model);
+        },
+      );
     });
 
     describe("light metadata", () => {
