@@ -1,0 +1,27 @@
+{
+  "_comment": "Gate A15: every model diyHue's bridge emulator knows is either one hueemu answers with (the catalog) or excluded with its reason. diyHue is the open reference implementation of the Hue bridge API; a new model there is the moment to check whether a client needs another model id.",
+  "catalog": "src/lib/light-models.json",
+  "catalogKey": "models",
+  "pattern": "lightTypes\\[\"([^\"\\]]+)\"\\] =",
+  "sources": [
+    {
+      "name": "diyHue light_types.py",
+      "url": "https://raw.githubusercontent.com/diyhue/diyHue/master/BridgeEmulator/lights/light_types.py"
+    }
+  ],
+  "excluded": {
+    "915005987201": "Hue Signe gradient floor lamp — a gradient product; hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json), a colour light answers as LCT003",
+    "LCA005": "Hue White and Color Ambiance A19 — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003",
+    "LCG001": "Hue White and Color Ambiance GU10 spot — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003",
+    "LCT001": "Hue colour bulb, first generation — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003",
+    "LCT015": "Hue colour bulb A19 — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003",
+    "LCX002": "Hue Play gradient TV lightstrip — a gradient product; hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json), a colour light answers as LCT003",
+    "LCX004": "Hue gradient lightstrip — a gradient product; hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json), a colour light answers as LCT003",
+    "LCX006": "Hue Play lightstrip — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003",
+    "LLC010": "Hue Iris (Living Colors, 'Color Gamut light' type) — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003",
+    "LOM001": "Hue Smart plug ('On/Off plug-in unit') — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); an on/off light answers as LWB007 because Harmony does not know an on/off device (design decision 5)",
+    "LOM004": "Hue Smart plug ('On/Off plug-in unit') — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); an on/off light answers as LWB007 because Harmony does not know an on/off device (design decision 5)",
+    "LOM010": "Hue Smart plug ('On/Off plug-in unit') — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); an on/off light answers as LWB007 because Harmony does not know an on/off device (design decision 5)",
+    "LST002": "Hue Lightstrip Plus ('Color light' type) — hueemu offers four light types, each answering with one fixed model (src/lib/light-models.json); a colour light answers as LCT003"
+  }
+}

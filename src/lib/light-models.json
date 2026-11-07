@@ -1,0 +1,9 @@
+{
+  "_comment": "The Hue model each light type answers with — the one source: device-binding-service.ts reads it, and the release holds it against diyHue's model list (device-sources.json, gate A15). onoff answers as the dimmable LWB007 because Harmony does not know an on/off light (design decision 5).",
+  "models": {
+    "LWB007": "onoff",
+    "LWB010": "dimmable",
+    "LTW001": "ct",
+    "LCT003": "color"
+  }
+}

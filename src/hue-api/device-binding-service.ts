@@ -41,6 +41,15 @@ import {
   type HueStateKey,
   SCALE_FIELDS,
 } from "../lib/hue-scales";
+import LIGHT_MODELS from "../lib/light-models.json";
+
+/**
+ * The Hue model each light type answers with, read from the catalog the release holds
+ * against diyHue's model list (device-sources.json, gate A15) — one source for both.
+ */
+const MODEL_OF_TYPE = Object.fromEntries(
+  Object.entries(LIGHT_MODELS.models).map(([model, lightType]) => [lightType, model]),
+) as Record<"onoff" | "dimmable" | "ct" | "color", string>;
 
 /**
  * Light type definitions matching the admin UI
@@ -50,25 +59,25 @@ const LIGHT_TYPES = {
     name: "Dimmable light",
     type: "Dimmable light" as const,
     states: ["on", "bri"] satisfies HueStateKey[],
-    modelid: "LWB007",
+    modelid: MODEL_OF_TYPE.onoff,
   },
   dimmable: {
     name: "Dimmable light",
     type: "Dimmable light" as const,
     states: ["on", "bri"] satisfies HueStateKey[],
-    modelid: "LWB010",
+    modelid: MODEL_OF_TYPE.dimmable,
   },
   ct: {
     name: "Color Temperature Light",
     type: "Color temperature light" as const,
     states: ["on", "bri", "ct"] satisfies HueStateKey[],
-    modelid: "LTW001",
+    modelid: MODEL_OF_TYPE.ct,
   },
   color: {
     name: "Extended Color Light",
     type: "Extended color light" as const,
     states: ["on", "bri", "hue", "sat", "ct", "xy"] satisfies HueStateKey[],
-    modelid: "LCT003",
+    modelid: MODEL_OF_TYPE.color,
   },
 };
 

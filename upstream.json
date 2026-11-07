@@ -1,0 +1,11 @@
+{
+  "_comment": "Gate A12: diyHue is the open, versioned reference implementation of the Hue bridge API v1 that hueemu emulates. Compared at 2022.8 (2026-11-07): pairing (POST /api with link button, error 101, generateclientkey), the short config (GET /api/config fields) and the light shape (type strings, state keys, uniqueid form, manufacturer) agree. Deliberate differences: no capabilities (design decision 6), no light config block, ct is reported for LTW001 (diyHue 2022.8 leaves it out), own swversion.",
+  "source": "github:diyhue/diyHue",
+  "verified": "2022.8",
+  "watch": [
+    "BridgeEmulator/flaskUI/restful.py",
+    "BridgeEmulator/HueObjects/",
+    "BridgeEmulator/lights/light_types.py",
+    "BridgeEmulator/flaskUI/templates/description.xml"
+  ]
+}
