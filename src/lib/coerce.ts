@@ -32,6 +32,15 @@ export function coerceFiniteNumber(v: unknown): number | null {
 }
 
 /**
+ * The words a text switch uses for "on" and for "off", lower case. ONE list for
+ * both directions: reading a state (`coerceBool`) and choosing the key a boolean
+ * becomes in a text switch (`fitToTarget`) — two lists drifted apart and read
+ * the "EIN" hueemu had written as off (audit R-01).
+ */
+export const ON_WORDS: ReadonlySet<string> = new Set(["on", "true", "1", "yes", "an", "ein"]);
+export const OFF_WORDS: ReadonlySet<string> = new Set(["off", "false", "0", "no", "aus"]);
+
+/**
  * Coerce arbitrary values to a strict boolean.
  *
  * @param v - Value to coerce to boolean
@@ -44,8 +53,7 @@ export function coerceBool(v: unknown): boolean {
     return v !== 0;
   }
   if (typeof v === "string") {
-    const t = v.trim().toLowerCase();
-    return t === "true" || t === "1" || t === "yes" || t === "on";
+    return ON_WORDS.has(v.trim().toLowerCase());
   }
   return false;
 }

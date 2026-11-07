@@ -75,6 +75,13 @@ describe("coerceBool", () => {
     expect(coerceBool("on")).toBe(true);
   });
 
+  it("reads the German on words a text switch carries as on (audit R-01)", () => {
+    expect(coerceBool("EIN")).toBe(true);
+    expect(coerceBool("ein")).toBe(true);
+    expect(coerceBool("an")).toBe(true);
+    expect(coerceBool("AUS")).toBe(false);
+  });
+
   it("treats false/0/empty/other strings as false (disableAuth must not flip on a stored string)", () => {
     expect(coerceBool("false")).toBe(false);
     expect(coerceBool("0")).toBe(false);

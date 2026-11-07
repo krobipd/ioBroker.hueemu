@@ -14,7 +14,7 @@
  */
 
 import type { Logger } from "../types/config";
-import { coerceBool, coerceFiniteNumber } from "./coerce";
+import { OFF_WORDS, ON_WORDS, coerceBool, coerceFiniteNumber } from "./coerce";
 
 /* -------------------------------------------------------------------------- */
 /* Hue API ranges (per Philips Hue API specification)                          */
@@ -154,10 +154,6 @@ export function stateFactsOf(obj: ioBroker.Object | null | undefined): StateFact
   };
 }
 
-/** Tokens a text switch uses for "on" and for "off" — compared case-insensitively. */
-const ON_TOKENS: ReadonlySet<string> = new Set(["on", "true", "1", "yes", "an", "ein"]);
-const OFF_TOKENS: ReadonlySet<string> = new Set(["off", "false", "0", "no", "aus"]);
-
 /**
  * Shape a value the way the target datapoint declares it before it is written —
  * v1.19.0 (audit 2026-09-25 H9, krobi's decision E8). js-controller does not correct
@@ -193,7 +189,7 @@ export function fitToTarget(value: unknown, facts: StateFacts | undefined): { wr
     return { write: true, value: v };
   }
   if (typeof value === "boolean" && facts.type === "string" && facts.states) {
-    const tokens = value ? ON_TOKENS : OFF_TOKENS;
+    const tokens = value ? ON_WORDS : OFF_WORDS;
     const key = Object.keys(facts.states).find(k => tokens.has(k.trim().toLowerCase()));
     if (key !== undefined) {
       return { write: true, value: key };
@@ -697,7 +693,7 @@ export function convertValueFromState(
 
   switch (stateName) {
     case "on":
-      // v1.10.0 (M1): shared boundary bool coercion (allowlist true/1/yes/on,
+      // v1.10.0 (M1): shared boundary bool coercion (allowlist ON_WORDS,
       // case-insensitive) — the same helper main.ts uses for disableAuth. Reads
       // "off"/"no"/"disabled"/"FALSE" as off, unlike the old "false"/"0"/""
       // blocklist (which let every other string, incl. "off", read as ON) or a

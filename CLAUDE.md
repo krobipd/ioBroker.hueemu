@@ -98,7 +98,7 @@ _Je Nummer der Regel-Satz; Beleg, Messung und Verlauf wörtlich in `.claude/dev-
 
 - **bri**: 0-100% → 1-254, **sat**: 0-100% → 0-254 (je `briScale`/`satScale`; weitere Skalen `normalized` 0..1, `raw` 1..254, `byte` 0..255)
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500, Kelvin oder Prozent 0..100 linear über 153..500, 0 = kalt (`ctScale`, I2; `percent` v1.19.0), **xy**: Array oder CSV → [x,y]
-- **on**: via shared `coerceBool` (Allowlist `true/1/yes/on`, case-insensitiv; `"off"`/`"no"`/`"false"`/`""` → aus) (v1.10.0 M1)
+- **on**: via shared `coerceBool` (Allowlist `ON_WORDS` in `lib/coerce.ts` — `on/true/1/yes/an/ein`, case-insensitiv; alles andere → aus); dieselbe Liste mit `OFF_WORDS` wählt beim Schreiben den Schlüssel eines Text-Schalters (Audit R-01)
 
 ## Tests (898 vitest inkl. Repo-Standard-Prüfungen + 61 Package-Tests + 1 Integration + Objekt-Inventar; Stand 2026-09-25)
 

@@ -339,6 +339,26 @@ describe("fitToTarget", () => {
     expect(fitToTarget(false, words)).toEqual({ write: true, value: "aus" });
   });
 
+  // Audit R-01: the write path picked "EIN" for on while the read path read the same
+  // key back as off — one word list for both directions.
+  it("reads back every on/off key it writes into a text switch as the same switch state", () => {
+    const pairs: Record<string, string>[] = [
+      { ON: "On", OFF: "Off" },
+      { EIN: "Ein", AUS: "Aus" },
+      { an: "An", aus: "Aus" },
+      { true: "Wahr", false: "Falsch" },
+      { yes: "Ja", no: "Nein" },
+    ];
+    for (const states of pairs) {
+      const facts: StateFacts = { writable: true, type: "string", states };
+      for (const on of [true, false]) {
+        const written = fitToTarget(on, facts).value;
+        expect(typeof written).toBe("string");
+        expect(convertValueFromState("on", written, undefined, logger)).toBe(on);
+      }
+    }
+  });
+
   it("invents no text: a string target without an on/off pair keeps the boolean", () => {
     expect(fitToTarget(true, { writable: true, type: "string" })).toEqual({ write: true, value: true });
     expect(fitToTarget(true, { writable: true, type: "string", states: { a: "A" } })).toEqual({
