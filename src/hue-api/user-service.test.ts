@@ -164,7 +164,7 @@ describe("UserService", () => {
       adapter.setObjectShouldFail = true;
       await expect(service.addUser("ghost", "Echo")).rejects.toThrow();
       expect(await service.isUserAuthenticated("ghost")).toBe(false);
-      expect(service.listCachedClientIds()).not.toContain("ghost");
+      expect(service.listPairedClients().map(c => c.key)).not.toContain("ghost");
     });
 
     it("keeps a stored client paired and warns when only its state write fails", async () => {
@@ -248,7 +248,7 @@ describe("UserService", () => {
       const { service } = createService([{ id: "living_room", username: "living.room" }]);
       expect(await service.isUserAuthenticated("living.room")).toBe(true);
       expect(await service.isUserAuthenticated("living_room")).toBe(false);
-      expect(service.listCachedClientIds()).toEqual(["living.room"]);
+      expect(service.listPairedClients().map(c => c.key)).toEqual(["living.room"]);
     });
 
     it("falls back to the object id for a client stored before the key was kept", async () => {
@@ -473,15 +473,15 @@ describe("UserService", () => {
       // No prior auth check — the cache is still lazy/null at this point
       await service.addUser("first-op-client", "browser");
       // The new client is listed immediately, not only after the next auth check
-      expect(service.listCachedClientIds()).toContain("first-op-client");
+      expect(service.listPairedClients().map(c => c.key)).toContain("first-op-client");
     });
 
-    it("listCachedClientIds returns sanitized ids currently in the cache", async () => {
+    it("lists the paired keys once the cache is loaded, none before", async () => {
       const { service } = createService(["alexa-1", "harmony-2"]);
       // Empty before first auth call (cache is lazy)
-      expect(service.listCachedClientIds()).toEqual([]);
+      expect(service.listPairedClients()).toEqual([]);
       await service.isUserAuthenticated("alexa-1");
-      const ids = service.listCachedClientIds();
+      const ids = service.listPairedClients().map(c => c.key);
       expect(ids).toEqual(expect.arrayContaining(["alexa-1", "harmony-2"]));
     });
   });
@@ -719,7 +719,7 @@ describe("UserService.forgetClient", () => {
   it("revokes the real key behind a sanitized object id (decision 22)", async () => {
     const { service } = createService([{ id: "living_room", username: "living.room" }]);
     expect(await service.isUserAuthenticated("living.room")).toBe(true);
-    expect(service.forgetClient("living_room")).toBe(true);
+    service.forgetClient("living_room");
     expect(await service.isUserAuthenticated("living.room")).toBe(false);
     expect(service.listPairedClients()).toEqual([]);
   });
@@ -727,7 +727,7 @@ describe("UserService.forgetClient", () => {
   it("revokes nothing for an id nobody paired", async () => {
     const { service } = createService(["a"]);
     await service.isUserAuthenticated("a");
-    expect(service.forgetClient("b")).toBe(false);
+    service.forgetClient("b");
     expect(await service.isUserAuthenticated("a")).toBe(true);
   });
 });

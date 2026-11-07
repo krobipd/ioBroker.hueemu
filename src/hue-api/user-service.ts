@@ -344,16 +344,6 @@ export class UserService {
   }
 
   /**
-   * Returns the paired client keys currently in the cache — empty until the
-   * first auth check populates it. Synchronous on purpose so the whitelist
-   * render-path (config-service) needn't become async. Since v1.17.0 these are
-   * the real keys, which is also what a Hue whitelist is supposed to list.
-   */
-  public listCachedClientIds(): readonly string[] {
-    return this.clientKeysCache ? [...this.clientKeysCache] : [];
-  }
-
-  /**
    * Revoke a paired client whose object was deleted — v1.19.0 (audit 2026-09-25 H12):
    * the cache used to keep the key until the next adapter start, so deleting a client
    * in the admin did not lock it out. The event carries the SANITIZED object id; the
@@ -361,9 +351,8 @@ export class UserService {
    * `living_room` nobody paired).
    *
    * @param objectSuffix The part of the object id after `clients.`
-   * @returns whether a paired key was removed
    */
-  public forgetClient(objectSuffix: string): boolean {
+  public forgetClient(objectSuffix: string): void {
     const key = this.idOwners.get(objectSuffix) ?? objectSuffix;
     this.idOwners.delete(objectSuffix);
     this.clientInfo.delete(key);
@@ -371,7 +360,6 @@ export class UserService {
     if (removed) {
       this.logger.info(`Client "${oneLine(key)}" removed — it has no access any more`);
     }
-    return removed;
   }
 
   /**
@@ -379,7 +367,9 @@ export class UserService {
    * last-use time (ms). Empty until the first auth check has loaded the cache.
    */
   public listPairedClients(): readonly (PairedClient & { key: string })[] {
-    return this.listCachedClientIds().map(key => {
+    // Synchronous on purpose so the whitelist render path (config-service) needn't
+    // become async — empty until the first auth check has loaded the cache.
+    return [...(this.clientKeysCache ?? [])].map(key => {
       const info = this.clientInfo.get(key);
       return { key, name: info?.name ?? key, created: info?.created ?? 0, lastUse: info?.lastUse ?? 0 };
     });
