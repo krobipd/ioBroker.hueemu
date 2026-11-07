@@ -3,7 +3,8 @@
  */
 
 import { HueApiError, HueErrorType } from "../types/errors";
-import { applyIncrement, DeviceBindingService, type DeviceConfig } from "./device-binding-service";
+import { DeviceBindingService, type DeviceConfig } from "./device-binding-service";
+import { applyIncrement } from "../lib/hue-scales";
 import { createMockDeviceBindingAdapter, createMockLogger } from "../../test/test-helpers";
 import type { Logger } from "../types/config";
 import type { LightStateUpdate } from "../types/light";

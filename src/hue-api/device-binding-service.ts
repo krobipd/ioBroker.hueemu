@@ -37,14 +37,8 @@ import {
   stateFactsOf,
   fitToTarget,
   type StateFacts,
-  type CtScale,
-  type HueScale,
-  type LightStateScale,
   type ScaledDevice,
 } from "../lib/hue-scales";
-
-export type { LightStateScale, HueScale, CtScale };
-export { applyIncrement };
 
 /**
  * Light type definitions matching the admin UI

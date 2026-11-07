@@ -1,16 +1,6 @@
 /**
- * Hue API module exports
+ * Hue API module exports — only what the rest of the adapter imports from here.
  */
 
-export { ApiHandler, type ApiHandlerConfig, type ApiHandlerAdapter } from "./api-handler";
-export { UserService, type UserServiceConfig, type UserServiceAdapter } from "./user-service";
-export { ConfigService, type ConfigServiceConfig } from "./config-service";
-export {
-  DeviceBindingService,
-  type DeviceBindingServiceConfig,
-  type DeviceConfig,
-  type DeviceBindingAdapter,
-  type LightStateScale,
-  type HueScale,
-  type CtScale,
-} from "./device-binding-service";
+export { ApiHandler } from "./api-handler";
+export type { DeviceConfig } from "./device-binding-service";

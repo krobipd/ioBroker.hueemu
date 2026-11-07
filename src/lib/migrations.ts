@@ -130,10 +130,10 @@ export interface LegacyDeviceMigrationAdapter {
 
 /**
  * Migrate legacy devices (created via the old `createLight` JSON) into the admin
- * DeviceConfig format. Pure helper — like {@link runInstanceObjectMigration} and
- * {@link runObsoleteStateCleanup} — so it is unit-testable without standing up the
- * full adapter lifecycle. Returns `true` when a migration was written; the caller
- * then lets the resulting native write restart the instance.
+ * DeviceConfig format. Pure helper — like {@link runObsoleteStateCleanup} — so it
+ * is unit-testable without standing up the full adapter lifecycle. Returns `true`
+ * when a migration was written; the caller then lets the resulting native write
+ * restart the instance.
  *
  * @param adapter Minimal adapter surface (see {@link LegacyDeviceMigrationAdapter}).
  * @returns true if a migration was performed (adapter will restart with the new config)
