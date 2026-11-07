@@ -803,7 +803,13 @@ class HueEmu extends utils.Adapter {
           native: obj.native || {},
         });
         if (state?.val !== undefined && state?.val !== null) {
-          await this.setState(newId, { val: state.val, ack: true });
+          // The state's last change is the client's pairing time (audit R-07) —
+          // handed over, or every moved client would show the move as its pairing.
+          await this.setState(newId, {
+            val: state.val,
+            ack: true,
+            ...(typeof state.lc === "number" ? { lc: state.lc } : {}),
+          });
         }
         moved.set(row.id, `${this.namespace}.${newId}`);
         this.log.debug(`Migrated client ${username}: user → clients`);

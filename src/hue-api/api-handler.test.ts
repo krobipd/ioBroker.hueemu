@@ -56,6 +56,7 @@ function createMockAdapter(
       }
       return Promise.resolve({ id });
     },
+    getStatesAsync: () => Promise.resolve({}),
     getStatesOfAsync: () => {
       return Promise.resolve(
         Array.from(clients).map(

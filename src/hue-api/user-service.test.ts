@@ -18,6 +18,7 @@ import {
 import { createMockLogger } from "../../test/test-helpers";
 
 interface MockUserAdapter extends UserServiceAdapter {
+  stateValues: Record<string, ioBroker.State>;
   writtenObjects: Map<string, ioBroker.SettableObject>;
   writtenStates: Map<string, ioBroker.SettableState>;
   stateObjects: ioBroker.StateObject[];
@@ -82,6 +83,8 @@ function createMockAdapter(existingClients: ExistingClient[] = []): MockUserAdap
       }
       return Promise.resolve(stateObjects);
     },
+    stateValues: {},
+    getStatesAsync: () => Promise.resolve(structuredClone(adapter.stateValues)),
   };
 
   return adapter;
@@ -638,28 +641,67 @@ describe("UserService.listPairedClients", () => {
     expect(service.listPairedClients()[0].created).toBe(1_700_000_000_000);
   });
 
-  it("reads name and pairing time (the object's own time) back from stored clients", async () => {
+  // Audit R-07: the object's own time moves with every object write (a name
+  // refresh, a rename in the admin — js-controller sets `ts` on extendObject),
+  // so it is no pairing time. The client state's `lc` is: its value is the key,
+  // written at pairing and never changed, and `lc` moves only when the value does.
+  it("reads the pairing time from the client state's last change, not the object's time", async () => {
     const { service, adapter } = createService();
     adapter.stateObjects.push(
       {
         _id: "hueemu.0.clients.new",
         type: "state",
-        ts: 1_700_000_000_000,
+        ts: 1_900_000_000_000, // renewed by a later object write
         common: { name: { en: "harmony#hub", de: "harmony#hub" } },
         native: { username: "new" },
       } as unknown as ioBroker.StateObject,
       {
         _id: "hueemu.0.clients.old",
         type: "state",
-        ts: 1_600_000_000_000,
+        ts: 1_900_000_000_000,
         common: { name: "Echo" },
         native: { username: "old" },
       } as unknown as ioBroker.StateObject,
     );
+    adapter.stateValues["hueemu.0.clients.new"] = {
+      val: "new",
+      ack: true,
+      ts: 1_800_000_000_000,
+      lc: 1_700_000_000_000,
+      from: "system.adapter.hueemu.0",
+      q: 0,
+    };
+    adapter.stateValues["hueemu.0.clients.old"] = {
+      val: "old",
+      ack: true,
+      ts: 1_800_000_000_000,
+      lc: 1_600_000_000_000,
+      from: "system.adapter.hueemu.0",
+      q: 0,
+    };
     await service.isUserAuthenticated("nobody");
     const byKey = new Map(service.listPairedClients().map(c => [c.key, c]));
     expect(byKey.get("new")).toMatchObject({ name: "harmony#hub", created: 1_700_000_000_000 });
     expect(byKey.get("old")).toMatchObject({ name: "Echo", created: 1_600_000_000_000 });
+  });
+
+  it("falls back to the object's time for a client without a state value", async () => {
+    const { service, adapter } = createService();
+    adapter.stateObjects.push({
+      _id: "hueemu.0.clients.bare",
+      type: "state",
+      ts: 1_650_000_000_000,
+      common: { name: "Echo" },
+      native: { username: "bare" },
+    } as unknown as ioBroker.StateObject);
+    await service.isUserAuthenticated("nobody");
+    expect(service.listPairedClients()[0]).toMatchObject({ key: "bare", created: 1_650_000_000_000 });
+  });
+
+  it("still authenticates every stored client when the state values cannot be read", async () => {
+    const { service, adapter } = createService([{ id: "k", username: "k" }]);
+    adapter.getStatesAsync = () => Promise.reject(new Error("states db down"));
+    expect(await service.isUserAuthenticated("k")).toBe(true);
   });
 
   it("moves the last-use time on every successful authentication", async () => {

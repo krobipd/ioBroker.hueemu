@@ -32,6 +32,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public getObjectListAsync = vi.fn(() => Promise.resolve({ rows: [] }));
     public getDevicesAsync = vi.fn(() => Promise.resolve([]));
     public getStatesOfAsync = vi.fn(() => Promise.resolve([]));
+    public getStatesAsync = vi.fn(() => Promise.resolve({}));
     public extendForeignObjectAsync = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
     public getForeignObjectsAsync = vi.fn((): Promise<unknown> => Promise.resolve({}));
@@ -1255,6 +1256,27 @@ describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
     expect(i.setState).toHaveBeenCalledWith("clients.alexa_echo", { val: "alexa.echo", ack: true });
     expect(i.delObjectAsync).toHaveBeenCalledWith("user.alexa.echo");
     expect(i.delObjectAsync).toHaveBeenCalledWith("user");
+  });
+
+  // Audit R-07: the pairing time is the client state's `lc` — the move hands the
+  // old one over, or every migrated client would show the migration as its pairing.
+  it("carries the pairing time (the old state's last change) to the moved client", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
+    i.getObjectListAsync.mockResolvedValue({
+      rows: [
+        {
+          id: "hueemu.0.user.echo",
+          value: { common: { name: "Echo", type: "string", role: "text", read: true, write: false }, native: {} },
+        },
+      ],
+    });
+    i.getStateAsync.mockResolvedValue({ val: "echo", ack: true, ts: 1_800_000_000_000, lc: 1_600_000_000_000 });
+
+    await i.migrateUserToClients();
+
+    expect(i.setState).toHaveBeenCalledWith("clients.echo", { val: "echo", ack: true, lc: 1_600_000_000_000 });
   });
 
   // v1.19.0: the move carries the client's room and function assignments — read

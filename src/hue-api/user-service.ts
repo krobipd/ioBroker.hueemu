@@ -22,6 +22,8 @@ export interface UserServiceAdapter {
   setState(id: string, state: ioBroker.SettableState): Promise<unknown>;
   /** Get all state objects under a parent */
   getStatesOfAsync(parentDevice?: string, parentChannel?: string): Promise<ioBroker.StateObject[]>;
+  /** Get the state values matching a pattern, keyed by full id */
+  getStatesAsync(pattern: string): Promise<Record<string, ioBroker.State>>;
 }
 
 /**
@@ -440,6 +442,19 @@ export class UserService {
   }
 
   /**
+   * The client state values, for their pairing time. A failed read costs only the
+   * dates — authentication never depends on it.
+   */
+  private async readClientValues(): Promise<Record<string, ioBroker.State | null | undefined>> {
+    try {
+      return (await this.adapter.getStatesAsync("clients.*")) ?? {};
+    } catch (err) {
+      this.logger.debug(`Could not read the client states for their pairing time: ${errText(err)}`);
+      return {};
+    }
+  }
+
+  /**
    * Read the paired clients from the broker into the cache.
    */
   private async loadCache(): Promise<Set<string>> {
@@ -448,6 +463,7 @@ export class UserService {
     const info = new Map<string, PairedClient>();
     try {
       const stateObjects = (await this.adapter.getStatesOfAsync("clients", undefined)) || [];
+      const values = await this.readClientValues();
       const offset = this.adapter.namespace.length + 1 + "clients.".length;
       for (const state of stateObjects) {
         const id = state._id.substring(offset);
@@ -458,10 +474,14 @@ export class UserService {
         const key = typeof stored === "string" && stored ? stored : id;
         cache.add(key);
         owners.set(id, key);
-        // A client object is written once (setObjectNotExists) — its own time is the
-        // pairing time. Nothing extra is stored: a timestamp in the tree would make
-        // every object inventory differ.
-        const created = typeof state.ts === "number" ? state.ts : Date.now();
+        // The pairing time is the client state's last change: its value is the key,
+        // written at pairing and never changed, and js-controller moves `lc` only
+        // when the value changes (db-states-redis 7.2.5 statesInRedisClient). The
+        // object's own `ts` moves with every object write — a name refresh, a rename
+        // in the admin — and is only the fallback (audit R-07). Nothing extra is
+        // stored: a timestamp in the tree would make every object inventory differ.
+        const lc = values[state._id]?.lc;
+        const created = typeof lc === "number" ? lc : typeof state.ts === "number" ? state.ts : Date.now();
         info.set(key, { name: clientDisplayName(state.common?.name, key), created, lastUse: created });
       }
     } catch (err) {
