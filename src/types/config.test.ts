@@ -122,11 +122,6 @@ describe("Config utilities", () => {
       expect(detectPrimaryIPv4()).toBe("");
     });
 
-    it("accepts the numeric family value modern Node reports", () => {
-      osMock.interfaces = { eth0: [{ family: 4, address: "10.0.0.5", internal: false }] };
-      expect(detectPrimaryIPv4()).toBe("10.0.0.5");
-    });
-
     it("returns an empty string or a dotted-quad IPv4 (best-effort host IP)", () => {
       const ip = detectPrimaryIPv4();
       expect(ip === "" || /^(\d{1,3}\.){3}\d{1,3}$/.test(ip)).toBe(true);
@@ -166,7 +161,7 @@ describe("Config utilities", () => {
       osMock.interfaces = {
         lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
         eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
-        docker0: [{ family: 4, address: "172.17.0.1", internal: false }],
+        docker0: [{ family: "IPv4", address: "172.17.0.1", internal: false }],
       };
       expect(listIPv4Addresses()).toEqual([
         { iface: "eth0", address: "192.168.1.20", virtual: false },

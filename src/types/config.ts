@@ -137,18 +137,16 @@ export interface IPv4Address {
  * Every non-internal IPv4 address of the host, in the order the OS reports them.
  *
  * The single source for both callers — the advertised address and the SSDP
- * multicast join. They used to walk `networkInterfaces()` separately, and only
- * one of them handled the numeric `family` form, so the other would silently
- * have found nothing (audit 2026-09-06 F8).
+ * multicast join. They used to walk `networkInterfaces()` separately and could
+ * disagree about which addresses count (audit 2026-09-06 F8).
  */
 export function listIPv4Addresses(): IPv4Address[] {
   const found: IPv4Address[] = [];
   for (const [iface, addrs] of Object.entries(networkInterfaces())) {
     for (const addr of addrs ?? []) {
-      // Node typed `family` as the string "IPv4" historically and as the number
-      // 4 from v18 — accept both so detection works across runtimes.
-      const isV4 = addr.family === "IPv4" || (addr.family as unknown as number) === 4;
-      if (isV4 && !addr.internal) {
+      // `family` is the string "IPv4" on every supported Node (engines >= 22); the
+      // number 4 was Node 18.0–18.3 only (audit R-22).
+      if (addr.family === "IPv4" && !addr.internal) {
         found.push({ iface, address: addr.address, virtual: VIRTUAL_IFACE_RE.test(iface) });
       }
     }
