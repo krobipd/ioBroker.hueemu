@@ -107,7 +107,12 @@ vi.mock("node:tls", async importOriginal => {
   return { ...actual, createSecureContext: vi.fn(() => ({})) };
 });
 
-import { HueEmu } from "./main";
+import * as mainModule from "./main";
+
+// main.ts exports the factory with the class riding along (no `export class`, so esbuild builds it as CommonJS).
+/** The public face of the adapter the tests read: the base adapter plus its two getters. */
+type HueEmu = ioBroker.Adapter & { readonly pairingEnabled: boolean; readonly disableAuth: boolean };
+const { HueEmu } = mainModule as unknown as { HueEmu: new () => HueEmu };
 
 interface FakeHueServer {
   start: ReturnType<typeof vi.fn>;

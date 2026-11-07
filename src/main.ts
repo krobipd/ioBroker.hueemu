@@ -38,33 +38,10 @@ import { moveWithEnums } from "./lib/enum-carry";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText, sanitizeId } from "./types/utils";
 
-// Augment the adapter.config object with the actual types
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace ioBroker {
-    interface AdapterConfig {
-      // The listen address — the fleet-standard key the admin's port-conflict check reads
-      // together with `port` (v1.18.0; `host` until v1.17.1, migrated on the first start).
-      bind: string;
-      port: number;
-      httpsPort: number | undefined;
-      tlsCert?: string;
-      tlsKey?: string;
-      trustProxy?: boolean;
-      udn: string;
-      mac: string;
-      devices: DeviceConfig[];
-      // v1.19.0: the highest light number ever handed out — written by the device
-      // manager so a deleted light's number (and uniqueid) is never reused.
-      lastLightId?: number;
-    }
-  }
-}
-
 /**
  * Hue Emulator Adapter
  */
-export class HueEmu extends utils.Adapter {
+class HueEmu extends utils.Adapter {
   /** Pairing window duration in milliseconds (50 seconds) */
   private static readonly PAIRING_TIMEOUT_MS = 50_000;
   // v1.10.0 (H1): bound the awaited SSDP start. Originally a hard requirement —
@@ -994,8 +971,11 @@ export class HueEmu extends utils.Adapter {
 }
 
 if (require.main !== module) {
-  // Export the constructor in compact mode
-  module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new HueEmu(options);
+  // Export the constructor in compact mode; the class rides along on the factory for the tests (an `export` next
+  // to `module.exports` makes esbuild treat the file as an ES module and warn — commonjs-variable-in-esm)
+  module.exports = Object.assign((options: Partial<utils.AdapterOptions> | undefined) => new HueEmu(options), {
+    HueEmu,
+  });
 } else {
   // Start the instance directly
   (() => new HueEmu())();
