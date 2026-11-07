@@ -306,8 +306,8 @@ class HueEmu extends utils.Adapter {
         return;
       }
 
-      // Create logger adapter
-      const logger = this.createLogger();
+      // The adapter's own log is the modules' Logger (it carries the four methods).
+      const logger: Logger = this.log;
 
       // Get device configurations from admin UI
       const devices: DeviceConfig[] = this.config.devices;
@@ -839,18 +839,6 @@ class HueEmu extends utils.Adapter {
     }
 
     this.log.info(`Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`);
-  }
-
-  /**
-   * Create a logger adapter for the modules
-   */
-  private createLogger(): Logger {
-    return {
-      debug: (msg: string) => this.log.debug(msg),
-      info: (msg: string) => this.log.info(msg),
-      warn: (msg: string) => this.log.warn(msg),
-      error: (msg: string) => this.log.error(msg),
-    };
   }
 
   /**
