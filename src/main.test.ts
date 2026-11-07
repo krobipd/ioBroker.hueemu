@@ -727,13 +727,6 @@ describe("HueEmu onStateChange", () => {
     expect(adapter.disableAuth).toBe(false);
   });
 
-  it("acks any other own non-acked state (generic echo)", async () => {
-    const { adapter } = await ready();
-    const i = internalOf(adapter);
-    i.onStateChange("hueemu.0.something.else", { val: 42, ack: false } as ioBroker.State);
-    expect(i.setState).toHaveBeenCalledWith("hueemu.0.something.else", { ack: true, val: 42 });
-  });
-
   it("forwards acked changes into the API handler's state cache (device binding)", async () => {
     const { adapter, handlers } = await ready();
     const i = internalOf(adapter);
@@ -804,6 +797,18 @@ describe("HueEmu onStateChange", () => {
     const i = internalOf(adapter);
     i.setState.mockClear();
     i.onStateChange("hueemu.00.something", { val: 1, ack: false } as ioBroker.State);
+    expect(i.setState).not.toHaveBeenCalled();
+  });
+
+  // js-controller 7.2.2 validator.ts warns about a write without ack on a write:false
+  // datapoint; confirming it would turn a stray write into the adapter's own statement.
+  it("does not confirm a write to one of its read-only datapoints", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.setState.mockClear();
+    i.onStateChange("hueemu.0.info.connection", { val: true, ack: false } as ioBroker.State);
+    i.onStateChange("hueemu.0.info.error", { val: "x", ack: false } as ioBroker.State);
+    i.onStateChange("hueemu.0.clients.echo", { val: "y", ack: false } as ioBroker.State);
     expect(i.setState).not.toHaveBeenCalled();
   });
 

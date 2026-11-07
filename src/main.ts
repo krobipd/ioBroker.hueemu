@@ -938,11 +938,9 @@ class HueEmu extends utils.Adapter {
         this.handleStartPairing(state);
       } else if (id === `${this.namespace}.disableAuth`) {
         this.disableAuth = coerceBool(state.val);
-      } else if (id.startsWith(`${this.namespace}.`)) {
-        // With the dot: `hueemu.1` must not claim `hueemu.10.*` (v1.19.0, N4).
-        // Acknowledge other own state changes
-        this.ackState(id, state.val);
       }
+      // Every other own datapoint is write:false — a write to it without ack is not
+      // the adapter's to confirm (js-controller 7.2.2 validator.ts warns about it).
     } catch (err: unknown) {
       this.log.error(`stateChange failed: ${errText(err)}`);
     }
