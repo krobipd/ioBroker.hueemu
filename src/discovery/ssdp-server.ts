@@ -53,6 +53,17 @@ export interface SsdpServerConfig {
    * standard port, the tests need an unprivileged one they can bind.
    */
   ssdpPort?: number;
+  /**
+   * The address chosen in the settings, or undefined for every address (fleet master
+   * network-address.ts, `chosenAddress` after the `carriesAddress` fallback). A chosen address
+   * is the only interface the group is joined on and the NOTIFYs leave from.
+   */
+  bindIp?: string;
+  /**
+   * The adapter's trust boundary (`isOwnPeer` of the fleet master): a search from a peer
+   * outside the adapter's networks is not answered.
+   */
+  isClientAllowed: (address: string | undefined) => boolean;
   /** Logger */
   logger: Logger;
   /**
@@ -112,6 +123,7 @@ export class HueSsdpServer {
         socket.bind(this.ssdpPort, () => {
           socket.removeListener("error", onBindError);
           this.joinMulticast(socket);
+          this.chooseMulticastInterface(socket);
           try {
             socket.setMulticastTTL(MULTICAST_TTL);
           } catch (e) {
@@ -147,6 +159,12 @@ export class HueSsdpServer {
    * @param socket - The bound SSDP socket
    */
   private joinMulticast(socket: dgram.Socket): void {
+    // A chosen address keeps discovery in its network (krobi 2026-10-03, fleet
+    // master network-address.ts) — the group is joined on that interface alone.
+    if (this.config.bindIp !== undefined) {
+      this.tryJoin(socket, this.config.bindIp);
+      return;
+    }
     // Shared with the advertised-address detection since v1.17.0 — the two used
     // to walk the interface list separately and disagreed about how `family`
     // may be spelled (audit 2026-09-06 F8).
@@ -157,6 +175,23 @@ export class HueSsdpServer {
     }
     for (const address of addresses) {
       this.tryJoin(socket, address);
+    }
+  }
+
+  /**
+   * Send the multicast NOTIFYs from the chosen interface. With every address the
+   * system's default route decides, as before.
+   *
+   * @param socket - The bound SSDP socket
+   */
+  private chooseMulticastInterface(socket: dgram.Socket): void {
+    if (this.config.bindIp === undefined) {
+      return;
+    }
+    try {
+      socket.setMulticastInterface(this.config.bindIp);
+    } catch (e) {
+      this.config.logger.warn(`SSDP: could not send from ${this.config.bindIp}: ${errText(e)}`);
     }
   }
 
@@ -206,6 +241,9 @@ export class HueSsdpServer {
    * @param port - Sender port
    */
   private onMessage(text: string, address: string, port: number): void {
+    if (!this.config.isClientAllowed(address)) {
+      return;
+    }
     const st = parseMSearchTarget(text);
     if (st === undefined) {
       return;

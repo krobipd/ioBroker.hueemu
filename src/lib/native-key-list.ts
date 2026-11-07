@@ -26,14 +26,14 @@
  */
 
 import type { NativeKeyMigration } from "./native-key-migration";
+import { chosenAddress } from "./network-address";
 
 /**
  * "Listen on all interfaces" — empty or the wildcard.
  *
  * @param v a stored listen address
  */
-const listensEverywhere = (v: unknown): boolean =>
-  v === undefined || v === null || (typeof v === "string" && (v.trim() === "" || v.trim() === "0.0.0.0"));
+const listensEverywhere = (v: unknown): boolean => chosenAddress(v) === undefined;
 
 /**
  * The migrations for this start.
@@ -54,7 +54,7 @@ export function buildNativeKeyMigrations(
   const legacy = typeof native.advertiseHost === "string" ? native.advertiseHost.trim() : "";
   // Before the v1.18.0 rename the listen address still sits under `host`.
   const effectiveBind = native.host !== undefined && native.host !== null ? native.host : native.bind;
-  if (legacy !== "" && legacy !== "0.0.0.0" && listensEverywhere(effectiveBind) && localAddresses.includes(legacy)) {
+  if (chosenAddress(legacy) !== undefined && listensEverywhere(effectiveBind) && localAddresses.includes(legacy)) {
     migrations.push({ from: "advertiseHost", to: "bind", coerce: v => (typeof v === "string" ? v.trim() : v) });
   } else {
     migrations.push({ drop: "advertiseHost" });

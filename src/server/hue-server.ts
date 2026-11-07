@@ -66,6 +66,12 @@ export interface HueServerOptions {
   handler: HueApiHandler;
   /** Logger */
   logger: Logger;
+  /**
+   * The adapter's trust boundary (`isOwnPeer` of the fleet master network-address.ts): a client
+   * outside the adapter's networks gets a bare 403. Asked with `request.ip` — the socket peer,
+   * or the forwarded client when the user turned `trustProxy` on.
+   */
+  isClientAllowed: (address: string | undefined) => boolean;
 }
 
 /**
@@ -78,6 +84,7 @@ export class HueServer {
   private readonly config: HueEmulatorConfig;
   private readonly handler: HueApiHandler;
   private readonly logger: Logger;
+  private readonly isClientAllowed: (address: string | undefined) => boolean;
 
   /**
    * Create a new Hue emulator server
@@ -88,6 +95,7 @@ export class HueServer {
     this.config = options.config;
     this.handler = options.handler;
     this.logger = options.logger;
+    this.isClientAllowed = options.isClientAllowed;
   }
 
   /**
@@ -171,8 +179,15 @@ export class HueServer {
     // converged Fastify error — validation/parse-fail/internal/Hue-typed)
     server.setErrorHandler(createHueErrorHandler(this.logger));
 
-    // Add request logging
-    server.addHook("onRequest", async (request, _reply) => {
+    // The trust boundary first, then the request log (krobi 2026-10-03, fleet master
+    // network-address.ts: only a client in the adapter's networks is answered).
+    server.addHook("onRequest", async (request, reply) => {
+      if (!this.isClientAllowed(request.ip)) {
+        this.logger.debug(
+          `${request.method} ${request.url} [${request.ip}] rejected (403) — not in the adapter's networks`,
+        );
+        return reply.code(403).send();
+      }
       this.logger.debug(`${request.method} ${request.url} [${request.ip}]`);
     });
 

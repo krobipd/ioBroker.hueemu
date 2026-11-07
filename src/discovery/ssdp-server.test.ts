@@ -25,6 +25,8 @@ const h = vi.hoisted(() => {
     removeListener: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
     bind: (port: number, cb?: () => void) => FakeSocket;
     addMembership: (addr: string, iface?: string) => void;
+    setMulticastInterface: (iface: string) => void;
+    multicastIf: string[];
     setMulticastTTL: (ttl: number) => void;
     send: (...args: unknown[]) => void;
     close: () => void;
@@ -39,6 +41,7 @@ const h = vi.hoisted(() => {
       bound: [],
       membership: [],
       ttl: [],
+      multicastIf: [],
       sent: [],
       closed: false,
       unrefed: false,
@@ -66,6 +69,9 @@ const h = vi.hoisted(() => {
           throw new Error("ENODEV");
         }
         s.membership.push(iface ?? "default");
+      },
+      setMulticastInterface: iface => {
+        s.multicastIf.push(iface);
       },
       setMulticastTTL: ttl => {
         if (fail.ttl) {
@@ -130,8 +136,20 @@ const MSEARCH_BASIC = [
   "",
 ].join("\r\n");
 
-function makeServer(logger = spyLogger(), onFatalError?: () => void): HueSsdpServer {
-  return new HueSsdpServer({ identity, host: "192.168.1.100", port: 8080, logger, onFatalError });
+function makeServer(
+  logger = spyLogger(),
+  onFatalError?: () => void,
+  network: { bindIp?: string; isClientAllowed?: (address: string | undefined) => boolean } = {},
+): HueSsdpServer {
+  return new HueSsdpServer({
+    identity,
+    host: network.bindIp ?? "192.168.1.100",
+    port: 8080,
+    logger,
+    onFatalError,
+    bindIp: network.bindIp,
+    isClientAllowed: network.isClientAllowed ?? (() => true),
+  });
 }
 
 describe("HueSsdpServer", () => {
@@ -154,7 +172,14 @@ describe("HueSsdpServer", () => {
       await makeServer().start();
       expect(h.sockets[0].bound).toEqual([SSDP_PORT]);
 
-      const custom = new HueSsdpServer({ identity, host: "10.0.0.1", port: 80, ssdpPort: 1901, logger: spyLogger() });
+      const custom = new HueSsdpServer({
+        identity,
+        host: "10.0.0.1",
+        port: 80,
+        ssdpPort: 1901,
+        logger: spyLogger(),
+        isClientAllowed: () => true,
+      });
       await custom.start();
       expect(h.sockets[1].bound).toEqual([1901]);
     });
@@ -162,6 +187,19 @@ describe("HueSsdpServer", () => {
     it("joins the multicast group on every routable IPv4 interface (node-ssdp behavior)", async () => {
       await makeServer().start();
       expect(h.sockets[0].membership).toEqual(["192.168.1.100", "10.0.0.5"]);
+    });
+
+    // krobi 2026-10-03 (fleet master network-address.ts): a chosen address is the only one the
+    // adapter listens and sends on — the group is joined there, and the NOTIFYs leave from there.
+    it("joins the group only on the chosen address and multicasts from it", async () => {
+      await makeServer(spyLogger(), undefined, { bindIp: "10.0.0.5" }).start();
+      expect(h.sockets[0].membership).toEqual(["10.0.0.5"]);
+      expect(h.sockets[0].multicastIf).toEqual(["10.0.0.5"]);
+    });
+
+    it("leaves the outgoing interface to the system when every address is chosen", async () => {
+      await makeServer().start();
+      expect(h.sockets[0].multicastIf).toEqual([]);
     });
 
     it("sets the multicast TTL to 4 and unrefs the socket like node-ssdp did", async () => {
@@ -212,6 +250,19 @@ describe("HueSsdpServer", () => {
     });
     afterEach(() => {
       vi.useRealTimers();
+    });
+
+    it("answers no search from a peer outside the adapter's networks", async () => {
+      const logger = spyLogger();
+      const server = makeServer(logger, undefined, { isClientAllowed: address => address !== "203.0.113.9" });
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "203.0.113.9", port: 51000 });
+      expect(socket.sent).toEqual([]);
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51000 });
+      expect(socket.sent).toHaveLength(1);
     });
 
     it("answers a Basic:1 search with the captured node-ssdp response, unicast to the asker", async () => {

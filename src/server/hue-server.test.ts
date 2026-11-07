@@ -98,9 +98,13 @@ function makeHandler(): HueApiHandler {
  * Build the (private) Fastify instance for inject-based wiring tests.
  *
  * @param config The emulator config to build the Fastify instance from
+ * @param isClientAllowed The trust boundary the server asks for every request (default: everyone)
  */
-async function buildInstance(config = makeConfig()): Promise<FastifyInstance> {
-  const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger() });
+async function buildInstance(
+  config = makeConfig(),
+  isClientAllowed: (address: string | undefined) => boolean = () => true,
+): Promise<FastifyInstance> {
+  const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger(), isClientAllowed });
   return (server as unknown as { createServer(https: boolean): Promise<FastifyInstance> }).createServer(false);
 }
 
@@ -110,6 +114,17 @@ describe("HueServer wiring (inject)", () => {
   afterEach(async () => {
     await app?.close();
     app = null;
+  });
+
+  // krobi 2026-10-03 (fleet master network-address.ts): only a client in the adapter's
+  // networks is answered — no exception for loopback or a routed network.
+  it("answers a client outside the adapter's networks with 403 and nothing else", async () => {
+    app = await buildInstance(makeConfig(), address => address === "192.168.1.20");
+    const foreign = await app.inject({ method: "GET", url: "/api/config", remoteAddress: "203.0.113.9" });
+    expect(foreign.statusCode).toBe(403);
+    expect(foreign.body).toBe("");
+    const own = await app.inject({ method: "GET", url: "/api/config", remoteAddress: "192.168.1.20" });
+    expect(own.statusCode).toBe(200);
   });
 
   it("serves /description.xml with content-type and identity payload", async () => {
@@ -236,7 +251,12 @@ describe("fastifyOptions", () => {
 
 describe("HueServer lifecycle (real listen)", () => {
   it("starts HTTP on an ephemeral port, serves requests, and stops cleanly", async () => {
-    const server = new HueServer({ config: makeConfig(), handler: makeHandler(), logger: createMockLogger() });
+    const server = new HueServer({
+      config: makeConfig(),
+      handler: makeHandler(),
+      logger: createMockLogger(),
+      isClientAllowed: () => true,
+    });
     await server.start();
     try {
       const instance = (server as unknown as { httpServer: FastifyInstance }).httpServer;
@@ -253,7 +273,12 @@ describe("HueServer lifecycle (real listen)", () => {
 
   it("starts the HTTPS listener too when TLS material is configured", async () => {
     const config = makeConfig({ https: { port: 0, cert: TEST_CERT_PEM, key: TEST_KEY_PEM } });
-    const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger() });
+    const server = new HueServer({
+      config,
+      handler: makeHandler(),
+      logger: createMockLogger(),
+      isClientAllowed: () => true,
+    });
     await server.start();
     try {
       const httpsInstance = (server as unknown as { httpsServer: FastifyInstance }).httpsServer;
@@ -271,7 +296,12 @@ describe("HueServer lifecycle (real listen)", () => {
   });
 
   it("stop() before start() resolves without error", async () => {
-    const server = new HueServer({ config: makeConfig(), handler: makeHandler(), logger: createMockLogger() });
+    const server = new HueServer({
+      config: makeConfig(),
+      handler: makeHandler(),
+      logger: createMockLogger(),
+      isClientAllowed: () => true,
+    });
     await expect(server.stop()).resolves.toBeUndefined();
   });
 
@@ -283,7 +313,12 @@ describe("HueServer lifecycle (real listen)", () => {
     const busyPort = (blocker.address() as { port: number }).port;
 
     const config = makeConfig({ https: { port: busyPort, cert: TEST_CERT_PEM, key: TEST_KEY_PEM } });
-    const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger() });
+    const server = new HueServer({
+      config,
+      handler: makeHandler(),
+      logger: createMockLogger(),
+      isClientAllowed: () => true,
+    });
     try {
       await expect(server.start()).rejects.toBeDefined();
       // L3: the already-listening HTTP server must be torn down, not left half-serving.

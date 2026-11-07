@@ -4,6 +4,7 @@
 
 import { networkInterfaces } from "node:os";
 import { ConfigurationError } from "./errors";
+import { chosenAddress } from "../lib/network-address";
 
 /**
  * TLS/SSL configuration for HTTPS support
@@ -181,7 +182,7 @@ export function detectPrimaryIPv4(): string {
  * @param httpsPort - Resolved HTTPS port, or undefined when HTTPS is off.
  */
 export function validateNetworkConfig(advertiseHost: string, port: number, httpsPort: number | undefined): void {
-  if (!advertiseHost || advertiseHost === "0.0.0.0") {
+  if (chosenAddress(advertiseHost) === undefined) {
     throw new ConfigurationError(
       "Could not determine a routable IP to advertise — set the Host/IP in admin config to the concrete address clients should reach",
     );

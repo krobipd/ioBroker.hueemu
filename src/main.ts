@@ -35,6 +35,7 @@ import {
 import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
 import { migrateNativeKeys } from "./lib/native-key-migration";
 import { moveAllWithEnums } from "./lib/enum-carry";
+import { carriesAddress, chosenAddress, isOwnPeer } from "./lib/network-address";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText } from "./lib/err-text";
 import { sanitizeId } from "./types/utils";
@@ -80,6 +81,11 @@ class HueEmu extends utils.Adapter {
   // Constructed in onReady after I18n.init: dm-utils listens for messages from its
   // constructor on, and a handler that translates before I18n.init throws.
   private deviceManagement: HueEmuDeviceManagement | undefined;
+  /**
+   * The address chosen in the settings, undefined for every address (fleet master
+   * network-address.ts) — set by buildConfig, read by the trust boundary.
+   */
+  private bindIp: string | undefined;
 
   /**
    * Factories for the server/discovery/API collaborators — default to the
@@ -116,6 +122,16 @@ class HueEmu extends utils.Adapter {
     this.on("objectChange", this.onObjectChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
   }
+
+  /**
+   * The trust boundary of both services: a client in one of the host's own networks — with a
+   * chosen address only in that address's network. Read fresh on every question, so an
+   * address change is followed instead of frozen at start-up.
+   *
+   * @param address the client address
+   * @returns true if the client may be answered
+   */
+  private readonly isOwnClient = (address: string | undefined): boolean => isOwnPeer(address, this.bindIp);
 
   /** Whether pairing mode is active */
   get pairingEnabled(): boolean {
@@ -301,6 +317,8 @@ class HueEmu extends utils.Adapter {
         identity: emulatorConfig.identity,
         host: emulatorConfig.advertiseHost,
         port: emulatorConfig.port,
+        bindIp: this.bindIp,
+        isClientAllowed: this.isOwnClient,
         logger,
         // A socket death after a good start kills discovery for good — stop the
         // announce pulse instead of multicasting into a closed socket every 10s.
@@ -332,6 +350,7 @@ class HueEmu extends utils.Adapter {
         config: emulatorConfig,
         handler: this.apiHandler,
         logger,
+        isClientAllowed: this.isOwnClient,
       });
 
       // v1.10.0 (L1): restore persisted flags (disableAuth) BEFORE the HTTP
@@ -408,16 +427,27 @@ class HueEmu extends utils.Adapter {
    * Build emulator configuration from adapter config
    */
   private async buildConfig(): Promise<HueEmulatorConfig> {
-    // Parse configuration values
-    const bind = this.config.bind?.trim() || "0.0.0.0";
+    // Parse configuration values. The fleet master reads "every address" ("", "0.0.0.0",
+    // "::"); a chosen address the host does not carry (a new address from the router, a
+    // backup restored on other hardware) cannot be served — then every address, and the
+    // log says once what to fix (krobi 2026-10-03, network-address.ts).
+    let bindIp = chosenAddress(this.config.bind);
+    if (bindIp !== undefined && !carriesAddress(bindIp)) {
+      this.log.warn(
+        `Address ${bindIp} does not exist on this host — listening on all addresses; choose another address in the instance settings`,
+      );
+      bindIp = undefined;
+    }
+    this.bindIp = bindIp;
+    const bind = bindIp ?? "0.0.0.0";
     const port = this.toPort(this.config.port);
     // v1.12.0: one Host/IP selector is bind AND advertise. A concrete address is
     // announced as-is (SSDP location / description.xml / config); "0.0.0.0"
     // (listen on all interfaces) auto-detects a routable IP to announce, never
     // advertising 0.0.0.0. (The pre-1.12 advertiseHost field is migrated into bind
     // or dropped on the first start of v1.19.0 — native-key-list.ts.)
-    const advertiseHost = bind !== "0.0.0.0" ? bind : detectPrimaryIPv4();
-    if (bind === "0.0.0.0" && advertiseHost) {
+    const advertiseHost = bindIp ?? detectPrimaryIPv4();
+    if (bindIp === undefined && advertiseHost) {
       // The address clients are told to use is a choice the adapter made — say
       // which one, so a wrong pick (a docker bridge, a VPN tunnel) is visible in
       // the log instead of only in "Alexa cannot find the bridge".

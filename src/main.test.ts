@@ -241,9 +241,17 @@ function setup(configOverrides: Record<string, unknown> = {}): {
   return { adapter, servers, ssdps, handlers };
 }
 
+// The host the suite pretends to be: it carries the address setup() chooses (192.168.1.10/24),
+// so a chosen address is honoured instead of falling back to every address (network-address.ts).
+const HOST_INTERFACES = {
+  lo: [{ family: "IPv4", address: "127.0.0.1", internal: true, cidr: "127.0.0.1/8" }],
+  eth0: [{ family: "IPv4", address: "192.168.1.10", internal: false, cidr: "192.168.1.10/24" }],
+};
+
 beforeEach(() => {
   forgeControl.notAfter = new Date("2090-01-01T00:00:00Z");
   forgeControl.parseThrows = false;
+  osMock.interfaces = structuredClone(HOST_INTERFACES);
 });
 
 const PERSISTED_CERT = "-----BEGIN CERTIFICATE-----\nPERSISTED\n-----END CERTIFICATE-----";
@@ -269,6 +277,51 @@ describe("HueEmu constructor", () => {
     await i.onReady();
     expect(builtBeforeInit).toBe(false);
     expect(i.deviceManagement).toBeDefined();
+  });
+});
+
+describe("HueEmu network address (fleet master network-address.ts)", () => {
+  // krobi 2026-10-03: an address the host does not carry cannot be served — then every
+  // address, and the log says once what to fix.
+  it("listens on every address with exactly one warning when the chosen address is not on this host", async () => {
+    const { adapter, servers } = setup({ bind: "192.168.1.99" });
+    const i = internalOf(adapter);
+    await i.onReady();
+    const options = servers[0].options as { config: { bind: string; advertiseHost: string } };
+    expect(options.config.bind).toBe("0.0.0.0");
+    expect(options.config.advertiseHost).toBe("192.168.1.10");
+    const warnings = i.log.warn.mock.calls.filter((c: unknown[]) => String(c[0]).includes("192.168.1.99"));
+    expect(warnings).toHaveLength(1);
+    expect(String(warnings[0][0])).toContain("does not exist on this host");
+  });
+
+  it("hands both servers a trust boundary that answers only the chosen network", async () => {
+    const { adapter, servers, ssdps } = setup();
+    await internalOf(adapter).onReady();
+    type Network = { isClientAllowed: (a: string | undefined) => boolean; bindIp?: string };
+    const http = servers[0].options as Network;
+    const ssdp = ssdps[0].options as Network;
+    expect(ssdp.bindIp).toBe("192.168.1.10");
+    for (const allowed of [http.isClientAllowed, ssdp.isClientAllowed]) {
+      expect(allowed("192.168.1.20")).toBe(true);
+      expect(allowed("10.0.0.7")).toBe(false);
+      expect(allowed("127.0.0.1")).toBe(false);
+    }
+  });
+
+  it("answers every network of the host when every address is chosen", async () => {
+    osMock.interfaces = {
+      ...structuredClone(HOST_INTERFACES),
+      eth1: [{ family: "IPv4", address: "10.0.0.5", internal: false, cidr: "10.0.0.5/24" }],
+    };
+    const { adapter, servers, ssdps } = setup({ bind: "0.0.0.0" });
+    await internalOf(adapter).onReady();
+    type Network = { isClientAllowed: (a: string | undefined) => boolean; bindIp?: string };
+    expect((ssdps[0].options as Network).bindIp).toBeUndefined();
+    const allowed = (servers[0].options as Network).isClientAllowed;
+    expect(allowed("192.168.1.20")).toBe(true);
+    expect(allowed("10.0.0.7")).toBe(true);
+    expect(allowed("172.16.0.1")).toBe(false);
   });
 });
 
@@ -324,9 +377,14 @@ describe("HueEmu buildConfig", () => {
     }
   });
 
-  it("advertises a concrete bind address", async () => {
+  it("advertises a concrete bind address the host carries", async () => {
+    osMock.interfaces = {
+      ...structuredClone(HOST_INTERFACES),
+      eth1: [{ family: "IPv4", address: "192.168.5.5", internal: false, cidr: "192.168.5.5/24" }],
+    };
     const { adapter } = setup({ bind: "192.168.5.5" });
     const config = await internalOf(adapter).buildConfig();
+    expect(config.bind).toBe("192.168.5.5");
     expect(config.advertiseHost).toBe("192.168.5.5");
   });
 
