@@ -33,9 +33,8 @@ export class ConfigurationError extends Error {
  */
 
 /**
- * Hue API error types as defined in the Hue API specification. This is the
- * full spec catalog kept as the documented Hue error-type mapping; the
- * emulator only constructs the subset it actually returns.
+ * The Hue API error types the emulator answers with (Hue API v1 error codes).
+ * Only types something constructs are listed — the spec has more.
  */
 export enum HueErrorType {
   UNAUTHORIZED_USER = 1,
@@ -48,12 +47,7 @@ export enum HueErrorType {
   PARAMETER_NOT_MODIFIABLE = 8,
   INTERNAL_ERROR = 901,
   LINK_BUTTON_NOT_PRESSED = 101,
-  DHCP_CANNOT_BE_DISABLED = 110,
-  INVALID_UPDATE_STATE = 111,
   DEVICE_IS_OFF = 201,
-  GROUP_TABLE_FULL = 301,
-  LIGHT_LIST_FULL = 302,
-  DEVICE_IS_NOT_MODIFIABLE = 303,
 }
 
 /**
@@ -70,12 +64,7 @@ const ERROR_DESCRIPTIONS: Record<HueErrorType, string> = {
   [HueErrorType.PARAMETER_NOT_MODIFIABLE]: "parameter, {0}, is not modifiable",
   [HueErrorType.INTERNAL_ERROR]: "internal error, {0}",
   [HueErrorType.LINK_BUTTON_NOT_PRESSED]: "link button not pressed",
-  [HueErrorType.DHCP_CANNOT_BE_DISABLED]: "DHCP cannot be disabled",
-  [HueErrorType.INVALID_UPDATE_STATE]: "invalid update state",
   [HueErrorType.DEVICE_IS_OFF]: "parameter, {0}, is not modifiable. Device is set to off.",
-  [HueErrorType.GROUP_TABLE_FULL]: "group table full",
-  [HueErrorType.LIGHT_LIST_FULL]: "light list full",
-  [HueErrorType.DEVICE_IS_NOT_MODIFIABLE]: "device, {0}, is not modifiable",
 };
 
 /**
@@ -112,7 +101,7 @@ export class HueApiError extends Error {
    * @param params - Substitution parameters for the error template
    */
   private static formatDescription(type: HueErrorType, params: string[]): string {
-    let desc = ERROR_DESCRIPTIONS[type] || "unknown error";
+    let desc = ERROR_DESCRIPTIONS[type];
     params.forEach((param, index) => {
       // Function replacer: a plain-string replacement honours $&, $', $` and $$
       // patterns inside `param`, which would corrupt the output (and can leak the
