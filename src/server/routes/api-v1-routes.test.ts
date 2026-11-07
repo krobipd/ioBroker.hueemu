@@ -17,7 +17,7 @@ import type {
 import type { Light, LightStateUpdate, LightStateResult } from "../../types/light";
 
 interface MockHandlerCalls {
-  createUser: Array<{ req: HueRequest; body: CreateUserRequest }>;
+  createUser: CreateUserRequest[];
   setLightState: Array<{ lightId: string; state: LightStateUpdate }>;
   setGroupAction: Array<{ groupId: string; state: LightStateUpdate }>;
   getAllLights: number;
@@ -47,8 +47,8 @@ function createMockHandler(
 
   const handler: HueApiHandler & { calls: MockHandlerCalls } = {
     calls,
-    createUser: (req, body) => {
-      calls.createUser.push({ req, body });
+    createUser: body => {
+      calls.createUser.push(body);
       return Promise.resolve(opts.username ?? "generated-user-123");
     },
     getFullState: () => Promise.resolve({ lights: {}, groups: {}, config: {} } as unknown as FullState),
@@ -70,21 +70,20 @@ function createMockHandler(
       calls.getAllLights++;
       return Promise.resolve({});
     },
-    getLightById: (_req, _username, lightId) => {
+    getLightById: lightId => {
       calls.getLightById.push(lightId);
       return Promise.resolve({ state: { on: true } } as unknown as Light);
     },
-    setLightState: (_req, _username, lightId, state) => {
+    setLightState: (lightId, state) => {
       calls.setLightState.push({ lightId, state });
       return Promise.resolve([{ success: { [`/lights/${lightId}/state/on`]: true } }]);
     },
-    setGroupAction: (_req, _username, groupId, state) => {
+    setGroupAction: (groupId, state) => {
       calls.setGroupAction.push({ groupId, state });
       return Promise.resolve([] as LightStateResult[]);
     },
     fallback: req => {
       calls.fallback.push(req);
-      return {};
     },
     isUserAuthenticated: () => {
       calls.isUserAuthenticated++;

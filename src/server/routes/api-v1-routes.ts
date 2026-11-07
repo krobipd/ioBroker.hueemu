@@ -3,7 +3,7 @@
  */
 
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from "fastify";
-import type { HueApiHandler, HueRequest, CreateUserRequest, LightStateUpdate } from "../../types";
+import type { HueApiHandler, CreateUserRequest, LightStateUpdate } from "../../types";
 import { HueApiError } from "../../types/errors";
 import { randomBytes } from "node:crypto";
 import { createSuccessResponse } from "../middleware/error-handler";
@@ -26,22 +26,6 @@ interface UsernameParams {
 interface LightParams {
   username: string;
   id: string;
-}
-
-/**
- * Convert Fastify request to HueRequest
- *
- * @param request - Fastify request to convert
- */
-function toHueRequest(request: FastifyRequest): HueRequest {
-  return {
-    method: request.method,
-    url: request.url,
-    params: (request.params as Record<string, string>) || {},
-    body: request.body,
-    headers: request.headers,
-    ip: request.ip,
-  };
 }
 
 /**
@@ -97,7 +81,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   /**
    * Run a route body that requires a paired client: read the params, build the
    * Hue address the error would name, verify the username, then hand the body
-   * what it needs. Every authenticated route repeated those four lines.
+   * the params. Every authenticated route repeated those lines.
    *
    * @param req - Fastify request
    * @param rep - Fastify reply
@@ -108,13 +92,13 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
     req: FastifyRequest,
     rep: FastifyReply,
     suffix: (params: LightParams) => string,
-    fn: (hueReq: HueRequest, params: LightParams) => unknown,
+    fn: (params: LightParams) => unknown,
   ): Promise<void> {
     return sendResult(rep, async () => {
       const params = req.params as LightParams;
       // The bridge names the resource below the user (Q8, v1.19.0).
       await requireAuth(handler, params.username, suffix(params) || "/");
-      return fn(toHueRequest(req), params);
+      return fn(params);
     });
   }
 
@@ -136,7 +120,6 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   // POST /api - Create user
   fastify.post("/api", async (request: FastifyRequest, reply: FastifyReply) => {
     await sendResult(reply, async () => {
-      const hueReq = toHueRequest(request);
       const raw = request.body;
 
       // Body must be a plain object with a non-empty string devicetype
@@ -151,7 +134,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       }
 
       const body = raw as CreateUserRequest;
-      const username = await handler.createUser(hueReq, body);
+      const username = await handler.createUser(body);
       // v1.19.0 (audit 2026-09-25 Q7): a client that asks for a client key gets one,
       // like from the bridge and diyHue. The emulator offers no Entertainment
       // streaming, the only thing the key is used for — but the answer is complete.
@@ -167,7 +150,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   // the static route wins over /api/:username, so "config" is never taken
   // for a username.
   fastify.get("/api/config", async (request: FastifyRequest, reply: FastifyReply) => {
-    await sendResult(reply, () => handler.getConfig(toHueRequest(request), ""));
+    await sendResult(reply, () => handler.getConfig());
   });
 
   // GET /api/:username - Get full state
@@ -176,7 +159,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       request,
       reply,
       () => "",
-      (hueReq, p) => handler.getFullState(hueReq, p.username),
+      p => handler.getFullState(p.username),
     );
   });
 
@@ -188,10 +171,9 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
   // the well-known probe name would become a valid key.
   fastify.get<{ Params: UsernameParams }>("/api/:username/config", async (request, reply) => {
     await sendResult(reply, async () => {
-      const hueReq = toHueRequest(request);
       const { username } = request.params;
       const authed = handler.isAuthDisabled() || (await handler.isKnownUser(username));
-      return authed ? handler.getFullConfig(hueReq, username) : handler.getConfig(hueReq, username);
+      return authed ? handler.getFullConfig() : handler.getConfig();
     });
   });
 
@@ -201,7 +183,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       request,
       reply,
       () => "/lights",
-      (hueReq, p) => handler.getAllLights(hueReq, p.username),
+      () => handler.getAllLights(),
     );
   });
 
@@ -211,7 +193,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       request,
       reply,
       p => `/lights/${p.id}`,
-      (hueReq, p) => handler.getLightById(hueReq, p.username, p.id),
+      p => handler.getLightById(p.id),
     );
   });
 
@@ -221,9 +203,9 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       request,
       reply,
       p => `/lights/${p.id}/state`,
-      (hueReq, p) => {
+      p => {
         const address = `/lights/${p.id}/state`;
-        return handler.setLightState(hueReq, p.username, p.id, requireObjectBody(request.body, address));
+        return handler.setLightState(p.id, requireObjectBody(request.body, address));
       },
     );
   });
@@ -234,9 +216,9 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       request,
       reply,
       p => `/groups/${p.id}/action`,
-      (hueReq, p) => {
+      p => {
         const address = `/groups/${p.id}/action`;
-        return handler.setGroupAction(hueReq, p.username, p.id, requireObjectBody(request.body, address));
+        return handler.setGroupAction(p.id, requireObjectBody(request.body, address));
       },
     );
   });
@@ -273,13 +255,12 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       return;
     }
     await sendResult(reply, async () => {
-      const hueReq = toHueRequest(request);
       const [username = "", ...rest] = (request.url.split("?")[0] ?? "").replace(/^\/api\/?/i, "").split("/");
       const resource = `/${rest.filter(Boolean).join("/")}`;
       if (!handler.isAuthDisabled() && !(await handler.isKnownUser(username))) {
         throw HueApiError.unauthorizedUser("/");
       }
-      handler.fallback(hueReq); // the debug line naming the unhandled request
+      handler.fallback({ method: request.method, url: request.url }); // the debug line naming the unhandled request
       throw HueApiError.resourceNotAvailable(resource, resource);
     });
   });

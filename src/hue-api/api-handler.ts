@@ -126,10 +126,9 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Create a new user
    *
-   * @param _req - Incoming HTTP request (unused; username now read from the typed body)
    * @param body - User creation request body
    */
-  public async createUser(_req: HueRequest, body: CreateUserRequest): Promise<string> {
+  public async createUser(body: CreateUserRequest): Promise<string> {
     // Sanitize devicetype at the boundary — routes already require string,
     // but belt-and-braces in case createUser is called from another path.
     const rawDevicetype =
@@ -192,10 +191,9 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get full bridge state
    *
-   * @param _req - Incoming HTTP request (unused)
    * @param username - Authenticated username
    */
-  public async getFullState(_req: HueRequest, username: string): Promise<FullState> {
+  public async getFullState(username: string): Promise<FullState> {
     this.logger.debug(`Get full state for user: ${oneLine(username)}`);
 
     const lights = await this.deviceBinding.getAllLights();
@@ -207,10 +205,8 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get bridge configuration
    *
-   * @param _req - Incoming HTTP request (unused)
-   * @param _username - Authenticated username (unused)
    */
-  public getConfig(_req: HueRequest, _username: string): BridgeConfigPublic {
+  public getConfig(): BridgeConfigPublic {
     this.logger.debug("Get config");
     return this.configService.getConfig();
   }
@@ -219,10 +215,8 @@ export class ApiHandler implements HueApiHandler {
    * Get the full bridge configuration for an authenticated user. Mirrors the
    * live pairing state into `linkbutton`, exactly like the full-state response.
    *
-   * @param _req - Incoming HTTP request (unused)
-   * @param _username - Authenticated username (unused)
    */
-  public getFullConfig(_req: HueRequest, _username: string): BridgeConfigFull {
+  public getFullConfig(): BridgeConfigFull {
     this.logger.debug("Get full config");
     const config = this.configService.getFullConfig();
     config.linkbutton = this.adapter.pairingEnabled;
@@ -232,10 +226,8 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get all lights
    *
-   * @param _req - Incoming HTTP request (unused)
-   * @param _username - Authenticated username (unused)
    */
-  public async getAllLights(_req: HueRequest, _username: string): Promise<LightsCollection> {
+  public async getAllLights(): Promise<LightsCollection> {
     this.logger.debug("Get all lights");
     return this.deviceBinding.getAllLights();
   }
@@ -243,11 +235,9 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Get a single light by ID
    *
-   * @param _req - Incoming HTTP request (unused)
-   * @param _username - Authenticated username (unused)
    * @param lightId - Light identifier
    */
-  public async getLightById(_req: HueRequest, _username: string, lightId: string): Promise<Light> {
+  public async getLightById(lightId: string): Promise<Light> {
     this.logger.debug(`Get light: ${oneLine(lightId)}`);
     return this.deviceBinding.getLightById(lightId);
   }
@@ -255,17 +245,10 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Set light state
    *
-   * @param _req - Incoming HTTP request (unused)
-   * @param _username - Authenticated username (unused)
    * @param lightId - Light identifier
    * @param state - State update to apply
    */
-  public async setLightState(
-    _req: HueRequest,
-    _username: string,
-    lightId: string,
-    state: LightStateUpdate,
-  ): Promise<LightStateResult[]> {
+  public async setLightState(lightId: string, state: LightStateUpdate): Promise<LightStateResult[]> {
     this.logger.debug(`Set light ${oneLine(lightId)} state: ${JSON.stringify(state)}`);
     return this.deviceBinding.setLightState(lightId, state);
   }
@@ -273,17 +256,10 @@ export class ApiHandler implements HueApiHandler {
   /**
    * Set group action — applies state to all configured lights
    *
-   * @param _req - Incoming HTTP request (unused)
-   * @param _username - Authenticated username (unused)
    * @param groupId - Group identifier
    * @param state - State update to apply to all lights
    */
-  public async setGroupAction(
-    _req: HueRequest,
-    _username: string,
-    groupId: string,
-    state: LightStateUpdate,
-  ): Promise<LightStateResult[]> {
+  public async setGroupAction(groupId: string, state: LightStateUpdate): Promise<LightStateResult[]> {
     this.logger.debug(`Set group ${oneLine(groupId)} action: ${JSON.stringify(state)}`);
 
     // v1.19.0 (audit 2026-09-25 H2): the emulator has one group, 0 ("all lights").
@@ -331,9 +307,8 @@ export class ApiHandler implements HueApiHandler {
    *
    * @param req - Incoming HTTP request
    */
-  public fallback(req: HueRequest): unknown {
+  public fallback(req: HueRequest): void {
     this.logger.debug(`Unhandled request: ${req.method} ${req.url}`);
-    return {};
   }
 
   /**

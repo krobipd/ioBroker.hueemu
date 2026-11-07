@@ -10,7 +10,7 @@ vi.mock("@iobroker/adapter-core", () => ({
 
 import type { Mock } from "vitest";
 import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
-import type { HueRequest, CreateUserRequest } from "../types/hue-api";
+import type { CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";
 import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
 
@@ -102,17 +102,6 @@ function createHandler(
   return { handler, adapter };
 }
 
-function makeRequest(body: unknown): HueRequest {
-  return {
-    method: "POST",
-    url: "/api",
-    params: {},
-    body,
-    headers: {},
-    ip: "192.168.1.50",
-  };
-}
-
 describe("ApiHandler", () => {
   describe("createUser — auth/pairing gates", () => {
     it("throws linkButtonNotPressed when pairing disabled and auth enabled", async () => {
@@ -120,9 +109,8 @@ describe("ApiHandler", () => {
         pairingEnabled: false,
         disableAuth: false,
       });
-      const req = makeRequest({ devicetype: "test" });
       try {
-        await handler.createUser(req, { devicetype: "test" });
+        await handler.createUser({ devicetype: "test" });
         throw new Error("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(HueApiError);
@@ -134,7 +122,7 @@ describe("ApiHandler", () => {
 
     it("allows pairing when pairingEnabled=true", async () => {
       const { handler } = createHandler([], { pairingEnabled: true });
-      const username = await handler.createUser(makeRequest({ devicetype: "Amazon Echo" }), {
+      const username = await handler.createUser({
         devicetype: "Amazon Echo",
       });
       expect(typeof username).toBe("string");
@@ -143,7 +131,7 @@ describe("ApiHandler", () => {
 
     it("disables pairing after successful creation", async () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
-      await handler.createUser(makeRequest({ devicetype: "x" }), {
+      await handler.createUser({
         devicetype: "x",
       });
       expect(adapter.pairingEnabled).toBe(false);
@@ -151,7 +139,7 @@ describe("ApiHandler", () => {
 
     it("allows pairing when disableAuth=true even without link button", async () => {
       const { handler } = createHandler([], { disableAuth: true });
-      const username = await handler.createUser(makeRequest({ devicetype: "free-pass" }), { devicetype: "free-pass" });
+      const username = await handler.createUser({ devicetype: "free-pass" });
       expect(username.length).toBeGreaterThan(0);
     });
 
@@ -166,7 +154,7 @@ describe("ApiHandler", () => {
           writes += 1;
         },
       });
-      await handler.createUser(makeRequest({ devicetype: "free-pass" }), { devicetype: "free-pass" });
+      await handler.createUser({ devicetype: "free-pass" });
       expect(writes).toBe(0);
     });
   });
@@ -175,7 +163,7 @@ describe("ApiHandler", () => {
     it("defaults devicetype to 'unknown' when body.devicetype is not a string", async () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
       const body = { devicetype: 42 } as unknown as CreateUserRequest;
-      const username = await handler.createUser(makeRequest(body), body);
+      const username = await handler.createUser(body);
       expect(username.length).toBeGreaterThan(0);
       // Find the client that was written - its common.name should be "unknown"
       const writtenClientObjects = [...adapter.writtenObjects.entries()].filter(
@@ -188,7 +176,7 @@ describe("ApiHandler", () => {
 
     it("defaults devicetype when body.devicetype is empty string", async () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
-      await handler.createUser(makeRequest({ devicetype: "" }), {
+      await handler.createUser({
         devicetype: "",
       });
       const [, obj] = [...adapter.writtenObjects.entries()].find(
@@ -203,7 +191,7 @@ describe("ApiHandler", () => {
         devicetype: "test",
         username: { foo: "bar" },
       } as unknown as CreateUserRequest;
-      const username = await handler.createUser(makeRequest({ devicetype: "test", username: { foo: "bar" } }), body);
+      const username = await handler.createUser(body);
       // Must not be "[object Object]" — should be a generated UUID
       expect(username).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
@@ -214,7 +202,7 @@ describe("ApiHandler", () => {
         devicetype: "test",
         username: "",
       } as CreateUserRequest;
-      const username = await handler.createUser(makeRequest({ devicetype: "test", username: "" }), body);
+      const username = await handler.createUser(body);
       expect(username).not.toBe("");
       expect(username.length).toBeGreaterThan(10);
     });
@@ -225,22 +213,8 @@ describe("ApiHandler", () => {
         devicetype: "test",
         username: "my-custom-name",
       };
-      const username = await handler.createUser(makeRequest({ devicetype: "test", username: "my-custom-name" }), body);
+      const username = await handler.createUser(body);
       expect(username).toBe("my-custom-name");
-    });
-
-    it("handles missing req.body gracefully", async () => {
-      const { handler } = createHandler([], { pairingEnabled: true });
-      const req: HueRequest = {
-        method: "POST",
-        url: "/api",
-        params: {},
-        body: undefined,
-        headers: {},
-        ip: "1.2.3.4",
-      };
-      const username = await handler.createUser(req, { devicetype: "x" });
-      expect(username.length).toBeGreaterThan(0);
     });
   });
 
@@ -292,7 +266,7 @@ describe("ApiHandler", () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
       const tooLong = "x".repeat(65);
       const body: CreateUserRequest = { devicetype: "t", username: tooLong };
-      const username = await handler.createUser(makeRequest(body), body);
+      const username = await handler.createUser(body);
       expect(username).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
       expect(adapter.existingClients.has(tooLong)).toBe(false);
     });
@@ -301,13 +275,13 @@ describe("ApiHandler", () => {
       const { handler } = createHandler([], { pairingEnabled: true });
       const max = "y".repeat(64);
       const body: CreateUserRequest = { devicetype: "t", username: max };
-      expect(await handler.createUser(makeRequest(body), body)).toBe(max);
+      expect(await handler.createUser(body)).toBe(max);
     });
 
     it("stores at most 100 chars of the devicetype as the client name", async () => {
       const { handler, adapter } = createHandler([], { pairingEnabled: true });
       const devicetype = "d".repeat(500);
-      await handler.createUser(makeRequest({ devicetype }), { devicetype });
+      await handler.createUser({ devicetype });
       const [, obj] = [...adapter.writtenObjects.entries()].find(
         ([id]) => id.startsWith("clients.") && id !== "clients",
       )!;
@@ -324,7 +298,7 @@ describe("ApiHandler", () => {
         logger,
       });
       const devicetype = "d".repeat(5000);
-      await handler.createUser(makeRequest({ devicetype }), { devicetype });
+      await handler.createUser({ devicetype });
       const paired = logger.info.mock.calls.map(c => c[0]).find(m => m.startsWith("Paired client"));
       expect(paired).toBeDefined();
       expect(paired!.length).toBeLessThan(200);
@@ -345,10 +319,10 @@ describe("ApiHandler", () => {
       const { handler } = createHandler([], { disableAuth: true });
       for (let i = 0; i < 100; i++) {
         const body: CreateUserRequest = { devicetype: "flood", username: `flood-${i}` };
-        await handler.createUser(makeRequest(body), body);
+        await handler.createUser(body);
       }
       const over: CreateUserRequest = { devicetype: "flood", username: "flood-100" };
-      await expect(handler.createUser(makeRequest(over), over)).rejects.toMatchObject({
+      await expect(handler.createUser(over)).rejects.toMatchObject({
         type: HueErrorType.LINK_BUTTON_NOT_PRESSED,
       });
     });
@@ -371,37 +345,16 @@ describe("ApiHandler", () => {
         devices: [],
         logger,
       });
-      handler.fallback({
-        method: "GET",
-        url: "/api/x/capabilities",
-        params: {},
-        body: undefined,
-        headers: {},
-        ip: "1.2.3.4",
-      });
+      handler.fallback({ method: "GET", url: "/api/x/capabilities" });
       expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("Unhandled request: GET /api/x/capabilities"));
       expect(logger.warn).not.toHaveBeenCalled();
-    });
-
-    it("returns empty object for unknown routes", async () => {
-      const { handler } = createHandler();
-      const result = await handler.fallback({
-        method: "GET",
-        url: "/api/foo/bar",
-        params: {},
-        body: undefined,
-        headers: {},
-        ip: "1.2.3.4",
-      });
-      expect(result).toEqual({});
     });
   });
 
   describe("getConfig", () => {
     it("returns public bridge config without requiring auth", () => {
       const { handler } = createHandler();
-      const req = makeRequest(undefined);
-      const config = handler.getConfig(req, "anyone");
+      const config = handler.getConfig();
       expect(config).toHaveProperty("bridgeid");
       expect(config).toHaveProperty("mac");
       expect(config).toHaveProperty("modelid");
@@ -411,7 +364,7 @@ describe("ApiHandler", () => {
   describe("getFullConfig", () => {
     it("returns the full config and mirrors the live pairing state into linkbutton", () => {
       const { handler } = createHandler([], { pairingEnabled: true });
-      const config = handler.getFullConfig(makeRequest(undefined), "user");
+      const config = handler.getFullConfig();
       expect(config).toHaveProperty("ipaddress");
       expect(config).toHaveProperty("whitelist");
       expect(config.linkbutton).toBe(true);
@@ -451,25 +404,23 @@ describe("ApiHandler", () => {
       return { handler, adapter, foreignWrites, logger };
     }
 
-    const req = makeRequest(undefined);
-
     it("getAllLights returns the configured lights with 1-based ids", async () => {
       const { handler } = createHandlerWithDevices({ "test.on": true, "test.bri": 50 });
-      const lights = await handler.getAllLights(req, "user");
+      const lights = await handler.getAllLights();
       expect(Object.keys(lights)).toEqual(["1", "2"]);
       expect(lights["1"].name).toBe("Kitchen");
     });
 
     it("getLightById delegates and returns the converted state", async () => {
       const { handler } = createHandlerWithDevices({ "test.on": true, "test.bri": 50 });
-      const light = await handler.getLightById(req, "user", "1");
+      const light = await handler.getLightById("1");
       expect(light.state.on).toBe(true);
       expect(light.state.bri).toBe(127);
     });
 
     it("setLightState writes the converted value to the foreign state", async () => {
       const { handler, foreignWrites } = createHandlerWithDevices({});
-      const results = await handler.setLightState(req, "user", "1", { on: true, bri: 254 });
+      const results = await handler.setLightState("1", { on: true, bri: 254 });
       expect(foreignWrites.get("test.on")).toBe(true);
       expect(foreignWrites.get("test.bri")).toBe(254);
       expect(results).toHaveLength(2);
@@ -478,17 +429,17 @@ describe("ApiHandler", () => {
     it("getFullState mirrors pairingEnabled into config.linkbutton", async () => {
       const { handler, adapter } = createHandlerWithDevices({ "test.on": false });
       adapter.pairingEnabled = true;
-      const state = await handler.getFullState(req, "user");
+      const state = await handler.getFullState("user");
       expect(state.config.linkbutton).toBe(true);
       expect(Object.keys(state.lights)).toEqual(["1", "2"]);
       adapter.pairingEnabled = false;
-      const state2 = await handler.getFullState(req, "user");
+      const state2 = await handler.getFullState("user");
       expect(state2.config.linkbutton).toBe(false);
     });
 
     it("setGroupAction applies the state to every light and returns group-addressed successes", async () => {
       const { handler, foreignWrites } = createHandlerWithDevices({});
-      const results = await handler.setGroupAction(req, "user", "0", { on: false });
+      const results = await handler.setGroupAction("0", { on: false });
       expect(foreignWrites.get("test.on")).toBe(false);
       expect(foreignWrites.get("test2.on")).toBe(false);
       expect(results).toEqual([{ success: { "/groups/0/action/on": false } }]);
@@ -506,7 +457,7 @@ describe("ApiHandler", () => {
         }
         return origSet(id, state);
       };
-      const results = await handler.setGroupAction(req, "user", "0", { on: true });
+      const results = await handler.setGroupAction("0", { on: true });
       expect(foreignWrites.get("test2.on")).toBe(true); // second light unaffected
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("test.on"));
       expect(results).toEqual([{ success: { "/groups/0/action/on": true } }]);
@@ -517,7 +468,7 @@ describe("ApiHandler", () => {
     // path alike (the group used to drop it silently, the light acknowledged it).
     it("setGroupAction answers an unknown attribute with error 6 and still sets the known ones", async () => {
       const { handler, foreignWrites } = createHandlerWithDevices({});
-      const results = await handler.setGroupAction(req, "user", "0", {
+      const results = await handler.setGroupAction("0", {
         on: true,
         garbage: 1,
       } as unknown as Record<string, unknown>);
@@ -539,7 +490,7 @@ describe("ApiHandler", () => {
     // to switch every light — a stored "living room" group took the whole house with it.
     it("setGroupAction refuses a group that does not exist and writes nothing", async () => {
       const { handler, foreignWrites } = createHandlerWithDevices({});
-      await expect(handler.setGroupAction(req, "user", "7", { on: false })).rejects.toMatchObject({
+      await expect(handler.setGroupAction("7", { on: false })).rejects.toMatchObject({
         type: HueErrorType.RESOURCE_NOT_AVAILABLE,
         address: "/groups/7/action",
         message: "resource, /groups/7, not available",
@@ -551,7 +502,7 @@ describe("ApiHandler", () => {
     // error 7 like emulated_hue, never forwarded to the lights (error 6 per light).
     it("setGroupAction answers a scene recall with error 7 and still sets the rest", async () => {
       const { handler, foreignWrites } = createHandlerWithDevices({});
-      const results = await handler.setGroupAction(req, "user", "0", {
+      const results = await handler.setGroupAction("0", {
         on: true,
         scene: "abc",
       } as unknown as Record<string, unknown>);
@@ -571,9 +522,9 @@ describe("ApiHandler", () => {
     it("onStateChange updates the binding cache so the next read sees the new value", async () => {
       const { handler } = createHandlerWithDevices({ "test.on": false });
       await handler.initialize();
-      expect((await handler.getLightById(req, "user", "1")).state.on).toBe(false);
+      expect((await handler.getLightById("1")).state.on).toBe(false);
       handler.onStateChange("test.on", true);
-      expect((await handler.getLightById(req, "user", "1")).state.on).toBe(true);
+      expect((await handler.getLightById("1")).state.on).toBe(true);
     });
 
     it("initialize subscribes to all mapped foreign states", async () => {

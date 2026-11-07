@@ -125,21 +125,13 @@ export interface FullState {
 }
 
 /**
- * Incoming HTTP request information
+ * The part of an unhandled request the fallback names in its debug line.
  */
 export interface HueRequest {
   /** HTTP method (GET, POST, PUT, etc.) */
   method: string;
   /** Request URL path */
   url: string;
-  /** URL path parameters */
-  params: Record<string, string>;
-  /** Request body */
-  body: unknown;
-  /** HTTP headers */
-  headers: Record<string, string | string[] | undefined>;
-  /** Client IP address */
-  ip?: string;
 }
 
 /**
@@ -149,57 +141,47 @@ export interface HueApiHandler {
   /**
    * Create a new user (POST /api)
    */
-  createUser(req: HueRequest, body: CreateUserRequest): Promise<string>;
+  createUser(body: CreateUserRequest): Promise<string>;
 
   /**
    * Get full bridge state (GET /api/:username)
    */
-  getFullState(req: HueRequest, username: string): Promise<FullState>;
+  getFullState(username: string): Promise<FullState>;
 
   /**
    * Get bridge configuration (GET /api/:username/config, unauthenticated / reduced)
    */
-  getConfig(req: HueRequest, username: string): BridgeConfigPublic;
+  getConfig(): BridgeConfigPublic;
 
   /**
    * Get the full bridge configuration (GET /api/:username/config with a valid user)
    */
-  getFullConfig(req: HueRequest, username: string): BridgeConfigFull;
+  getFullConfig(): BridgeConfigFull;
 
   /**
    * Get all lights (GET /api/:username/lights)
    */
-  getAllLights(req: HueRequest, username: string): Promise<LightsCollection>;
+  getAllLights(): Promise<LightsCollection>;
 
   /**
    * Get single light (GET /api/:username/lights/:id)
    */
-  getLightById(req: HueRequest, username: string, lightId: string): Promise<Light>;
+  getLightById(lightId: string): Promise<Light>;
 
   /**
    * Set light state (PUT /api/:username/lights/:id/state)
    */
-  setLightState(
-    req: HueRequest,
-    username: string,
-    lightId: string,
-    state: LightStateUpdate,
-  ): Promise<LightStateResult[]>;
+  setLightState(lightId: string, state: LightStateUpdate): Promise<LightStateResult[]>;
 
   /**
    * Set group action (PUT /api/:username/groups/:id/action)
    */
-  setGroupAction(
-    req: HueRequest,
-    username: string,
-    groupId: string,
-    state: LightStateUpdate,
-  ): Promise<LightStateResult[]>;
+  setGroupAction(groupId: string, state: LightStateUpdate): Promise<LightStateResult[]>;
 
   /**
-   * Fallback for unhandled routes
+   * Fallback for unhandled routes — names the request in the debug log
    */
-  fallback(req: HueRequest): unknown;
+  fallback(req: HueRequest): void;
 
   /**
    * Check if user is authenticated (may auto-add the user during the pairing window)

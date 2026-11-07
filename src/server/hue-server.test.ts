@@ -87,7 +87,7 @@ function makeHandler(): HueApiHandler {
     getLightById: () => Promise.resolve({ state: { on: true } } as never),
     setLightState: () => Promise.resolve([]),
     setGroupAction: () => Promise.resolve([]),
-    fallback: () => ({}),
+    fallback: () => undefined,
     isUserAuthenticated: () => Promise.resolve(true),
     isKnownUser: () => Promise.resolve(true),
     isAuthDisabled: () => false,
