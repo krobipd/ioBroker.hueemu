@@ -411,11 +411,14 @@ describe("moveClients", () => {
 
   it("skips what is no client datapoint below the folder", async () => {
     const adapter = fake({
-      "clients.channel": { type: "channel", common: { name: "x" } },
+      "clients.channel": { type: "channel", common: { name: "x" }, native: { username: "chan" } },
+      "clients.folder": { type: "folder", common: { name: "y" } },
       "clients.a.b": v119Client("deep"),
     });
-    expect((await moveClients(adapter, store(), String)).moved).toBe(0);
+    const result = await moveClients(adapter, store(), String);
+    expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0 });
     expect(adapter.delObjectAsync).not.toHaveBeenCalled();
+    expect(adapter.log.warn).not.toHaveBeenCalled();
   });
 
   // Before v1.2.0: `user.<key>`.
@@ -438,14 +441,18 @@ describe("moveClients", () => {
       expect(adapter.delObjectAsync.mock.calls.map(c => c[0])).toEqual(["user.alexa.echo", "user"]);
     });
 
-    it("takes the key from native first, then from the id", async () => {
-      const adapter = fake({
-        user: { type: "meta" },
-        "user.a": { type: "state", common: { name: "A" }, native: { username: "native.key" } },
-        "user.b": { type: "state", common: { name: "B" } },
-      });
+    it("takes the key from native first, then from the value, then from the id", async () => {
+      const adapter = fake(
+        {
+          user: { type: "meta" },
+          "user.a": { type: "state", common: { name: "A" }, native: { username: "native.key" } },
+          "user.b": { type: "state", common: { name: "B" } },
+          "user.c": { type: "state", common: { name: "C" } },
+        },
+        { "user.a": { val: "value.akey" }, "user.c": { val: "value.ckey" } },
+      );
       await moveClients(adapter, store(), String);
-      expect(stored()).toEqual({ clients: { "a-ekey": "native.key", "b-b": "b" } });
+      expect(stored()).toEqual({ clients: { "a-ekey": "native.key", "b-b": "b", "c-ckey": "value.ckey" } });
     });
 
     it("removes an empty old folder", async () => {

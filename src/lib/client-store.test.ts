@@ -43,8 +43,14 @@ describe("slugOf", () => {
     expect(slugOf("Echo#Wohnzimmer")).toBe("echo-wohnzimmer");
     expect(slugOf("  --Bosch SHC--  ")).toBe("bosch-shc");
     expect(slugOf("Küche Größe")).toBe("kueche-groesse");
+    expect(slugOf("Gerät")).toBe("geraet");
     expect(slugOf("Café")).toBe("cafe");
     expect(slugOf("a.b_c")).toBe("a-b-c");
+  });
+
+  it("writes one hyphen for a run of anything but letters and digits", () => {
+    expect(slugOf("Echo  (Dot)")).toBe("echo-dot");
+    expect(slugOf("Harmony - Hub")).toBe("harmony-hub");
   });
 
   it("leaves nothing of a text without letters or digits", () => {
