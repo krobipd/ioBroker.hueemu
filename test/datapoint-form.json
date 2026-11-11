@@ -1,5 +1,5 @@
 {
   "lights.*": {
-    "device-reachable": "krobi 2026-11-11 14:27 (\"nein reachable ist in diesem fall sinnlos WEIL wir verlinken ja quasi nur interne daten\"): a light only links datapoints of the same ioBroker installation, nothing that can go away, so a reachability datapoint would say nothing. Whether the bridge can drive the light from its bound datapoints is the Hue field reachable in the bridge's answer (design decision 26)."
+    "device-reachable": "krobi 2026-11-11 14:27 (\"no, reachable is pointless in this case BECAUSE we only link internal data, so to speak\"): a light only links datapoints of the same ioBroker installation, nothing that can go away, so a reachability datapoint would say nothing. Whether the bridge can drive the light from its bound datapoints is the Hue field reachable in the bridge's answer (core decision K14, design decision 26)."
   }
 }
