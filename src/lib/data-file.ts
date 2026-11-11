@@ -3,11 +3,21 @@
 // The files an adapter keeps in its instance data folder (`utils.getAbsoluteInstanceDataDir`, declared as
 // `common.dataFolder`, so a backup carries them): what it creates or learns itself and keeps across restarts and updates
 // — a generated secret, a runtime value, a cache — never in `native`, `common` or an object id (CLAUDE_PATTERNS.md
-// § „Wohin“). This file is the one form of every access to them (round 173): a write goes to a temporary file renamed
-// over the old one, so a crash mid-write never leaves half a file, readable for the owner only; a read says nothing (no
-// file yet), the value, or why the file is unusable. What the adapter does with an unusable file — set it aside and
-// start, or halt the start — is its own decision.
-import { mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+// § „Wohin“). This file is the one form of every access to them (round 173): a write goes to a temporary file, flushed to
+// the disk (fsync) and then renamed over the old one, so neither a crash nor a power cut mid-write leaves half a file,
+// readable for the owner only; a read says nothing (no file yet), the value, or why the file is unusable. What the
+// adapter does with an unusable file — set it aside and start, or halt the start — is its own decision.
+import {
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import { errText } from "./err-text";
@@ -52,7 +62,8 @@ export function readDataFile(dir: string, file: string): DataFileRead {
 }
 
 /**
- * Write a data file — a temporary file renamed over the old one.
+ * Write a data file — a temporary file, flushed to the disk, renamed over the old one (rename orders the name only:
+ * without the flush a power cut can leave the new name on an empty or half file).
  *
  * @param dir the folder in the instance data folder (created when missing)
  * @param file the file name in it
@@ -62,7 +73,13 @@ export function writeDataFile(dir: string, file: string, value: unknown): void {
   mkdirSync(dir, { recursive: true });
   const target = join(dir, file);
   const temp = `${target}.tmp`;
-  writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  const fd = openSync(temp, "w", 0o600);
+  try {
+    writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
   renameSync(temp, target);
 }
 

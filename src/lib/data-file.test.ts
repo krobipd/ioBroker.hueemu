@@ -1,9 +1,16 @@
 // Fleet master (.consistency-master/src/lib/data-file.test.ts) — never edit the copy in an adapter.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import type * as NodeFs from "node:fs";
+import { fsyncSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listDataFiles, readDataFile, removeDataFile, setAsideDataFile, writeDataFile } from "./data-file";
+
+// the real file system, watched: the order of the flush and the rename is what a power cut decides on
+vi.mock("node:fs", async importOriginal => {
+  const fs = await importOriginal<typeof NodeFs>();
+  return { ...fs, fsyncSync: vi.fn(fs.fsyncSync), renameSync: vi.fn(fs.renameSync) };
+});
 
 let dir: string;
 
@@ -52,6 +59,18 @@ describe("writeDataFile", () => {
     writeDataFile(dir, "secret.json", "token");
     // Windows knows a file only as read-only (0o444) or writable (0o666) — Node.js docs fs, "File modes"
     expect(statSync(join(dir, "secret.json")).mode & 0o777).toBe(process.platform === "win32" ? 0o666 : 0o600);
+  });
+
+  it("writes the temporary file to the disk before it renames it", () => {
+    // rename(2) orders the name only — without fsync a power cut can leave the new name on an empty or half file
+    vi.mocked(fsyncSync).mockClear();
+    vi.mocked(renameSync).mockClear();
+    writeDataFile(dir, "state.json", { a: 1 });
+    expect(vi.mocked(fsyncSync)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(renameSync)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fsyncSync).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(renameSync).mock.invocationCallOrder[0],
+    );
   });
 
   it("replaces the old content as a whole", () => {
