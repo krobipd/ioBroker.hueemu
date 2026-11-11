@@ -10,7 +10,10 @@ vi.mock("@iobroker/adapter-core", () => ({
 import type { DeviceConfig } from "../hue-api";
 import { mergedWith } from "./known-objects";
 import type { LightStoreAdapter } from "./light-store";
-import { LIGHT_IDS_FILE, LightIds, LightStore, reachableObject, settingsOf } from "./light-store";
+import { LIGHT_IDS_FILE, LightIds, LightStore, settingsOf } from "./light-store";
+
+/** A datapoint someone put below a light by hand — the adapter itself creates none there. */
+const HAND_MADE = { type: "state", common: { name: "note", type: "string", role: "text" }, native: {} };
 
 const ICON = "data:image/svg+xml;base64,PHN2Zy8+";
 
@@ -92,14 +95,13 @@ const mark = (): unknown =>
 describe("LightIds", () => {
   const ids = new LightIds("hueemu.0");
 
-  it("builds the ids of a light's device object and reachability datapoint", () => {
+  it("builds the id of a light's device object", () => {
     expect(ids.device(3)).toBe("hueemu.0.lights.3");
-    expect(ids.reachable(3)).toBe("hueemu.0.lights.3.reachable");
   });
 
   it("reads the number of a device object id only", () => {
     expect(ids.numberOf("hueemu.0.lights.12")).toBe(12);
-    expect(ids.numberOf("hueemu.0.lights.12.reachable")).toBeUndefined();
+    expect(ids.numberOf("hueemu.0.lights.12.note")).toBeUndefined();
     expect(ids.numberOf("hueemu.0.lights.0")).toBeUndefined();
     expect(ids.numberOf("hueemu.0.lights.x")).toBeUndefined();
     expect(ids.numberOf("hueemu.1.lights.3")).toBeUndefined();
@@ -109,7 +111,7 @@ describe("LightIds", () => {
   it("covers everything below the folder with one range", () => {
     const { startkey, endkey } = ids.range();
     expect(startkey).toBe("hueemu.0.lights.");
-    expect("hueemu.0.lights.999.reachable" > startkey && "hueemu.0.lights.999.reachable" < endkey).toBe(true);
+    expect("hueemu.0.lights.999.note" > startkey && "hueemu.0.lights.999.note" < endkey).toBe(true);
     expect("hueemu.0.lightsX" < startkey || "hueemu.0.lightsX" > endkey).toBe(true);
   });
 });
@@ -129,7 +131,7 @@ describe("LightStore.list", () => {
     const adapter = fakeAdapter({
       "hueemu.0.lights.10": device({ en: "Hall", de: "Flur" }, { lightType: "onoff", onState: "h.on" }),
       "hueemu.0.lights.2": device({ en: "Desk" }, { lightType: "onoff", onState: "d.on" }),
-      "hueemu.0.lights.2.reachable": reachableObject(),
+      "hueemu.0.lights.2.note": HAND_MADE,
     });
     adapter.language = "de";
     const { lights, objects } = await new LightStore(adapter, dir, ICON).list();
@@ -137,11 +139,7 @@ describe("LightStore.list", () => {
       { id: 2, name: "Desk", lightType: "onoff", onState: "d.on" },
       { id: 10, name: "Flur", lightType: "onoff", onState: "h.on" },
     ]);
-    expect([...objects.keys()].sort()).toEqual([
-      "hueemu.0.lights.10",
-      "hueemu.0.lights.2",
-      "hueemu.0.lights.2.reachable",
-    ]);
+    expect([...objects.keys()].sort()).toEqual(["hueemu.0.lights.10", "hueemu.0.lights.2", "hueemu.0.lights.2.note"]);
   });
 
   // A hand-edited object: no device, no settings object, a name that is no text — the list still loads.
@@ -225,11 +223,11 @@ describe("LightStore.add", () => {
       common: {
         name: expect.objectContaining({ en: "C", de: "C", "zh-cn": "C" }) as unknown,
         icon: ICON,
-        statusStates: { onlineId: "hueemu.0.lights.8.reachable" },
       },
       native: { lightType: "ct", onState: "c", ctState: "c.ct" },
     });
-    expect(adapter.db.get("hueemu.0.lights.8.reachable")).toEqual(reachableObject());
+    // krobi 2026-11-11 14:27: a light only links datapoints of the same installation — nothing hangs below it.
+    expect([...adapter.db.keys()].filter(id => id.startsWith("hueemu.0.lights.8."))).toEqual([]);
   });
 
   it("creates no object when the mark cannot be stored", async () => {
@@ -331,7 +329,7 @@ describe("LightStore.remove", () => {
   it("covers the number with the mark first, then deletes the light with everything below it", async () => {
     const adapter = fakeAdapter({
       "hueemu.0.lights.4": device({ en: "A" }, {}),
-      "hueemu.0.lights.4.reachable": reachableObject(),
+      "hueemu.0.lights.4.note": HAND_MADE,
     });
     await new LightStore(adapter, dir, ICON).remove(4);
     expect(mark()).toBe(4);
@@ -351,20 +349,17 @@ describe("LightStore.remove", () => {
 describe("LightStore.reconcile", () => {
   const ids = new LightIds("hueemu.0");
 
-  it("gives a light from before its pictogram, status link and reachability datapoint — name and settings stay", async () => {
+  it("gives a light from before its pictogram — name and settings stay, nothing is created below it", async () => {
     const adapter = fakeAdapter({
       "hueemu.0.lights.3": device({ en: "Desk" }, { lightType: "onoff", onState: "d.on" }),
     });
     const store = new LightStore(adapter, dir, ICON);
-    expect(await store.reconcile(await store.list())).toBe(2);
+    expect(await store.reconcile(await store.list())).toBe(1);
     expect(adapter.db.get(ids.device(3))).toEqual(
-      device(
-        { en: "Desk" },
-        { lightType: "onoff", onState: "d.on" },
-        { icon: ICON, statusStates: { onlineId: ids.reachable(3) } },
-      ),
+      device({ en: "Desk" }, { lightType: "onoff", onState: "d.on" }, { icon: ICON }),
     );
-    expect(adapter.db.get(ids.reachable(3))).toEqual(reachableObject());
+    expect([...adapter.db.keys()]).toEqual([ids.device(3)]);
+    expect(adapter.setForeignObject).not.toHaveBeenCalled();
   });
 
   it("writes nothing for lights in the current form", async () => {
@@ -380,61 +375,13 @@ describe("LightStore.reconcile", () => {
     expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
   });
 
-  it("refreshes a reachability datapoint whose form differs, and keeps what the user added to it", async () => {
-    const adapter = fakeAdapter({
-      "hueemu.0.lights.3": device({ en: "Desk" }, {}, { icon: ICON, statusStates: { onlineId: ids.reachable(3) } }),
-      "hueemu.0.lights.3.reachable": {
-        type: "state",
-        common: {
-          name: "old",
-          type: "boolean",
-          role: "indicator",
-          read: true,
-          write: false,
-          custom: { "history.0": {} },
-        },
-        native: {},
-      },
-    });
-    const store = new LightStore(adapter, dir, ICON);
-    expect(await store.reconcile(await store.list())).toBe(1);
-    expect(adapter.extendForeignObjectAsync).toHaveBeenCalledWith(ids.reachable(3), reachableObject());
-    expect(adapter.db.get(ids.reachable(3))?.common).toMatchObject({
-      role: "indicator.reachable",
-      custom: { "history.0": {} },
-    });
-  });
-
   it("keeps a stored pictogram when the file could not be read", async () => {
     const adapter = fakeAdapter({
-      "hueemu.0.lights.3": device(
-        { en: "Desk" },
-        {},
-        { icon: "data:old", statusStates: { onlineId: ids.reachable(3) } },
-      ),
-      "hueemu.0.lights.3.reachable": reachableObject(),
+      "hueemu.0.lights.3": device({ en: "Desk" }, {}, { icon: "data:old" }),
     });
     const store = new LightStore(adapter, dir, undefined);
     expect(await store.reconcile(await store.list())).toBe(0);
     expect((adapter.db.get(ids.device(3))?.common as { icon: string }).icon).toBe("data:old");
-  });
-});
-
-describe("reachableObject", () => {
-  it("is a read-only boolean with the reachability role, false until the bridge knows better", () => {
-    expect(reachableObject()).toEqual({
-      type: "state",
-      common: {
-        name: { en: "lightReachableName" },
-        desc: { en: "lightReachableDesc" },
-        type: "boolean",
-        role: "indicator.reachable",
-        read: true,
-        write: false,
-        def: false,
-      },
-      native: {},
-    });
   });
 });
 

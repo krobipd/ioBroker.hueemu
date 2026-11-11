@@ -51,8 +51,6 @@
   "clientsFolderDesc": "Apparaten die met de bridge zijn gekoppeld — één vermelding per apparaat",
   "lightsFolder": "Lampen",
   "lightsFolderDesc": "Lampen die de bridge aan Hue-clients aanbiedt — één apparaat per lamp",
-  "lightReachableName": "Bereikbaar",
-  "lightReachableDesc": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
   "clientDesc": "Het apparaattype dat deze client bij het koppelen opgaf — zijn sleutel staat in de gegevensmap van de instantie",
   "startPairingName": "Koppelen starten",
   "startPairingDesc": "Koppelmodus 50 seconden activeren",

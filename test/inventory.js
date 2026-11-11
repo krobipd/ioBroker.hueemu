@@ -445,8 +445,9 @@ async function bridgeKnows(username) {
  *
  * @param {import("@iobroker/testing").IntegrationTestHarness} harness
  * @param {string} username the client key
+ * @param {string} [devicetype] the device type it pairs as — the model half of its object id
  */
-async function pairClient(harness, username) {
+async function pairClient(harness, username, devicetype = "inventory#fixture") {
     if (await bridgeKnows(username)) {
         return;
     }
@@ -457,7 +458,7 @@ async function pairClient(harness, username) {
         return state?.val === true && state.ack === true;
     };
     assert.ok(await waitWindow("the link button", START_DEADLINE_MS, pressed, 250), "the adapter did not open the pairing window");
-    const { body } = await askBridge({ method: "POST", address: "/api", body: { devicetype: "inventory#fixture", username } });
+    const { body } = await askBridge({ method: "POST", address: "/api", body: { devicetype, username } });
     assert.ok(Array.isArray(body) && body[0]?.success, `pairing ${username} did not succeed: ${JSON.stringify(body)}`);
     assert.ok(await waitWindow("the paired client", START_DEADLINE_MS, () => bridgeKnows(username), 250), `the bridge does not list the paired client ${username}`);
 }
@@ -565,15 +566,15 @@ async function feedFixtures(harness) {
 
 /**
  * Adapter-specific: every object id the fixtures produce beyond the manifest's own whose id is fixed — the paired client,
- * the first one of every suite (its key stands in clients.json, never in the id). The lights' objects (`lights.<n>` and
- * its `reachable`, audit R-24) are produced too, but their numbers depend on the suite's starting point — light 1 on a
- * fresh installation, above the earlier mark on an upgrade —, and feedFixtures already waits until the bridge serves
- * every one of them.
+ * named after the device type it pairs as and the last four characters of its key (its key stands in clients.json,
+ * krobi 2026-11-11 14:25/14:27). The lights' objects (`lights.<n>`, audit R-24) are produced too, but their numbers
+ * depend on the suite's starting point — light 1 on a fresh installation, above the earlier mark on an upgrade —, and
+ * feedFixtures already waits until the bridge serves every one of them.
  *
  * @returns {string[]} the ids
  */
 function expectedObjectIds() {
-    return [`${NS}clients.1`];
+    return [`${NS}clients.inventory-fixture-ient`];
 }
 
 /**
@@ -646,8 +647,8 @@ async function fixtureNative(extra = {}) {
  */
 const MOVES = {
     // hueemu v1.20.0: the client keys left the tree — the fixture's client, paired as `clients.<key>` up to v1.19.0, is
-    // the first client after the move (src/lib/client-move.ts).
-    [`${NS}clients.${FIXTURE_CLIENT_KEY}`]: `${NS}clients.1`,
+    // named after its device type and the last four characters of its key after the move (src/lib/client-move.ts).
+    [`${NS}clients.${FIXTURE_CLIENT_KEY}`]: `${NS}clients.inventory-fixture-ient`,
 };
 /**
  * Round 87: adapter-specific like FIXTURE_NATIVE — the states that show an outage of EVERY counterpart, each with the
@@ -696,13 +697,14 @@ const SEND_CONFIRMED = [];
  * checks that `info` and everything below it are still the adapter's own objects. Required wherever the manifest declares
  * an `info` object.
  *
- * hueemu builds no id from what a client names — a paired client is `clients.<n>`, its key stands in clients.json — and
- * the light a user adds in the device manager is `lights.<n>`. The light gets the name `info`, through the path
- * feedFixtures uses.
+ * hueemu builds a client's id from the device type it pairs as (`clients.<model>-<last four of its key>`) — a client
+ * pairs as `info` here — and the light a user adds in the device manager is `lights.<n>`, here named `info`; both
+ * through the paths feedFixtures uses.
  *
  * @param {import("@iobroker/testing").IntegrationTestHarness} harness
  */
 async function feedReservedNames(harness) {
+    await pairClient(harness, "reserved-name-client", "info");
     await addLights(harness, [{ name: "info", lightType: "onoff", onState: `${SRC}on` }], []);
 }
 
@@ -2153,9 +2155,9 @@ tests.integration(ADAPTER_DIR, {
                 assert.deepStrictEqual(left, [], `native still holds: ${left.join(", ")}`);
             });
 
-            // Werkbank standard of round 173 (point 4 and its addendum): a generated secret stands only in the file in
-            // the instance data folder — never in an object id, never in common or native.
-            it("moves the client it had to a numbered object — its key only in clients.json", function () {
+            // B02 audit_own_native_at_runtime (krobi 2026-11-05 22:46): a secret is a file in the instance data folder;
+            // the id names the model and the last four characters of the key (krobi 2026-11-11 14:25/14:27).
+            it("moves the client it had to its model and the last four characters of its key — the key in clients.json", function () {
                 assert.strictEqual(clientObjects[LEGACY_CLIENT_ID], undefined, `${LEGACY_CLIENT_ID} is still there`);
                 const forms = [LEGACY_CLIENT_KEY, LEGACY_CLIENT_ID.slice(`${NS}clients.`.length)];
                 const carrying = Object.entries(clientObjects)
@@ -2163,7 +2165,7 @@ tests.integration(ADAPTER_DIR, {
                     .map(([id]) => id);
                 assert.deepStrictEqual(carrying, [], `objects carrying the key: ${carrying.join(", ")}`);
                 const n = Object.entries(clientKeys.clients ?? {}).find(([, key]) => key === LEGACY_CLIENT_KEY)?.[0];
-                assert.ok(n, `clients.json does not hold the key: ${JSON.stringify(clientKeys)}`);
+                assert.strictEqual(n, "earlier-echo-tkey", `clients.json does not hold the key under its id: ${JSON.stringify(clientKeys)}`);
                 const moved = clientObjects[`${NS}clients.${n}`];
                 assert.strictEqual(moved?.type, "state", `clients.${n} is no client datapoint: ${JSON.stringify(moved)}`);
                 assert.strictEqual(moved.common?.name?.en, "Earlier Echo", `clients.${n} carries another name`);

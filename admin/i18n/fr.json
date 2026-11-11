@@ -51,8 +51,6 @@
   "clientsFolderDesc": "Appareils appairés avec le pont — une entrée par appareil",
   "lightsFolder": "Lumières",
   "lightsFolderDesc": "Lumières que le pont propose aux clients Hue — un appareil par lumière",
-  "lightReachableName": "Joignable",
-  "lightReachableDesc": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
   "clientDesc": "Le type d'appareil que ce client a indiqué lors de l'appairage — sa clé est conservée dans le dossier de données de l'instance",
   "startPairingName": "Démarrer l'appairage",
   "startPairingDesc": "Activer le mode d'appairage pendant 50 secondes",

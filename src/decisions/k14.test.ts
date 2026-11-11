@@ -1,14 +1,17 @@
 /**
  * Guard K14 — a light is reachable only with an assigned datapoint and its switch or brightness present; a missing color
- * datapoint does not count; when the adapter stops, every light is unreachable.
+ * datapoint does not count.
  *
  * The page, K14: "A light shows 'not reachable' when no datapoint is assigned to it or its switch or its brightness is
- * missing. A missing color datapoint does not count. When the adapter stops, all lights are 'not reachable'." Origin:
- * built by the AI when the lights became objects of their own in the object tree.
- * Accepted by krobi with the page of hueemu's core decisions (version 3) on 2026-11-11 07:37 ("Yes, accepted").
+ * missing. A missing color datapoint does not count." Origin: built by the AI when the lights became objects of their
+ * own in the object tree.
+ * Accepted by krobi with the page of hueemu's core decisions (version 3) on 2026-11-11 07:37 ("Yes, accepted"). Its
+ * third sentence ("When the adapter stops, all lights are 'not reachable'") went with the datapoint `lights.<n>.reachable`
+ * it was about — krobi 2026-11-11 14:27: "no, reachable is pointless in this case BECAUSE we only link internal data,
+ * so to speak".
  *
  * Path: the adapter itself (main.ts, adapter-core replaced by an in-memory stand-in) with the bridge's handler over the
- * lights; the bridge answers each light's reachability, the adapter writes `lights.<n>.reachable` and stops.
+ * lights; the bridge answers each light's `reachable` field.
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
@@ -52,12 +55,6 @@ vi.mock("@iobroker/adapter-core", () => {
     public unsubscribeForeignStates(): void {
       // nothing ends in this guard
     }
-    public clearTimeout(): void {
-      // no timer runs in this guard
-    }
-    public clearInterval(): void {
-      // no timer runs in this guard
-    }
   }
   return {
     Adapter,
@@ -70,18 +67,8 @@ import * as mainModule from "../main";
 import { ApiHandler, type ApiHandlerAdapter } from "../hue-api/api-handler";
 import type { DeviceConfig } from "../hue-api/device-binding-service";
 import { ClientStore } from "../lib/client-store";
-import { LightStore, type LightStoreAdapter } from "../lib/light-store";
 
 const { HueEmu } = mainModule as unknown as { HueEmu: new () => ApiHandlerAdapter };
-
-/** The adapter's own fields and steps the guard reaches. */
-interface Internals {
-  apiHandler: ApiHandler | null;
-  lights: LightStore | undefined;
-  lightsAreObjects: boolean;
-  writeReachability(): void;
-  onUnload(callback: () => void): void;
-}
 
 const folders: string[] = [];
 
@@ -110,7 +97,7 @@ function datapoint(id: string, type: string, val: ioBroker.StateValue): void {
  *
  * @param devices the lights
  */
-async function started(devices: DeviceConfig[]): Promise<{ internals: Internals; handler: ApiHandler }> {
+async function started(devices: DeviceConfig[]): Promise<{ handler: ApiHandler }> {
   const adapter = new HueEmu();
   const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k14-"));
   folders.push(folder);
@@ -133,9 +120,7 @@ async function started(devices: DeviceConfig[]): Promise<{ internals: Internals;
     clients,
   });
   await handler.initialize();
-  const internals = adapter as unknown as Internals;
-  internals.apiHandler = handler;
-  return { internals, handler };
+  return { handler };
 }
 
 describe("K14: when a light is reachable", () => {
@@ -161,30 +146,5 @@ describe("K14: when a light is reachable", () => {
     const reachable = Object.fromEntries(Object.entries(lights).map(([n, light]) => [n, light.state.reachable]));
 
     expect(reachable).toEqual({ 1: false, 2: true, 3: false, 4: true, 5: false, 6: true });
-  });
-
-  it("makes every light unreachable when the adapter stops", async () => {
-    datapoint("javascript.0.hall", "boolean", true);
-    datapoint("javascript.0.desk", "number", 80);
-    const { internals } = await started([
-      { id: 1, name: "Hall", lightType: "onoff", onState: "javascript.0.hall" },
-      { id: 2, name: "Desk", lightType: "dimmable", briState: "javascript.0.desk" },
-    ]);
-    // Only its light ids are used here: where each light's reachability datapoint lives.
-    internals.lights = new LightStore(internals as unknown as LightStoreAdapter, "", undefined);
-    internals.lightsAreObjects = true;
-    internals.writeReachability();
-    await Promise.resolve();
-    const running = [
-      db.states.get("hueemu.0.lights.1.reachable")?.val,
-      db.states.get("hueemu.0.lights.2.reachable")?.val,
-    ];
-    await new Promise<void>(resolve => internals.onUnload(resolve));
-    const stopped = [
-      db.states.get("hueemu.0.lights.1.reachable")?.val,
-      db.states.get("hueemu.0.lights.2.reachable")?.val,
-    ];
-
-    expect({ running, stopped }).toEqual({ running: [true, true], stopped: [false, false] });
   });
 });

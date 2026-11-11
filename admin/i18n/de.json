@@ -51,8 +51,6 @@
   "clientsFolderDesc": "Geräte, die sich mit der Bridge gekoppelt haben — ein Eintrag je Gerät",
   "lightsFolder": "Lichter",
   "lightsFolderDesc": "Lichter, die die Bridge den Hue-Clients anbietet — ein Gerät je Licht",
-  "lightReachableName": "Erreichbar",
-  "lightReachableDesc": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
   "clientDesc": "Der Gerätetyp, den dieser Client beim Koppeln genannt hat — sein Schlüssel liegt im Datenordner der Instanz",
   "startPairingName": "Kopplung starten",
   "startPairingDesc": "Kopplungsmodus für 50 Sekunden aktivieren",

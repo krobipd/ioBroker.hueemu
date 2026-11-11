@@ -1960,9 +1960,9 @@ describe("v1.17.0 — a light whose driving state does not exist is not reachabl
   });
 });
 
-// Audit R-24: what `lights.<n>.reachable` shows, and what a replaced light list unsubscribes.
-describe("audit R-24 — reachability by light number and the bound datapoints", () => {
-  it("names each light's number with whether the bridge can drive it", async () => {
+// The Hue field `reachable` per light, and what a replaced light list unsubscribes (audit R-24).
+describe("audit R-24 — the reachable field per light and the bound datapoints", () => {
+  it("reports per light whether the bridge can drive it", async () => {
     const svc = new DeviceBindingService({
       adapter: createMockDeviceBindingAdapter({ "a.on": true, "c.on": true, "d.bri": 50 }),
       devices: [
@@ -1976,14 +1976,15 @@ describe("audit R-24 — reachability by light number and the bound datapoints",
       logger: createMockLogger(),
     });
     await svc.initialize();
-    expect(svc.reachability()).toEqual([
-      [3, true],
-      [4, false],
-      [7, false],
-      [8, true],
-      [9, true],
-      [10, false],
-    ]);
+    const lights = await svc.getAllLights();
+    expect(Object.fromEntries(Object.entries(lights).map(([id, light]) => [id, light.state.reachable]))).toEqual({
+      3: true,
+      4: false,
+      7: false,
+      8: true,
+      9: true,
+      10: false,
+    });
   });
 
   it("lists every datapoint the lights bind, once", () => {

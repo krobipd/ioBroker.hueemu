@@ -148,10 +148,11 @@ describe("K13: a deleted paired device loses its access at once", () => {
     const key = await handler.createUser({ devicetype: "echo#dot" });
     adapter.pairingEnabled = false;
     const before = await handler.isUserAuthenticated(key);
-    db.objects.delete("hueemu.0.clients.1");
-    db.states.delete("hueemu.0.clients.1");
-    internals.onObjectChange("hueemu.0.clients.1", null);
-    internals.onStateChange("hueemu.0.clients.1", null);
+    const id = [...db.objects.keys()].find(objectId => objectId.startsWith("hueemu.0.clients.")) ?? "";
+    db.objects.delete(id);
+    db.states.delete(id);
+    internals.onObjectChange(id, null);
+    internals.onStateChange(id, null);
     const after = await handler.isUserAuthenticated(key);
 
     expect({ before, after, stored: storedKeys() }).toEqual({ before: true, after: false, stored: {} });
@@ -161,10 +162,10 @@ describe("K13: a deleted paired device loses its access at once", () => {
     db.folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k13-"));
     writeFileSync(
       join(db.folder, "clients.json"),
-      JSON.stringify({ lastClientId: 2, clients: { 1: "echo-key", 2: "harmony-key" } }),
+      JSON.stringify({ clients: { "echo-dot-okey": "echo-key", "harmony-hub-ykey": "harmony-key" } }),
     );
-    db.objects.set("hueemu.0.clients.2", {
-      _id: "hueemu.0.clients.2",
+    db.objects.set("hueemu.0.clients.harmony-hub-ykey", {
+      _id: "hueemu.0.clients.harmony-hub-ykey",
       type: "state",
       common: { name: { en: "harmony" }, type: "string", role: "text", read: true, write: false },
       native: {},
@@ -176,7 +177,7 @@ describe("K13: a deleted paired device loses its access at once", () => {
     expect({ echo, harmony, stored: storedKeys() }).toEqual({
       echo: false,
       harmony: true,
-      stored: { 2: "harmony-key" },
+      stored: { "harmony-hub-ykey": "harmony-key" },
     });
   });
 });

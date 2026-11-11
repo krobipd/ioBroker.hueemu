@@ -144,10 +144,9 @@ hueemu.0.
 ├── startPairing   — opens the pairing window for 50 seconds (button)
 ├── disableAuth    — accept every request without pairing (switch)
 ├── clients/       — one entry per paired client
-│   └── <n>        — the device type that client paired with (its key stays in the instance data folder)
+│   └── <model>-<xxxx> — the device type that client paired with; xxxx are the last four characters of its key, which stays in the instance data folder
 └── lights/        — the lights the bridge offers
-    └── <n>/       — one light, named as on its card; n is its Hue light number
-        └── reachable — whether the bridge can drive it
+    └── <n>        — one light, named as on its card; n is its Hue light number
 ```
 
 `info.connection` is the quick answer to "is it running at all?". A start can fail for
@@ -159,11 +158,10 @@ and the log carries the explanation.
 A paired client is removed by deleting its entry under `hueemu.0.clients` — its key
 stops working at once.
 
-`reachable` turns false while the state that switches the light — without one, its
-brightness state — does not exist (deleted, or a typo in the card), for a light bound to
-no state at all, and while the adapter is stopped — the same value Hue clients see for the
-light. A missing color state alone leaves it reachable. A light deleted under `hueemu.0.lights` is gone from the bridge at
-once, like one deleted on its card.
+Hue clients see a light as not reachable while the state that switches it — without one,
+its brightness state — does not exist (deleted, or a typo in the card), and for a light
+bound to no state at all. A missing color state alone leaves it reachable. A light deleted
+under `hueemu.0.lights` is gone from the bridge at once, like one deleted on its card.
 
 `disableAuth` is a maintenance aid, not a setting to leave on: with it every device on
 your network can control your lights without pairing, and every request to pair is

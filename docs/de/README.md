@@ -149,10 +149,9 @@ hueemu.0.
 ├── startPairing   — öffnet das Kopplungsfenster für 50 Sekunden (Taster)
 ├── disableAuth    — jede Anfrage ohne Kopplung annehmen (Schalter)
 ├── clients/       — ein Eintrag je gekoppeltem Client
-│   └── <n>        — der Gerätetyp, mit dem sich dieser Client gekoppelt hat (sein Schlüssel bleibt im Datenordner der Instanz)
+│   └── <modell>-<xxxx> — der Gerätetyp, mit dem sich dieser Client gekoppelt hat; xxxx sind die letzten vier Zeichen seines Schlüssels, der im Datenordner der Instanz bleibt
 └── lights/        — die Lampen, die die Bridge anbietet
-    └── <n>/       — eine Lampe, benannt wie auf ihrer Karte; n ist ihre Hue-Lampennummer
-        └── reachable — ob die Bridge sie fahren kann
+    └── <n>        — eine Lampe, benannt wie auf ihrer Karte; n ist ihre Hue-Lampennummer
 ```
 
 `info.connection` ist die schnelle Antwort auf „läuft es überhaupt?". Ein Start kann aus
@@ -164,11 +163,10 @@ der Adapter selbst erkennt (kein Port gesetzt, keine brauchbare Netzwerkadresse)
 Einen gekoppelten Client entfernst du, indem du seinen Eintrag unter `hueemu.0.clients`
 löschst — sein Schlüssel gilt ab sofort nicht mehr.
 
-`reachable` wird falsch, solange der Datenpunkt, der die Lampe schaltet — ohne einen
-solchen ihr Helligkeitsdatenpunkt —, nicht existiert (gelöscht oder ein Tippfehler in der
-Karte), für eine Lampe ohne jeden gebundenen Datenpunkt und solange der Adapter gestoppt
-ist — derselbe Wert, den Hue-Clients für die Lampe sehen. Ein fehlender Farbdatenpunkt
-allein lässt sie erreichbar. Eine unter `hueemu.0.lights`
+Hue-Clients sehen eine Lampe als nicht erreichbar, solange der Datenpunkt, der sie
+schaltet — ohne einen solchen ihr Helligkeitsdatenpunkt —, nicht existiert (gelöscht oder
+ein Tippfehler in der Karte), und für eine Lampe ohne jeden gebundenen Datenpunkt. Ein
+fehlender Farbdatenpunkt allein lässt sie erreichbar. Eine unter `hueemu.0.lights`
 gelöschte Lampe ist sofort aus der Bridge verschwunden, wie eine auf ihrer Karte gelöschte.
 
 `disableAuth` ist eine Wartungshilfe, keine Dauereinstellung: damit kann jedes Gerät in

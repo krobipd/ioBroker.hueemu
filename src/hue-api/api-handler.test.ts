@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Mock } from "vitest";
 import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
-import { ClientStore } from "../lib/client-store";
+import { ClientStore, clientIdFor } from "../lib/client-store";
 import type { CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";
 import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
@@ -34,8 +34,11 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
+/** The device type the clients of {@link storeWith} paired with. */
+const PAIRED_AS = "Echo";
+
 /**
- * The client keys as a start finds them: the given keys as clients 1, 2, …
+ * The client keys as a start finds them: the given keys, each paired as {@link PAIRED_AS}.
  *
  * @param keys the keys
  */
@@ -43,13 +46,14 @@ function storeWith(keys: string[]): ClientStore {
   const store = new ClientStore(dataDir);
   store.load();
   for (const key of keys) {
-    store.add(key);
+    store.add(key, PAIRED_AS);
   }
   return store;
 }
 
 /**
- * An adapter whose tree holds one client object per given key, numbered 1, 2, … (the keys stand in the store).
+ * An adapter whose tree holds one client object per given key, named as {@link storeWith} names it (the keys stand
+ * in the store).
  *
  * @param existingClients the keys of the clients already paired
  * @param opts pairing window and authentication switch
@@ -62,7 +66,7 @@ function createMockAdapter(
 ): MockApiAdapter {
   const writtenObjects = new Map<string, ioBroker.SettableObject>();
   const writtenStates = new Map<string, unknown>();
-  const clients = new Set<string>(existingClients.map((_, i) => String(i + 1)));
+  const clients = new Set<string>(existingClients.map(key => clientIdFor(PAIRED_AS, key, new Set())));
   const namespace = "hueemu.0";
 
   const adapter: MockApiAdapter = {
@@ -272,8 +276,9 @@ describe("ApiHandler", () => {
       const { handler, adapter, store } = createHandler([], { pairingEnabled: true });
       const result = await handler.isUserAuthenticated("new-echo-id");
       expect(result).toBe(true);
-      expect(store.numberOf("new-echo-id")).toBe(1);
-      expect(adapter.existingClients.has("1")).toBe(true);
+      // The pairing window took it in without a device type: `client` and the last four characters of its key.
+      expect(store.idOf("new-echo-id")).toBe("client-hoid");
+      expect(adapter.existingClients.has("client-hoid")).toBe(true);
     });
 
     it("returns false for empty username", async () => {
@@ -288,7 +293,7 @@ describe("ApiHandler", () => {
       // A discovery app polls /api/nouser/config while waiting for the link
       // button — that probe name must never become a valid key.
       expect(await handler.isKnownUser("nouser")).toBe(false);
-      expect(store.numberOf("nouser")).toBeUndefined();
+      expect(store.idOf("nouser")).toBeUndefined();
       expect([...adapter.writtenObjects.keys()].some(id => id.startsWith("clients."))).toBe(false);
       // The auto-add path itself is untouched for the routes that need it.
       expect(await handler.isUserAuthenticated("nouser")).toBe(true);
@@ -308,7 +313,7 @@ describe("ApiHandler", () => {
       const body: CreateUserRequest = { devicetype: "t", username: tooLong };
       const username = await handler.createUser(body);
       expect(username).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-      expect(store.numberOf(tooLong)).toBeUndefined();
+      expect(store.idOf(tooLong)).toBeUndefined();
     });
 
     it("still accepts a provided username of exactly 64 chars", async () => {
@@ -349,7 +354,7 @@ describe("ApiHandler", () => {
       const { handler, adapter, store } = createHandler([], { pairingEnabled: true });
       const tooLong = "z".repeat(65);
       expect(await handler.isUserAuthenticated(tooLong)).toBe(false);
-      expect(store.numberOf(tooLong)).toBeUndefined();
+      expect(store.idOf(tooLong)).toBeUndefined();
       expect(adapter.existingClients.size).toBe(0);
     });
   });
@@ -622,7 +627,7 @@ describe("ApiHandler", () => {
         handler.forgetState("new.on");
         held.resolve({ val: true, ack: true } as ioBroker.State); // read before the deletion
         await swap;
-        expect(handler.reachability()).toEqual([[5, false]]);
+        expect((await handler.getLightById("5")).state.reachable).toBe(false);
       });
 
       it("ends the subscriptions only the old list needed", async () => {

@@ -143,10 +143,9 @@ hueemu.0.
 ├── startPairing         — Enable pairing mode for 50 seconds (button)
 ├── disableAuth          — Disable authentication (switch)
 ├── clients/             — Paired client devices
-│   └── {username}       — Client API key (created during pairing)
+│   └── {model}-{xxxx}   — The device type a client paired with (xxxx: last 4 characters of its key, kept in the instance data folder)
 └── lights/              — The lights the bridge offers
-    └── {n}/             — One light, named as in the device manager; n is its Hue light number
-        └── reachable    — Whether the bridge can drive it: false while its switch (or brightness) state is missing
+    └── {n}              — One light, named as in the device manager; n is its Hue light number
 ```
 
 If `info.connection` stays `false` after a start, look at `info.error`: an error from the
@@ -204,8 +203,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Changed: The bridge now answers only clients in its own networks, with a chosen address only those in that network.
 - Changed: The bridge identity (UDN, certificate) moved from the settings into the instance data folder — saving the settings can no longer reset it, and a new instance starts without a restart.
 - Changed: The lights moved from the settings into the object tree (lights) — a change in the device manager takes effect without a restart.
-- New: Every light shows in the object tree whether the bridge can drive it (lights.<n>.reachable).
-- Changed: The keys of paired clients moved from the object tree into the instance data folder — the client objects are now numbered (clients.<n>) and show the device type; every pairing stays.
+- Changed: The keys of paired clients moved into the instance data folder — a client object is named after its device type and the end of its key (e.g. clients.harmony-hub-ac37); every pairing stays.
 - Changed: Going back to 1.19.0 or older is not supported — that version creates a new bridge identity and finds no lights.
 - Changed: The undocumented /health route is gone.
 - Changed: Pairing has no limit any more — every device that asks within the 50 seconds is paired.

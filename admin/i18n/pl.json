@@ -51,8 +51,6 @@
   "clientsFolderDesc": "Urządzenia sparowane z mostkiem — jeden wpis na urządzenie",
   "lightsFolder": "Światła",
   "lightsFolderDesc": "Światła, które mostek udostępnia klientom Hue — jedno urządzenie na światło",
-  "lightReachableName": "Osiągalne",
-  "lightReachableDesc": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
   "clientDesc": "Typ urządzenia podany przez tego klienta podczas parowania — jego klucz jest przechowywany w folderze danych instancji",
   "startPairingName": "Rozpocznij parowanie",
   "startPairingDesc": "Włącz tryb parowania na 50 sekund",

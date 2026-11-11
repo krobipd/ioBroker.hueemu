@@ -501,14 +501,6 @@ export class DeviceBindingService {
   }
 
   /**
-   * Whether the bridge can drive each light, by light number — what `lights.<n>.reachable` shows (audit R-24).
-   * In memory only, cheap enough to ask after every state change.
-   */
-  public reachability(): Array<[number, boolean]> {
-    return this.devices.map(device => [device.id ?? 0, this.isReachable(device)]);
-  }
-
-  /**
    * Light id strings for all configured devices, in configuration order. Cheap
    * (no state reads) — used by group actions to fan out without rebuilding
    * every light first.

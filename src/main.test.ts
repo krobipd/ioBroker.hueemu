@@ -35,7 +35,6 @@ vi.mock("@iobroker/adapter-core", () => {
     public getDevicesAsync = vi.fn(() => Promise.resolve([]));
     public getStatesOfAsync = vi.fn(() => Promise.resolve([]));
     public getStatesAsync = vi.fn(() => Promise.resolve({}));
-    public getForeignStatesAsync = vi.fn((): Promise<unknown> => Promise.resolve({}));
     public delForeignObjectAsync = vi.fn(async () => {});
     public extendForeignObjectAsync = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
@@ -142,7 +141,6 @@ interface FakeSsdp {
 interface FakeApiHandler {
   initialize: ReturnType<typeof vi.fn>;
   replaceDevices: ReturnType<typeof vi.fn>;
-  reachability: ReturnType<typeof vi.fn>;
   onStateChange: ReturnType<typeof vi.fn>;
   forgetClient: ReturnType<typeof vi.fn>;
   forgetState: ReturnType<typeof vi.fn>;
@@ -203,8 +201,7 @@ function internalOf(adapter: HueEmu): {
     https?: { cert: string; key: string };
   };
   delForeignObjectAsync: ReturnType<typeof vi.fn>;
-  getForeignStatesAsync: ReturnType<typeof vi.fn>;
-  prepareClients: () => Promise<{ keyOf: (n: number) => string | undefined }>;
+  prepareClients: () => Promise<{ keyOf: (id: string) => string | undefined }>;
 } {
   return adapter as unknown as ReturnType<typeof internalOf>;
 }
@@ -249,7 +246,6 @@ function setup(configOverrides: Record<string, unknown> = {}): {
     const h: FakeApiHandler = {
       initialize: vi.fn(async () => {}),
       replaceDevices: vi.fn(async () => {}),
-      reachability: vi.fn(() => []),
       onStateChange: vi.fn(),
       forgetState: vi.fn(),
       forgetClient: vi.fn(),
@@ -1464,9 +1460,9 @@ describe("HueEmu onUnload", () => {
   });
 });
 
-// The client keys left the object tree (Werkbank standard of round 173, point 4 and its addendum): clients.json in the
-// instance data folder holds them, the objects are `clients.<n>`. The move itself is proven in client-move.test.ts —
-// here, where onReady runs it and what it hands on.
+// The client keys left the object tree (B02 audit_own_native_at_runtime, krobi 2026-11-05 22:46: secrets as a file in
+// the instance data folder): clients.json holds them, the objects are `clients.<model>-<last four of the key>`. The
+// move itself is proven in client-move.test.ts — here, where onReady runs it and what it hands on.
 describe("HueEmu prepareClients (client keys in the data folder)", () => {
   /** A client object as v1.19.0 stored it. */
   const legacyRow = {
@@ -1486,8 +1482,11 @@ describe("HueEmu prepareClients (client keys in the data folder)", () => {
       Promise.resolve({ rows: q.startkey === "hueemu.0.clients." ? [legacyRow] : [] }),
     );
     await i.onReady();
-    expect(storedClients()).toEqual({ lastClientId: 1, clients: { 1: "echo-key" } });
-    expect(i.setObjectNotExistsAsync).toHaveBeenCalledWith("clients.1", expect.objectContaining({ native: {} }));
+    expect(storedClients()).toEqual({ clients: { "echo-okey": "echo-key" } });
+    expect(i.setObjectNotExistsAsync).toHaveBeenCalledWith(
+      "clients.echo-okey",
+      expect.objectContaining({ native: {} }),
+    );
     expect(i.delObjectAsync).toHaveBeenCalledWith("clients.echo-key");
     const deleted =
       i.delObjectAsync.mock.invocationCallOrder[
@@ -1508,8 +1507,8 @@ describe("HueEmu prepareClients (client keys in the data folder)", () => {
       Promise.resolve({ rows: q.startkey === "hueemu.0.clients." ? [legacyRow] : [] }),
     );
     await i.onReady();
-    const options = handlers[0].options as { clients: { keyOf: (n: number) => string | undefined } };
-    expect(options.clients.keyOf(1)).toBe("echo-key");
+    const options = handlers[0].options as { clients: { keyOf: (id: string) => string | undefined } };
+    expect(options.clients.keyOf("echo-okey")).toBe("echo-key");
   });
 
   it("keeps starting, and warns, when the clients cannot be moved", async () => {
@@ -1636,15 +1635,11 @@ describe("HueEmu light objects (audit R-24)", () => {
       common: {
         name: expect.objectContaining({ en: "Kitchen", de: "Kitchen" }) as unknown,
         icon: ICON,
-        statusStates: { onlineId: "hueemu.0.lights.1.reachable" },
       },
       native: { lightType: "onoff", onState: "k.on" },
     });
     expect(db.get("hueemu.0.lights.2")).toMatchObject({ native: { lightType: "dimmable", briState: "h.bri" } });
-    expect(db.get("hueemu.0.lights.2.reachable")).toMatchObject({
-      type: "state",
-      common: { type: "boolean", role: "indicator.reachable", read: true, write: false, def: false },
-    });
+    expect([...db.keys()].filter(id => /^hueemu\.0\.lights\.\d+\./.test(id))).toEqual([]);
     expect(storedMark()).toBe(2);
     expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
       native: { devices: null, lastLightId: null },
@@ -1699,12 +1694,6 @@ describe("HueEmu light objects (audit R-24)", () => {
     const i = internalOf(adapter);
     objectDb(adapter, {}, native);
     i.setForeignObject.mockRejectedValue(new Error("objects db down"));
-    const make = (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler;
-    (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler = options => {
-      const h = make(options);
-      h.reachability.mockReturnValue([[1, true]]);
-      return h;
-    };
 
     await i.onReady();
 
@@ -1714,7 +1703,7 @@ describe("HueEmu light objects (audit R-24)", () => {
     expect((handlers[0].options as { devices: unknown[] }).devices).toEqual([
       expect.objectContaining({ id: 1, name: "Kitchen", onState: "k.on" }),
     ]);
-    // The served list stays this run: no live reload, and no reachability for objects that are not there.
+    // The served list stays this run: no live reload, and nothing written below lights that are not there.
     expect(i.subscribeObjects).not.toHaveBeenCalledWith("lights.*");
     expect(i.setState.mock.calls.map(c => String(c[0])).filter(id => id.includes("lights."))).toEqual([]);
   });
@@ -1810,18 +1799,18 @@ describe("HueEmu light objects (audit R-24)", () => {
     expect(servers).toHaveLength(1);
   });
 
-  // The fleet rule "rewrites no object unchanged": a light from before gets its pictogram, status link and
-  // reachability datapoint exactly once; the next start writes no light object at all.
+  // The fleet rule "rewrites no object unchanged": a light from before gets its pictogram exactly once; the next start
+  // writes no light object at all.
   it("brings an existing light object to the current form once, and writes nothing on the next start", async () => {
     const seed = { "hueemu.0.lights.3": lightDevice("Desk", { lightType: "onoff", onState: "d.on" }) };
     const first = setup();
     const db = objectDb(first.adapter, seed);
     await internalOf(first.adapter).onReady();
     expect(db.get("hueemu.0.lights.3")).toMatchObject({
-      common: { name: { en: "Desk" }, icon: ICON, statusStates: { onlineId: "hueemu.0.lights.3.reachable" } },
+      common: { name: { en: "Desk" }, icon: ICON },
       native: { lightType: "onoff", onState: "d.on" },
     });
-    expect(db.has("hueemu.0.lights.3.reachable")).toBe(true);
+    expect([...db.keys()].filter(id => id.startsWith("hueemu.0.lights.3."))).toEqual([]);
 
     const second = setup();
     const i = internalOf(second.adapter);
@@ -1861,117 +1850,21 @@ describe("HueEmu light objects (audit R-24)", () => {
     expect(subscribed).toBeGreaterThan(lastLightWrite);
   });
 
-  describe("reachability (lights.<n>.reachable)", () => {
-    /**
-     * A started adapter serving lights 1 and 2, light 1 reachable and light 2 not, with what the datapoints held.
-     *
-     * @param held what `lights.<n>.reachable` held before the start
-     */
-    async function started(held: Record<string, boolean> = {}): Promise<{
-      i: ReturnType<typeof internalOf>;
-      handler: FakeApiHandler;
-      db: Map<string, Record<string, unknown>>;
-      writes: () => Array<[string, unknown]>;
-    }> {
-      const { adapter, handlers } = setup();
-      const i = internalOf(adapter);
-      const db = objectDb(adapter, {
-        "hueemu.0.lights.1": lightDevice("A", { lightType: "onoff", onState: "a.on" }),
-        "hueemu.0.lights.2": lightDevice("B", { lightType: "onoff", onState: "b.on" }),
-      });
-      i.getForeignStatesAsync.mockResolvedValue(
-        Object.fromEntries(Object.entries(held).map(([id, val]) => [id, { val, ack: true }])),
-      );
-      const make = (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler;
-      (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler = options => {
-        const h = make(options);
-        h.reachability.mockReturnValue([
-          [1, true],
-          [2, false],
-        ]);
-        return h;
-      };
-      await i.onReady();
-      const writes = (): Array<[string, unknown]> =>
-        i.setState.mock.calls
-          .filter(c => String(c[0]).includes(".lights."))
-          .map(c => [c[0] as string, (c[1] as { val: unknown }).val]);
-      return { i, handler: handlers[0], db, writes };
-    }
-
-    it("writes what differs from the stored value after the start", async () => {
-      const { writes } = await started({ "hueemu.0.lights.1.reachable": false, "hueemu.0.lights.2.reachable": false });
-      expect(writes()).toEqual([["hueemu.0.lights.1.reachable", true]]);
+  // krobi 2026-11-11 14:27: a light only links datapoints of the same installation — a reachability datapoint would
+  // say nothing, so the adapter keeps none: no object below a light, no write there, not at the stop either.
+  it("keeps no datapoint below a light — none created, none written at start, on a change or at the stop", async () => {
+    const { adapter, handlers } = setup();
+    const i = internalOf(adapter);
+    const db = objectDb(adapter, {
+      "hueemu.0.lights.1": lightDevice("A", { lightType: "onoff", onState: "a.on" }),
     });
-
-    it("writes nothing when the datapoints already hold the truth", async () => {
-      const { writes } = await started({ "hueemu.0.lights.1.reachable": true, "hueemu.0.lights.2.reachable": false });
-      expect(writes()).toEqual([]);
-    });
-
-    it("writes a change after a bound datapoint changed — and only then", async () => {
-      const { i, handler, writes } = await started({
-        "hueemu.0.lights.1.reachable": true,
-        "hueemu.0.lights.2.reachable": false,
-      });
-      handler.reachability.mockReturnValue([
-        [1, true],
-        [2, true],
-      ]);
-      i.onStateChange("b.on", { val: true, ack: true, ts: 1, lc: 1, from: "x", q: 0 });
-      i.onStateChange("b.on", { val: false, ack: true, ts: 2, lc: 2, from: "x", q: 0 });
-      expect(writes()).toEqual([["hueemu.0.lights.2.reachable", true]]);
-    });
-
-    it("writes the change a deleted bound datapoint causes", async () => {
-      const { i, handler, writes } = await started({
-        "hueemu.0.lights.1.reachable": true,
-        "hueemu.0.lights.2.reachable": false,
-      });
-      handler.reachability.mockReturnValue([
-        [1, false],
-        [2, false],
-      ]);
-      i.onStateChange("a.on", null);
-      expect(handler.forgetState).toHaveBeenCalledWith("a.on");
-      expect(writes()).toEqual([["hueemu.0.lights.1.reachable", false]]);
-    });
-
-    // D4: what a stop sets to "not reachable" is written before the callback, or it never reaches the database.
-    it("marks every reachable light unreachable on the stop, before the callback", async () => {
-      const { i, writes } = await started({
-        "hueemu.0.lights.1.reachable": true,
-        "hueemu.0.lights.2.reachable": false,
-      });
-      let atCallback: Array<[string, unknown]> = [];
-      await new Promise<void>(resolve =>
-        i.onUnload(() => {
-          atCallback = writes();
-          resolve();
-        }),
-      );
-      expect(atCallback).toEqual([["hueemu.0.lights.1.reachable", false]]);
-    });
-
-    // A deleted light has no reachability datapoint any more — the stop must not write one for it.
-    it("forgets a deleted light — the stop writes nothing for it", async () => {
-      const { i, handler, db, writes } = await started({
-        "hueemu.0.lights.1.reachable": true,
-        "hueemu.0.lights.2.reachable": false,
-      });
-      handler.reachability.mockReturnValue([[2, false]]);
-      db.delete("hueemu.0.lights.1");
-      i.onObjectChange("hueemu.0.lights.1", null);
-      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledTimes(1));
-      let atCallback: Array<[string, unknown]> = [];
-      await new Promise<void>(resolve =>
-        i.onUnload(() => {
-          atCallback = writes();
-          resolve();
-        }),
-      );
-      expect(atCallback).toEqual([]);
-    });
+    await i.onReady();
+    i.onStateChange("a.on", { val: true, ack: true, ts: 1, lc: 1, from: "x", q: 0 });
+    i.onStateChange("a.on", null);
+    expect(handlers[0].forgetState).toHaveBeenCalledWith("a.on");
+    await new Promise<void>(resolve => i.onUnload(resolve));
+    expect([...db.keys()].filter(id => id.startsWith("hueemu.0.lights.1."))).toEqual([]);
+    expect(i.setState.mock.calls.map(c => String(c[0])).filter(id => id.includes("lights."))).toEqual([]);
   });
 
   describe("a changed light object is served at once", () => {
@@ -2028,9 +1921,9 @@ describe("HueEmu light objects (audit R-24)", () => {
       expect(handler.replaceDevices).not.toHaveBeenCalled();
     });
 
-    it("ignores a change of a datapoint below a light — its own reachability writes included", async () => {
+    it("ignores a change of a datapoint below a light — one someone made there by hand", async () => {
       const { i, handler } = await started();
-      i.onObjectChange("hueemu.0.lights.3.reachable", { type: "state" } as unknown as ioBroker.Object);
+      i.onObjectChange("hueemu.0.lights.3.note", { type: "state" } as unknown as ioBroker.Object);
       await new Promise(resolve => setImmediate(resolve));
       expect(handler.replaceDevices).not.toHaveBeenCalled();
     });

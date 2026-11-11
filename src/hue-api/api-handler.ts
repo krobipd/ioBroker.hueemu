@@ -18,7 +18,7 @@ import { oneLine } from "../types/utils";
 import { MAX_DEVICETYPE_LENGTH, MAX_USERNAME_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
-import type { ClientStore } from "../lib/client-store";
+import { AUTO_PAIRED_DEVICETYPE, type ClientStore } from "../lib/client-store";
 import { LIGHT_STATE_KEYS, READ_ONLY_STATE_KEYS } from "./light-state-keys";
 
 /**
@@ -135,11 +135,6 @@ export class ApiHandler implements HueApiHandler {
       this.adapter.unsubscribeForeignStates(id);
     }
     this.logger.debug(`${devices.length} device(s) configured`);
-  }
-
-  /** Whether the bridge can drive each light, by light number (`lights.<n>.reachable`). */
-  public reachability(): Array<[number, boolean]> {
-    return this.deviceBinding.reachability();
   }
 
   /**
@@ -370,7 +365,7 @@ export class ApiHandler implements HueApiHandler {
       }
       // Every device that asks inside the window gets access (decision K3).
       try {
-        await this.userService.addUser(username, "auto-paired");
+        await this.userService.addUser(username, AUTO_PAIRED_DEVICETYPE);
         this.logger.debug(`Pairing enabled, auto-added user: ${oneLine(username)}`);
         return true;
       } catch (err) {

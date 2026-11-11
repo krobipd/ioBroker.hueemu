@@ -12,7 +12,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_DEVICETYPE_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
-import { CLIENTS_FILE, ClientStore } from "../lib/client-store";
+import { CLIENTS_FILE, ClientStore, clientIdFor } from "../lib/client-store";
 import { createMockLogger } from "../../test/test-helpers";
 
 interface MockUserAdapter extends UserServiceAdapter {
@@ -35,15 +35,22 @@ afterEach(() => {
 });
 
 /** The table clients.json holds right now. */
-function storedFile(): { lastClientId: number; clients: Record<string, string> } {
-  return JSON.parse(readFileSync(join(dataDir, CLIENTS_FILE), "utf8")) as {
-    lastClientId: number;
-    clients: Record<string, string>;
-  };
+function storedFile(): { clients: Record<string, string> } {
+  return JSON.parse(readFileSync(join(dataDir, CLIENTS_FILE), "utf8")) as { clients: Record<string, string> };
 }
 
+/** The device type the clients of {@link storeWith} paired with. */
+const PAIRED_AS = "Echo";
+
 /**
- * A client store holding the given keys as clients 1, 2, … (as a start finds them after the move).
+ * The id a client paired as {@link PAIRED_AS} gets — `echo-` and the last four letters or digits of its key.
+ *
+ * @param key the client key
+ */
+const idFor = (key: string): string => clientIdFor(PAIRED_AS, key, new Set());
+
+/**
+ * A client store holding the given keys, each paired as {@link PAIRED_AS} (as a start finds them after the move).
  *
  * @param keys the keys
  */
@@ -51,13 +58,13 @@ function storeWith(keys: string[]): ClientStore {
   const store = new ClientStore(dataDir);
   store.load();
   for (const key of keys) {
-    store.add(key);
+    store.add(key, PAIRED_AS);
   }
   return store;
 }
 
 /**
- * An adapter whose tree holds one object `clients.<n>` per given key — the keys themselves stand in the store.
+ * An adapter whose tree holds one object `clients.<id>` per given key — the keys themselves stand in the store.
  *
  * @param existingKeys the keys of the clients already paired
  */
@@ -67,9 +74,9 @@ function createMockAdapter(existingKeys: string[] = []): MockUserAdapter {
   const namespace = "hueemu.0";
 
   const stateObjects: ioBroker.StateObject[] = existingKeys.map(
-    (key, i) =>
+    key =>
       ({
-        _id: `${namespace}.clients.${i + 1}`,
+        _id: `${namespace}.clients.${idFor(key)}`,
         type: "state",
         common: { name: { en: `device of ${key}` }, type: "string", role: "text", read: true, write: false },
         native: {},
@@ -134,48 +141,48 @@ describe("UserService", () => {
     it("stores at most 100 chars of the devicetype as the object name", async () => {
       const { service, adapter } = createService();
       await service.addUser("long-name-client", "x".repeat(300));
-      expect((adapter.writtenObjects.get("clients.1")?.common?.name as Record<string, string>).en).toHaveLength(
-        MAX_DEVICETYPE_LENGTH,
-      );
+      const [obj] = [...adapter.writtenObjects.values()];
+      expect((obj?.common?.name as Record<string, string>).en).toHaveLength(MAX_DEVICETYPE_LENGTH);
     });
 
-    it("creates the first client as clients.1, named after its device type", async () => {
+    // krobi 2026-11-11 14:25/14:27: the id is the model it paired as and the last four characters of its key.
+    it("names a client after its device type and the last four characters of its key", async () => {
       const { service, adapter } = createService();
       await service.addUser("alexa-echo-1", "Amazon Echo");
-      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.1"]);
-      expect(adapter.writtenObjects.get("clients.1")?.common?.name).toMatchObject({
+      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.amazon-echo-cho1"]);
+      expect(adapter.writtenObjects.get("clients.amazon-echo-cho1")?.common?.name).toMatchObject({
         en: "Amazon Echo",
         de: "Amazon Echo",
       });
     });
 
-    it("numbers the clients one after the other", async () => {
+    it("names a further client after its own device type and key", async () => {
       const { service, adapter } = createService(["first", "second"]);
-      await service.addUser("third", "Echo");
-      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.3"]);
+      await service.addUser("third", "Harmony Hub");
+      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.harmony-hub-hird"]);
     });
 
-    // Werkbank standard of round 173 (point 4 and its addendum): a generated secret stands only in the file in the
-    // instance data folder — never in an object id, never in common or native. Up to v1.19.0 the key was all three.
-    it("keeps the key only in clients.json — the object carries nothing of it", async () => {
+    // B02 audit_own_native_at_runtime (krobi 2026-11-05 22:46): a secret is a file in the instance data folder, never
+    // the adapter's own native. Up to v1.19.0 the key was the object id, its native.username and its value.
+    it("keeps the key in clients.json — the object carries no more of it than the four characters of its id", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
       expect(JSON.stringify([...adapter.writtenObjects])).not.toContain("user.with.dots");
       expect(JSON.stringify([...adapter.writtenObjects])).not.toContain("user_with_dots");
-      expect(adapter.writtenObjects.get("clients.1")?.native).toEqual({});
-      expect(storedFile()).toEqual({ lastClientId: 1, clients: { 1: "user.with.dots" } });
+      expect(adapter.writtenObjects.get("clients.test-dots")?.native).toEqual({});
+      expect(storedFile()).toEqual({ clients: { "test-dots": "user.with.dots" } });
     });
 
-    it("defaults devicetype to 'unknown'", async () => {
+    it("defaults devicetype to 'unknown' and names such a client `client`", async () => {
       const { service, adapter } = createService();
       await service.addUser("abc123");
-      expect(adapter.writtenObjects.get("clients.1")?.common?.name).toMatchObject({ en: "unknown" });
+      expect(adapter.writtenObjects.get("clients.client-c123")?.common?.name).toMatchObject({ en: "unknown" });
     });
 
     it("stores the device type as the state value, never the key", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
-      expect(adapter.writtenStates.get("clients.1")).toEqual({ ack: true, val: "test" });
+      expect(adapter.writtenStates.get("clients.test-dots")).toEqual({ ack: true, val: "test" });
     });
 
     // Audit R-33 (fleet rule GV-05, inventory test "rewrites no state unchanged"): the value is written once at pairing —
@@ -192,23 +199,22 @@ describe("UserService", () => {
     it("writes no state for a client paired before this start that pairs again", async () => {
       const { service, adapter } = createService(["known-key"]);
       adapter.stateValues = {
-        "hueemu.0.clients.1": { val: "Echo", ack: true, ts: 1, lc: 1, from: "system.adapter.hueemu.0", q: 0 },
+        "hueemu.0.clients.echo-nkey": { val: "Echo", ack: true, ts: 1, lc: 1, from: "system.adapter.hueemu.0", q: 0 },
       };
       const setState = vi.spyOn(adapter, "setState");
       await service.createUser("known-key", "Echo");
       expect(setState).not.toHaveBeenCalled();
     });
 
-    it("pairs a client anew under a new number after its object was deleted", async () => {
+    it("pairs a client anew after its object was deleted", async () => {
       const { service, adapter } = createService();
       const setState = vi.spyOn(adapter, "setState");
       await service.createUser("known-key", "Echo");
-      service.forgetClient("1");
+      service.forgetClient("echo-nkey");
       await service.createUser("known-key", "Echo");
       expect(setState).toHaveBeenCalledTimes(2);
-      // A number is never handed out twice — the new pairing inherits nothing of the deleted one.
-      expect(setState).toHaveBeenLastCalledWith("clients.2", { ack: true, val: "Echo" });
-      expect(storedFile()).toEqual({ lastClientId: 2, clients: { 2: "known-key" } });
+      expect(setState).toHaveBeenLastCalledWith("clients.echo-nkey", { ack: true, val: "Echo" });
+      expect(storedFile()).toEqual({ clients: { "echo-nkey": "known-key" } });
     });
 
     // The clients folder is a manifest object that js-controller applies on every
@@ -218,7 +224,7 @@ describe("UserService", () => {
       const { service, adapter } = createService();
       await service.addUser("foo", "bar");
       expect(adapter.writtenObjects.has("clients")).toBe(false);
-      expect(adapter.writtenObjects.has("clients.1")).toBe(true);
+      expect(adapter.writtenObjects.has("clients.bar-foo")).toBe(true);
     });
 
     // v1.17.0 (audit 2026-09-06 F2): a pairing that never reached the database
@@ -234,7 +240,7 @@ describe("UserService", () => {
       const { service, adapter, store } = createService();
       adapter.setObjectShouldFail = true;
       await expect(service.addUser("foo", "bar")).rejects.toThrow();
-      expect(store.numberOf("foo")).toBeUndefined();
+      expect(store.idOf("foo")).toBeUndefined();
       expect(storedFile().clients).toEqual({});
     });
 
@@ -268,7 +274,7 @@ describe("UserService", () => {
       await expect(service.addUser("foo", "bar")).resolves.toBeUndefined();
       // The object reached the database — that is what makes a pairing.
       expect(await service.isUserAuthenticated("foo")).toBe(true);
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Failed to set client state clients.1"));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Failed to set client state clients.bar-foo"));
     });
   });
 
@@ -295,7 +301,7 @@ describe("UserService", () => {
     it("defaults devicetype to 'unknown'", async () => {
       const { service, adapter } = createService();
       await service.createUser("user1");
-      expect(adapter.writtenObjects.get("clients.1")?.common?.name).toMatchObject({ en: "unknown" });
+      expect(adapter.writtenObjects.get("clients.client-ser1")?.common?.name).toMatchObject({ en: "unknown" });
     });
   });
 
@@ -326,32 +332,33 @@ describe("UserService", () => {
       expect(await service.isUserAuthenticated("living+room")).toBe(false);
     });
 
-    // No id is derived from a key any more — two keys an id could not tell apart are two clients.
+    // The id carries only letters and digits of the key — two keys it cannot tell apart are two clients, the second
+    // with a counter.
     it("pairs two keys that differ only in characters an id cannot hold as two clients", async () => {
       const { service, adapter } = createService([]);
       await service.addUser("living.room", "Echo");
-      await service.addUser("living+room", "Harmony");
-      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.1", "clients.2"]);
+      await service.addUser("living+room", "Echo");
+      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.echo-room", "clients.echo-room-2"]);
       expect(await service.isUserAuthenticated("living.room")).toBe(true);
       expect(await service.isUserAuthenticated("living+room")).toBe(true);
     });
 
     // client-store.ts: the object is the truth of "paired" — a key counts only while its object exists AND the file
-    // holds it for that number.
-    it("signs in only a key whose object exists and whose number the file holds", async () => {
+    // holds it for that id.
+    it("signs in only a key whose object exists and whose id the file holds", async () => {
       const adapter = createMockAdapter(["a"]);
       adapter.stateObjects.push({
-        _id: "hueemu.0.clients.3",
+        _id: "hueemu.0.clients.client-zzzz",
         type: "state",
         common: { name: { en: "keyless" } },
         native: {},
       } as unknown as ioBroker.StateObject);
       const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith(["a", "b"]) });
       expect(await service.isUserAuthenticated("a")).toBe(true);
-      // b: in the file, but its object clients.2 is gone (deleted while the adapter was stopped)
+      // b: in the file, but its object clients.echo-b is gone (deleted while the adapter was stopped)
       expect(await service.isUserAuthenticated("b")).toBe(false);
-      // clients.3: an object without a key — its number signs nothing in
-      expect(await service.isUserAuthenticated("3")).toBe(false);
+      // clients.client-zzzz: an object without a key — its id signs nothing in
+      expect(await service.isUserAuthenticated("client-zzzz")).toBe(false);
       expect(service.listPairedClients().map(c => c.key)).toEqual(["a"]);
     });
 
@@ -413,7 +420,7 @@ describe("UserService", () => {
         await service.createUser("known", "Echo");
       }
       expect(adapter.writtenObjects.size).toBe(1);
-      expect(storedFile().lastClientId).toBe(1);
+      expect(Object.keys(storedFile().clients)).toEqual(["echo-nown"]);
     });
 
     it("a creation whose object write failed leaves nothing behind, and the next one works", async () => {
@@ -546,7 +553,7 @@ describe("v1.18.0 — parallel requests on a cold cache", () => {
       service.addUser("echo-key", "auto-paired"),
     ]);
     expect(objectWrites).toBe(1);
-    expect(storedFile().lastClientId).toBe(1);
+    expect(Object.keys(storedFile().clients)).toEqual(["client-okey"]);
   });
 
   it("lets a second parallel add of the same key share the first one's rejection", async () => {
@@ -566,7 +573,7 @@ describe("v1.15.1 — the client name is a translation object", () => {
     // text comes from the device and has nothing to translate (core team, nut2 #15).
     const { service, adapter } = createService();
     await service.createUser("client-1", "Harmony Hub");
-    const name = adapter.writtenObjects.get("clients.1")?.common?.name as Record<string, string>;
+    const name = adapter.writtenObjects.get("clients.harmony-hub-ent1")?.common?.name as Record<string, string>;
     expect(Object.keys(name)).toHaveLength(11);
     expect(name.en).toBe("Harmony Hub");
     expect(name["zh-cn"]).toBe("Harmony Hub");
@@ -575,7 +582,7 @@ describe("v1.15.1 — the client name is a translation object", () => {
   it("never writes a bare string as the name", async () => {
     const { service, adapter } = createService();
     await service.createUser("client-2", "Echo");
-    expect(typeof adapter.writtenObjects.get("clients.1")?.common?.name).toBe("object");
+    expect(typeof adapter.writtenObjects.get("clients.echo-ent2")?.common?.name).toBe("object");
   });
 });
 
@@ -583,7 +590,7 @@ describe("v1.15.1 — every client object carries an explanation", () => {
   it("writes a description on the client datapoint", async () => {
     const { service, adapter } = createService();
     await service.createUser("with-desc", "Echo");
-    expect(adapter.writtenObjects.get("clients.1")?.common?.desc).toBeDefined();
+    expect(adapter.writtenObjects.get("clients.echo-desc")?.common?.desc).toBeDefined();
   });
 
   // The folder's description comes from the manifest and the start refresh
@@ -602,7 +609,9 @@ describe("UserService.listPairedClients", () => {
     expect(entry).toMatchObject({ key: "key-1", name: "Echo#Kitchen" });
     expect(entry.created).toBeGreaterThanOrEqual(before);
     // Nothing time-dependent and nothing of the key goes into the tree.
-    expect((adapter.writtenObjects.get("clients.1") as unknown as { native: object }).native).toEqual({});
+    expect((adapter.writtenObjects.get("clients.echo-kitchen-key1") as unknown as { native: object }).native).toEqual(
+      {},
+    );
   });
 
   it("keeps the first pairing time when the same client is added again", async () => {
@@ -624,21 +633,21 @@ describe("UserService.listPairedClients", () => {
     const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith(["new", "old"]) });
     adapter.stateObjects.push(
       {
-        _id: "hueemu.0.clients.1",
+        _id: "hueemu.0.clients.echo-new",
         type: "state",
         ts: 1_900_000_000_000, // renewed by a later object write
         common: { name: { en: "harmony#hub", de: "harmony#hub" } },
         native: {},
       } as unknown as ioBroker.StateObject,
       {
-        _id: "hueemu.0.clients.2",
+        _id: "hueemu.0.clients.echo-old",
         type: "state",
         ts: 1_900_000_000_000,
         common: { name: "Echo" },
         native: {},
       } as unknown as ioBroker.StateObject,
     );
-    adapter.stateValues["hueemu.0.clients.1"] = {
+    adapter.stateValues["hueemu.0.clients.echo-new"] = {
       val: "harmony#hub",
       ack: true,
       ts: 1_800_000_000_000,
@@ -646,7 +655,7 @@ describe("UserService.listPairedClients", () => {
       from: "system.adapter.hueemu.0",
       q: 0,
     };
-    adapter.stateValues["hueemu.0.clients.2"] = {
+    adapter.stateValues["hueemu.0.clients.echo-old"] = {
       val: "Echo",
       ack: true,
       ts: 1_800_000_000_000,
@@ -664,7 +673,7 @@ describe("UserService.listPairedClients", () => {
     const adapter = createMockAdapter();
     const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith(["bare"]) });
     adapter.stateObjects.push({
-      _id: "hueemu.0.clients.1",
+      _id: "hueemu.0.clients.echo-bare",
       type: "state",
       ts: 1_650_000_000_000,
       common: { name: "Echo" },
@@ -692,10 +701,10 @@ describe("UserService.listPairedClients", () => {
 
 // v1.19.0 (audit 2026-09-25 H12): a deleted client object revokes that client at once.
 describe("UserService.forgetClient", () => {
-  it("revokes the real key the file holds for the deleted object's number (decision 22)", async () => {
+  it("revokes the real key the file holds for the deleted object's id (decision 22)", async () => {
     const { service } = createService(["other", "living.room"]);
     expect(await service.isUserAuthenticated("living.room")).toBe(true);
-    service.forgetClient("2");
+    service.forgetClient("echo-room");
     expect(await service.isUserAuthenticated("living.room")).toBe(false);
     expect(await service.isUserAuthenticated("other")).toBe(true);
     expect(service.listPairedClients().map(c => c.key)).toEqual(["other"]);
@@ -704,20 +713,20 @@ describe("UserService.forgetClient", () => {
   // Decision 31: also the next start must not bring the key back.
   it("takes the key out of clients.json", () => {
     const { service } = createService(["a", "b"]);
-    service.forgetClient("1");
-    expect(storedFile()).toEqual({ lastClientId: 2, clients: { 2: "b" } });
+    service.forgetClient("echo-a");
+    expect(storedFile()).toEqual({ clients: { "echo-b": "b" } });
   });
 
   it("revokes at once even before the first sign-in loaded the client list", async () => {
     const { service } = createService(["a"]);
-    service.forgetClient("1");
+    service.forgetClient("echo-a");
     expect(await service.isUserAuthenticated("a")).toBe(false);
   });
 
   it("revokes nothing for an id nobody paired", async () => {
     const { service } = createService(["a"]);
     await service.isUserAuthenticated("a");
-    service.forgetClient("2");
+    service.forgetClient("echo-b");
     service.forgetClient("a");
     expect(await service.isUserAuthenticated("a")).toBe(true);
   });
@@ -730,7 +739,7 @@ describe("UserService.forgetClient", () => {
     expect(await service.isUserAuthenticated("a")).toBe(true);
     rmSync(dataDir, { recursive: true, force: true });
     writeFileSync(dataDir, "");
-    service.forgetClient("1");
+    service.forgetClient("echo-a");
     expect(await service.isUserAuthenticated("a")).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("the next start forgets its key"));
     rmSync(dataDir, { force: true });

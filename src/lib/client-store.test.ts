@@ -2,7 +2,17 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE, clientNumberOf, isClientNumber } from "./client-store";
+import {
+  AUTO_PAIRED_DEVICETYPE,
+  CLIENTS_FILE,
+  ClientStore,
+  UNKNOWN_DEVICETYPE,
+  UNREADABLE_CLIENTS_FILE,
+  clientIdFor,
+  clientModel,
+  isClientId,
+  slugOf,
+} from "./client-store";
 
 let dir: string;
 beforeEach(() => {
@@ -24,23 +34,87 @@ function loaded(): ClientStore {
   return store;
 }
 
-describe("clientNumberOf", () => {
-  it("reads the number of a client id", () => {
-    expect(clientNumberOf("1")).toBe(1);
-    expect(clientNumberOf("12")).toBe(12);
+/** A key as a Harmony Hub pairs with — a uuid the bridge generated (made up here). */
+const HARMONY_KEY = "0b1c2d3e-4f50-4617-8899-aabbccddac37";
+
+describe("slugOf", () => {
+  it("writes a text as an id part", () => {
+    expect(slugOf("Harmony Hub")).toBe("harmony-hub");
+    expect(slugOf("Echo#Wohnzimmer")).toBe("echo-wohnzimmer");
+    expect(slugOf("  --Bosch SHC--  ")).toBe("bosch-shc");
+    expect(slugOf("Küche Größe")).toBe("kueche-groesse");
+    expect(slugOf("Café")).toBe("cafe");
+    expect(slugOf("a.b_c")).toBe("a-b-c");
   });
 
-  it("reads no number from anything else — an old `clients.<key>` included", () => {
-    // The last one is too big for a number: it reads as Infinity, no client number.
-    for (const suffix of ["", "0", "01", "-1", "1.5", "1e3", "x", "echo-key", " 1", `1${"0".repeat(400)}`]) {
-      expect(clientNumberOf(suffix)).toBeUndefined();
+  it("leaves nothing of a text without letters or digits", () => {
+    expect(slugOf("")).toBe("");
+    expect(slugOf("#*.")).toBe("");
+  });
+});
+
+describe("clientModel", () => {
+  it("takes the device type as the model", () => {
+    expect(clientModel("Harmony Hub")).toBe("harmony-hub");
+    expect(clientModel(" Echo ")).toBe("echo");
+  });
+
+  it("takes `client` where the client named no device type", () => {
+    for (const devicetype of [
+      UNKNOWN_DEVICETYPE,
+      AUTO_PAIRED_DEVICETYPE,
+      ` ${UNKNOWN_DEVICETYPE} `,
+      "",
+      "#",
+      5,
+      null,
+      undefined,
+    ]) {
+      expect(clientModel(devicetype)).toBe("client");
+    }
+  });
+});
+
+describe("clientIdFor", () => {
+  it("joins the model and the last four letters or digits of the key", () => {
+    expect(clientIdFor("Harmony Hub", HARMONY_KEY, new Set())).toBe("harmony-hub-ac37");
+    expect(clientIdFor("Echo", "AB-CD.E", new Set())).toBe("echo-bcde");
+    expect(clientIdFor("Echo", "x9", new Set())).toBe("echo-x9");
+  });
+
+  it("takes the model alone when the key has no letter or digit", () => {
+    expect(clientIdFor("Echo", "-._", new Set())).toBe("echo");
+  });
+
+  it("counts on when another client holds the id", () => {
+    expect(clientIdFor("Harmony Hub", HARMONY_KEY, new Set(["harmony-hub-ac37"]))).toBe("harmony-hub-ac37-2");
+    expect(clientIdFor("Harmony Hub", HARMONY_KEY, new Set(["harmony-hub-ac37", "harmony-hub-ac37-2"]))).toBe(
+      "harmony-hub-ac37-3",
+    );
+  });
+
+  it("gives an id of the current form for any device type and key", () => {
+    for (const [devicetype, key] of [
+      ["Harmony Hub", HARMONY_KEY],
+      ["#", "#"],
+      [UNKNOWN_DEVICETYPE, "inventory-fixture-client"],
+      ["Ä Ö Ü", "ÄÖÜ"],
+    ]) {
+      expect(isClientId(clientIdFor(devicetype, key, new Set()))).toBe(true);
+    }
+  });
+});
+
+describe("isClientId", () => {
+  it("knows a client id of the current form", () => {
+    for (const suffix of ["harmony-hub-ac37", "client", "echo-x9-2", "1"]) {
+      expect(isClientId(suffix)).toBe(true);
     }
   });
 
-  it("knows a client number", () => {
-    expect(isClientNumber(3)).toBe(true);
-    for (const value of [0, -1, 1.5, Number.NaN, "3", undefined]) {
-      expect(isClientNumber(value)).toBe(false);
+  it("knows no other text as one", () => {
+    for (const suffix of ["", "-a", "a-", "a--b", "A", "a.b", "a_b", " a", "harmony hub"]) {
+      expect(isClientId(suffix)).toBe(false);
     }
   });
 });
@@ -48,85 +122,82 @@ describe("clientNumberOf", () => {
 describe("ClientStore", () => {
   it("holds nothing before the first pairing", () => {
     const store = loaded();
-    expect(store.numbers()).toEqual([]);
+    expect(store.ids()).toEqual([]);
     expect(store.readable).toBe(true);
     expect(existsSync(join(dir, CLIENTS_FILE))).toBe(false);
   });
 
-  it("numbers the keys one after the other and stores each before it returns", () => {
+  it("names each key after its device type and stores it before it returns", () => {
     const store = loaded();
-    expect(store.add("key-a")).toBe(1);
-    expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "key-a" } });
-    expect(store.add("key-b")).toBe(2);
-    expect(stored()).toEqual({ lastClientId: 2, clients: { 1: "key-a", 2: "key-b" } });
+    expect(store.add(HARMONY_KEY, "Harmony Hub")).toBe("harmony-hub-ac37");
+    expect(stored()).toEqual({ clients: { "harmony-hub-ac37": HARMONY_KEY } });
+    expect(store.add("echo-key", "Echo")).toBe("echo-okey");
+    expect(stored()).toEqual({ clients: { "echo-okey": "echo-key", "harmony-hub-ac37": HARMONY_KEY } });
   });
 
-  it("gives a stored key its number again", () => {
+  // The id is handed out once: a client pairing again under another device type keeps it.
+  it("gives a stored key its id again, whatever device type it names now", () => {
     const store = loaded();
-    store.add("key-a");
-    store.add("key-b");
-    expect(store.add("key-a")).toBe(1);
-    expect(store.numbers()).toEqual([1, 2]);
+    store.add("key-a", "Echo");
+    store.add("key-b", "Echo");
+    expect(store.add("key-a", "Harmony Hub")).toBe("echo-keya");
+    expect(store.ids()).toEqual(["echo-keya", "echo-keyb"]);
   });
 
-  it("finds a key by its number and a number by its key", () => {
+  it("counts on for a second client of one model with the same four characters", () => {
     const store = loaded();
-    store.add("key-a");
-    expect(store.keyOf(1)).toBe("key-a");
-    expect(store.numberOf("key-a")).toBe(1);
-    expect(store.keyOf(2)).toBeUndefined();
-    expect(store.numberOf("other")).toBeUndefined();
+    expect(store.add("first-abcd", "Echo")).toBe("echo-abcd");
+    expect(store.add("second-abcd", "Echo")).toBe("echo-abcd-2");
+    expect(store.keyOf("echo-abcd-2")).toBe("second-abcd");
   });
 
-  // A new pairing must never inherit the room, function and recording of a deleted client.
-  it("never hands out a number twice — not after a removal, not after a restart", () => {
+  it("finds a key by its id and an id by its key", () => {
     const store = loaded();
-    store.add("key-a");
-    store.add("key-b");
-    expect(store.remove(2)).toBe("key-b");
-    expect(stored()).toEqual({ lastClientId: 2, clients: { 1: "key-a" } });
-    expect(store.add("key-c")).toBe(3);
-    const again = loaded();
-    expect(again.add("key-d")).toBe(4);
+    store.add("key-a", "Echo");
+    expect(store.keyOf("echo-keya")).toBe("key-a");
+    expect(store.idOf("key-a")).toBe("echo-keya");
+    expect(store.keyOf("echo-keyb")).toBeUndefined();
+    expect(store.idOf("other")).toBeUndefined();
   });
 
-  it("removes nothing for a number it does not hold — and writes nothing", () => {
+  it("removes a key and stores that", () => {
     const store = loaded();
-    store.add("key-a");
+    store.add("key-a", "Echo");
+    store.add("key-b", "Echo");
+    expect(store.remove("echo-keyb")).toBe("key-b");
+    expect(stored()).toEqual({ clients: { "echo-keya": "key-a" } });
+  });
+
+  it("removes nothing for an id it does not hold — and writes nothing", () => {
+    const store = loaded();
+    store.add("key-a", "Echo");
     rmSync(join(dir, CLIENTS_FILE));
-    expect(store.remove(5)).toBeUndefined();
+    expect(store.remove("echo-keyb")).toBeUndefined();
     expect(existsSync(join(dir, CLIENTS_FILE))).toBe(false);
-    expect(store.keyOf(1)).toBe("key-a");
+    expect(store.keyOf("echo-keya")).toBe("key-a");
   });
 
-  it("reads back what it stored, the mark above the highest kept number included", () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 7, clients: { 2: "b", 5: "e" } }));
+  it("reads back what it stored", () => {
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-okey": "echo-key", client: "c" } }));
     const store = loaded();
-    expect(store.numbers()).toEqual([2, 5]);
-    expect(store.keyOf(5)).toBe("e");
-    expect(store.add("new")).toBe(8);
+    expect(store.ids()).toEqual(["client", "echo-okey"]);
+    expect(store.keyOf("echo-okey")).toBe("echo-key");
+    expect(store.add("other-okey", "Echo")).toBe("echo-okey-2");
   });
 
-  it("takes the highest kept number as the mark when the file names none", () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { 4: "d" } }));
-    expect(loaded().add("new")).toBe(5);
-  });
-
-  it("skips an entry that is no client number or holds no key", () => {
+  it("skips an entry that is no client id or holds no key", () => {
     writeFileSync(
       join(dir, CLIENTS_FILE),
-      JSON.stringify({ lastClientId: "9", clients: { 0: "a", "01": "b", x: "c", 3: "", 4: 4, 6: "f" } }),
+      JSON.stringify({ clients: { "": "a", "Echo-1": "b", "a.b": "c", "echo-x": "", "echo-y": 4, "echo-z": "z" } }),
     );
-    const store = loaded();
-    expect(store.numbers()).toEqual([6]);
-    expect(store.add("new")).toBe(7);
+    expect(loaded().ids()).toEqual(["echo-z"]);
   });
 
   it("reads an empty table from a file without a client list", () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 3, clients: ["a", "b"] }));
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: ["a", "b"] }));
     const store = loaded();
-    expect(store.numbers()).toEqual([]);
-    expect(store.add("new")).toBe(4);
+    expect(store.ids()).toEqual([]);
+    expect(store.add("new-k", "Echo")).toBe("echo-newk");
   });
 
   // A file it cannot read is never taken for an empty one: nothing it holds is overwritten.
@@ -135,7 +206,7 @@ describe("ClientStore", () => {
     const store = new ClientStore(dir);
     expect(store.load()).toMatch(/^no JSON: /);
     expect(store.readable).toBe(false);
-    expect(store.numbers()).toEqual([]);
+    expect(store.ids()).toEqual([]);
     expect(readFileSync(join(dir, CLIENTS_FILE), "utf8")).toBe("{ broken");
   });
 
@@ -152,9 +223,9 @@ describe("ClientStore", () => {
     writeFileSync(join(dir, CLIENTS_FILE), "{ broken");
     const store = new ClientStore(dir);
     store.load();
-    expect(store.add("key-a")).toBe(1);
+    expect(store.add("key-a", "Echo")).toBe("echo-keya");
     expect(readFileSync(join(dir, UNREADABLE_CLIENTS_FILE), "utf8")).toBe("{ broken");
-    expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "key-a" } });
+    expect(stored()).toEqual({ clients: { "echo-keya": "key-a" } });
     expect(store.readable).toBe(true);
   });
 
@@ -163,9 +234,9 @@ describe("ClientStore", () => {
     const store = new ClientStore(dir);
     store.load();
     rmSync(join(dir, CLIENTS_FILE));
-    expect(store.add("key-a")).toBe(1);
+    expect(store.add("key-a", "Echo")).toBe("echo-keya");
     expect(existsSync(join(dir, UNREADABLE_CLIENTS_FILE))).toBe(false);
-    expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "key-a" } });
+    expect(stored()).toEqual({ clients: { "echo-keya": "key-a" } });
   });
 
   it("keeps the table as it was when a new key cannot be stored", () => {
@@ -173,56 +244,62 @@ describe("ClientStore", () => {
     writeFileSync(blocked, "");
     const store = new ClientStore(blocked);
     store.load();
-    expect(() => store.add("key-a")).toThrow();
-    expect(store.numbers()).toEqual([]);
-    expect(store.numberOf("key-a")).toBeUndefined();
-    // The failed attempt took no number either.
+    expect(() => store.add("key-a", "Echo")).toThrow();
+    expect(store.ids()).toEqual([]);
+    expect(store.idOf("key-a")).toBeUndefined();
+    // The failed attempt holds no id either: the next client of that id gets it without a counter.
     rmSync(blocked);
-    expect(store.add("key-b")).toBe(1);
+    expect(store.add("key-a", "Echo")).toBe("echo-keya");
   });
 
   it("forgets a removed key even when the file cannot be written", () => {
     const store = loaded();
-    store.add("key-a");
+    store.add("key-a", "Echo");
     rmSync(dir, { recursive: true, force: true });
     writeFileSync(dir, "");
-    expect(() => store.remove(1)).toThrow();
-    expect(store.keyOf(1)).toBeUndefined();
+    expect(() => store.remove("echo-keya")).toThrow();
+    expect(store.keyOf("echo-keya")).toBeUndefined();
     rmSync(dir);
   });
 
   it("forgets every key whose object is gone and stores that once", () => {
     const store = loaded();
-    store.add("a");
-    store.add("b");
-    store.add("c");
-    expect(store.keepOnly(new Set([2]))).toBe(2);
-    expect(stored()).toEqual({ lastClientId: 3, clients: { 2: "b" } });
+    store.add("a", "Echo");
+    store.add("b", "Echo");
+    store.add("c", "Echo");
+    expect(store.keepOnly(new Set(["echo-b"]))).toBe(2);
+    expect(stored()).toEqual({ clients: { "echo-b": "b" } });
   });
 
   it("writes nothing when every key still has its object", () => {
     const store = loaded();
-    store.add("a");
+    store.add("a", "Echo");
     rmSync(join(dir, CLIENTS_FILE));
-    expect(store.keepOnly(new Set([1]))).toBe(0);
+    expect(store.keepOnly(new Set(["echo-a"]))).toBe(0);
     expect(existsSync(join(dir, CLIENTS_FILE))).toBe(false);
   });
 
-  it("raises the mark to the numbers in the tree with the next write", () => {
+  // An object without a file entry (the file was lost) or an old object the move deletes keeps its id.
+  it("never hands out an id the tree holds", () => {
     const store = loaded();
-    store.raiseMark([4, 2]);
+    store.reserve(["echo-keya", "echo-keya-2"]);
     expect(existsSync(join(dir, CLIENTS_FILE))).toBe(false);
-    expect(store.add("new")).toBe(5);
-    store.raiseMark([1]);
-    expect(store.add("next")).toBe(6);
+    expect(store.add("key-a", "Echo")).toBe("echo-keya-3");
+    expect(store.ids()).toEqual(["echo-keya-3"]);
   });
 
   it("starts over from an empty table on every load", () => {
     const store = loaded();
-    store.add("a");
+    store.add("a", "Echo");
     rmSync(join(dir, CLIENTS_FILE));
     expect(store.load()).toBeUndefined();
-    expect(store.numbers()).toEqual([]);
-    expect(store.add("b")).toBe(1);
+    expect(store.ids()).toEqual([]);
+  });
+
+  it("ignores the number mark of a file written before the ids carried the model", () => {
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 7, clients: { "echo-okey": "echo-key" } }));
+    const store = loaded();
+    store.add("key-a", "Echo");
+    expect(stored()).toEqual({ clients: { "echo-keya": "key-a", "echo-okey": "echo-key" } });
   });
 });

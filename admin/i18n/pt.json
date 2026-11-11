@@ -51,8 +51,6 @@
   "clientsFolderDesc": "Dispositivos que emparelharam com a bridge — uma entrada por dispositivo",
   "lightsFolder": "Luzes",
   "lightsFolderDesc": "Luzes que a bridge oferece aos clientes Hue — um dispositivo por luz",
-  "lightReachableName": "Alcançável",
-  "lightReachableDesc": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
   "clientDesc": "O tipo de dispositivo que este cliente indicou ao emparelhar — a sua chave fica guardada na pasta de dados da instância",
   "startPairingName": "Iniciar emparelhamento",
   "startPairingDesc": "Ativar modo de emparelhamento por 50 segundos",

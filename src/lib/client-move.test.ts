@@ -166,7 +166,8 @@ describe("clientCommon", () => {
 });
 
 describe("moveClients", () => {
-  it("moves a client of v1.19.0 to clients.1 — the key into clients.json, nothing of it left in the tree", async () => {
+  // krobi 2026-11-11 14:25/14:27: the model it paired as and the last four characters of its key.
+  it("moves a client of v1.19.0 to its model and the last four characters of its key — the key into clients.json", async () => {
     const adapter = fake(
       { "clients.echo-key": v119Client("echo-key") },
       { "clients.echo-key": { val: "echo-key", lc: 1_600_000_000_000 } },
@@ -174,15 +175,24 @@ describe("moveClients", () => {
     const s = store();
     const result = await moveClients(adapter, s, String);
     expect(result).toEqual({ moved: 1, keyless: 0, forgotten: 0 });
-    expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "echo-key" } });
-    expect(clientIds(adapter)).toEqual([`${NS}.clients.1`]);
-    const moved = adapter.objects.get(`${NS}.clients.1`) as { native: object; common: Record<string, unknown> };
+    expect(stored()).toEqual({ clients: { "echo-okey": "echo-key" } });
+    expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-okey`]);
+    const moved = adapter.objects.get(`${NS}.clients.echo-okey`) as { native: object; common: Record<string, unknown> };
     expect(moved.native).toEqual({});
     expect(JSON.stringify(moved)).not.toContain("echo-key");
-    expect(adapter.states.get("clients.1")?.val).toBe("Echo");
+    expect(adapter.states.get("clients.echo-okey")?.val).toBe("Echo");
     expect(adapter.log.info).toHaveBeenCalledWith(
-      expect.stringContaining("Moved 1 paired client(s) to numbered objects"),
+      expect.stringContaining("Moved 1 paired client(s) to objects named after their device type"),
     );
+  });
+
+  it("moves two clients of one model to two ids", async () => {
+    const adapter = fake({
+      "clients.0b1c2d3e-4f50-4617-8899-aabbccddac37": v119Client("0b1c2d3e-4f50-4617-8899-aabbccddac37", "Harmony Hub"),
+      "clients.5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7d3b9": v119Client("5e6f7a8b-9c0d-4e1f-a2b3-c4d5e6f7d3b9", "Harmony Hub"),
+    });
+    await moveClients(adapter, store(), String);
+    expect(clientIds(adapter)).toEqual([`${NS}.clients.harmony-hub-ac37`, `${NS}.clients.harmony-hub-d3b9`]);
   });
 
   // Audit R-07: the pairing time is the state's last change — the move hands it over.
@@ -192,19 +202,19 @@ describe("moveClients", () => {
       { "clients.k": { val: "k", ts: 1_800_000_000_000, lc: 1_600_000_000_000 } },
     );
     await moveClients(adapter, store(), String);
-    expect(adapter.setState).toHaveBeenCalledWith("clients.1", { val: "Echo", ack: true, lc: 1_600_000_000_000 });
+    expect(adapter.setState).toHaveBeenCalledWith("clients.echo-k", { val: "Echo", ack: true, lc: 1_600_000_000_000 });
   });
 
   it("takes the object's time as the pairing time when the old state has none", async () => {
     const adapter = fake({ "clients.k": { ...v119Client("k"), ts: 1_650_000_000_000 } });
     await moveClients(adapter, store(), String);
-    expect(adapter.setState).toHaveBeenCalledWith("clients.1", { val: "Echo", ack: true, lc: 1_650_000_000_000 });
+    expect(adapter.setState).toHaveBeenCalledWith("clients.echo-k", { val: "Echo", ack: true, lc: 1_650_000_000_000 });
   });
 
   it("writes the value without a time when nothing names one", async () => {
     const adapter = fake({ "clients.k": v119Client("k") });
     await moveClients(adapter, store(), String);
-    expect(adapter.setState).toHaveBeenCalledWith("clients.1", { val: "Echo", ack: true });
+    expect(adapter.setState).toHaveBeenCalledWith("clients.echo-k", { val: "Echo", ack: true });
   });
 
   // The datapoint keeps its value type — what hangs on it moves with it (the user's recording, krobi 2026-09-02).
@@ -212,7 +222,7 @@ describe("moveClients", () => {
     const custom = { "history.0": { enabled: true } };
     const adapter = fake({ "clients.k": v119Client("k", "Echo", { custom, smartName: "Echo" }) });
     await moveClients(adapter, store(), String);
-    expect((adapter.objects.get(`${NS}.clients.1`) as { common: Record<string, unknown> }).common).toMatchObject({
+    expect((adapter.objects.get(`${NS}.clients.echo-k`) as { common: Record<string, unknown> }).common).toMatchObject({
       custom,
       smartName: "Echo",
       type: "string",
@@ -226,60 +236,64 @@ describe("moveClients", () => {
       "clients.b": v119Client("b", { en: "Harmony", de: "Harmonie" }),
     });
     await moveClients(adapter, store(), String);
-    const name = (n: number): unknown =>
-      (adapter.objects.get(`${NS}.clients.${n}`) as { common: { name: unknown } }).common.name;
-    expect(Object.keys(name(1) as object)).toHaveLength(11);
-    expect((name(1) as Record<string, string>).de).toBe("Echo");
-    expect(name(2)).toEqual({ en: "Harmony", de: "Harmonie" });
-    expect(adapter.states.get("clients.2")?.val).toBe("Harmony");
+    const name = (id: string): unknown =>
+      (adapter.objects.get(`${NS}.clients.${id}`) as { common: { name: unknown } }).common.name;
+    expect(Object.keys(name("echo-a") as object)).toHaveLength(11);
+    expect((name("echo-a") as Record<string, string>).de).toBe("Echo");
+    expect(name("harmony-b")).toEqual({ en: "Harmony", de: "Harmonie" });
+    expect(adapter.states.get("clients.harmony-b")?.val).toBe("Harmony");
   });
 
-  it("gives a legacy object without a name, or with an empty one, the device type unknown", async () => {
+  it("gives a legacy object without a name, or with an empty one, the device type unknown and the model client", async () => {
     const adapter = fake({
       "clients.k": { type: "state", common: {}, native: { username: "k" } },
       "clients.e": { type: "state", common: { name: "" }, native: { username: "e" } },
     });
     await moveClients(adapter, store(), String);
-    for (const n of [1, 2]) {
-      expect(adapter.states.get(`clients.${n}`)?.val).toBe("unknown");
+    for (const id of ["client-e", "client-k"]) {
+      expect(adapter.states.get(`clients.${id}`)?.val).toBe("unknown");
       expect(
-        (adapter.objects.get(`${NS}.clients.${n}`) as { common: { name: Record<string, string> } }).common.name.en,
+        (adapter.objects.get(`${NS}.clients.${id}`) as { common: { name: Record<string, string> } }).common.name.en,
       ).toBe("unknown");
     }
   });
 
-  it("takes the key from native, else from the state value, else from the id", async () => {
+  // Every version up to v1.19.0 wrote the key into native.username — an object without it is the current form.
+  it("takes the key of an old client object from its native, never from its value or its id", async () => {
     const adapter = fake(
       {
         "clients.a_b": v119Client("a.b"),
         "clients.from-value": { type: "state", common: { name: "V" } },
-        // An empty name in native and a value that is no text name no key.
         "clients.from-id": { type: "state", common: { name: "I" }, native: { username: "" } },
       },
       { "clients.a_b": { val: "ignored" }, "clients.from-value": { val: "real.key" }, "clients.from-id": { val: 7 } },
     );
-    await moveClients(adapter, store(), String);
-    expect(Object.values((stored() as { clients: Record<string, string> }).clients).sort()).toEqual([
-      "a.b",
-      "from-id",
-      "real.key",
-    ]);
+    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 1, keyless: 2, forgotten: 0 });
+    expect(stored()).toEqual({ clients: { "echo-ab": "a.b" } });
+    expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-ab`, `${NS}.clients.from-id`, `${NS}.clients.from-value`]);
   });
 
-  // An old `clients.<key>` whose key is a number: the new number must not be the id of an object still there — the
-  // move would delete its own successor.
+  // An old `clients.<key>` whose key is the id it would move to: the move must not delete its own successor.
   it("never gives a moved client the id of an old one still in the tree", async () => {
-    const adapter = fake({ "clients.1": v119Client("1", "Old") });
+    const adapter = fake({ "clients.echo-echo": v119Client("echo-echo") });
     await moveClients(adapter, store(), String);
-    expect(stored()).toEqual({ lastClientId: 2, clients: { 2: "1" } });
-    expect(clientIds(adapter)).toEqual([`${NS}.clients.2`]);
+    expect(stored()).toEqual({ clients: { "echo-echo-2": "echo-echo" } });
+    expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-echo-2`]);
+  });
+
+  // An object whose key the file lost keeps its id — a moved client must not take it over.
+  it("never gives a moved client the id of an object without a key", async () => {
+    const adapter = fake({ "clients.zzz1": v119Client("zzz1"), "clients.echo-zzz1": currentClient() });
+    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 1, keyless: 1, forgotten: 0 });
+    expect(stored()).toEqual({ clients: { "echo-zzz1-2": "zzz1" } });
+    expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-zzz1`, `${NS}.clients.echo-zzz1-2`]);
   });
 
   it("deletes every old object only after the key stands in the file and the new object exists", async () => {
     const adapter = fake({ "clients.k": v119Client("k") });
     adapter.delObjectAsync.mockImplementation(id => {
-      expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "k" } });
-      expect(adapter.objects.has(`${NS}.clients.1`)).toBe(true);
+      expect(stored()).toEqual({ clients: { "echo-k": "k" } });
+      expect(adapter.objects.has(`${NS}.clients.echo-k`)).toBe(true);
       adapter.objects.delete(`${NS}.${id}`);
       return Promise.resolve();
     });
@@ -287,21 +301,21 @@ describe("moveClients", () => {
     expect(adapter.delObjectAsync).toHaveBeenCalledWith("clients.k");
   });
 
-  it("finishes a move a stopped start left half done — same number, no second write", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 1, clients: { 1: "k" } }));
+  it("finishes a move a stopped start left half done — same id, no second write", async () => {
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
     const adapter = fake(
-      { "clients.k": v119Client("k"), "clients.1": currentClient() },
-      { "clients.1": { val: "Echo", lc: 5 } },
+      { "clients.k": v119Client("k"), "clients.echo-k": currentClient() },
+      { "clients.echo-k": { val: "Echo", lc: 5 } },
     );
     await moveClients(adapter, store(), String);
-    expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "k" } });
+    expect(stored()).toEqual({ clients: { "echo-k": "k" } });
     expect(adapter.setState).not.toHaveBeenCalled();
-    expect(clientIds(adapter)).toEqual([`${NS}.clients.1`]);
+    expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-k`]);
   });
 
   it("leaves a client in the current form alone", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 1, clients: { 1: "k" } }));
-    const adapter = fake({ "clients.1": currentClient() });
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+    const adapter = fake({ "clients.echo-k": currentClient() });
     const result = await moveClients(adapter, store(), String);
     expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0 });
     expect(adapter.setObjectNotExistsAsync).not.toHaveBeenCalled();
@@ -324,12 +338,12 @@ describe("moveClients", () => {
     );
     await moveClients(adapter, store(), String);
     expect(adapter.getStatesAsync.mock.calls).toEqual([["user.*"], ["clients.*"]]);
-    expect(stored()).toEqual({ lastClientId: 4, clients: { 1: "user-a", 2: "user-b", 3: "c", 4: "d" } });
+    expect(stored()).toEqual({ clients: { "a-sera": "user-a", "b-serb": "user-b", "echo-c": "c", "echo-d": "d" } });
   });
 
   it("reads no state while every client is in the current form", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 1, clients: { 1: "k" } }));
-    const adapter = fake({ "clients.1": currentClient() });
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+    const adapter = fake({ "clients.echo-k": currentClient() });
     await moveClients(adapter, store(), String);
     expect(adapter.getStatesAsync).not.toHaveBeenCalled();
   });
@@ -345,32 +359,40 @@ describe("moveClients", () => {
 
   // Decision 31: a client deleted while the adapter was stopped stays revoked.
   it("forgets a key whose object was deleted while the adapter was stopped", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 2, clients: { 1: "a", 2: "b" } }));
-    const adapter = fake({ "clients.1": currentClient() });
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-a": "a", "echo-b": "b" } }));
+    const adapter = fake({ "clients.echo-a": currentClient() });
     expect((await moveClients(adapter, store(), String)).forgotten).toBe(1);
-    expect(stored()).toEqual({ lastClientId: 2, clients: { 1: "a" } });
+    expect(stored()).toEqual({ clients: { "echo-a": "a" } });
     expect(adapter.log.debug).toHaveBeenCalledWith("Forgot 1 client key(s) whose object was deleted");
   });
 
   it("leaves a client object without a stored key in place and says once that it cannot sign in", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 1, clients: { 1: "a" } }));
-    const adapter = fake({ "clients.1": currentClient(), "clients.3": currentClient(), "clients.4": currentClient() });
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-a": "a" } }));
+    const adapter = fake({
+      "clients.echo-a": currentClient(),
+      "clients.echo-zzz1": currentClient(),
+      "clients.echo-zzz2": currentClient(),
+    });
     expect((await moveClients(adapter, store(), String)).keyless).toBe(2);
     expect(clientIds(adapter)).toHaveLength(3);
     expect(adapter.log.warn).toHaveBeenCalledTimes(1);
     expect(adapter.log.warn).toHaveBeenCalledWith(
       expect.stringContaining("2 paired client object(s) have no stored key"),
     );
-    // Their numbers stay taken.
+  });
+
+  // The same store pairs the clients of this run: a new client never takes over an object without a key either.
+  it("keeps the ids of objects without a key from the pairings of this run", async () => {
+    const adapter = fake({ "clients.echo-zzz1": currentClient() });
     const s = store();
-    s.raiseMark([3, 4]);
-    expect(s.add("new")).toBe(5);
+    await moveClients(adapter, s, String);
+    expect(s.add("new-zzz1", "Echo")).toBe("echo-zzz1-2");
   });
 
   // The unusable file was already named at the start — no second warning, and nothing is forgotten on its account.
   it("forgets nothing and adds no warning while clients.json cannot be read", async () => {
     writeFileSync(join(dir, CLIENTS_FILE), "{ broken");
-    const adapter = fake({ "clients.1": currentClient() });
+    const adapter = fake({ "clients.echo-a": currentClient() });
     expect(await moveClients(adapter, store(), String)).toEqual({ moved: 0, keyless: 1, forgotten: 0 });
     expect(adapter.log.warn).not.toHaveBeenCalled();
     expect(readFileSync(join(dir, CLIENTS_FILE), "utf8")).toBe("{ broken");
@@ -398,7 +420,7 @@ describe("moveClients", () => {
 
   // Before v1.2.0: `user.<key>`.
   describe("from the user folder before v1.2.0", () => {
-    it("moves a client to clients.1 and removes the old folder", async () => {
+    it("moves a client to its model and key and removes the old folder", async () => {
       const adapter = fake(
         {
           user: { type: "meta", common: { name: "user" } },
@@ -407,8 +429,12 @@ describe("moveClients", () => {
         { "user.alexa.echo": { val: "alexa.echo", lc: 1_500_000_000_000 } },
       );
       await moveClients(adapter, store(), String);
-      expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "alexa.echo" } });
-      expect(adapter.setState).toHaveBeenCalledWith("clients.1", { val: "Echo", ack: true, lc: 1_500_000_000_000 });
+      expect(stored()).toEqual({ clients: { "echo-echo": "alexa.echo" } });
+      expect(adapter.setState).toHaveBeenCalledWith("clients.echo-echo", {
+        val: "Echo",
+        ack: true,
+        lc: 1_500_000_000_000,
+      });
       expect(adapter.delObjectAsync.mock.calls.map(c => c[0])).toEqual(["user.alexa.echo", "user"]);
     });
 
@@ -419,7 +445,7 @@ describe("moveClients", () => {
         "user.b": { type: "state", common: { name: "B" } },
       });
       await moveClients(adapter, store(), String);
-      expect(stored()).toEqual({ lastClientId: 2, clients: { 1: "native.key", 2: "b" } });
+      expect(stored()).toEqual({ clients: { "a-ekey": "native.key", "b-b": "b" } });
     });
 
     it("removes an empty old folder", async () => {
@@ -429,15 +455,15 @@ describe("moveClients", () => {
       expect(adapter.log.info).not.toHaveBeenCalled();
     });
 
-    it("gives a client found in both folders one number", async () => {
+    it("gives a client found in both folders one id", async () => {
       const adapter = fake({
         user: { type: "meta" },
         "user.k": { type: "state", common: { name: "Old" }, native: { username: "k" } },
         "clients.k": v119Client("k"),
       });
       await moveClients(adapter, store(), String);
-      expect(stored()).toEqual({ lastClientId: 1, clients: { 1: "k" } });
-      expect(clientIds(adapter)).toEqual([`${NS}.clients.1`]);
+      expect(stored()).toEqual({ clients: { "old-k": "k" } });
+      expect(clientIds(adapter)).toEqual([`${NS}.clients.old-k`]);
     });
   });
 
@@ -450,7 +476,7 @@ describe("moveClients", () => {
         common: { name: "Living", members: [`${NS}.clients.k`, "zigbee.0.lamp"] },
       };
       await moveClients(adapter, store(), String);
-      expect(adapter.enums["enum.rooms.living"].common.members).toEqual(["zigbee.0.lamp", `${NS}.clients.1`]);
+      expect(adapter.enums["enum.rooms.living"].common.members).toEqual(["zigbee.0.lamp", `${NS}.clients.echo-k`]);
       expect(adapter.delObjectAsync.mock.invocationCallOrder[0]).toBeLessThan(
         adapter.setForeignObject.mock.invocationCallOrder[0],
       );
@@ -466,8 +492,8 @@ describe("moveClients", () => {
       expect(adapter.setForeignObject).toHaveBeenCalledTimes(1);
       expect(adapter.enums["enum.rooms.living"].common.members).toEqual([
         "zigbee.0.lamp",
-        `${NS}.clients.1`,
-        `${NS}.clients.2`,
+        `${NS}.clients.echo-a`,
+        `${NS}.clients.echo-b`,
       ]);
       expect(Math.max(...adapter.delObjectAsync.mock.invocationCallOrder)).toBeLessThan(
         adapter.setForeignObject.mock.invocationCallOrder[0],

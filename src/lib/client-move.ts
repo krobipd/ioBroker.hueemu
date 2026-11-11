@@ -3,9 +3,10 @@
  * reads the moved tree.
  *
  * Up to v1.19.0 a paired client was `clients.<key>`, the key also in `native.username` and as the state value; before
- * v1.2.0 it was `user.<key>`. Both become `clients.<n>` with the key in clients.json (client-store.ts): the file entry
- * first, then the new object, the old objects last — deleted together and their room and function assignments carried
- * (enum-carry.ts). A start that ends in between finds the key in the file again and gives it the same number.
+ * v1.2.0 it was `user.<key>`. Both become `clients.<model>-<last four of the key>` (client-store.ts; its name, the
+ * device type it paired with, gives the model) with the key in clients.json: the file entry first, then the new
+ * object, the old objects last — deleted together and their room and function assignments carried (enum-carry.ts). A
+ * start that ends in between finds the key in the file again and gives it the same id.
  *
  * The datapoint keeps its value type: what hangs on it (a recording, a smart name) moves with it. Its value, the key up
  * to v1.19.0, becomes the device type the client paired with; its last change — the pairing time (audit R-07) — is
@@ -15,13 +16,10 @@
 import { tName, tRaw } from "./i18n";
 import { moveAllWithEnums, type EnumCarryAdapter } from "./enum-carry";
 import { ID_RANGE_END } from "./migrations";
-import { CLIENTS_FILE, CLIENTS_FOLDER, clientNumberOf, type ClientStore } from "./client-store";
+import { CLIENTS_FILE, CLIENTS_FOLDER, UNKNOWN_DEVICETYPE, type ClientStore } from "./client-store";
 
 /** The folder the clients lived in before v1.2.0. */
 const LEGACY_USER_FOLDER = "user";
-
-/** The device type a stored client object shows when it names none. */
-export const UNKNOWN_DEVICETYPE = "unknown";
 
 /** What the move needs from the adapter. */
 export interface ClientMoveAdapter extends EnumCarryAdapter {
@@ -48,9 +46,9 @@ export interface ClientMoveAdapter extends EnumCarryAdapter {
 
 /** What a move did. */
 export interface ClientMoveResult {
-  /** Client objects moved to `clients.<n>`. */
+  /** Client objects moved to their current id. */
   moved: number;
-  /** `clients.<n>` objects without a stored key — they cannot sign in. */
+  /** Client objects of the current form without a stored key — they cannot sign in. */
   keyless: number;
   /** Stored keys whose object is gone — forgotten. */
   forgotten: number;
@@ -112,7 +110,7 @@ interface LegacyClient {
 }
 
 /**
- * Move every client object of an earlier version to `clients.<n>` and forget every stored key whose object is gone.
+ * Move every client object of an earlier version to its current id and forget every stored key whose object is gone.
  * Throws when the objects cannot be read or the file cannot be written — nothing old is deleted then.
  *
  * @param adapter the adapter
@@ -140,9 +138,9 @@ export async function moveClients(
   const stateOf = async (id: string): Promise<ioBroker.State | null | undefined> =>
     (await statesOf(id.slice(0, id.indexOf(".")))).get(`${ns}.${id}`);
   const legacy: LegacyClient[] = [];
-  const present = new Set<number>();
-  /** Every number an id below `clients.` carries — an old `clients.<key>` whose key is a number included. */
-  const taken = new Set<number>();
+  const present = new Set<string>();
+  /** Every id below `clients.` — an old `clients.<key>` included, which the move is about to delete. */
+  const taken = new Set<string>();
   let keyless = 0;
 
   // Before v1.2.0: `user.<key>` — its key in native.username, or as its value, or as its id.
@@ -162,8 +160,9 @@ export async function moveClients(
     }
   }
 
-  // Up to v1.19.0: `clients.<key>` with native.username. A `clients.<n>` without it is the current form — with its key
-  // in the file, or without one (the file was lost): such an object can never sign in.
+  // Up to v1.19.0: `clients.<key>`, every one with native.username — each version wrote it (0.0.3 hue-handler.js,
+  // v1.0.1 to v1.19.0 user-service.ts), and the move from `user.` in v1.2.0 carried it over. One without it is the
+  // current form — with its key in the file, or without one (the file was lost): such an object can never sign in.
   const prefix = `${ns}.${CLIENTS_FOLDER}.`;
   const clients = await adapter.getObjectListAsync({ startkey: prefix, endkey: `${prefix}${ID_RANGE_END}` });
   for (const row of clients?.rows ?? []) {
@@ -172,34 +171,30 @@ export async function moveClients(
     if (obj.type !== "state" || !suffix || suffix.includes(".")) {
       continue;
     }
+    taken.add(suffix);
     const stored = text((obj.native as { username?: unknown } | undefined)?.username);
-    const n = clientNumberOf(suffix);
-    if (n !== undefined) {
-      taken.add(n);
-    }
-    if (stored === undefined && n !== undefined) {
-      present.add(n);
-      if (store.keyOf(n) === undefined) {
+    if (stored === undefined) {
+      present.add(suffix);
+      if (store.keyOf(suffix) === undefined) {
         keyless++;
       }
       continue;
     }
-    const id = row.id.slice(ns.length + 1);
-    const key = stored ?? text((await stateOf(id))?.val) ?? suffix;
-    legacy.push({ id, obj, key });
+    legacy.push({ id: row.id.slice(ns.length + 1), obj, key: stored });
   }
-  // No new number may be the id of an object that is still there — the move would delete its own successor.
-  store.raiseMark(taken);
+  // No new id may be the id of an object that is still there — the move would delete its own successor, or a new
+  // client would take over an object without a key.
+  store.reserve(taken);
 
   const successors = new Map<string, string>();
   for (const client of legacy) {
-    // The file first — a start that ends after this line finds the key and gives it the same number.
-    const n = store.add(client.key);
-    present.add(n);
-    const newId = `${CLIENTS_FOLDER}.${n}`;
     const legacyCommon = (client.obj.common ?? {}) as Partial<ioBroker.StateCommon>;
     const legacyName: unknown = legacyCommon.name;
     const devicetype = nameText(legacyName, UNKNOWN_DEVICETYPE);
+    // The file first — a start that ends after this line finds the key and gives it the same id.
+    const clientId = store.add(client.key, devicetype);
+    present.add(clientId);
+    const newId = `${CLIENTS_FOLDER}.${clientId}`;
     await adapter.setObjectNotExistsAsync(newId, {
       type: "state",
       // Everything that hangs on the datapoint goes with it; the shape is the current one. A translation object stays
@@ -253,7 +248,7 @@ export async function moveClients(
   }
   if (successors.size > 0) {
     adapter.log.info(
-      `Moved ${successors.size} paired client(s) to numbered objects — their keys are kept in ${CLIENTS_FILE} in the instance data folder`,
+      `Moved ${successors.size} paired client(s) to objects named after their device type — their keys are kept in ${CLIENTS_FILE} in the instance data folder`,
     );
   }
 

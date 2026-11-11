@@ -51,7 +51,6 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
       const { id, name, ...native } = device;
       const n = id ?? index + 1;
       db.set(`hueemu.0.lights.${n}`, { type: "device", common: { name: { en: name } }, native });
-      db.set(`hueemu.0.lights.${n}.reachable`, { type: "state", common: {}, native: {} });
     });
   };
   seed(devices);
@@ -359,16 +358,10 @@ describe("HueEmuDeviceManagement", () => {
       const res = await internalOf(dm).addDevice(ctx);
       expect(res).toEqual({ refresh: true });
       expect(adapter._stored()).toEqual([{ id: 1, name: "New", lightType: "onoff", onState: "x.on" }]);
-      // Audit R-24: a device object with its pictogram and status link, and its reachability datapoint —
-      // the instance object is never written.
-      expect(adapter._object(1)).toMatchObject({
-        type: "device",
-        common: { icon: ICON, statusStates: { onlineId: "hueemu.0.lights.1.reachable" } },
-      });
-      expect(adapter.setForeignObject.mock.calls.map((c: unknown[]) => c[0])).toEqual([
-        "hueemu.0.lights.1.reachable",
-        "hueemu.0.lights.1",
-      ]);
+      // Audit R-24: a device object with its pictogram and nothing below it (krobi 2026-11-11 14:27) — the
+      // instance object is never written.
+      expect(adapter._object(1)).toMatchObject({ type: "device", common: { icon: ICON } });
+      expect(adapter.setForeignObject.mock.calls.map((c: unknown[]) => c[0])).toEqual(["hueemu.0.lights.1"]);
     });
 
     // A gap in the middle is never filled.
@@ -446,7 +439,7 @@ describe("HueEmuDeviceManagement", () => {
       ]);
       const stored = adapter._object(5);
       stored.common.icon = ICON;
-      stored.common.statusStates = { onlineId: "hueemu.0.lights.5.reachable" };
+      stored.common.color = "#ffcc00";
       stored.common.name = { en: "Lamp", de: "Lampe" };
       await internalOf(dm).editDevice(
         "5",
@@ -456,7 +449,7 @@ describe("HueEmuDeviceManagement", () => {
         common: {
           name: { en: "Lamp", de: "Lampe" },
           icon: ICON,
-          statusStates: { onlineId: "hueemu.0.lights.5.reachable" },
+          color: "#ffcc00",
         },
         native: { lightType: "onoff", onState: "a.on" },
       });

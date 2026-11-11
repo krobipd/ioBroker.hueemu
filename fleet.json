@@ -66,13 +66,12 @@
     },
     "rename": true,
     "rejectLogin": {
-      "none": "The adapter logs in nowhere: it holds no account and no device login, its only secret is the key of its own self-signed TLS certificate, kept encrypted in the instance data folder, not in native."
+      "none": "The adapter logs in nowhere: it holds no account and no device login, its secrets — the key of its own self-signed TLS certificate (encrypted) and the keys of its paired clients — stand in files in the instance data folder, not in native."
     },
     "dropDevice": {
-      "none": "No counterpart (krobi 2026-10-02 22:05: \"das gerät kann nie weg sein\"): a light is the adapter's own Hue view of ioBroker datapoints, not a device that can go away. lights.<n>.reachable says whether the bridge can drive the light from its bound datapoints (design decision 26); a deleted bound datapoint turns it false in the unit tests of main.ts and device-binding-service.ts."
+      "none": "No counterpart (krobi 2026-10-02 22:05: \"das gerät kann nie weg sein\"): a light is the adapter's own Hue view of ioBroker datapoints of the same installation, not a device that can go away, so it carries no reachability datapoint (krobi 2026-11-11 14:27). The Hue field reachable says whether the bridge can drive the light from its bound datapoints (design decision 26); a deleted bound datapoint turns it false in the unit tests of device-binding-service.ts and api-handler.ts."
     }
   },
-  "noDeviceSums": "No counterpart (krobi 2026-10-02 22:05: \"das gerät kann nie weg sein\"): a light is a Hue view of ioBroker datapoints, not a device that is online or offline. lights.<n>.reachable only says whether its bound datapoints exist, so a count of lights online would count the configuration, not devices.",
   "deviceIds": {
     "assigned": "The device manager gives every light a permanent number once (lights.<n>, src/lib/light-store.ts, design decision 25): it is the light's Hue id and uniqueid for every paired client and is never handed out again. A light has no unit id of its own, and its name is free and may repeat."
   },

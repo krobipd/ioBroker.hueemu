@@ -8,8 +8,8 @@
  *
  * Form: `lights.<n>` is a `device` whose number `<n>` is the light's permanent Hue id (design decision 25), whose
  * `common.name` is the light's name and whose `native` holds the light's settings (type, bound datapoints, scales).
- * Below it `lights.<n>.reachable` says whether the bridge can drive the light (`DeviceBindingService.isReachable`).
- * The highest number ever handed out lives in `light-ids.json` in the instance data folder, so a deleted light's
+ * No datapoint hangs below it: a light only links datapoints of the same installation, a reachability datapoint would
+ * say nothing (krobi 2026-11-11 14:27). The highest number ever handed out lives in `light-ids.json` in the instance data folder, so a deleted light's
  * number — and with it its `uniqueid`, which Alexa keys a device by — is never handed out again.
  *
  * Every change goes through one queue: two admin tabs adding lights at the same moment would otherwise both read the
@@ -20,7 +20,7 @@ import type { DeviceConfig } from "../hue-api";
 import { coveredBy } from "./known-objects";
 import { readDataFile, writeDataFile } from "./data-file";
 import { isDeviceId, nextDeviceId } from "./device-ids";
-import { nameIn, tName, tRaw } from "./i18n";
+import { nameIn, tRaw } from "./i18n";
 import { ID_RANGE_END } from "./migrations";
 
 /** The folder of the light devices (an `instanceObjects` entry of the manifest). */
@@ -97,15 +97,6 @@ export class LightIds {
   }
 
   /**
-   * The full id of a light's reachability datapoint.
-   *
-   * @param n the light number
-   */
-  public reachable(n: number): string {
-    return `${this.prefix}${n}.reachable`;
-  }
-
-  /**
    * The light number of a device object id; undefined for every other id (a datapoint below it included).
    *
    * @param id a full object id
@@ -125,21 +116,15 @@ export class LightIds {
 /**
  * The device object of a new light.
  *
- * @param ids the instance's light ids
  * @param light the light, numbered
  * @param icon the pictogram (device-icons.ts), undefined when its file cannot be read
  */
-export function lightObject(
-  ids: LightIds,
-  light: DeviceConfig & { id: number },
-  icon: string | undefined,
-): ioBroker.SettableObject {
+export function lightObject(light: DeviceConfig & { id: number }, icon: string | undefined): ioBroker.SettableObject {
   return {
     type: "device",
     common: {
       name: tRaw(light.name),
       ...(icon ? { icon } : {}),
-      statusStates: { onlineId: ids.reachable(light.id) },
     },
     native: settingsOf(light),
   };
@@ -149,29 +134,10 @@ export function lightObject(
  * What every light's device object carries besides the user's name and settings — merged in at start, so a light an
  * earlier version or a hand created gets it too.
  *
- * @param ids the instance's light ids
- * @param n the light number
  * @param icon the pictogram, undefined when its file cannot be read (the stored one then stays)
  */
-export function lightCommonPatch(ids: LightIds, n: number, icon: string | undefined): ioBroker.PartialObject {
-  return { common: { ...(icon ? { icon } : {}), statusStates: { onlineId: ids.reachable(n) } } };
-}
-
-/** The reachability datapoint of a light. */
-export function reachableObject(): ioBroker.SettableObject {
-  return {
-    type: "state",
-    common: {
-      name: tName("lightReachableName"),
-      desc: tName("lightReachableDesc"),
-      type: "boolean",
-      role: "indicator.reachable",
-      read: true,
-      write: false,
-      def: false,
-    },
-    native: {},
-  };
+export function lightCommonPatch(icon: string | undefined): ioBroker.PartialObject {
+  return { common: icon ? { icon } : {} };
 }
 
 /** The lights as device objects, the mark as a file. */
@@ -270,14 +236,12 @@ export class LightStore {
   }
 
   /**
-   * Create a numbered light's reachability datapoint and its device object — the datapoint first: the device object
-   * is what the running adapter reacts to, and the reachability it then writes needs its object.
+   * Create a numbered light's device object.
    *
    * @param light the light, carrying its number
    */
   public async create(light: DeviceConfig & { id: number }): Promise<void> {
-    await this.adapter.setForeignObject(this.ids.reachable(light.id), reachableObject());
-    await this.adapter.setForeignObject(this.ids.device(light.id), lightObject(this.ids, light, this.icon));
+    await this.adapter.setForeignObject(this.ids.device(light.id), lightObject(light, this.icon));
   }
 
   /**
@@ -306,7 +270,7 @@ export class LightStore {
   /**
    * Save an edited light: its device object is read fresh and written back whole with the new name and settings — a
    * merge would keep a setting the edit removed (a colour datapoint after switching to on/off). Everything else the
-   * object carries stays: the pictogram, the status link, a name translated by hand when the text did not change.
+   * object carries stays: the pictogram, a name translated by hand when the text did not change.
    *
    * @param light the light, carrying its number
    * @returns false when the light is gone
@@ -343,8 +307,8 @@ export class LightStore {
   }
 
   /**
-   * Bring every light's objects to the current form, writing only what differs: the pictogram and status link on the
-   * device object (the user's name and settings stay), the reachability datapoint created or refreshed.
+   * Bring every light's device object to the current form, writing only what differs: the pictogram (the user's name
+   * and settings stay).
    *
    * @param stored what {@link list} read
    * @returns how many objects were written
@@ -352,20 +316,11 @@ export class LightStore {
   public reconcile(stored: StoredLights): Promise<number> {
     return this.serial(async () => {
       let written = 0;
+      const patch = lightCommonPatch(this.icon);
       for (const light of stored.lights) {
-        const n = light.id ?? 0;
-        const patch = lightCommonPatch(this.ids, n, this.icon);
-        if (!coveredBy(patch, stored.objects.get(this.ids.device(n)))) {
-          await this.adapter.extendForeignObjectAsync(this.ids.device(n), patch);
-          written++;
-        }
-        const reachable = reachableObject();
-        const before = stored.objects.get(this.ids.reachable(n));
-        if (!before) {
-          await this.adapter.setForeignObject(this.ids.reachable(n), reachable);
-          written++;
-        } else if (!coveredBy(reachable, before)) {
-          await this.adapter.extendForeignObjectAsync(this.ids.reachable(n), reachable);
+        const id = this.ids.device(light.id ?? 0);
+        if (!coveredBy(patch, stored.objects.get(id))) {
+          await this.adapter.extendForeignObjectAsync(id, patch);
           written++;
         }
       }

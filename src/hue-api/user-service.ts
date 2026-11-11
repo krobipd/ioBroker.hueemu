@@ -6,7 +6,7 @@ import * as uuid from "uuid";
 import type { Logger } from "../types/config";
 import { errText } from "../lib/err-text";
 import { oneLine } from "../types/utils";
-import { CLIENTS_FILE, CLIENTS_FOLDER, clientNumberOf, type ClientStore } from "../lib/client-store";
+import { CLIENTS_FILE, CLIENTS_FOLDER, UNKNOWN_DEVICETYPE, type ClientStore } from "../lib/client-store";
 import { clientCommon, nameText } from "../lib/client-move";
 
 /**
@@ -67,7 +67,7 @@ export interface PairedClient {
 export class UserService {
   private readonly adapter: UserServiceAdapter;
   private readonly logger: Logger;
-  /** The number ↔ key table of the paired clients. */
+  /** The id ↔ key table of the paired clients. */
   private readonly store: ClientStore;
 
   /**
@@ -80,9 +80,9 @@ export class UserService {
    * sanitized form meant every character a key holds that is not `[A-Za-z0-9-_]`
    * became a wildcard: a client paired as `living.room` also authenticated as
    * `living_room` and `living+room` (measured, audit 2026-09-06 F3). Since the
-   * keys left the object tree (client-store.ts) an object id carries nothing of a
-   * key at all — a key counts while its object `clients.<n>` exists AND
-   * clients.json holds it for that number.
+   * keys left the object tree (client-store.ts) an object id carries at most the
+   * last four characters of a key — a key counts while its object
+   * `clients.<id>` exists AND clients.json holds it for that id.
    */
   private clientKeysCache: Set<string> | null = null;
 
@@ -129,7 +129,7 @@ export class UserService {
    * @param username The client key (stored in clients.json, never in the tree).
    * @param devicetype Client-supplied device type (purely informational).
    */
-  public addUser(username: string, devicetype = "unknown"): Promise<void> {
+  public addUser(username: string, devicetype = UNKNOWN_DEVICETYPE): Promise<void> {
     const pending = this.pendingAdds.get(username);
     if (pending) {
       return pending;
@@ -156,15 +156,16 @@ export class UserService {
     const name = devicetype.slice(0, MAX_DEVICETYPE_LENGTH);
 
     // The key goes into clients.json first — synchronously, so two pairings at the
-    // same moment can never take one number —, the object after it.
-    let n: number;
+    // same moment can never take one id —, the object after it. A client pairing
+    // again gets the id it holds, whatever device type it names now.
+    let clientId: string;
     try {
-      n = this.store.add(username);
+      clientId = this.store.add(username, name);
     } catch (err) {
       this.logger.warn(`Failed to store the key of a new client in ${CLIENTS_FILE}: ${errText(err)}`);
       throw new Error("Client could not be stored");
     }
-    const id = `${CLIENTS_FOLDER}.${n}`;
+    const id = `${CLIENTS_FOLDER}.${clientId}`;
     this.logger.debug(`Creating client ${id} (${oneLine(name)})`);
 
     try {
@@ -173,7 +174,7 @@ export class UserService {
       this.logger.warn(`Failed to create client object ${id}: ${errText(err)}`);
       if (isNewClient) {
         try {
-          this.store.remove(n);
+          this.store.remove(clientId);
         } catch {
           // The next start forgets the key anyway — its object is missing.
         }
@@ -208,28 +209,27 @@ export class UserService {
    * Revoke a paired client whose object was deleted — v1.19.0 (audit 2026-09-25 H12):
    * the cache used to keep the key until the next adapter start, so deleting a client
    * in the admin did not lock it out. The key is the one clients.json holds for the
-   * object's number (decision 22 — the real key, nothing derived from an id); the file
+   * object's id (decision 22 — the real key, nothing derived from an id); the file
    * forgets it too, so the next start does not bring it back.
    *
    * @param objectSuffix The part of the object id after `clients.`
    */
   public forgetClient(objectSuffix: string): void {
-    const n = clientNumberOf(objectSuffix);
-    const key = n === undefined ? undefined : this.store.keyOf(n);
-    if (n === undefined || key === undefined) {
+    const key = this.store.keyOf(objectSuffix);
+    if (key === undefined) {
       return;
     }
     try {
-      this.store.remove(n);
+      this.store.remove(objectSuffix);
     } catch (err) {
       this.logger.warn(
-        `Could not store in ${CLIENTS_FILE} that ${CLIENTS_FOLDER}.${n} was removed (${errText(err)}) — it has no access now, and the next start forgets its key`,
+        `Could not store in ${CLIENTS_FILE} that ${CLIENTS_FOLDER}.${objectSuffix} was removed (${errText(err)}) — it has no access now, and the next start forgets its key`,
       );
     }
     this.clientInfo.delete(key);
     const removed = this.clientKeysCache?.delete(key) ?? false;
     if (removed) {
-      this.logger.info(`Client ${CLIENTS_FOLDER}.${n} removed — it has no access any more`);
+      this.logger.info(`Client ${CLIENTS_FOLDER}.${objectSuffix} removed — it has no access any more`);
     }
   }
 
@@ -252,7 +252,7 @@ export class UserService {
    * @param providedUsername - Pre-defined username (generates UUID if empty)
    * @param devicetype - Client device type string
    */
-  public async createUser(providedUsername?: string, devicetype = "unknown"): Promise<string> {
+  public async createUser(providedUsername?: string, devicetype = UNKNOWN_DEVICETYPE): Promise<string> {
     const username = providedUsername && providedUsername.length > 0 ? providedUsername : uuid.v4();
 
     await this.addUser(username, devicetype);
@@ -285,7 +285,7 @@ export class UserService {
 
   /**
    * Build (or return) the cache of paired client keys: the key clients.json holds
-   * for each client object `clients.<n>` that exists.
+   * for each client object `clients.<id>` that exists.
    */
   private ensureCache(): Promise<Set<string>> {
     if (this.clientKeysCache) {
@@ -322,10 +322,9 @@ export class UserService {
       const values = await this.readClientValues();
       const offset = this.adapter.namespace.length + 1 + CLIENTS_FOLDER.length + 1;
       for (const state of stateObjects) {
-        const n = clientNumberOf(state._id.substring(offset));
         // A key counts only while its object exists AND clients.json holds it — a
         // file entry alone never signs in, so deleting the object revokes.
-        const key = n === undefined ? undefined : this.store.keyOf(n);
+        const key = this.store.keyOf(state._id.substring(offset));
         if (key === undefined) {
           continue;
         }

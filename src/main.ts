@@ -80,12 +80,10 @@ class HueEmu extends utils.Adapter {
   private servedLights: DeviceConfig[] = [];
   /**
    * Whether the served lights are the light objects. False for a run whose move out of the settings failed: it
-   * serves the settings' lights, writes no reachability and reloads nothing — a light object changed meanwhile is
-   * served from the next start on.
+   * serves the settings' lights and reloads nothing — a light object changed meanwhile is served from the next start
+   * on.
    */
   private lightsAreObjects = false;
-  /** The last value written to each `lights.<n>.reachable` — only a change is written. */
-  private readonly lastReachable = new Map<number, boolean>();
   /** The running reload of the light list, and whether another change came in meanwhile. */
   private lightReload: Promise<void> | undefined;
   private lightReloadAgain = false;
@@ -323,7 +321,7 @@ class HueEmu extends utils.Adapter {
       this.lightsAreObjects = moved.stored;
       await this.prepareLightObjects(lights, stored, devices);
 
-      // The paired clients: their keys from clients.json, the objects of earlier versions moved to `clients.<n>` —
+      // The paired clients: their keys from clients.json, the objects of earlier versions moved to `clients.<id>` —
       // before the own objects are refreshed and before the bridge serves, so the first request reads the moved tree.
       const clients = await this.prepareClients();
 
@@ -377,7 +375,6 @@ class HueEmu extends utils.Adapter {
       if (this.unloaded) {
         return;
       }
-      this.writeReachability();
 
       // Initialize HTTP server
       this.hueServer = this.makeHueServer({
@@ -458,12 +455,9 @@ class HueEmu extends utils.Adapter {
       // user could not have read off the instance state anyway. The full text,
       // hint included, goes to the log where it is actionable.
       this.log.error(`Failed to start Hue Emulator: ${detail}`);
-      // The bridge serves nothing — no light is reachable through it (D4, like the stop). All of it reaches the
-      // database before the process ends: a write still in flight at the exit is lost.
-      await Promise.all([
-        this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail),
-        this.markLightsUnreachable(),
-      ]);
+      // The bridge serves nothing (D4, like the stop) — that reaches the database before the process ends: a write
+      // still in flight at the exit is lost.
+      await this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail);
       // GV-28 (krobi 2026-10-03 12:01): a bridge that serves nothing talks to nobody — a fatal error, never a process
       // that runs on idle. UNCAUGHT_EXCEPTION, not ADAPTER_REQUESTED_TERMINATION: js-controller restarts it after 30 s,
       // so a port that was taken only for a while heals itself, and gives up after three failures in ten minutes; 11
@@ -502,9 +496,8 @@ class HueEmu extends utils.Adapter {
   /**
    * Audit R-24: before the bridge serves — raise the number mark to every light number in the tree (a light deleted
    * in the object browser keeps its number taken) and to every light served this run (a run whose move failed serves
-   * the settings' lights, and a light added meanwhile must not take one of their numbers), bring each light's objects
-   * to the current form (pictogram, status link, reachability datapoint; only what differs is written) and read what
-   * each reachability datapoint holds, so only a change is written afterwards.
+   * the settings' lights, and a light added meanwhile must not take one of their numbers) and bring each light's
+   * object to the current form (its pictogram; only what differs is written).
    *
    * @param lights the light store
    * @param stored the light objects as read
@@ -524,53 +517,10 @@ class HueEmu extends utils.Adapter {
       if (written > 0) {
         this.log.debug(`Brought ${written} light object(s) up to the current form`);
       }
-      const states = await this.getForeignStatesAsync(`${this.namespace}.lights.*.reachable`);
-      for (const light of stored.lights) {
-        const val = states?.[lights.ids.reachable(light.id ?? 0)]?.val;
-        if (typeof val === "boolean") {
-          this.lastReachable.set(light.id ?? 0, val);
-        }
-      }
     } catch (error) {
       // The lights are served either way; their objects get their form on the next start.
       this.log.warn(`Could not bring the light objects up to date: ${errText(error)}`);
     }
-  }
-
-  /**
-   * Write each light's reachability where it changed (`lights.<n>.reachable`, audit R-24) — after the start, after
-   * every change of a bound datapoint and after a new light list.
-   */
-  private writeReachability(): void {
-    const lights = this.lights;
-    if (!lights || !this.apiHandler || !this.lightsAreObjects) {
-      return;
-    }
-    for (const [n, reachable] of this.apiHandler.reachability()) {
-      if (this.lastReachable.get(n) !== reachable) {
-        this.lastReachable.set(n, reachable);
-        this.ackState(lights.ids.reachable(n), reachable);
-      }
-    }
-  }
-
-  /** Every light reachable until now becomes unreachable — on the stop and after a failed start (D4). Never rejects. */
-  private async markLightsUnreachable(): Promise<void> {
-    const lights = this.lights;
-    if (!lights) {
-      return;
-    }
-    const reachable = [...this.lastReachable].filter(([, value]) => value).map(([n]) => n);
-    await Promise.all(
-      reachable.map(async n => {
-        this.lastReachable.set(n, false);
-        try {
-          await this.setState(lights.ids.reachable(n), { ack: true, val: false });
-        } catch (error) {
-          this.log.debug(`Could not mark light ${n} unreachable: ${errText(error)}`);
-        }
-      }),
-    );
   }
 
   /**
@@ -611,12 +561,6 @@ class HueEmu extends utils.Adapter {
       }
       await handler.replaceDevices(list);
       this.servedLights = list;
-      for (const n of [...this.lastReachable.keys()]) {
-        if (!list.some(light => light.id === n)) {
-          this.lastReachable.delete(n);
-        }
-      }
-      this.writeReachability();
       this.log.debug(`Serving ${list.length} light(s) after a change of the light objects`);
     } catch (error) {
       this.log.warn(`Could not apply the changed lights — serving the previous list: ${errText(error)}`);
@@ -1010,7 +954,6 @@ class HueEmu extends utils.Adapter {
       await Promise.all([
         this.setState("info.connection", { ack: true, val: false }),
         this.setState("info.error", { ack: true, val: REASON_UNKNOWN }),
-        this.markLightsUnreachable(),
       ]);
     })()
       .catch((error: unknown) => {
@@ -1079,7 +1022,6 @@ class HueEmu extends utils.Adapter {
         // A bound light must not keep serving the last value of a datapoint
         // that no longer exists (audit 2026-09-15 C2).
         this.apiHandler?.forgetState(id);
-        this.writeReachability();
         return;
       }
 
@@ -1092,10 +1034,7 @@ class HueEmu extends utils.Adapter {
       // adapter's own commands were cached optimistically all along. The cache
       // shows what ioBroker shows; the device's confirmed answer still corrects
       // it (audit 2026-09-15 C1, decision 26).
-      if (this.apiHandler) {
-        this.apiHandler.onStateChange(id, state.val, state.from);
-        this.writeReachability();
-      }
+      this.apiHandler?.onStateChange(id, state.val, state.from);
 
       // Only handle non-acked state changes for our own states
       if (state.ack) {
