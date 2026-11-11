@@ -44,3 +44,29 @@ export function t(key: I18nKey, ...args: (string | number | boolean | null)[]): 
 export function tRaw(text: string): ioBroker.StringOrTranslated {
   return Object.fromEntries(LANGUAGES.map(lang => [lang, text])) as ioBroker.StringOrTranslated;
 }
+
+/**
+ * The text of a `common.name` in one language: a plain string as it is, a translation object in the given
+ * language, else its English text; "" when it carries no usable text.
+ *
+ * v1.18.0: `common.name` is a translation object on more and more adapters (the core team's rule for every
+ * object type), and a translation object used to fall through to the id — Alexa then learned "shelly.0.lamp"
+ * as the lamp's name (audit 2026-09-15 A3). The lights' own device objects carry their name that way too.
+ *
+ * @param name The object's `common.name`.
+ * @param language The system language (`this.language`, present with `useFormatDate`).
+ * @returns the text, or ""
+ */
+export function nameIn(name: unknown, language: string | undefined): string {
+  if (typeof name === "string") {
+    return name;
+  }
+  if (name && typeof name === "object") {
+    const translated = name as Record<string, unknown>;
+    const hit = [language && translated[language], translated.en].find(text => typeof text === "string" && text);
+    if (typeof hit === "string") {
+      return hit;
+    }
+  }
+  return "";
+}

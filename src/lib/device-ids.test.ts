@@ -1,4 +1,4 @@
-import { assignDeviceIds, isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./device-ids";
+import { assignDeviceIds, isDeviceId, nextDeviceId, normalizeDevices } from "./device-ids";
 import type { DeviceConfig } from "../hue-api";
 
 const light = (name: string, id?: number): DeviceConfig => ({
@@ -63,6 +63,23 @@ describe("assignDeviceIds", () => {
     assignDeviceIds([a]);
     expect(a.id).toBeUndefined();
   });
+
+  // Audit R-02: light 4 was deleted (the mark says 4), and a hand-edited or restored list
+  // carries one entry without a number — it must not get the deleted light's number back.
+  it("continues above the highest number ever handed out", () => {
+    const { devices } = assignDeviceIds([light("A", 1), light("B", 3), light("C")], 4);
+    expect(devices.map(d => d.id)).toEqual([1, 3, 5]);
+  });
+
+  it("starts above the mark when no entry carries a number", () => {
+    const { devices } = assignDeviceIds([light("A"), light("B")], 4);
+    expect(devices.map(d => d.id)).toEqual([5, 6]);
+  });
+
+  it("ignores an unusable mark", () => {
+    const { devices } = assignDeviceIds([light("A"), light("B")], -3);
+    expect(devices.map(d => d.id)).toEqual([1, 2]);
+  });
 });
 
 describe("nextDeviceId", () => {
@@ -76,9 +93,7 @@ describe("nextDeviceId", () => {
     expect(nextDeviceId([light("A", 1), light("C", 3)])).toBe(4);
   });
 
-  it("is one above the list length for a list nobody numbered yet", () => {
-    // The start-up migration will give those entries their positions 1..n.
-    expect(nextDeviceId([light("A"), light("B")])).toBe(3);
+  it("starts at 1", () => {
     expect(nextDeviceId([])).toBe(1);
   });
 
@@ -91,18 +106,6 @@ describe("nextDeviceId", () => {
   it("ignores an unusable mark", () => {
     expect(nextDeviceId([light("A", 1)], 0)).toBe(2);
     expect(nextDeviceId([light("A", 1)], Number.NaN)).toBe(2);
-  });
-});
-
-describe("lightIdHighWater", () => {
-  it("carries the highest number of the stored mark and both lists", () => {
-    expect(lightIdHighWater(0, [light("A", 1), light("C", 3)], [light("A", 1)])).toBe(3);
-    expect(lightIdHighWater(9, [light("A", 1)], [])).toBe(9);
-  });
-
-  it("treats a missing or broken mark as 0", () => {
-    expect(lightIdHighWater(undefined, [light("A", 2)])).toBe(2);
-    expect(lightIdHighWater("7", [])).toBe(0);
   });
 });
 

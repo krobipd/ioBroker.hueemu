@@ -15,13 +15,20 @@ import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName, tRaw } from "./lib/i18n";
 import { CERT_VALIDITY_YEARS, getOrCreateTlsMaterial } from "./lib/tls-material";
-import { normalizeDevices } from "./lib/device-ids";
 import {
-  ID_RANGE_END,
-  runObsoleteStateCleanup,
-  runLegacyDeviceMigration,
-  runDeviceIdMigration,
-} from "./lib/migrations";
+  IDENTITY_FILE,
+  plainKeyOf,
+  readIdentity,
+  resolveIdentity,
+  type StoredIdentity,
+  writeIdentity,
+} from "./lib/identity-store";
+import { runObsoleteStateCleanup, runLegacyDeviceMigration, runLightObjectMigration } from "./lib/migrations";
+import { LightStore, type StoredLights } from "./lib/light-store";
+import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE } from "./lib/client-store";
+import { moveClients } from "./lib/client-move";
+import { lightIcon } from "./lib/device-icons";
+import { sameStructure } from "./lib/known-objects";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
   BRIDGE_MODEL_ID,
@@ -34,11 +41,9 @@ import {
 } from "./types/config";
 import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
 import { migrateNativeKeys } from "./lib/native-key-migration";
-import { moveAllWithEnums } from "./lib/enum-carry";
 import { carriesAddress, chosenAddress, isOwnPeer } from "./lib/network-address";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText } from "./lib/err-text";
-import { sanitizeId } from "./types/utils";
 
 /**
  * Hue Emulator Adapter
@@ -59,25 +64,39 @@ class HueEmu extends utils.Adapter {
   private ssdpAnnounceInterval: ioBroker.Interval | undefined = undefined;
   private _pairingEnabled = false;
   private _disableAuth = false;
-  // v1.12.0: set when buildConfig persisted generated identity or TLS material
-  // into native — that write triggers an instance restart (jsonConfig
-  // semantics), so onReady short-circuits instead of binding servers the
-  // imminent restart would tear down.
-  private nativePersistPending = false;
+  // Audit R-24: the bridge identity of this start, kept in the instance data folder
+  // (identity-store.ts) — loaded before the native migrations, which drop its old copy.
+  private identity: StoredIdentity = { udn: "" };
   // v1.18.0: set the moment the host asks us to stop. onReady checks it after
   // every long await: in compact mode the process survives an unload, so a
   // start that carried on would leave a bound server behind for the restarted
   // instance to collide with (audit 2026-09-15 B3).
   private unloaded = false;
 
+  // Audit R-24: the lights as own device objects (`lights.<n>`) — created in onReady, shared with the device manager
+  // so every change to them runs through one queue.
+  private lights: LightStore | undefined;
+  /** The light list the bridge serves right now — a reload that reads the same list changes nothing. */
+  private servedLights: DeviceConfig[] = [];
+  /**
+   * Whether the served lights are the light objects. False for a run whose move out of the settings failed: it
+   * serves the settings' lights, writes no reachability and reloads nothing — a light object changed meanwhile is
+   * served from the next start on.
+   */
+  private lightsAreObjects = false;
+  /** The last value written to each `lights.<n>.reachable` — only a change is written. */
+  private readonly lastReachable = new Map<number, boolean>();
+  /** The running reload of the light list, and whether another change came in meanwhile. */
+  private lightReload: Promise<void> | undefined;
+  private lightReloadAgain = false;
+
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
   private apiHandler: ApiHandler | null = null;
 
   // v1.11.0: official ioBroker device-manager backend for the devices tab
-  // (manual add/edit/delete + a "search lights" assistant). Instantiated in the
-  // constructor as required by dm-utils; it owns no state, it reads/writes
-  // native.devices via this adapter.
+  // (manual add/edit/delete + a "search lights" assistant). It owns no state: it
+  // reads and writes the light objects through the light store.
   // Constructed in onReady after I18n.init: dm-utils listens for messages from its
   // constructor on, and a handler that translates before I18n.init throws.
   private deviceManagement: HueEmuDeviceManagement | undefined;
@@ -247,12 +266,10 @@ class HueEmu extends utils.Adapter {
       if (await this.clearStopInstanceFlag()) {
         return;
       }
-      this.deviceManagement = new HueEmuDeviceManagement(this);
-      // v1.19.0: a hand-edited instance object or a restored backup can carry
-      // anything here — no list, or `null` entries. Every reader below gets a
-      // clean list instead of a TypeError text in info.error (audit 2026-09-25 Q16).
-      this.config.devices = normalizeDevices(this.config.devices);
-      this.log.debug(`onReady: starting (devices in config: ${this.config.devices.length})`);
+      // Audit R-24: the lights are own device objects, their number mark a file in the data folder.
+      const lights = new LightStore(this, this.identityDir(), lightIcon());
+      this.lights = lights;
+      this.deviceManagement = new HueEmuDeviceManagement(this, lights);
       // Nothing to report yet — the listener is not up. Written before anything
       // can fail, so a crash between here and the listen leaves the truth behind.
       this.setConnected(false, REASON_UNKNOWN);
@@ -262,27 +279,37 @@ class HueEmu extends utils.Adapter {
       // v1.19.0: keys no version reads any more are dropped (advertiseHost is carried
       // into bind first where that keeps the announced address — native-key-list.ts).
       // A write restarts the instance — stop here like every other native migration.
+      // Audit R-24: the identity file is written first, the lights become objects first;
+      // only once they hold it are the old copies in native dropped.
+      const identityStored = this.loadIdentity();
+      const moved = await runLightObjectMigration(
+        lights,
+        { devices: this.config.devices, lastLightId: this.config.lastLightId },
+        this.log,
+      );
       const migrations = buildNativeKeyMigrations(
         this.config as unknown as Record<string, unknown>,
         listIPv4Addresses().map(a => a.address),
+        identityStored,
+        moved.stored,
       );
       if (await migrateNativeKeys(this, migrations, errText)) {
         return;
       }
 
-      // Migrate legacy devices (created via createLight) to admin config format
-      const migrated = await this.migrateLegacyDevices();
-      if (migrated) {
-        // Config was updated — adapter will restart automatically
-        return;
+      // Lights the pre-1.1.0 `createLight` state made become light objects as well.
+      let stored = await lights.list();
+      if (await this.migrateLegacyDevices(lights, stored.lights.length > 0 || !moved.stored)) {
+        stored = await lights.list();
       }
+      // A move out of the settings that failed serves the settings' lights this run.
+      const devices: DeviceConfig[] = moved.stored ? stored.lights : (moved.devices ?? []);
+      this.lightsAreObjects = moved.stored;
+      await this.prepareLightObjects(lights, stored, devices);
 
-      // v1.18.0: every light gets its permanent number once (its Hue id and
-      // uniqueid used to be its position — deleting one light re-identified all
-      // the others for Alexa). Same restart contract as the migrations above.
-      if (await runDeviceIdMigration(this, this.config.devices)) {
-        return;
-      }
+      // The paired clients: their keys from clients.json, the objects of earlier versions moved to `clients.<n>` —
+      // before the own objects are refreshed and before the bridge serves, so the first request reads the moved tree.
+      const clients = await this.prepareClients();
 
       // Carry the names of the manifest's own objects into an EXISTING tree
       // (js-controller merges instanceObjects on every start but keeps common.name).
@@ -292,25 +319,13 @@ class HueEmu extends utils.Adapter {
       }
 
       // Parse and validate configuration
-      const emulatorConfig = await this.buildConfig();
-
-      // v1.12.0: buildConfig may persist generated identity or TLS material into
-      // native, which triggers an instance restart (jsonConfig semantics).
-      // Short-circuit like the legacy migration so we don't bind servers the
-      // imminent restart would immediately tear down.
-      if (this.nativePersistPending) {
-        this.log.info("Persisted generated bridge identity/TLS — restarting with the stored configuration.");
-        return;
-      }
+      const emulatorConfig = this.buildConfig();
       if (this.unloaded) {
         return;
       }
 
       // The adapter's own log is the modules' Logger (it carries the four methods).
       const logger: Logger = this.log;
-
-      // Get device configurations from admin UI
-      const devices: DeviceConfig[] = this.config.devices;
 
       // Initialize SSDP discovery server
       this.ssdpServer = this.makeSsdpServer({
@@ -337,13 +352,16 @@ class HueEmu extends utils.Adapter {
         },
         devices,
         logger,
+        clients,
       });
 
       // Initialize API handler (sets up state subscriptions for device bindings)
       await this.apiHandler.initialize();
+      this.servedLights = devices;
       if (this.unloaded) {
         return;
       }
+      this.writeReachability();
 
       // Initialize HTTP server
       this.hueServer = this.makeHueServer({
@@ -401,7 +419,12 @@ class HueEmu extends utils.Adapter {
       this.subscribeStates("*");
       // …and to the client objects: deleting one in the admin revokes it (v1.19.0, H12).
       this.subscribeObjects("clients.*");
-      this.log.debug("Subscribed to own states (pattern: *) and client objects");
+      // …and to the light objects: a light added, edited or deleted is served at once (audit R-24 — a change to
+      // them no longer restarts the instance). After every own write of this start, so none of them triggers it.
+      if (this.lightsAreObjects) {
+        this.subscribeObjects("lights.*");
+      }
+      this.log.debug("Subscribed to own states (pattern: *), client and light objects");
 
       // Q18: a stop during the cleanup above must not be followed by "connected".
       if (this.unloaded) {
@@ -420,13 +443,209 @@ class HueEmu extends utils.Adapter {
       // hint included, goes to the log where it is actionable.
       this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail);
       this.log.error(`Failed to start Hue Emulator: ${detail}`);
+      // The bridge serves nothing — no light is reachable through it (D4, like the stop).
+      await this.markLightsUnreachable();
     }
+  }
+
+  /**
+   * The paired clients' keys and objects for this start (client-store.ts, client-move.ts). A file that cannot be read
+   * signs no client in until it pairs again — it is set aside with the next pairing, never overwritten. A move that
+   * fails leaves every old object in place, and the next start tries again.
+   *
+   * @returns the client keys, loaded
+   */
+  private async prepareClients(): Promise<ClientStore> {
+    const clients = new ClientStore(this.identityDir());
+    const unusable = clients.load();
+    if (unusable !== undefined) {
+      this.log.warn(
+        `The stored client keys ${join(this.identityDir(), CLIENTS_FILE)} cannot be used (${unusable}) — paired clients must pair again; it is set aside as ${UNREADABLE_CLIENTS_FILE} before the next write`,
+      );
+    }
+    try {
+      await moveClients(this, clients, errText);
+    } catch (error) {
+      this.log.warn(
+        `The paired clients could not be brought to the current form — the next start tries again: ${errText(error)}`,
+      );
+    }
+    return clients;
+  }
+
+  /**
+   * Audit R-24: before the bridge serves — raise the number mark to every light number in the tree (a light deleted
+   * in the object browser keeps its number taken) and to every light served this run (a run whose move failed serves
+   * the settings' lights, and a light added meanwhile must not take one of their numbers), bring each light's objects
+   * to the current form (pictogram, status link, reachability datapoint; only what differs is written) and read what
+   * each reachability datapoint holds, so only a change is written afterwards.
+   *
+   * @param lights the light store
+   * @param stored the light objects as read
+   * @param served the lights this run serves
+   */
+  private async prepareLightObjects(lights: LightStore, stored: StoredLights, served: DeviceConfig[]): Promise<void> {
+    try {
+      lights.raiseMark([...stored.lights, ...served].map(light => light.id ?? 0));
+    } catch (error) {
+      this.log.warn(`The light number mark could not be stored: ${errText(error)}`);
+    }
+    if (!this.lightsAreObjects) {
+      return;
+    }
+    try {
+      const written = await lights.reconcile(stored);
+      if (written > 0) {
+        this.log.debug(`Brought ${written} light object(s) up to the current form`);
+      }
+      const states = await this.getForeignStatesAsync(`${this.namespace}.lights.*.reachable`);
+      for (const light of stored.lights) {
+        const val = states?.[lights.ids.reachable(light.id ?? 0)]?.val;
+        if (typeof val === "boolean") {
+          this.lastReachable.set(light.id ?? 0, val);
+        }
+      }
+    } catch (error) {
+      // The lights are served either way; their objects get their form on the next start.
+      this.log.warn(`Could not bring the light objects up to date: ${errText(error)}`);
+    }
+  }
+
+  /**
+   * Write each light's reachability where it changed (`lights.<n>.reachable`, audit R-24) — after the start, after
+   * every change of a bound datapoint and after a new light list.
+   */
+  private writeReachability(): void {
+    const lights = this.lights;
+    if (!lights || !this.apiHandler || !this.lightsAreObjects) {
+      return;
+    }
+    for (const [n, reachable] of this.apiHandler.reachability()) {
+      if (this.lastReachable.get(n) !== reachable) {
+        this.lastReachable.set(n, reachable);
+        this.ackState(lights.ids.reachable(n), reachable);
+      }
+    }
+  }
+
+  /** Every light reachable until now becomes unreachable — on the stop and after a failed start (D4). Never rejects. */
+  private async markLightsUnreachable(): Promise<void> {
+    const lights = this.lights;
+    if (!lights) {
+      return;
+    }
+    const reachable = [...this.lastReachable].filter(([, value]) => value).map(([n]) => n);
+    await Promise.all(
+      reachable.map(async n => {
+        this.lastReachable.set(n, false);
+        try {
+          await this.setState(lights.ids.reachable(n), { ack: true, val: false });
+        } catch (error) {
+          this.log.debug(`Could not mark light ${n} unreachable: ${errText(error)}`);
+        }
+      }),
+    );
+  }
+
+  /**
+   * A light object was added, changed or deleted (the device manager, the object browser): read the list again and
+   * serve it. One reload at a time; changes that come in meanwhile are read by one more reload after it.
+   */
+  private scheduleLightReload(): void {
+    if (this.lightReload) {
+      this.lightReloadAgain = true;
+      return;
+    }
+    this.lightReload = (async (): Promise<void> => {
+      do {
+        this.lightReloadAgain = false;
+        await this.reloadLights();
+      } while (this.lightReloadAgain && !this.unloaded);
+    })().finally(() => {
+      this.lightReload = undefined;
+    });
+  }
+
+  /** One reload of the light list. Never rejects — a failure keeps the list served so far. */
+  private async reloadLights(): Promise<void> {
+    const lights = this.lights;
+    const handler = this.apiHandler;
+    if (!lights || !handler || this.unloaded) {
+      return;
+    }
+    try {
+      const { lights: list } = await lights.list();
+      try {
+        lights.raiseMark(list.map(light => light.id ?? 0));
+      } catch (error) {
+        this.log.warn(`The light number mark could not be stored: ${errText(error)}`);
+      }
+      if (sameStructure(list, this.servedLights)) {
+        return;
+      }
+      await handler.replaceDevices(list);
+      this.servedLights = list;
+      for (const n of [...this.lastReachable.keys()]) {
+        if (!list.some(light => light.id === n)) {
+          this.lastReachable.delete(n);
+        }
+      }
+      this.writeReachability();
+      this.log.debug(`Serving ${list.length} light(s) after a change of the light objects`);
+    } catch (error) {
+      this.log.warn(`Could not apply the changed lights — serving the previous list: ${errText(error)}`);
+    }
+  }
+
+  /**
+   * Audit R-24: the bridge identity for this start — the file in the instance data folder,
+   * or on its first start what an earlier version left in native (or a fresh UDN), stored
+   * there right away. A file that cannot be written is not fatal: this run serves with the
+   * identity it holds, the old copy in native stays, and the next start tries again.
+   *
+   * @returns whether the file holds the identity — only then are the old copies dropped
+   */
+  private loadIdentity(): boolean {
+    const read = readIdentity(this.identityDir());
+    if (read.error) {
+      this.log.warn(
+        `The stored bridge identity ${join(this.identityDir(), IDENTITY_FILE)} cannot be used (${read.error}) — taking it from the settings or creating a new one`,
+      );
+    }
+    const { identity, unsaved } = resolveIdentity(
+      read.identity,
+      { udn: this.config.udn, tlsCert: this.config.tlsCert, tlsKey: this.config.tlsKey },
+      () => uuid.v4(),
+      v => this.encrypt(v),
+    );
+    this.identity = identity;
+    return unsaved ? this.storeIdentity() : true;
+  }
+
+  /**
+   * Write the identity of this start to its file.
+   *
+   * @returns whether it was stored
+   */
+  private storeIdentity(): boolean {
+    try {
+      writeIdentity(this.identityDir(), this.identity);
+      return true;
+    } catch (error) {
+      this.log.warn(`The bridge identity could not be stored (${errText(error)}) — using it for this run`);
+      return false;
+    }
+  }
+
+  /** The instance data folder (declared as `common.dataFolder`, so a backup carries it). */
+  private identityDir(): string {
+    return utils.getAbsoluteInstanceDataDir(this);
   }
 
   /**
    * Build emulator configuration from adapter config
    */
-  private async buildConfig(): Promise<HueEmulatorConfig> {
+  private buildConfig(): HueEmulatorConfig {
     // Parse configuration values. The fleet master reads "every address" ("", "0.0.0.0",
     // "::"); a chosen address the host does not carry (a new address from the router, a
     // backup restored on other hardware) cannot be served — then every address, and the
@@ -463,22 +682,11 @@ class HueEmu extends utils.Adapter {
     // cause. Both surfaced up-front via validateNetworkConfig.
     validateNetworkConfig(advertiseHost, port, httpsPort);
     // Type guard at the boundary: a hand-edited instance object can carry a number
-    // or null here, and `.trim()` on it stopped the start (audit R-05).
-    const storedUdn = typeof this.config.udn === "string" ? this.config.udn.trim() : "";
+    // or null here, and `.trim()` on it stopped the start (audit R-05). An empty MAC
+    // is derived from the UDN on every start and never written (audit R-24).
+    const udn = this.identity.udn;
     const storedMac = typeof this.config.mac === "string" ? this.config.mac.trim() : "";
-    const udn = storedUdn || uuid.v4();
     const mac = storedMac || macFromUdn(udn);
-
-    // Everything generated on this start is stored in ONE merge below — the
-    // identity and, when HTTPS is on, the certificate. v1.18.0: they used to be
-    // two writes, and the second one (plus the RSA keygen before it) happened
-    // for a process that the first write had already committed to restarting
-    // (audit 2026-09-15 B4).
-    const generated: Record<string, string> = {};
-    if (!storedUdn || !storedMac) {
-      generated.udn = udn;
-      generated.mac = mac;
-    }
 
     // Build bridge identity
     const identity: BridgeIdentity = {
@@ -492,35 +700,20 @@ class HueEmu extends utils.Adapter {
     // Build TLS config if HTTPS is enabled
     let https: TlsConfig | undefined;
     if (httpsPort) {
-      const material = getOrCreateTlsMaterial(this.config.tlsCert, this.config.tlsKey, this.log);
+      const material = getOrCreateTlsMaterial(
+        this.identity.tlsCert,
+        plainKeyOf(this.identity.tlsKey, v => this.decrypt(v)),
+        this.log,
+      );
       if (material.generated) {
-        generated.tlsCert = material.cert;
-        // v1.19.0: `tlsKey` is in `encryptedNative` — js-controller DECRYPTS it before
-        // `ready` and turns a plaintext PEM into garbage (decryptLegacy). Stored in
-        // plaintext (v1.4.7–v1.18.0) the key was unreadable on the next start, a new
-        // certificate was generated and persisted, the instance restarted — for ever,
-        // and HTTP never bound either (audit 2026-09-25 K1). Encrypt what is stored;
-        // this run serves with the plaintext it holds in memory.
-        generated.tlsKey = this.encrypt(material.key);
+        // The key is stored encrypted (design decision 8); this run serves with the
+        // plaintext it holds in memory.
+        this.identity = { ...this.identity, tlsCert: material.cert, tlsKey: this.encrypt(material.key) };
+        if (this.storeIdentity()) {
+          this.log.info(`Generated and stored self-signed TLS certificate (${CERT_VALIDITY_YEARS}-year validity)`);
+        }
       }
       https = { port: httpsPort, cert: material.cert, key: material.key };
-    }
-
-    if (Object.keys(generated).length > 0) {
-      // Persist so identity and certificate stay stable across restarts. A failed
-      // write is not fatal: this run serves with the generated values and the
-      // next start generates (and tries to store) again.
-      try {
-        await this.extendForeignObjectAsync(`system.adapter.${this.namespace}`, { native: generated });
-        this.nativePersistPending = true;
-        if (generated.tlsCert) {
-          this.log.info(`Generated and persisted self-signed TLS certificate (${CERT_VALIDITY_YEARS}-year validity)`);
-        }
-      } catch (error) {
-        this.log.warn(
-          `Generated bridge identity/TLS material could not be stored (${errText(error)}) — using it for this run`,
-        );
-      }
     }
 
     this.log.debug(
@@ -653,6 +846,9 @@ class HueEmu extends utils.Adapter {
     await this.extendObject("clients", {
       common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
     });
+    await this.extendObject("lights", {
+      common: { name: tName("lightsFolder"), desc: tName("lightsFolderDesc") },
+    });
     await this.dropClientsFolderType();
     this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
     await this.refreshClientNames();
@@ -753,92 +949,6 @@ class HueEmu extends utils.Adapter {
       getObjectListAsync: query => this.getObjectListAsync(query),
       log: { debug: msg => this.log.debug(msg) },
     });
-
-    // Migrate "user" folder → "clients" (renamed in v1.2.0)
-    await this.migrateUserToClients();
-  }
-
-  /**
-   * Migrate legacy "user" folder to "clients" folder.
-   * Copies paired client states, then removes the old "user" folder.
-   */
-  private async migrateUserToClients(): Promise<void> {
-    const userFolder = await this.getObjectAsync("user");
-    if (!userFolder) {
-      return;
-    }
-
-    // Find all states under user.*
-    const children = await this.getObjectListAsync({
-      startkey: `${this.namespace}.user.`,
-      endkey: `${this.namespace}.user.${ID_RANGE_END}`,
-    });
-
-    if (children?.rows && children.rows.length > 0) {
-      // No folder write here: the clients folder is a manifest object (instanceObjects),
-      // which js-controller applies on every start — the manifest owns its shape.
-      const moved = new Map<string, string>();
-      for (const row of children.rows) {
-        const oldId = row.id.replace(`${this.namespace}.`, "");
-        const username = oldId.replace("user.", "");
-        const newId = `clients.${sanitizeId(username)}`;
-
-        const state = await this.getStateAsync(oldId);
-
-        const obj = row.value;
-        // The old object's `common` is carried over, but its name and
-        // description are lifted to the current standard right here. The
-        // client refresh in `refreshInstanceObjects` has already run by this
-        // point (it sits early in onReady, this migration late), so without
-        // this the migrated object would carry a bare string until the NEXT
-        // start — one restart of nothing but wrong text in the tree.
-        const legacyCommon = obj.common as ioBroker.StateCommon;
-        await this.setObjectNotExistsAsync(newId, {
-          type: "state",
-          common: {
-            ...legacyCommon,
-            name: typeof legacyCommon.name === "string" ? tRaw(legacyCommon.name) : legacyCommon.name,
-            desc: tName("clientDesc"),
-          },
-          native: obj.native || {},
-        });
-        if (state?.val !== undefined && state?.val !== null) {
-          // The state's last change is the client's pairing time (audit R-07) —
-          // handed over, or every moved client would show the move as its pairing.
-          await this.setState(newId, {
-            val: state.val,
-            ack: true,
-            ...(typeof state.lc === "number" ? { lc: state.lc } : {}),
-          });
-        }
-        moved.set(row.id, `${this.namespace}.${newId}`);
-        this.log.debug(`Migrated client ${username}: user → clients`);
-      }
-
-      // The fleet order (enum-carry.ts): read the room and function assignments
-      // once, delete every old object and then the folder, write each enum once
-      // with all its new ids — the delete rewrites every enum it touches from
-      // the adapter's cache.
-      await moveAllWithEnums(
-        this,
-        memberId => {
-          const successor = moved.get(memberId);
-          return successor ? [successor] : [];
-        },
-        async () => {
-          for (const oldFullId of moved.keys()) {
-            await this.delObjectAsync(oldFullId.replace(`${this.namespace}.`, ""));
-          }
-          await this.delObjectAsync("user");
-        },
-        errText,
-      );
-    } else {
-      // Remove old "user" folder
-      await this.delObjectAsync("user");
-    }
-
-    this.log.info(`Migrated ${children?.rows?.length ?? 0} paired client(s) from "user" to "clients"`);
   }
 
   /**
@@ -863,8 +973,11 @@ class HueEmu extends utils.Adapter {
       await this.hueServer?.stop();
       // The bridge is gone — say so before the callback, or the write never
       // reaches the database (the host allows one second, then kills).
-      await this.setState("info.connection", { ack: true, val: false });
-      await this.setState("info.error", { ack: true, val: REASON_UNKNOWN });
+      await Promise.all([
+        this.setState("info.connection", { ack: true, val: false }),
+        this.setState("info.error", { ack: true, val: REASON_UNKNOWN }),
+        this.markLightsUnreachable(),
+      ]);
     })()
       .catch((error: unknown) => {
         this.log.error(`Error during shutdown: ${errText(error)}`);
@@ -873,9 +986,10 @@ class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Called if a subscribed object changes — only the client objects are subscribed:
-   * a deleted one revokes that client (v1.19.0, audit 2026-09-25 H12). The state
-   * deletion usually arrives as well; revoking twice is harmless.
+   * Called if a subscribed object changes. A deleted client object revokes that client
+   * (v1.19.0, audit 2026-09-25 H12; the state deletion usually arrives as well, revoking
+   * twice is harmless). A light's device object that was added, changed or deleted makes
+   * the bridge serve the new list (audit R-24) — its datapoints below do not.
    *
    * @param id - Full object ID
    * @param obj - The object, or null/undefined when it was deleted
@@ -885,6 +999,8 @@ class HueEmu extends utils.Adapter {
       const clientPrefix = `${this.namespace}.clients.`;
       if (!obj && id.startsWith(clientPrefix)) {
         this.apiHandler?.forgetClient(id.slice(clientPrefix.length));
+      } else if (this.lights?.ids.numberOf(id) !== undefined) {
+        this.scheduleLightReload();
       }
     } catch (error) {
       this.log.error(`Error handling object change for ${id}: ${errText(error)}`);
@@ -911,6 +1027,7 @@ class HueEmu extends utils.Adapter {
         // A bound light must not keep serving the last value of a datapoint
         // that no longer exists (audit 2026-09-15 C2).
         this.apiHandler?.forgetState(id);
+        this.writeReachability();
         return;
       }
 
@@ -925,6 +1042,7 @@ class HueEmu extends utils.Adapter {
       // it (audit 2026-09-15 C1, decision 26).
       if (this.apiHandler) {
         this.apiHandler.onStateChange(id, state.val, state.from);
+        this.writeReachability();
       }
 
       // Only handle non-acked state changes for our own states
@@ -971,22 +1089,23 @@ class HueEmu extends utils.Adapter {
   }
 
   /**
-   * Migrate legacy devices (created via createLight JSON) to admin-configured
-   * DeviceConfig format. Thin wrapper over the pure {@link runLegacyDeviceMigration}
-   * helper (extracted to `lib/migrations.ts` for direct unit-testing, like the
-   * other two migrations).
+   * Migrate legacy devices (created via createLight JSON) into light objects. Thin
+   * wrapper over the pure {@link runLegacyDeviceMigration} helper (extracted to
+   * `lib/migrations.ts` for direct unit-testing, like the other migrations).
    *
-   * @returns true if migration was performed (adapter will restart with new config)
+   * @param lights the light store the converted lights go to
+   * @param lightsStored whether any light object exists — then nothing is migrated
+   * @returns true if lights were converted
    */
-  private async migrateLegacyDevices(): Promise<boolean> {
+  private async migrateLegacyDevices(lights: LightStore, lightsStored: boolean): Promise<boolean> {
     return runLegacyDeviceMigration({
       namespace: this.namespace,
-      configuredDevices: this.config.devices,
+      lightsStored,
       getDevicesAsync: () => this.getDevicesAsync(),
       getStateAsync: id => this.getStateAsync(id),
       getObjectAsync: id => this.getObjectAsync(id),
       getStatesOfAsync: (device, channel) => this.getStatesOfAsync(device, channel),
-      extendForeignObjectAsync: (id, obj) => this.extendForeignObjectAsync(id, obj),
+      addLights: configs => lights.add(configs),
       delObjectAsync: id => this.delObjectAsync(id),
       log: { info: msg => this.log.info(msg), warn: msg => this.log.warn(msg) },
     });

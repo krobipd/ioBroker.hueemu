@@ -8,6 +8,9 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Mock } from "vitest";
 import {
   CLIENT_CREATE_CEILING_PER_HOUR,
@@ -15,6 +18,7 @@ import {
   UserService,
   type UserServiceAdapter,
 } from "./user-service";
+import { CLIENTS_FILE, ClientStore } from "../lib/client-store";
 import { createMockLogger } from "../../test/test-helpers";
 
 interface MockUserAdapter extends UserServiceAdapter {
@@ -27,26 +31,56 @@ interface MockUserAdapter extends UserServiceAdapter {
   getStatesShouldFail: boolean;
 }
 
-/** A client already in the tree: its id, and optionally the real key it stores. */
-type ExistingClient = string | { id: string; username: string };
+/** The instance data folder of one test — clients.json lives there. */
+let dataDir: string;
+beforeEach(() => {
+  dataDir = mkdtempSync(join(tmpdir(), "hueemu-clients-"));
+});
+afterEach(() => {
+  rmSync(dataDir, { recursive: true, force: true });
+});
 
-function createMockAdapter(existingClients: ExistingClient[] = []): MockUserAdapter {
+/** The table clients.json holds right now. */
+function storedFile(): { lastClientId: number; clients: Record<string, string> } {
+  return JSON.parse(readFileSync(join(dataDir, CLIENTS_FILE), "utf8")) as {
+    lastClientId: number;
+    clients: Record<string, string>;
+  };
+}
+
+/**
+ * A client store holding the given keys as clients 1, 2, … (as a start finds them after the move).
+ *
+ * @param keys the keys
+ */
+function storeWith(keys: string[]): ClientStore {
+  const store = new ClientStore(dataDir);
+  store.load();
+  for (const key of keys) {
+    store.add(key);
+  }
+  return store;
+}
+
+/**
+ * An adapter whose tree holds one object `clients.<n>` per given key — the keys themselves stand in the store.
+ *
+ * @param existingKeys the keys of the clients already paired
+ */
+function createMockAdapter(existingKeys: string[] = []): MockUserAdapter {
   const writtenObjects = new Map<string, ioBroker.SettableObject>();
   const writtenStates = new Map<string, ioBroker.SettableState>();
   const namespace = "hueemu.0";
 
-  const stateObjects: ioBroker.StateObject[] = existingClients.map(entry => {
-    // A plain string is an object whose id IS the key (a generated UUID);
-    // the pair form is a client whose real key differs from its sanitized id.
-    const id = typeof entry === "string" ? entry : entry.id;
-    const username = typeof entry === "string" ? undefined : entry.username;
-    return {
-      _id: `${namespace}.clients.${id}`,
-      type: "state",
-      common: { name: id, type: "string", role: "text", read: true, write: false },
-      native: username === undefined ? {} : { username },
-    } as unknown as ioBroker.StateObject;
-  });
+  const stateObjects: ioBroker.StateObject[] = existingKeys.map(
+    (key, i) =>
+      ({
+        _id: `${namespace}.clients.${i + 1}`,
+        type: "state",
+        common: { name: { en: `device of ${key}` }, type: "string", role: "text", read: true, write: false },
+        native: {},
+      }) as unknown as ioBroker.StateObject,
+  );
 
   const adapter: MockUserAdapter = {
     namespace,
@@ -90,10 +124,15 @@ function createMockAdapter(existingClients: ExistingClient[] = []): MockUserAdap
   return adapter;
 }
 
-function createService(existingClients: ExistingClient[] = []): { service: UserService; adapter: MockUserAdapter } {
-  const adapter = createMockAdapter(existingClients);
-  const service = new UserService({ adapter, logger: createMockLogger() });
-  return { service, adapter };
+function createService(existingKeys: string[] = []): {
+  service: UserService;
+  adapter: MockUserAdapter;
+  store: ClientStore;
+} {
+  const adapter = createMockAdapter(existingKeys);
+  const store = storeWith(existingKeys);
+  const service = new UserService({ adapter, logger: createMockLogger(), store });
+  return { service, adapter, store };
 }
 
 describe("UserService", () => {
@@ -101,51 +140,53 @@ describe("UserService", () => {
     it("stores at most 100 chars of the devicetype as the object name", async () => {
       const { service, adapter } = createService();
       await service.addUser("long-name-client", "x".repeat(300));
-      expect(
-        (adapter.writtenObjects.get("clients.long-name-client")?.common?.name as Record<string, string>).en,
-      ).toHaveLength(MAX_DEVICETYPE_LENGTH);
+      expect((adapter.writtenObjects.get("clients.1")?.common?.name as Record<string, string>).en).toHaveLength(
+        MAX_DEVICETYPE_LENGTH,
+      );
     });
 
-    it("creates client state object with sanitized id", async () => {
+    it("creates the first client as clients.1, named after its device type", async () => {
       const { service, adapter } = createService();
       await service.addUser("alexa-echo-1", "Amazon Echo");
-      expect(adapter.writtenObjects.has("clients.alexa-echo-1")).toBe(true);
-      const obj = adapter.writtenObjects.get("clients.alexa-echo-1");
-      expect(obj?.common?.name).toMatchObject({ en: "Amazon Echo", de: "Amazon Echo" });
+      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.1"]);
+      expect(adapter.writtenObjects.get("clients.1")?.common?.name).toMatchObject({
+        en: "Amazon Echo",
+        de: "Amazon Echo",
+      });
     });
 
-    it("sanitizes FORBIDDEN_CHARS in username", async () => {
+    it("numbers the clients one after the other", async () => {
+      const { service, adapter } = createService(["first", "second"]);
+      await service.addUser("third", "Echo");
+      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.3"]);
+    });
+
+    // Werkbank standard of round 173 (point 4 and its addendum): a generated secret stands only in the file in the
+    // instance data folder — never in an object id, never in common or native. Up to v1.19.0 the key was all three.
+    it("keeps the key only in clients.json — the object carries nothing of it", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
-      expect(adapter.writtenObjects.has("clients.user_with_dots")).toBe(true);
-    });
-
-    it("sanitizes whitespace and special chars", async () => {
-      const { service, adapter } = createService();
-      await service.addUser("hello world!", "test");
-      expect(adapter.writtenObjects.has("clients.hello_world_")).toBe(true);
+      expect(JSON.stringify([...adapter.writtenObjects])).not.toContain("user.with.dots");
+      expect(JSON.stringify([...adapter.writtenObjects])).not.toContain("user_with_dots");
+      expect(adapter.writtenObjects.get("clients.1")?.native).toEqual({});
+      expect(storedFile()).toEqual({ lastClientId: 1, clients: { 1: "user.with.dots" } });
     });
 
     it("defaults devicetype to 'unknown'", async () => {
       const { service, adapter } = createService();
       await service.addUser("abc123");
-      const obj = adapter.writtenObjects.get("clients.abc123");
-      expect(obj?.common?.name).toMatchObject({ en: "unknown" });
+      expect(adapter.writtenObjects.get("clients.1")?.common?.name).toMatchObject({ en: "unknown" });
     });
 
-    it("stores original username as state value (not sanitized)", async () => {
+    it("stores the device type as the state value, never the key", async () => {
       const { service, adapter } = createService();
       await service.addUser("user.with.dots", "test");
-      const state = adapter.writtenStates.get("clients.user_with_dots");
-      expect((state as { val: unknown } | undefined)?.val).toBe("user.with.dots");
+      expect(adapter.writtenStates.get("clients.1")).toEqual({ ack: true, val: "test" });
     });
 
-    // The clients folder is a manifest object that js-controller applies on every
-    // start; a runtime copy of its shape is a second source that drifts
-    // (iobroker-adapter-checks instance-objects-refresh).
-    // Audit R-33 (fleet rule GV-05, inventory test "rewrites no state unchanged"): the value is the key, written once at
-    // pairing — a client pairing again under the same key changes nothing, so nothing is written. Compared in memory: a
-    // single read of the read-only state (setStateChangedAsync) is red in the run just the same.
+    // Audit R-33 (fleet rule GV-05, inventory test "rewrites no state unchanged"): the value is written once at pairing —
+    // a client pairing again under the same key changes nothing, so nothing is written, and the state's last change
+    // stays the pairing time (audit R-07).
     it("writes a re-pairing client's state no second time", async () => {
       const { service, adapter } = createService();
       const setState = vi.spyOn(adapter, "setState");
@@ -155,42 +196,35 @@ describe("UserService", () => {
     });
 
     it("writes no state for a client paired before this start that pairs again", async () => {
-      const { service, adapter } = createService([{ id: "known-key", username: "known-key" }]);
+      const { service, adapter } = createService(["known-key"]);
       adapter.stateValues = {
-        "hueemu.0.clients.known-key": {
-          val: "known-key",
-          ack: true,
-          ts: 1,
-          lc: 1,
-          from: "system.adapter.hueemu.0",
-          q: 0,
-        },
+        "hueemu.0.clients.1": { val: "Echo", ack: true, ts: 1, lc: 1, from: "system.adapter.hueemu.0", q: 0 },
       };
       const setState = vi.spyOn(adapter, "setState");
       await service.createUser("known-key", "Echo");
       expect(setState).not.toHaveBeenCalled();
     });
 
-    it("gives a stored client without a value its key when it pairs again", async () => {
-      const { service, adapter } = createService([{ id: "known-key", username: "known-key" }]);
-      await service.createUser("known-key", "Echo");
-      expect(adapter.writtenStates.get("clients.known-key")).toEqual({ ack: true, val: "known-key" });
-    });
-
-    it("writes the state again for a client paired anew after its object was deleted", async () => {
+    it("pairs a client anew under a new number after its object was deleted", async () => {
       const { service, adapter } = createService();
       const setState = vi.spyOn(adapter, "setState");
       await service.createUser("known-key", "Echo");
-      service.forgetClient("known-key");
+      service.forgetClient("1");
       await service.createUser("known-key", "Echo");
       expect(setState).toHaveBeenCalledTimes(2);
+      // A number is never handed out twice — the new pairing inherits nothing of the deleted one.
+      expect(setState).toHaveBeenLastCalledWith("clients.2", { ack: true, val: "Echo" });
+      expect(storedFile()).toEqual({ lastClientId: 2, clients: { 2: "known-key" } });
     });
 
+    // The clients folder is a manifest object that js-controller applies on every
+    // start; a runtime copy of its shape is a second source that drifts
+    // (iobroker-adapter-checks instance-objects-refresh).
     it("writes no clients folder — the manifest owns it", async () => {
       const { service, adapter } = createService();
       await service.addUser("foo", "bar");
       expect(adapter.writtenObjects.has("clients")).toBe(false);
-      expect(adapter.writtenObjects.has("clients.foo")).toBe(true);
+      expect(adapter.writtenObjects.has("clients.1")).toBe(true);
     });
 
     // v1.17.0 (audit 2026-09-06 F2): a pairing that never reached the database
@@ -200,6 +234,28 @@ describe("UserService", () => {
       const { service, adapter } = createService();
       adapter.setObjectShouldFail = true;
       await expect(service.addUser("foo", "bar")).rejects.toThrow(/could not be stored/i);
+    });
+
+    it("takes the key back out of clients.json when the object cannot be stored", async () => {
+      const { service, adapter, store } = createService();
+      adapter.setObjectShouldFail = true;
+      await expect(service.addUser("foo", "bar")).rejects.toThrow();
+      expect(store.numberOf("foo")).toBeUndefined();
+      expect(storedFile().clients).toEqual({});
+    });
+
+    it("refuses the pairing and creates no object when clients.json cannot be written", async () => {
+      const blocked = join(dataDir, "not-a-folder");
+      writeFileSync(blocked, "");
+      const adapter = createMockAdapter();
+      const warn = vi.fn();
+      const store = new ClientStore(blocked);
+      store.load();
+      const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store });
+      await expect(service.addUser("foo", "bar")).rejects.toThrow(/could not be stored/i);
+      expect(adapter.writtenObjects.size).toBe(0);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Failed to store the key of a new client"));
+      expect(await service.isUserAuthenticated("foo")).toBe(false);
     });
 
     it("does not authenticate a client whose object write failed", async () => {
@@ -213,12 +269,12 @@ describe("UserService", () => {
     it("keeps a stored client paired and warns when only its state write fails", async () => {
       const adapter = createMockAdapter();
       const warn = vi.fn();
-      const service = new UserService({ adapter, logger: { ...createMockLogger(), warn } });
+      const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store: storeWith([]) });
       adapter.setStateShouldFail = true;
       await expect(service.addUser("foo", "bar")).resolves.toBeUndefined();
       // The object reached the database — that is what makes a pairing.
       expect(await service.isUserAuthenticated("foo")).toBe(true);
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Failed to set client state foo"));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Failed to set client state clients.1"));
     });
   });
 
@@ -245,9 +301,7 @@ describe("UserService", () => {
     it("defaults devicetype to 'unknown'", async () => {
       const { service, adapter } = createService();
       await service.createUser("user1");
-      const sanitized = "user1";
-      const obj = adapter.writtenObjects.get(`clients.${sanitized}`);
-      expect(obj?.common?.name).toMatchObject({ en: "unknown" });
+      expect(adapter.writtenObjects.get("clients.1")?.common?.name).toMatchObject({ en: "unknown" });
     });
   });
 
@@ -267,9 +321,9 @@ describe("UserService", () => {
       expect(await service.isUserAuthenticated("unknown-user")).toBe(false);
     });
 
-    // v1.17.0 (audit 2026-09-06 F3): authentication compares the REAL key, not
-    // the sanitized object id. Matching the id made every character a key holds
-    // that is not [A-Za-z0-9-_] a wildcard.
+    // v1.17.0 (audit 2026-09-06 F3, decision 22): authentication compares the REAL
+    // key. Matching a sanitized form made every character a key holds that is not
+    // [A-Za-z0-9-_] a wildcard.
     it("does not accept a key that merely sanitizes to a paired one", async () => {
       const { service } = createService([]);
       await service.addUser("living.room", "Echo");
@@ -278,27 +332,45 @@ describe("UserService", () => {
       expect(await service.isUserAuthenticated("living+room")).toBe(false);
     });
 
-    it("refuses a second key that would take over an existing client's object", async () => {
-      const { service } = createService([]);
+    // No id is derived from a key any more — two keys an id could not tell apart are two clients.
+    it("pairs two keys that differ only in characters an id cannot hold as two clients", async () => {
+      const { service, adapter } = createService([]);
       await service.addUser("living.room", "Echo");
-      await expect(service.addUser("living+room", "Impostor")).rejects.toThrow(/already/i);
-    });
-
-    // Mutation wave v1.17.0 (X9): a client whose real key differs from its sanitized
-    // object id — only then is it measurable which of the two the login store is
-    // really built from.
-    it("builds the cache from the stored key, not from the object id", async () => {
-      const { service } = createService([{ id: "living_room", username: "living.room" }]);
+      await service.addUser("living+room", "Harmony");
+      expect([...adapter.writtenObjects.keys()]).toEqual(["clients.1", "clients.2"]);
       expect(await service.isUserAuthenticated("living.room")).toBe(true);
-      expect(await service.isUserAuthenticated("living_room")).toBe(false);
-      expect(service.listPairedClients().map(c => c.key)).toEqual(["living.room"]);
+      expect(await service.isUserAuthenticated("living+room")).toBe(true);
     });
 
-    it("falls back to the object id for a client stored before the key was kept", async () => {
-      // A pre-v1.17.0 object (or a hand-built one) has no native.username; its
-      // id is the key, which for a generated UUID is the same string anyway.
-      const { service } = createService(["3f8a-9d2c"]);
-      expect(await service.isUserAuthenticated("3f8a-9d2c")).toBe(true);
+    // client-store.ts: the object is the truth of "paired" — a key counts only while its object exists AND the file
+    // holds it for that number.
+    it("signs in only a key whose object exists and whose number the file holds", async () => {
+      const adapter = createMockAdapter(["a"]);
+      adapter.stateObjects.push({
+        _id: "hueemu.0.clients.3",
+        type: "state",
+        common: { name: { en: "keyless" } },
+        native: {},
+      } as unknown as ioBroker.StateObject);
+      const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith(["a", "b"]) });
+      expect(await service.isUserAuthenticated("a")).toBe(true);
+      // b: in the file, but its object clients.2 is gone (deleted while the adapter was stopped)
+      expect(await service.isUserAuthenticated("b")).toBe(false);
+      // clients.3: an object without a key — its number signs nothing in
+      expect(await service.isUserAuthenticated("3")).toBe(false);
+      expect(service.listPairedClients().map(c => c.key)).toEqual(["a"]);
+    });
+
+    it("signs in no key that stands in an object id or in native", async () => {
+      const adapter = createMockAdapter();
+      adapter.stateObjects.push({
+        _id: "hueemu.0.clients.legacy-key",
+        type: "state",
+        common: { name: "Echo" },
+        native: { username: "legacy-key" },
+      } as unknown as ioBroker.StateObject);
+      const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith([]) });
+      expect(await service.isUserAuthenticated("legacy-key")).toBe(false);
     });
 
     it("returns false when getStatesOfAsync throws", async () => {
@@ -374,6 +446,7 @@ describe("UserService", () => {
       const service = new UserService({
         adapter,
         logger: { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn, error: vi.fn<LogFn>() },
+        store: storeWith([]),
       });
       return { service, adapter, warn };
     }
@@ -400,7 +473,7 @@ describe("UserService", () => {
       await expect(service.createUser("c-101", "flood")).rejects.toThrow(/ceiling/i);
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining("Client creation ceiling reached"));
-      expect(adapter.writtenObjects.has("clients.c-100")).toBe(false);
+      expect(adapter.writtenObjects.size).toBe(CLIENT_CREATE_CEILING_PER_HOUR);
     });
 
     it("auto-adds count against the same ceiling", async () => {
@@ -471,7 +544,8 @@ describe("UserService", () => {
       const { service, adapter } = serviceWithWarnSpy();
       await fillTheHour(service, "c");
       await expect(service.createUser("c-100", "flood")).rejects.toThrow(/ceiling/i);
-      expect(adapter.writtenObjects.has("clients.c-100")).toBe(false);
+      expect(adapter.writtenObjects.size).toBe(CLIENT_CREATE_CEILING_PER_HOUR);
+      expect(storedFile().lastClientId).toBe(CLIENT_CREATE_CEILING_PER_HOUR);
     });
 
     it("opens a fresh window after the hour — a whole chain passes again and the warning re-arms", async () => {
@@ -628,29 +702,26 @@ describe("v1.15.1 — the client name is a translation object", () => {
   it("writes the device type under every one of the eleven languages", async () => {
     // `common.name` is a translation object for EVERY object type, even where the
     // text comes from the device and has nothing to translate (core team, nut2 #15).
-    const adapter = createMockAdapter();
-    const service = new UserService({ adapter, logger: createMockLogger() });
+    const { service, adapter } = createService();
     await service.createUser("client-1", "Harmony Hub");
-    const name = adapter.writtenObjects.get("clients.client-1")?.common?.name as Record<string, string>;
+    const name = adapter.writtenObjects.get("clients.1")?.common?.name as Record<string, string>;
     expect(Object.keys(name)).toHaveLength(11);
     expect(name.en).toBe("Harmony Hub");
     expect(name["zh-cn"]).toBe("Harmony Hub");
   });
 
   it("never writes a bare string as the name", async () => {
-    const adapter = createMockAdapter();
-    const service = new UserService({ adapter, logger: createMockLogger() });
+    const { service, adapter } = createService();
     await service.createUser("client-2", "Echo");
-    expect(typeof adapter.writtenObjects.get("clients.client-2")?.common?.name).toBe("object");
+    expect(typeof adapter.writtenObjects.get("clients.1")?.common?.name).toBe("object");
   });
 });
 
 describe("v1.15.1 — every client object carries an explanation", () => {
   it("writes a description on the client datapoint", async () => {
-    const adapter = createMockAdapter();
-    const service = new UserService({ adapter, logger: createMockLogger() });
+    const { service, adapter } = createService();
     await service.createUser("with-desc", "Echo");
-    expect(adapter.writtenObjects.get("clients.with-desc")?.common?.desc).toBeDefined();
+    expect(adapter.writtenObjects.get("clients.1")?.common?.desc).toBeDefined();
   });
 
   // The folder's description comes from the manifest and the start refresh
@@ -668,10 +739,8 @@ describe("UserService.listPairedClients", () => {
     const [entry] = service.listPairedClients();
     expect(entry).toMatchObject({ key: "key-1", name: "Echo#Kitchen" });
     expect(entry.created).toBeGreaterThanOrEqual(before);
-    // Nothing time-dependent goes into the tree — the object's own ts is the record.
-    expect((adapter.writtenObjects.get("clients.key-1") as unknown as { native: object }).native).toEqual({
-      username: "key-1",
-    });
+    // Nothing time-dependent and nothing of the key goes into the tree.
+    expect((adapter.writtenObjects.get("clients.1") as unknown as { native: object }).native).toEqual({});
   });
 
   it("keeps the first pairing time when the same client is added again", async () => {
@@ -686,36 +755,37 @@ describe("UserService.listPairedClients", () => {
 
   // Audit R-07: the object's own time moves with every object write (a name
   // refresh, a rename in the admin — js-controller sets `ts` on extendObject),
-  // so it is no pairing time. The client state's `lc` is: its value is the key,
-  // written at pairing and never changed, and `lc` moves only when the value does.
+  // so it is no pairing time. The client state's `lc` is: its value is written
+  // once at pairing and never changed, and `lc` moves only when the value does.
   it("reads the pairing time from the client state's last change, not the object's time", async () => {
-    const { service, adapter } = createService();
+    const adapter = createMockAdapter();
+    const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith(["new", "old"]) });
     adapter.stateObjects.push(
       {
-        _id: "hueemu.0.clients.new",
+        _id: "hueemu.0.clients.1",
         type: "state",
         ts: 1_900_000_000_000, // renewed by a later object write
         common: { name: { en: "harmony#hub", de: "harmony#hub" } },
-        native: { username: "new" },
+        native: {},
       } as unknown as ioBroker.StateObject,
       {
-        _id: "hueemu.0.clients.old",
+        _id: "hueemu.0.clients.2",
         type: "state",
         ts: 1_900_000_000_000,
         common: { name: "Echo" },
-        native: { username: "old" },
+        native: {},
       } as unknown as ioBroker.StateObject,
     );
-    adapter.stateValues["hueemu.0.clients.new"] = {
-      val: "new",
+    adapter.stateValues["hueemu.0.clients.1"] = {
+      val: "harmony#hub",
       ack: true,
       ts: 1_800_000_000_000,
       lc: 1_700_000_000_000,
       from: "system.adapter.hueemu.0",
       q: 0,
     };
-    adapter.stateValues["hueemu.0.clients.old"] = {
-      val: "old",
+    adapter.stateValues["hueemu.0.clients.2"] = {
+      val: "Echo",
       ack: true,
       ts: 1_800_000_000_000,
       lc: 1_600_000_000_000,
@@ -729,26 +799,27 @@ describe("UserService.listPairedClients", () => {
   });
 
   it("falls back to the object's time for a client without a state value", async () => {
-    const { service, adapter } = createService();
+    const adapter = createMockAdapter();
+    const service = new UserService({ adapter, logger: createMockLogger(), store: storeWith(["bare"]) });
     adapter.stateObjects.push({
-      _id: "hueemu.0.clients.bare",
+      _id: "hueemu.0.clients.1",
       type: "state",
       ts: 1_650_000_000_000,
       common: { name: "Echo" },
-      native: { username: "bare" },
+      native: {},
     } as unknown as ioBroker.StateObject);
     await service.isUserAuthenticated("nobody");
     expect(service.listPairedClients()[0]).toMatchObject({ key: "bare", created: 1_650_000_000_000 });
   });
 
   it("still authenticates every stored client when the state values cannot be read", async () => {
-    const { service, adapter } = createService([{ id: "k", username: "k" }]);
+    const { service, adapter } = createService(["k"]);
     adapter.getStatesAsync = () => Promise.reject(new Error("states db down"));
     expect(await service.isUserAuthenticated("k")).toBe(true);
   });
 
   it("moves the last-use time on every successful authentication", async () => {
-    const { service } = createService([{ id: "k", username: "k" }]);
+    const { service } = createService(["k"]);
     await service.isUserAuthenticated("k");
     const first = service.listPairedClients()[0].lastUse;
     await new Promise(resolve => setTimeout(resolve, 5));
@@ -759,18 +830,47 @@ describe("UserService.listPairedClients", () => {
 
 // v1.19.0 (audit 2026-09-25 H12): a deleted client object revokes that client at once.
 describe("UserService.forgetClient", () => {
-  it("revokes the real key behind a sanitized object id (decision 22)", async () => {
-    const { service } = createService([{ id: "living_room", username: "living.room" }]);
+  it("revokes the real key the file holds for the deleted object's number (decision 22)", async () => {
+    const { service } = createService(["other", "living.room"]);
     expect(await service.isUserAuthenticated("living.room")).toBe(true);
-    service.forgetClient("living_room");
+    service.forgetClient("2");
     expect(await service.isUserAuthenticated("living.room")).toBe(false);
-    expect(service.listPairedClients()).toEqual([]);
+    expect(await service.isUserAuthenticated("other")).toBe(true);
+    expect(service.listPairedClients().map(c => c.key)).toEqual(["other"]);
+  });
+
+  // Decision 31: also the next start must not bring the key back.
+  it("takes the key out of clients.json", () => {
+    const { service } = createService(["a", "b"]);
+    service.forgetClient("1");
+    expect(storedFile()).toEqual({ lastClientId: 2, clients: { 2: "b" } });
+  });
+
+  it("revokes at once even before the first sign-in loaded the client list", async () => {
+    const { service } = createService(["a"]);
+    service.forgetClient("1");
+    expect(await service.isUserAuthenticated("a")).toBe(false);
   });
 
   it("revokes nothing for an id nobody paired", async () => {
     const { service } = createService(["a"]);
     await service.isUserAuthenticated("a");
-    service.forgetClient("b");
+    service.forgetClient("2");
+    service.forgetClient("a");
     expect(await service.isUserAuthenticated("a")).toBe(true);
+  });
+
+  it("revokes in memory and warns when clients.json cannot be written", async () => {
+    const adapter = createMockAdapter(["a"]);
+    const warn = vi.fn();
+    const store = storeWith(["a"]);
+    const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store });
+    expect(await service.isUserAuthenticated("a")).toBe(true);
+    rmSync(dataDir, { recursive: true, force: true });
+    writeFileSync(dataDir, "");
+    service.forgetClient("1");
+    expect(await service.isUserAuthenticated("a")).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("the next start forgets its key"));
+    rmSync(dataDir, { force: true });
   });
 });

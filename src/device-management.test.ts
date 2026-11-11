@@ -7,41 +7,83 @@
 
 import { vi } from "vitest";
 
-// Mock the i18n wrapper: user-facing text is not under test here.
-vi.mock("./lib/i18n", () => ({
-  t: (key: string, ...args: unknown[]) => (args.length ? { key, args } : key),
-  tName: (key: string) => key,
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// User-facing text is not under test here: the translation lookup hands back the key (with its arguments), and the
+// i18n helpers around it stay real — the light store names a light through them.
+vi.mock("@iobroker/adapter-core", () => ({
+  I18n: {
+    getTranslatedObject: (key: string, ...args: unknown[]) => (args.length ? { key, args } : key),
+  },
 }));
 
 import { HueEmuDeviceManagement, cleanDevice, buildDeviceForm, buildSelectionForm } from "./device-management";
 import type { DeviceConfig } from "./hue-api";
+import { LightStore } from "./lib/light-store";
+import { mergedWith } from "./lib/known-objects";
+
+/** The instance data folders the tests made — removed after each test. */
+const dataDirs: string[] = [];
+afterEach(() => {
+  for (const dir of dataDirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 /**
- * A running-config mock adapter backed by an in-memory native.devices array.
+ * A mock adapter whose light objects (`hueemu.0.lights.<n>`, audit R-24) live in an in-memory object database, with
+ * a fresh instance data folder for the number mark.
  *
- * @param devices The initial native.devices list
+ * @param devices The stored lights (an entry without a number gets its position + 1)
  * @param allObjects Every object the fake object view returns (id → object)
  */
 function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, unknown> = {}): any {
-  let stored = devices;
-  let lastLightId: number | undefined;
-  return {
+  const db = new Map<string, Record<string, unknown>>();
+  const dir = mkdtempSync(join(tmpdir(), "hueemu-dm-"));
+  dataDirs.push(dir);
+  const seed = (list: DeviceConfig[]): void => {
+    for (const id of [...db.keys()]) {
+      db.delete(id);
+    }
+    list.forEach((device, index) => {
+      const { id, name, ...native } = device;
+      const n = id ?? index + 1;
+      db.set(`hueemu.0.lights.${n}`, { type: "device", common: { name: { en: name } }, native });
+      db.set(`hueemu.0.lights.${n}.reachable`, { type: "state", common: {}, native: {} });
+    });
+  };
+  seed(devices);
+  const adapter = {
     namespace: "hueemu.0",
+    language: undefined as string | undefined,
     on: vi.fn(),
     log: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
-    getForeignObjectAsync: vi.fn((id: string) =>
-      Promise.resolve(
-        id === "system.adapter.hueemu.0" ? structuredClone({ native: { devices: stored, lastLightId } }) : null,
-      ),
+    getObjectListAsync: vi.fn((q: { startkey: string; endkey: string }) =>
+      Promise.resolve({
+        rows: [...db]
+          .filter(([id]) => id >= q.startkey && id <= q.endkey)
+          .map(([id, value]) => ({ id, value: structuredClone(value) })),
+      }),
     ),
-    extendForeignObjectAsync: vi.fn(
-      (_id: string, patch: { native: { devices: DeviceConfig[]; lastLightId?: number } }) => {
-        stored = patch.native.devices;
-        lastLightId = patch.native.lastLightId;
-        return Promise.resolve();
-      },
-    ),
-    getForeignObjectsAsync: vi.fn(() => Promise.resolve(structuredClone(allObjects))),
+    getForeignObjectAsync: vi.fn((id: string) => Promise.resolve(structuredClone(db.get(id) ?? null))),
+    setForeignObject: vi.fn((id: string, obj: Record<string, unknown>) => {
+      db.set(id, structuredClone(obj));
+      return Promise.resolve({ id });
+    }),
+    extendForeignObjectAsync: vi.fn((id: string, patch: unknown) => {
+      db.set(id, mergedWith(db.get(id), patch) as Record<string, unknown>);
+      return Promise.resolve();
+    }),
+    delForeignObjectAsync: vi.fn((id: string, opts?: { recursive?: boolean }) => {
+      for (const key of [...db.keys()]) {
+        if (key === id || (opts?.recursive && key.startsWith(`${id}.`))) {
+          db.delete(key);
+        }
+      }
+      return Promise.resolve();
+    }),
     // A1: searchDevices now loads via getObjectView per type. Return the objects
     // of the requested design ("device" | "channel" | "state") inside the requested
     // key range, like js-controller (audit R-10: the range used to be ignored, so a
@@ -58,12 +100,39 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
           .map(([id, value]) => ({ id, value: structuredClone(value) })),
       }),
     ),
-    _stored: () => stored,
-    _lastLightId: () => lastLightId,
-    _setStored: (devices: DeviceConfig[]) => {
-      stored = devices;
+    /** The stored lights, by number, as the store reads them. */
+    _stored: (): DeviceConfig[] =>
+      [...db]
+        .filter(([id, o]) => /^hueemu\.0\.lights\.\d+$/.test(id) && o.type === "device")
+        .map(([id, o]) => ({
+          id: Number(id.split(".").pop()),
+          name: ((o.common as { name: { en: string } }).name ?? { en: "" }).en,
+          ...(o.native as Record<string, unknown>),
+        }))
+        .sort((a, b) => a.id - b.id) as DeviceConfig[],
+    /**
+     * The stored object of a light.
+     *
+     * @param n the light number
+     */
+    _object: (n: number) => db.get(`hueemu.0.lights.${n}`),
+    /** The number mark in the data folder, undefined before the first write. */
+    _lastLightId: (): unknown => {
+      try {
+        return (JSON.parse(readFileSync(join(dir, "light-ids.json"), "utf8")) as { lastLightId?: unknown }).lastLightId;
+      } catch {
+        return undefined;
+      }
     },
+    /** How many object writes went to the database. */
+    _writes: (): number =>
+      adapter.setForeignObject.mock.calls.length +
+      adapter.extendForeignObjectAsync.mock.calls.length +
+      adapter.delForeignObjectAsync.mock.calls.length,
+    _setStored: seed,
+    _dir: dir,
   };
+  return adapter;
 }
 
 /**
@@ -102,10 +171,9 @@ interface DmInternals {
   searchDevices(ctx: MockCtx): Promise<{ refresh: boolean }>;
   // The registered handlers — the entry points dm-utils actually calls.
   getInstanceInfo(): { actions?: { id: string; handler: (ctx: MockCtx) => Promise<unknown> }[] };
-  toDeviceInfo(
-    device: DeviceConfig,
-    index: number,
-  ): { actions?: { id: string; handler: (id: string, ctx: MockCtx) => Promise<unknown> }[] };
+  toDeviceInfo(device: DeviceConfig): {
+    actions?: { id: string; handler: (id: string, ctx: MockCtx) => Promise<unknown> }[];
+  };
 }
 const internalOf = (dm: HueEmuDeviceManagement): DmInternals => dm as unknown as DmInternals;
 
@@ -230,10 +298,11 @@ describe("buildSelectionForm", () => {
 
 describe("HueEmuDeviceManagement", () => {
   let dm: HueEmuDeviceManagement;
+  const ICON = "data:image/svg+xml;base64,PHN2Zy8+";
 
   function make(devices: DeviceConfig[] = [], objs: Record<string, unknown> = {}): any {
     const adapter = mockAdapter(devices, objs);
-    dm = new HueEmuDeviceManagement(adapter);
+    dm = new HueEmuDeviceManagement(adapter, new LightStore(adapter, adapter._dir, ICON));
     return adapter;
   }
 
@@ -264,13 +333,6 @@ describe("HueEmuDeviceManagement", () => {
       expect(ctx.addDevice.mock.calls.map(c => (c[0] as { id: string }).id)).toEqual(["1", "2"]);
     });
 
-    it("falls back to the position for an entry the migration has not numbered yet", async () => {
-      make([{ name: "Empty", lightType: "onoff" }]);
-      const ctx = { addDevice: vi.fn() };
-      await internalOf(dm).loadDevices(ctx);
-      expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ id: "#0", name: "Empty" });
-    });
-
     it("names a light without a name by its number, translated", async () => {
       make([{ id: 3, name: "", lightType: "onoff", onState: "a.on" }]);
       const ctx = { addDevice: vi.fn() };
@@ -279,42 +341,34 @@ describe("HueEmuDeviceManagement", () => {
       expect(ctx.addDevice.mock.calls[0][0]).toMatchObject({ name: { key: "lightNameFallback", args: [3] } });
     });
 
-    // v1.19.0 (audit 2026-09-25 Q16): a hand-edited or restored instance object — the
-    // list still loads, a null entry is skipped instead of breaking the whole view.
-    it("skips entries that are no object and still lists the rest", async () => {
-      const adapter = make();
-      adapter.getForeignObjectAsync.mockResolvedValueOnce({
-        native: { devices: [null, { id: 2, name: "B", lightType: "onoff", onState: "b" }] },
-      });
+    it("lists every light object, whatever the order the database returns them in", async () => {
+      make([
+        { id: 12, name: "Late", lightType: "onoff", onState: "l.on" },
+        { id: 2, name: "Early", lightType: "onoff", onState: "e.on" },
+      ]);
       const ctx = { addDevice: vi.fn() };
       await internalOf(dm).loadDevices(ctx);
-      expect(ctx.addDevice.mock.calls.map(c => (c[0] as { id: string }).id)).toEqual(["2"]);
-    });
-
-    it("lists nothing when native.devices is no list", async () => {
-      const adapter = make();
-      adapter.getForeignObjectAsync.mockResolvedValueOnce({ native: { devices: { 0: { name: "A" } } } });
-      const ctx = { addDevice: vi.fn() };
-      await internalOf(dm).loadDevices(ctx);
-      expect(ctx.addDevice).not.toHaveBeenCalled();
-    });
-
-    it("adds nothing when native.devices is missing", async () => {
-      const adapter = make();
-      adapter.getForeignObjectAsync.mockResolvedValueOnce({ native: {} });
-      const ctx = { addDevice: vi.fn() };
-      await internalOf(dm).loadDevices(ctx);
-      expect(ctx.addDevice).not.toHaveBeenCalled();
+      expect(ctx.addDevice.mock.calls.map(c => (c[0] as { id: string }).id)).toEqual(["2", "12"]);
     });
   });
 
   describe("add / edit / delete", () => {
-    it("appends a valid form result with the next free number", async () => {
+    it("stores a valid form result as a light object with the next free number", async () => {
       const adapter = make([]);
       const ctx = mockContext({ form: { name: "New", lightType: "onoff", onState: "x.on" } });
       const res = await internalOf(dm).addDevice(ctx);
       expect(res).toEqual({ refresh: true });
       expect(adapter._stored()).toEqual([{ id: 1, name: "New", lightType: "onoff", onState: "x.on" }]);
+      // Audit R-24: a device object with its pictogram and status link, and its reachability datapoint —
+      // the instance object is never written.
+      expect(adapter._object(1)).toMatchObject({
+        type: "device",
+        common: { icon: ICON, statusStates: { onlineId: "hueemu.0.lights.1.reachable" } },
+      });
+      expect(adapter.setForeignObject.mock.calls.map((c: unknown[]) => c[0])).toEqual([
+        "hueemu.0.lights.1.reachable",
+        "hueemu.0.lights.1",
+      ]);
     });
 
     // A gap in the middle is never filled.
@@ -343,12 +397,6 @@ describe("HueEmuDeviceManagement", () => {
       expect(adapter._lastLightId()).toBe(4);
     });
 
-    it("keeps the mark on every write, an edit included", async () => {
-      const adapter = make([{ id: 5, name: "A", lightType: "onoff", onState: "a" }]);
-      await internalOf(dm).editDevice("5", mockContext({ form: { name: "A2", lightType: "onoff", onState: "a" } }));
-      expect(adapter._lastLightId()).toBe(5);
-    });
-
     it("ignores a number the form tries to smuggle in", async () => {
       const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
       await internalOf(dm).addDevice(mockContext({ form: { id: 1, name: "New", lightType: "onoff", onState: "n" } }));
@@ -358,13 +406,26 @@ describe("HueEmuDeviceManagement", () => {
     it("does not write when the add form is cancelled", async () => {
       const adapter = make([]);
       await internalOf(dm).addDevice(mockContext({ form: undefined }));
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
     });
 
     it("does not write when the add form has no name", async () => {
       const adapter = make([]);
       await internalOf(dm).addDevice(mockContext({ form: { name: "", lightType: "onoff" } }));
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
+    });
+
+    // A light the mark does not cover could get the number of a deleted one back — no mark, no light.
+    it("creates no light when the number mark cannot be stored", async () => {
+      const adapter = make([]);
+      rmSync(adapter._dir, { recursive: true, force: true });
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(adapter._dir, "a file where the folder belongs");
+      await expect(
+        internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } })),
+      ).rejects.toThrow();
+      expect(adapter._writes()).toBe(0);
+      rmSync(adapter._dir, { force: true });
     });
 
     it("replaces the edited device in place and keeps its number", async () => {
@@ -376,6 +437,31 @@ describe("HueEmuDeviceManagement", () => {
       expect(adapter._stored()).toEqual([
         { id: 5, name: "Renamed", lightType: "dimmable", onState: "a.on", briState: "a.bri" },
       ]);
+    });
+
+    // A merge would keep a setting the edit removed — the object is written back whole.
+    it("drops a setting the edit removed, and keeps everything else of the object", async () => {
+      const adapter = make([
+        { id: 5, name: "Lamp", lightType: "color", onState: "a.on", hueState: "a.hue", satState: "a.sat" },
+      ]);
+      const stored = adapter._object(5);
+      stored.common.icon = ICON;
+      stored.common.statusStates = { onlineId: "hueemu.0.lights.5.reachable" };
+      stored.common.name = { en: "Lamp", de: "Lampe" };
+      await internalOf(dm).editDevice(
+        "5",
+        mockContext({ form: { name: "Lamp", lightType: "onoff", onState: "a.on" } }),
+      );
+      expect(adapter._object(5)).toMatchObject({
+        common: {
+          name: { en: "Lamp", de: "Lampe" },
+          icon: ICON,
+          statusStates: { onlineId: "hueemu.0.lights.5.reachable" },
+        },
+        native: { lightType: "onoff", onState: "a.on" },
+      });
+      expect(adapter._object(5).native).not.toHaveProperty("hueState");
+      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
     });
 
     // Audit R-23: a stored scale belongs to the datapoint it was taken from. A light
@@ -462,13 +548,25 @@ describe("HueEmuDeviceManagement", () => {
       const editCtx = mockContext({ form: { name: "Ghost", lightType: "onoff", onState: "g" } });
       await internalOf(dm).editDevice("gone", editCtx);
       expect(editCtx.showForm).not.toHaveBeenCalled();
-      expect(adapterEdit.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapterEdit._writes()).toBe(0);
 
       const adapterDel = make([{ name: "A", lightType: "onoff", onState: "a" }]);
       const delCtx = mockContext({ confirm: true });
       await internalOf(dm).deleteDevice("gone", delCtx);
       expect(delCtx.showConfirmation).not.toHaveBeenCalled();
-      expect(adapterDel.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapterDel._writes()).toBe(0);
+    });
+
+    it("saves nothing when the light was deleted while its edit form was open", async () => {
+      const adapter = make([{ id: 5, name: "A", lightType: "onoff", onState: "a" }]);
+      const ctx = mockContext({ form: { name: "A2", lightType: "onoff", onState: "a" } });
+      ctx.showForm.mockImplementation(() => {
+        adapter._setStored([]);
+        return Promise.resolve({ name: "A2", lightType: "onoff", onState: "a" });
+      });
+      await internalOf(dm).editDevice("5", ctx);
+      expect(adapter._stored()).toEqual([]);
+      expect(adapter.log.info).not.toHaveBeenCalled();
     });
 
     // v1.17.0 (F10): the very case the positional id got wrong — another session
@@ -487,7 +585,24 @@ describe("HueEmuDeviceManagement", () => {
     it("does not delete when the confirmation is declined", async () => {
       const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
       await internalOf(dm).deleteDevice("1", mockContext({ confirm: false }));
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
+    });
+
+    it("deletes a light with everything below it", async () => {
+      const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
+      await internalOf(dm).deleteDevice("1", mockContext({ confirm: true }));
+      expect(adapter.delForeignObjectAsync).toHaveBeenCalledWith("hueemu.0.lights.1", { recursive: true });
+    });
+
+    // Two admin tabs adding at the same moment would both read the same mark — one queue hands out distinct numbers.
+    it("hands two adds that run at the same time two different numbers", async () => {
+      const adapter = make([]);
+      await Promise.all([
+        internalOf(dm).addDevice(mockContext({ form: { name: "A", lightType: "onoff", onState: "a" } })),
+        internalOf(dm).addDevice(mockContext({ form: { name: "B", lightType: "onoff", onState: "b" } })),
+      ]);
+      expect(adapter._stored().map((d: DeviceConfig) => d.id)).toEqual([1, 2]);
+      expect(adapter._lastLightId()).toBe(2);
     });
 
     // What the user triggers in the admin reports its result on info — every card
@@ -531,7 +646,7 @@ describe("HueEmuDeviceManagement", () => {
 
     it("writes no info line when the write fails", async () => {
       const adapter = make([]);
-      adapter.extendForeignObjectAsync = vi.fn(() => Promise.reject(new Error("db down")));
+      adapter.setForeignObject.mockRejectedValue(new Error("db down"));
       await expect(
         internalOf(dm).addDevice(mockContext({ form: { name: "New", lightType: "onoff", onState: "n" } })),
       ).rejects.toThrow("db down");
@@ -564,10 +679,9 @@ describe("HueEmuDeviceManagement", () => {
       expect(stored[0].id).toBe(1);
       expect(stored.some((d: DeviceConfig) => d.onState?.startsWith("hueemu.0"))).toBe(false);
       expect(ctx.showMessage).toHaveBeenCalled();
-      // v1.19.0 (audit 2026-09-25 H13): the result message goes out BEFORE the write —
-      // the write restarts the instance, and a reply after that restart is lost.
+      // v1.19.0 (audit 2026-09-25 H13): the result message goes out BEFORE the write.
       expect(ctx.showMessage.mock.invocationCallOrder[0]).toBeLessThan(
-        adapter.extendForeignObjectAsync.mock.invocationCallOrder[0],
+        adapter.setForeignObject.mock.invocationCallOrder[0],
       );
     });
 
@@ -595,7 +709,7 @@ describe("HueEmuDeviceManagement", () => {
       ]);
       const adapter = make([], objs);
       await internalOf(dm).searchDevices(mockContext({ form: {} })); // form returns, nothing ticked
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
     });
 
     it("adds nothing when the selection form is cancelled", async () => {
@@ -605,7 +719,7 @@ describe("HueEmuDeviceManagement", () => {
       ]);
       const adapter = make([], objs);
       await internalOf(dm).searchDevices(mockContext({ form: undefined }));
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
     });
 
     it("does not offer an already-mapped light (append-only dedup) — no form shown", async () => {
@@ -620,7 +734,7 @@ describe("HueEmuDeviceManagement", () => {
       const ctx = mockContext();
       await internalOf(dm).searchDevices(ctx);
       expect(ctx.showForm).not.toHaveBeenCalled(); // nothing fresh → no picker
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
     });
 
     // v1.18.0 (audit 2026-09-15 A1): the dedup keyed on the on/off state alone, so
@@ -632,7 +746,7 @@ describe("HueEmuDeviceManagement", () => {
       const ctx = mockContext({ form: { sel_0: true } });
       await internalOf(dm).searchDevices(ctx);
       expect(ctx.showForm).not.toHaveBeenCalled();
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
       expect(adapter._stored()).toHaveLength(1);
     });
 
@@ -646,7 +760,7 @@ describe("HueEmuDeviceManagement", () => {
       const ctx = mockContext();
       await internalOf(dm).searchDevices(ctx);
       expect(ctx.showForm).not.toHaveBeenCalled();
-      expect(adapter.extendForeignObjectAsync).not.toHaveBeenCalled();
+      expect(adapter._writes()).toBe(0);
     });
 
     it("numbers the added lights consecutively above the highest number in use", async () => {
@@ -761,7 +875,7 @@ describe("HueEmuDeviceManagement", () => {
      */
     function deviceHandler(id: string): (deviceId: string, ctx: MockCtx) => Promise<unknown> {
       const action = internalOf(dm)
-        .toDeviceInfo({ name: "L", lightType: "onoff", onState: "a.on" }, 0)
+        .toDeviceInfo({ id: 1, name: "L", lightType: "onoff", onState: "a.on" })
         .actions?.find(a => a.id === id);
       if (!action) {
         throw new Error(`device action "${id}" is not registered`);
@@ -770,13 +884,18 @@ describe("HueEmuDeviceManagement", () => {
     }
 
     /**
-     * Make every config read fail, the way an unreachable objects DB would.
+     * Make every object read fail, the way an unreachable objects DB would.
      *
      * @param adapter The mock adapter whose reads should fail
      * @param adapter.getForeignObjectAsync Its object-read mock
+     * @param adapter.getObjectListAsync Its object-list mock
      */
-    function breakConfigRead(adapter: { getForeignObjectAsync: ReturnType<typeof vi.fn> }): void {
+    function breakConfigRead(adapter: {
+      getForeignObjectAsync: ReturnType<typeof vi.fn>;
+      getObjectListAsync: ReturnType<typeof vi.fn>;
+    }): void {
       adapter.getForeignObjectAsync.mockRejectedValue(new Error("db down"));
+      adapter.getObjectListAsync.mockRejectedValue(new Error("db down"));
     }
 
     it("add: reports the failure and still returns the refresh directive", async () => {
@@ -802,7 +921,7 @@ describe("HueEmuDeviceManagement", () => {
       const adapter = make([{ name: "L", lightType: "onoff", onState: "a.on" }]);
       breakConfigRead(adapter);
       const ctx = mockContext({ form: { name: "L2", lightType: "onoff", onState: "a.on" } });
-      await expect(deviceHandler("edit")("0", ctx)).resolves.toEqual({ refresh: "instance" });
+      await expect(deviceHandler("edit")("1", ctx)).resolves.toEqual({ refresh: "instance" });
       expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmActionFailed", args: ["db down"] });
     });
 
@@ -810,7 +929,7 @@ describe("HueEmuDeviceManagement", () => {
       const adapter = make([{ name: "L", lightType: "onoff", onState: "a.on" }]);
       breakConfigRead(adapter);
       const ctx = mockContext();
-      await expect(deviceHandler("delete")("0", ctx)).resolves.toEqual({ refresh: "instance" });
+      await expect(deviceHandler("delete")("1", ctx)).resolves.toEqual({ refresh: "instance" });
       expect(ctx.showMessage).toHaveBeenCalledWith({ key: "dmActionFailed", args: ["db down"] });
     });
 

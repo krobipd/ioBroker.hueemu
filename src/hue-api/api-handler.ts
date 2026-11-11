@@ -18,6 +18,7 @@ import { oneLine } from "../types/utils";
 import { MAX_DEVICETYPE_LENGTH, MAX_USERNAME_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
+import type { ClientStore } from "../lib/client-store";
 import { LIGHT_STATE_KEYS, READ_ONLY_STATE_KEYS } from "./light-state-keys";
 
 /**
@@ -42,6 +43,8 @@ export interface ApiHandlerConfig {
   devices?: DeviceConfig[];
   /** Logger */
   logger: Logger;
+  /** The paired clients' keys (clients.json), loaded — the clients are moved before the handler is made. */
+  clients: ClientStore;
 }
 
 /**
@@ -51,7 +54,9 @@ export interface ApiHandlerConfig {
 export class ApiHandler implements HueApiHandler {
   private readonly adapter: ApiHandlerAdapter;
   private readonly userService: UserService;
-  private readonly deviceBinding: DeviceBindingService;
+  private deviceBinding: DeviceBindingService;
+  /** The service for a new light list while it reads its datapoints — it hears every change meanwhile. */
+  private pendingBinding: DeviceBindingService | undefined;
   private readonly configService: ConfigService;
   private readonly logger: Logger;
   /**
@@ -66,6 +71,7 @@ export class ApiHandler implements HueApiHandler {
     this.userService = new UserService({
       adapter: config.adapter,
       logger: config.logger,
+      store: config.clients,
     });
 
     // Initialize config service. Wire a sync whitelistProvider to the
@@ -102,6 +108,38 @@ export class ApiHandler implements HueApiHandler {
    */
   public onStateChange(id: string, value: unknown, from?: string): void {
     this.deviceBinding.updateStateCache(id, value, from);
+    this.pendingBinding?.updateStateCache(id, value, from);
+  }
+
+  /**
+   * Serve a new light list without a restart (audit R-24: the lights are objects now, and a change to them no longer
+   * restarts the instance). The new list is read in completely — subscriptions, scales, current values — before it
+   * replaces the old one; until then the old list keeps answering, and the new one hears every change meanwhile. The
+   * datapoints only the old list bound are unsubscribed afterwards. One call at a time — the adapter queues its
+   * reloads (`scheduleLightReload` in main.ts).
+   *
+   * @param devices - The lights as stored now
+   */
+  public async replaceDevices(devices: DeviceConfig[]): Promise<void> {
+    const next = new DeviceBindingService({ adapter: this.adapter, devices, logger: this.logger });
+    this.pendingBinding = next;
+    try {
+      await next.initialize();
+    } finally {
+      this.pendingBinding = undefined;
+    }
+    const still = new Set(next.boundStateIds());
+    const stale = this.deviceBinding.boundStateIds().filter(id => !still.has(id));
+    this.deviceBinding = next;
+    for (const id of stale) {
+      this.adapter.unsubscribeForeignStates(id);
+    }
+    this.logger.debug(`${devices.length} device(s) configured`);
+  }
+
+  /** Whether the bridge can drive each light, by light number (`lights.<n>.reachable`). */
+  public reachability(): Array<[number, boolean]> {
+    return this.deviceBinding.reachability();
   }
 
   /**
@@ -112,6 +150,7 @@ export class ApiHandler implements HueApiHandler {
    */
   public forgetState(id: string): void {
     this.deviceBinding.forgetState(id);
+    this.pendingBinding?.forgetState(id);
   }
 
   /**
@@ -149,7 +188,7 @@ export class ApiHandler implements HueApiHandler {
     // body === req.body in every route path (api-v1-routes.ts), and
     // CreateUserRequest.username is already typed string | undefined.
     const rawUsername = body.username;
-    // A provided username becomes a persistent object id, so it is capped like a
+    // A provided username is stored for good (clients.json), so it is capped like a
     // real bridge caps its own (40 chars): anything longer is ignored and a
     // generated id is returned — clients read the id from the response anyway.
     const providedUsername =
@@ -322,8 +361,8 @@ export class ApiHandler implements HueApiHandler {
 
     if (!isAuth && this.adapter.pairingEnabled) {
       if (username.length > MAX_USERNAME_LENGTH) {
-        // The name would become a persistent object id — a URL can carry
-        // kilobytes here, so over-long names are never auto-paired.
+        // The name would be stored for good — a URL can carry kilobytes here,
+        // so over-long names are never auto-paired.
         this.logger.debug(
           `Auto-add skipped for an over-long username (${username.length} chars, max ${MAX_USERNAME_LENGTH})`,
         );

@@ -144,6 +144,8 @@ export interface DeviceBindingAdapter {
   setForeignStateAsync(id: string, state: ioBroker.SettableState): Promise<unknown>;
   /** Subscribe to foreign state changes */
   subscribeForeignStates(pattern: string): void;
+  /** End a subscription — a light that is gone no longer needs its datapoints (audit R-24, live light list) */
+  unsubscribeForeignStates(pattern: string): void;
 }
 
 /**
@@ -488,6 +490,22 @@ export class DeviceBindingService {
    */
   private findDevice(lightId: string): DeviceConfig | undefined {
     return this.devices.find(device => DeviceBindingService.lightIdOf(device) === lightId);
+  }
+
+  /**
+   * Every state id the lights bind — what {@link initialize} subscribes. A replaced light list ends the
+   * subscriptions the new one does not need (`ApiHandler.replaceDevices`).
+   */
+  public boundStateIds(): string[] {
+    return [...this.mappedIds];
+  }
+
+  /**
+   * Whether the bridge can drive each light, by light number — what `lights.<n>.reachable` shows (audit R-24).
+   * In memory only, cheap enough to ask after every state change.
+   */
+  public reachability(): Array<[number, boolean]> {
+    return this.devices.map(device => [device.id ?? 0, this.isReachable(device)]);
   }
 
   /**

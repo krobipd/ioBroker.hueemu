@@ -8,8 +8,12 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Mock } from "vitest";
 import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
+import { ClientStore } from "../lib/client-store";
 import type { CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";
 import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
@@ -17,16 +21,48 @@ import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
 interface MockApiAdapter extends ApiHandlerAdapter {
   writtenObjects: Map<string, ioBroker.SettableObject>;
   writtenStates: Map<string, unknown>;
+  /** The numbers of the client objects in the tree. */
   existingClients: Set<string>;
 }
 
+/** The instance data folder of one test — clients.json lives there. */
+let dataDir: string;
+beforeEach(() => {
+  dataDir = mkdtempSync(join(tmpdir(), "hueemu-handler-"));
+});
+afterEach(() => {
+  rmSync(dataDir, { recursive: true, force: true });
+});
+
+/**
+ * The client keys as a start finds them: the given keys as clients 1, 2, …
+ *
+ * @param keys the keys
+ */
+function storeWith(keys: string[]): ClientStore {
+  const store = new ClientStore(dataDir);
+  store.load();
+  for (const key of keys) {
+    store.add(key);
+  }
+  return store;
+}
+
+/**
+ * An adapter whose tree holds one client object per given key, numbered 1, 2, … (the keys stand in the store).
+ *
+ * @param existingClients the keys of the clients already paired
+ * @param opts pairing window and authentication switch
+ * @param opts.pairingEnabled whether the pairing window is open
+ * @param opts.disableAuth whether authentication is switched off
+ */
 function createMockAdapter(
   existingClients: string[] = [],
   opts: { pairingEnabled?: boolean; disableAuth?: boolean } = {},
 ): MockApiAdapter {
   const writtenObjects = new Map<string, ioBroker.SettableObject>();
   const writtenStates = new Map<string, unknown>();
-  const clients = new Set<string>(existingClients);
+  const clients = new Set<string>(existingClients.map((_, i) => String(i + 1)));
   const namespace = "hueemu.0";
 
   const adapter: MockApiAdapter = {
@@ -80,6 +116,7 @@ function createMockAdapter(
     getForeignObjectAsync: () => Promise.resolve(null),
     setForeignStateAsync: async () => {},
     subscribeForeignStates: () => {},
+    unsubscribeForeignStates: () => {},
   };
 
   return adapter;
@@ -88,8 +125,9 @@ function createMockAdapter(
 function createHandler(
   existingClients: string[] = [],
   opts: { pairingEnabled?: boolean; disableAuth?: boolean } = {},
-): { handler: ApiHandler; adapter: MockApiAdapter } {
+): { handler: ApiHandler; adapter: MockApiAdapter; store: ClientStore } {
   const adapter = createMockAdapter(existingClients, opts);
+  const store = storeWith(existingClients);
   const handler = new ApiHandler({
     adapter,
     configServiceConfig: {
@@ -98,8 +136,9 @@ function createHandler(
     },
     devices: [],
     logger: createMockLogger(),
+    clients: store,
   });
-  return { handler, adapter };
+  return { handler, adapter, store };
 }
 
 describe("ApiHandler", () => {
@@ -230,10 +269,11 @@ describe("ApiHandler", () => {
     });
 
     it("auto-adds unknown clients during pairing window", async () => {
-      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const { handler, adapter, store } = createHandler([], { pairingEnabled: true });
       const result = await handler.isUserAuthenticated("new-echo-id");
       expect(result).toBe(true);
-      expect(adapter.existingClients.has("new-echo-id")).toBe(true);
+      expect(store.numberOf("new-echo-id")).toBe(1);
+      expect(adapter.existingClients.has("1")).toBe(true);
     });
 
     it("returns false for empty username", async () => {
@@ -244,11 +284,11 @@ describe("ApiHandler", () => {
 
   describe("isKnownUser (pure lookup for /config)", () => {
     it("does NOT auto-add an unknown client during the pairing window", async () => {
-      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const { handler, adapter, store } = createHandler([], { pairingEnabled: true });
       // A discovery app polls /api/nouser/config while waiting for the link
       // button — that probe name must never become a valid key.
       expect(await handler.isKnownUser("nouser")).toBe(false);
-      expect(adapter.existingClients.has("nouser")).toBe(false);
+      expect(store.numberOf("nouser")).toBeUndefined();
       expect([...adapter.writtenObjects.keys()].some(id => id.startsWith("clients."))).toBe(false);
       // The auto-add path itself is untouched for the routes that need it.
       expect(await handler.isUserAuthenticated("nouser")).toBe(true);
@@ -263,12 +303,12 @@ describe("ApiHandler", () => {
 
   describe("client-supplied lengths (persistent object ids and names)", () => {
     it("ignores a provided username over 64 chars and generates one instead", async () => {
-      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const { handler, store } = createHandler([], { pairingEnabled: true });
       const tooLong = "x".repeat(65);
       const body: CreateUserRequest = { devicetype: "t", username: tooLong };
       const username = await handler.createUser(body);
       expect(username).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-      expect(adapter.existingClients.has(tooLong)).toBe(false);
+      expect(store.numberOf(tooLong)).toBeUndefined();
     });
 
     it("still accepts a provided username of exactly 64 chars", async () => {
@@ -296,6 +336,7 @@ describe("ApiHandler", () => {
         configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
         devices: [],
         logger,
+        clients: storeWith([]),
       });
       const devicetype = "d".repeat(5000);
       await handler.createUser({ devicetype });
@@ -305,10 +346,11 @@ describe("ApiHandler", () => {
     });
 
     it("never auto-pairs an over-long username taken from the URL during the pairing window", async () => {
-      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      const { handler, adapter, store } = createHandler([], { pairingEnabled: true });
       const tooLong = "z".repeat(65);
       expect(await handler.isUserAuthenticated(tooLong)).toBe(false);
-      expect(adapter.existingClients.has(tooLong)).toBe(false);
+      expect(store.numberOf(tooLong)).toBeUndefined();
+      expect(adapter.existingClients.size).toBe(0);
     });
   });
 
@@ -344,6 +386,7 @@ describe("ApiHandler", () => {
         configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
         devices: [],
         logger,
+        clients: storeWith([]),
       });
       handler.fallback({ method: "GET", url: "/api/x/capabilities" });
       expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("Unhandled request: GET /api/x/capabilities"));
@@ -400,6 +443,7 @@ describe("ApiHandler", () => {
           { name: "Lounge", lightType: "onoff", onState: "test2.on" },
         ],
         logger,
+        clients: storeWith([]),
       });
       return { handler, adapter, foreignWrites, logger };
     }
@@ -535,6 +579,95 @@ describe("ApiHandler", () => {
       };
       await handler.initialize();
       expect(patterns).toEqual(expect.arrayContaining(["test.on", "test.bri", "test2.on"]));
+    });
+
+    // Audit R-24: the lights are objects, and a change to them no longer restarts the instance — the handler swaps
+    // the list in place.
+    describe("replaceDevices (audit R-24)", () => {
+      /** A state read the test answers by hand. */
+      function heldRead(): {
+        promise: Promise<ioBroker.State | null>;
+        resolve: (state: ioBroker.State | null) => void;
+      } {
+        let resolve: (state: ioBroker.State | null) => void = () => {};
+        const promise = new Promise<ioBroker.State | null>(r => {
+          resolve = r;
+        });
+        return { promise, resolve };
+      }
+
+      const hall = { id: 5, name: "Hall", lightType: "onoff", onState: "new.on" } as const;
+
+      it("keeps answering with the old lights until the new list is read in, then serves the new one", async () => {
+        const { handler, adapter } = createHandlerWithDevices({ "test.on": true, "test2.on": false });
+        await handler.initialize();
+        const held = heldRead();
+        const read = adapter.getForeignStateAsync;
+        adapter.getForeignStateAsync = id =>
+          id === "new.on" ? held.promise.then(state => structuredClone(state)) : read(id);
+        const swap = handler.replaceDevices([hall]);
+        expect(Object.keys(await handler.getAllLights())).toEqual(["1", "2"]);
+        held.resolve({ val: true, ack: true } as ioBroker.State);
+        await swap;
+        const lights = await handler.getAllLights();
+        expect(Object.keys(lights)).toEqual(["5"]);
+        expect(lights["5"].state.on).toBe(true);
+      });
+
+      it("hands a change that arrives while the new list reads in to the new list", async () => {
+        const { handler, adapter } = createHandlerWithDevices({});
+        await handler.initialize();
+        const held = heldRead();
+        adapter.getForeignStateAsync = id =>
+          id === "new.on" ? held.promise.then(state => structuredClone(state)) : Promise.resolve(null);
+        adapter.getForeignObjectAsync = () => Promise.resolve({ type: "state" } as ioBroker.Object);
+        const swap = handler.replaceDevices([hall]);
+        handler.onStateChange("new.on", true);
+        held.resolve(null); // it had no value yet when it was read
+        await swap;
+        expect((await handler.getLightById("5")).state.on).toBe(true);
+      });
+
+      it("hands a deletion that arrives while the new list reads in to the new list", async () => {
+        const { handler, adapter } = createHandlerWithDevices({});
+        await handler.initialize();
+        const held = heldRead();
+        adapter.getForeignStateAsync = id =>
+          id === "new.on" ? held.promise.then(state => structuredClone(state)) : Promise.resolve(null);
+        const swap = handler.replaceDevices([hall]);
+        handler.forgetState("new.on");
+        held.resolve({ val: true, ack: true } as ioBroker.State); // read before the deletion
+        await swap;
+        expect(handler.reachability()).toEqual([[5, false]]);
+      });
+
+      it("ends the subscriptions only the old list needed", async () => {
+        const { handler, adapter } = createHandlerWithDevices({});
+        await handler.initialize();
+        const ended: string[] = [];
+        adapter.unsubscribeForeignStates = id => {
+          ended.push(id);
+        };
+        await handler.replaceDevices([{ id: 5, name: "Kitchen", lightType: "onoff", onState: "test.on" }]);
+        expect(ended.sort()).toEqual(["test.bri", "test2.on"]);
+      });
+
+      it("keeps the old lights and their subscriptions when the new list cannot be read in", async () => {
+        const { handler, adapter } = createHandlerWithDevices({});
+        await handler.initialize();
+        const ended: string[] = [];
+        adapter.unsubscribeForeignStates = id => {
+          ended.push(id);
+        };
+        adapter.subscribeForeignStates = () => {
+          throw new Error("not connected");
+        };
+        await expect(handler.replaceDevices([hall])).rejects.toThrow("not connected");
+        expect(Object.keys(await handler.getAllLights())).toEqual(["1", "2"]);
+        expect(ended).toEqual([]);
+        // The failed list hears nothing any more.
+        expect((handler as unknown as { pendingBinding?: unknown }).pendingBinding).toBeUndefined();
+      });
     });
 
     it("resetAutoAddBudget re-opens the auto-add window", async () => {

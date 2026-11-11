@@ -9,14 +9,16 @@
       "info.error": "infoErrorName",
       "startPairing": "startPairingName",
       "disableAuth": "disableAuthName",
-      "clients": "clientsFolder"
+      "clients": "clientsFolder",
+      "lights": "lightsFolder"
     },
     "desc": {
       "info.connection": "infoConnectionDesc",
       "info.error": "infoErrorDesc",
       "startPairing": "startPairingDesc",
       "disableAuth": "disableAuthDesc",
-      "clients": "clientsFolderDesc"
+      "clients": "clientsFolderDesc",
+      "lights": "lightsFolderDesc"
     }
   },
   "forumThread": "https://forum.iobroker.net/topic/84300/test-adapter-hueemu",
@@ -40,5 +42,41 @@
       "role": "shared",
       "fixed": 1900
     }
-  ]
+  ],
+  "serverTest": {
+    "_why": "The build comes up on the real host and serves: the HTTP and HTTPS listeners and SSDP are up, which is when the adapter sets info.connection to true.",
+    "observeSeconds": 30,
+    "connectSeconds": 30,
+    "startSpacingSeconds": 0,
+    "reads": [
+      {
+        "id": "info.connection",
+        "expect": "true"
+      }
+    ],
+    "noCommands": "Its only writable states are the bridge's own settings, disableAuth and startPairing: switching either on the live host opens access for every client on the network. Lights are switched by Hue clients over HTTP, never through a state of this adapter."
+  },
+  "suites": {
+    "_comment": "What the fleet suites in test/fleet-suites.js need to know (B02 audit_inventory_runs_fleet_suites).",
+    "connectionTest": {
+      "none": "The settings page has no connection test (no sendTo field) and no device manager card has a test action: the adapter connects to nothing, Hue clients connect to it."
+    },
+    "groupSwitches": {
+      "none": "The adapter has no switch that turns a group of datapoints on or off."
+    },
+    "rename": true,
+    "rejectLogin": {
+      "none": "The adapter logs in nowhere: it holds no account and no device login, its only secret is the key of its own self-signed TLS certificate, kept encrypted in the instance data folder, not in native."
+    },
+    "dropDevice": {
+      "none": "No counterpart (krobi 2026-10-02 22:05: \"das gerät kann nie weg sein\"): a light is the adapter's own Hue view of ioBroker datapoints, not a device that can go away. lights.<n>.reachable says whether the bridge can drive the light from its bound datapoints (design decision 26); a deleted bound datapoint turns it false in the unit tests of main.ts and device-binding-service.ts."
+    }
+  },
+  "noDeviceSums": "No counterpart (krobi 2026-10-02 22:05: \"das gerät kann nie weg sein\"): a light is a Hue view of ioBroker datapoints, not a device that is online or offline. lights.<n>.reachable only says whether its bound datapoints exist, so a count of lights online would count the configuration, not devices.",
+  "deviceIds": {
+    "assigned": "The device manager gives every light a permanent number once (lights.<n>, src/lib/light-store.ts, design decision 25): it is the light's Hue id and uniqueid for every paired client and is never handed out again. A light has no unit id of its own, and its name is free and may repeat."
+  },
+  "fixtureLimits": {
+    "none": "No own datapoint takes over the limits of a device: the value ranges live on the bound foreign datapoints, which the adapter reads and never copies."
+  }
 }

@@ -6,69 +6,139 @@ vi.mock("@iobroker/adapter-core", () => ({
 
 import {
   detectLegacyLightType,
+  type LightMigrationStore,
   OBSOLETE_STATE_IDS,
-  runDeviceIdMigration,
   runLegacyDeviceMigration,
+  runLightObjectMigration,
   runObsoleteStateCleanup,
 } from "./migrations";
 import type { DeviceConfig } from "../hue-api";
 
-describe("runDeviceIdMigration (v1.18.0)", () => {
-  function mkAdapter(write: (obj: { native: { devices: DeviceConfig[] } }) => Promise<unknown>): {
-    adapter: Parameters<typeof runDeviceIdMigration>[0];
-    infos: string[];
-    warns: string[];
-  } {
-    const infos: string[] = [];
-    const warns: string[] = [];
+describe("runLightObjectMigration (audit R-24)", () => {
+  /**
+   * A light store in memory: the light objects by number, the mark, and a switch that makes every write fail.
+   *
+   * @param lights the light numbers that have an object already
+   * @param mark the stored mark
+   */
+  function mkStore(
+    lights: number[] = [],
+    mark = 0,
+  ): LightMigrationStore & { created: DeviceConfig[]; mark: () => number; failWrites: () => void } {
+    const created: DeviceConfig[] = [];
+    let stored = mark;
+    let fail = false;
     return {
-      adapter: {
-        namespace: "hueemu.0",
-        extendForeignObjectAsync: (_id, obj) => write(obj),
-        log: { info: m => infos.push(m), warn: m => warns.push(m) },
+      created,
+      mark: () => stored,
+      failWrites: () => {
+        fail = true;
       },
-      infos,
-      warns,
+      list: () =>
+        Promise.resolve({
+          lights: lights.map(id => ({ id, name: `L${id}`, lightType: "onoff" as const })),
+          objects: new Map(),
+        }),
+      readMark: () => ({ mark: stored }),
+      writeMark: (m: number) => {
+        if (fail) {
+          throw new Error("EACCES");
+        }
+        stored = m;
+      },
+      create: (light: DeviceConfig & { id: number }) => {
+        if (fail) {
+          return Promise.reject(new Error("objects db down"));
+        }
+        created.push(light);
+        return Promise.resolve();
+      },
     };
   }
+  const log = (): { info: string[]; warn: string[]; logger: { info(m: string): void; warn(m: string): void } } => {
+    const info: string[] = [];
+    const warn: string[] = [];
+    return { info, warn, logger: { info: m => info.push(m), warn: m => warn.push(m) } };
+  };
 
-  it("numbers an unnumbered list by position, writes it once and reports the restart", async () => {
-    let written: DeviceConfig[] | undefined;
-    const { adapter, infos } = mkAdapter(obj => {
-      written = obj.native.devices;
-      return Promise.resolve();
-    });
-    const devices: DeviceConfig[] = [
-      { name: "A", lightType: "onoff", onState: "a" },
-      { name: "B", lightType: "onoff", onState: "b" },
-    ];
-    expect(await runDeviceIdMigration(adapter, devices)).toBe(true);
-    expect(written?.map(d => d.id)).toEqual([1, 2]);
-    expect(infos.some(m => m.includes("restarts once"))).toBe(true);
-    // The caller's list is untouched on the success path — the restart reads the stored one.
-    expect(devices[0].id).toBeUndefined();
+  it("moves an unnumbered list by position and stores the mark", async () => {
+    const store = mkStore();
+    const l = log();
+    const result = await runLightObjectMigration(
+      store,
+      {
+        devices: [
+          { name: "A", lightType: "onoff", onState: "a" },
+          { name: "B", lightType: "onoff", onState: "b" },
+        ],
+        lastLightId: undefined,
+      },
+      l.logger,
+    );
+    expect(result).toEqual({ stored: true });
+    expect(store.created.map(d => [d.id, d.name])).toEqual([
+      [1, "A"],
+      [2, "B"],
+    ]);
+    expect(store.mark()).toBe(2);
+    expect(l.info.some(m => m.includes("Moved 2 light(s)"))).toBe(true);
   });
 
-  it("writes nothing for a list that is numbered already", async () => {
-    let writes = 0;
-    const { adapter } = mkAdapter(() => {
-      writes++;
-      return Promise.resolve();
-    });
-    const devices: DeviceConfig[] = [
-      { id: 3, name: "A", lightType: "onoff", onState: "a" },
-      { id: 1, name: "B", lightType: "onoff", onState: "b" },
-    ];
-    expect(await runDeviceIdMigration(adapter, devices)).toBe(false);
-    expect(writes).toBe(0);
+  it("keeps every number and carries the settings' mark", async () => {
+    const store = mkStore();
+    await runLightObjectMigration(
+      store,
+      { devices: [{ id: 3, name: "A", lightType: "onoff", onState: "a" }], lastLightId: 8 },
+      log().logger,
+    );
+    expect(store.created.map(d => d.id)).toEqual([3]);
+    expect(store.mark()).toBe(8);
   });
 
-  it("numbers the caller's list in place and continues when the write fails", async () => {
-    const { adapter, warns } = mkAdapter(() => Promise.reject(new Error("db down")));
-    const devices: DeviceConfig[] = [{ name: "A", lightType: "onoff", onState: "a" }];
-    expect(await runDeviceIdMigration(adapter, devices)).toBe(false);
-    expect(devices[0].id).toBe(1);
-    expect(warns[0]).toContain("Light numbers could not be stored");
+  it("creates only the numbers without an object, and the mark covers every number seen", async () => {
+    const store = mkStore([1, 9], 2);
+    await runLightObjectMigration(
+      store,
+      {
+        devices: [
+          { id: 1, name: "A", lightType: "onoff", onState: "a" },
+          { id: 2, name: "B", lightType: "onoff", onState: "b" },
+        ],
+        lastLightId: 2,
+      },
+      log().logger,
+    );
+    expect(store.created.map(d => d.id)).toEqual([2]);
+    expect(store.mark()).toBe(9);
+  });
+
+  it("has nothing to move for an empty list and no mark — the keys may go", async () => {
+    const store = mkStore();
+    expect(await runLightObjectMigration(store, { devices: [], lastLightId: 0 }, log().logger)).toEqual({
+      stored: true,
+    });
+    expect(store.created).toEqual([]);
+  });
+
+  it("stores the mark of a list whose lights were all deleted", async () => {
+    const store = mkStore();
+    expect(await runLightObjectMigration(store, { devices: [], lastLightId: 5 }, log().logger)).toEqual({
+      stored: true,
+    });
+    expect(store.mark()).toBe(5);
+  });
+
+  it("serves the numbered settings' lights when the move fails — nothing is reported stored", async () => {
+    const store = mkStore();
+    store.failWrites();
+    const l = log();
+    const result = await runLightObjectMigration(
+      store,
+      { devices: [{ name: "A", lightType: "onoff", onState: "a" }, null], lastLightId: undefined },
+      l.logger,
+    );
+    expect(result).toEqual({ stored: false, devices: [{ id: 1, name: "A", lightType: "onoff", onState: "a" }] });
+    expect(l.warn.some(m => m.includes("EACCES"))).toBe(true);
   });
 });
 
@@ -193,44 +263,46 @@ describe("migrations", () => {
     function mkAdapter(over: Record<string, unknown> = {}): any {
       return {
         namespace: "hueemu.0",
-        configuredDevices: [],
+        lightsStored: false,
         getDevicesAsync: () => Promise.resolve([]),
         getStateAsync: () => Promise.resolve(null),
         // A legacy device that was never migrated still carries its `.name` wrapper.
         getObjectAsync: (id: string) => Promise.resolve(id.endsWith(".name") ? { _id: `hueemu.0.${id}` } : null),
         getStatesOfAsync: () => Promise.resolve([]),
-        extendForeignObjectAsync: () => Promise.resolve(null),
+        addLights: () => Promise.resolve(),
         delObjectAsync: () => Promise.resolve(null),
         log: { info: () => {}, warn: () => {} },
         ...over,
       };
     }
 
-    it("skips when devices are already configured — even with legacy objects still present", async () => {
+    it("skips when lights are stored already — even with legacy objects still present", async () => {
       // An install that was already migrated (or configured by hand) keeps its
       // legacy objects until they are cleaned up. Running the migration again
-      // would OVERWRITE the admin configuration with the old mapping.
+      // would add the old mapping a second time.
       let written: any = null;
+      const getDevicesAsync = vi.fn(() => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]));
       const adapter = mkAdapter({
-        configuredDevices: [{ name: "X", lightType: "onoff", onState: "x.on" }],
+        lightsStored: true,
         getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
         getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
       });
-      expect(await runLegacyDeviceMigration(adapter)).toBe(false);
-      expect(written, "configured devices must not be overwritten").toBeNull();
+      expect(await runLegacyDeviceMigration({ ...adapter, getDevicesAsync })).toBe(false);
+      expect(written, "stored lights must not get the old mapping again").toBeNull();
+      expect(getDevicesAsync, "no device object is read on every start").not.toHaveBeenCalled();
     });
 
     it("skips when there are no legacy device objects", async () => {
       let written: any = null;
       const infos: string[] = [];
       const adapter = mkAdapter({
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
         log: { info: (m: string) => infos.push(m), warn: () => {} },
       });
@@ -241,7 +313,7 @@ describe("migrations", () => {
       expect(infos.filter(m => m.includes("legacy device"))).toHaveLength(0);
     });
 
-    it("maps legacy state children to the right type/state ids and persists (restart)", async () => {
+    it("maps legacy state children to the right type/state ids and stores them as lights", async () => {
       let written: any;
       const adapter = mkAdapter({
         getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
@@ -251,16 +323,14 @@ describe("migrations", () => {
             { _id: "hueemu.0.lamp.state.bri" },
             { _id: "hueemu.0.lamp.state.ct" },
           ]),
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(true);
-      expect(written.native.devices[0]).toMatchObject({
-        // v1.18.0: numbered on the way, so the id migration has nothing left to
-        // write and the instance restarts once, not twice.
-        id: 1,
+      // The number comes from the light store (audit R-24), not from the migration.
+      expect(written[0]).toMatchObject({
         lightType: "ct",
         onState: "hueemu.0.lamp.state.on",
         briState: "hueemu.0.lamp.state.bri",
@@ -278,9 +348,9 @@ describe("migrations", () => {
         getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
         getObjectAsync: () => Promise.resolve(null),
         getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(false);
@@ -309,13 +379,13 @@ describe("migrations", () => {
           ]),
         getStateAsync: (id: string) => Promise.resolve(id === "a.name" ? { val: "State A" } : { val: 42 }),
         getStatesOfAsync: (device: string) => Promise.resolve([{ _id: `hueemu.0.${device}.state.on` }]),
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(true);
-      expect(written.native.devices.map((d: any) => d.name)).toEqual(["State A", "Common B", "c"]);
+      expect(written.map((d: any) => d.name)).toEqual(["State A", "Common B", "c"]);
     });
 
     it("maps a legacy xy state and copes with a channel without states", async () => {
@@ -328,15 +398,15 @@ describe("migrations", () => {
           ]),
         getStatesOfAsync: (device: string) =>
           Promise.resolve(device === "x" ? [{ _id: "hueemu.0.x.state.on" }, { _id: "hueemu.0.x.state.xy" }] : null),
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
       });
       expect(await runLegacyDeviceMigration(adapter)).toBe(true);
-      expect(written.native.devices[0]).toMatchObject({ name: "X", xyState: "hueemu.0.x.state.xy" });
-      expect(written.native.devices[1]).toMatchObject({ name: "E" });
-      expect(written.native.devices[1].onState).toBeUndefined();
+      expect(written[0]).toMatchObject({ name: "X", xyState: "hueemu.0.x.state.xy" });
+      expect(written[1]).toMatchObject({ name: "E" });
+      expect(written[1].onState).toBeUndefined();
     });
 
     it("skips a device that fails, and writes nothing when every device failed", async () => {
@@ -345,9 +415,9 @@ describe("migrations", () => {
       const adapter = mkAdapter({
         getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.bad", common: { name: "Bad" } }]),
         getStatesOfAsync: () => Promise.reject(new Error("broker hiccup")),
-        extendForeignObjectAsync: (_id: string, obj: any) => {
-          written = obj;
-          return Promise.resolve(null);
+        addLights: (configs: DeviceConfig[]) => {
+          written = configs;
+          return Promise.resolve();
         },
         log: { info: () => {}, warn: (m: string) => warnings.push(m) },
       });
@@ -381,6 +451,22 @@ describe("migrations", () => {
       expect(deleted).toContain("lamp.data");
       expect(deleted).not.toContain("lamp.state");
       expect(deleted).not.toContain("lamp");
+    });
+
+    // Audit R-24: the lights are stored first — a failed store keeps the wrappers, and the next start tries again.
+    it("keeps the wrappers when the lights cannot be stored", async () => {
+      const deleted: string[] = [];
+      const adapter = mkAdapter({
+        getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
+        getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
+        addLights: () => Promise.reject(new Error("objects db down")),
+        delObjectAsync: (id: string) => {
+          deleted.push(id);
+          return Promise.resolve(null);
+        },
+      });
+      await expect(runLegacyDeviceMigration(adapter)).rejects.toThrow("objects db down");
+      expect(deleted).toEqual([]);
     });
   });
 });

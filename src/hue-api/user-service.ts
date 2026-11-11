@@ -4,9 +4,10 @@
 
 import * as uuid from "uuid";
 import type { Logger } from "../types/config";
-import { tName, tRaw } from "../lib/i18n";
 import { errText } from "../lib/err-text";
-import { oneLine, sanitizeId } from "../types/utils";
+import { oneLine } from "../types/utils";
+import { CLIENTS_FILE, CLIENTS_FOLDER, clientNumberOf, type ClientStore } from "../lib/client-store";
+import { clientCommon, nameText } from "../lib/client-move";
 
 /**
  * Adapter interface for user service
@@ -34,6 +35,8 @@ export interface UserServiceConfig {
   adapter: UserServiceAdapter;
   /** Logger */
   logger: Logger;
+  /** The client keys (clients.json), loaded before the first request. */
+  store: ClientStore;
 }
 
 /**
@@ -60,7 +63,7 @@ const AUTO_ADD_CAP_PER_WINDOW = 64;
  */
 export const CLIENT_CREATE_CEILING_PER_HOUR = 100;
 const CLIENT_CREATE_WINDOW_MS = 60 * 60 * 1000;
-/** A provided username becomes a persistent object id — real bridges issue 40 chars. */
+/** A provided username is stored for good (clients.json) — real bridges issue 40 chars. */
 export const MAX_USERNAME_LENGTH = 64;
 /** The devicetype is stored as the client object's display name. */
 export const MAX_DEVICETYPE_LENGTH = 100;
@@ -76,32 +79,13 @@ export interface PairedClient {
 }
 
 /**
- * The display name of a stored client object: the device type it paired with. The
- * name is a translation object (`tRaw`) carrying the same text in every language,
- * or a plain string on objects from before v1.15.1.
- *
- * @param name The object's `common.name`.
- * @param fallback What to show when there is nothing readable.
- */
-function clientDisplayName(name: unknown, fallback: string): string {
-  if (typeof name === "string" && name) {
-    return name;
-  }
-  if (name && typeof name === "object") {
-    const en = (name as Record<string, unknown>).en;
-    if (typeof en === "string" && en) {
-      return en;
-    }
-  }
-  return fallback;
-}
-
-/**
  * Service for managing Hue API users
  */
 export class UserService {
   private readonly adapter: UserServiceAdapter;
   private readonly logger: Logger;
+  /** The number ↔ key table of the paired clients. */
+  private readonly store: ClientStore;
 
   /**
    * v1.4.3 (U2): in-memory mirror of the paired clients. Populated lazily on
@@ -109,12 +93,13 @@ export class UserService {
    * request triggered `getStatesOfAsync("clients")`, hitting the broker on
    * every call — Echo polls the bridge frequently.
    *
-   * v1.17.0: it holds the REAL keys, not the sanitized object ids. Matching the
+   * v1.17.0: it holds the REAL keys, never anything derived from them. Matching a
    * sanitized form meant every character a key holds that is not `[A-Za-z0-9-_]`
    * became a wildcard: a client paired as `living.room` also authenticated as
-   * `living_room` and `living+room` (measured, audit 2026-09-06 F3). The object
-   * id still has to be sanitized — it is an ioBroker id — so the two are kept
-   * apart on purpose.
+   * `living_room` and `living+room` (measured, audit 2026-09-06 F3). Since the
+   * keys left the object tree (client-store.ts) an object id carries nothing of a
+   * key at all — a key counts while its object `clients.<n>` exists AND
+   * clients.json holds it for that number.
    */
   private clientKeysCache: Set<string> | null = null;
 
@@ -138,26 +123,11 @@ export class UserService {
   private readonly pendingAdds: Map<string, Promise<void>> = new Map();
 
   /**
-   * Which real key owns which sanitized object id. Two different keys can
-   * sanitize to the same id; the second one would silently take over the first
-   * one's object, so it is refused instead.
-   */
-  private idOwners: Map<string, string> = new Map();
-
-  /**
    * v1.19.0 (audit 2026-09-25 H5): what the whitelist shows per paired key — the
    * device type the client paired with, when it paired, when it was last seen. The
    * whitelist used to carry the key as its name and "now" as both dates.
    */
   private clientInfo: Map<string, PairedClient> = new Map();
-
-  /**
-   * The value each client state carries, by object id — the key, written once at pairing. Audit R-33: a client pairing
-   * again under its key wrote the same value again (fleet rule GV-05: a state is written only when it changes); the
-   * comparison is in memory, because a single read of the read-only state is a finding of its own. Filled by the same
-   * bulk read that fills the cache.
-   */
-  private storedValues: Map<string, unknown> = new Map();
 
   /**
    * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
@@ -178,6 +148,7 @@ export class UserService {
   constructor(config: UserServiceConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
+    this.store = config.store;
   }
 
   /**
@@ -230,7 +201,7 @@ export class UserService {
   /**
    * Add a new client (Hue API "user").
    *
-   * @param username Raw username (will be sanitized for the state id).
+   * @param username The client key (stored in clients.json, never in the tree).
    * @param devicetype Client-supplied device type (purely informational).
    * @param viaAutoAdd `true` when called from the pairing-window auto-add
    *   path — counts against the per-window cap. `false` for explicit
@@ -269,51 +240,36 @@ export class UserService {
       throw new Error("Auto-add cap reached for this pairing window");
     }
 
-    const safeUsername = sanitizeId(username);
-    this.logger.debug(`Creating client: ${safeUsername} (${oneLine(devicetype)})`);
-
     // v1.4.3 (U2): keep the auth-cache fresh after every add. Warmed BEFORE the
     // write since v1.15.0, because the ceiling has to tell a genuinely new
     // client from a client re-pairing under a name that already exists.
     const cache = await this.ensureCache();
     const isNewClient = !cache.has(username);
+    const name = devicetype.slice(0, MAX_DEVICETYPE_LENGTH);
 
-    // Two different keys can sanitize to the same object id. Letting the second
-    // one through would hand it the first one's object — and its access.
-    const owner = this.idOwners.get(safeUsername);
-    if (owner !== undefined && owner !== username) {
-      this.logger.warn(
-        `Refusing client "${oneLine(username)}": its object id "${safeUsername}" already belongs to another paired client`,
-      );
-      throw new Error("Client id already taken by another key");
-    }
-
-    let persisted = false;
-
-    // Create client state (sanitizeId: FORBIDDEN_CHARS compliance)
+    // The key goes into clients.json first — synchronously, so two pairings at the
+    // same moment can never take one number —, the object after it.
+    let n: number;
     try {
-      await this.adapter.setObjectNotExistsAsync(`clients.${safeUsername}`, {
-        type: "state",
-        common: {
-          // A translation object, not a bare string — `common.name` is one for
-          // EVERY object type, even where the text comes from the device and has
-          // nothing to translate (core team, nut2 #15). Measured on the live tree
-          // 2026-09-03: the two paired clients carried bare strings.
-          name: tRaw(devicetype.slice(0, MAX_DEVICETYPE_LENGTH)),
-          desc: tName("clientDesc"),
-          type: "string",
-          role: "text",
-          read: true,
-          write: false,
-        },
-        native: { username },
-      });
-      persisted = true;
+      n = this.store.add(username);
     } catch (err) {
-      this.logger.warn(`Failed to create client object ${safeUsername}: ${errText(err)}`);
+      this.logger.warn(`Failed to store the key of a new client in ${CLIENTS_FILE}: ${errText(err)}`);
+      throw new Error("Client could not be stored");
     }
+    const id = `${CLIENTS_FOLDER}.${n}`;
+    this.logger.debug(`Creating client ${id} (${oneLine(name)})`);
 
-    if (!persisted) {
+    try {
+      await this.adapter.setObjectNotExistsAsync(id, { type: "state", common: clientCommon(name), native: {} });
+    } catch (err) {
+      this.logger.warn(`Failed to create client object ${id}: ${errText(err)}`);
+      if (isNewClient) {
+        try {
+          this.store.remove(n);
+        } catch {
+          // The next start forgets the key anyway — its object is missing.
+        }
+      }
       // v1.17.0: a pairing that did not reach the database is NOT a pairing.
       // It used to be reported as success and cached in memory, so the client
       // worked until the next adapter start and then lost access with no
@@ -322,55 +278,60 @@ export class UserService {
       throw new Error("Client could not be stored");
     }
 
-    if (this.storedValues.get(safeUsername) !== username) {
-      try {
-        await this.adapter.setState(`clients.${safeUsername}`, {
-          ack: true,
-          val: username,
-        });
-        this.storedValues.set(safeUsername, username);
-      } catch (err) {
-        this.logger.warn(`Failed to set client state ${safeUsername}: ${errText(err)}`);
-      }
+    // A client pairing again under its key changes nothing: its state keeps the
+    // value and the last change of the first pairing — the pairing time the
+    // whitelist shows (audit R-07; GV-05, audit R-33: a state is written only
+    // when it changes).
+    if (!isNewClient) {
+      return;
+    }
+    try {
+      await this.adapter.setState(id, { ack: true, val: name });
+    } catch (err) {
+      this.logger.warn(`Failed to set client state ${id}: ${errText(err)}`);
     }
 
     // Book against the hourly ceiling only for a client that is really new AND
     // really stored — the ceiling exists to bound the object database, so a
     // request that grew it by nothing must not consume a slot.
-    if (isNewClient) {
-      this.countCreatedClient();
-    }
+    this.countCreatedClient();
     // v1.17.0: the per-window auto-add budget is booked here too, for the same
     // reason the hourly ceiling moved in v1.15.0 — a failed write used to eat
     // one of the 64 slots (audit 2026-09-06 F12).
-    if (viaAutoAdd && isNewClient) {
+    if (viaAutoAdd) {
       this.autoAddedThisWindow += 1;
     }
     this.clientKeysCache?.add(username);
-    this.idOwners.set(safeUsername, username);
-    if (!this.clientInfo.has(username)) {
-      const now = Date.now();
-      this.clientInfo.set(username, { name: devicetype.slice(0, MAX_DEVICETYPE_LENGTH), created: now, lastUse: now });
-    }
+    const now = Date.now();
+    this.clientInfo.set(username, { name, created: now, lastUse: now });
   }
 
   /**
    * Revoke a paired client whose object was deleted — v1.19.0 (audit 2026-09-25 H12):
    * the cache used to keep the key until the next adapter start, so deleting a client
-   * in the admin did not lock it out. The event carries the SANITIZED object id; the
-   * key is resolved through the owner map (decision 22 — `living.room` must go, not a
-   * `living_room` nobody paired).
+   * in the admin did not lock it out. The key is the one clients.json holds for the
+   * object's number (decision 22 — the real key, nothing derived from an id); the file
+   * forgets it too, so the next start does not bring it back.
    *
    * @param objectSuffix The part of the object id after `clients.`
    */
   public forgetClient(objectSuffix: string): void {
-    const key = this.idOwners.get(objectSuffix) ?? objectSuffix;
-    this.idOwners.delete(objectSuffix);
-    this.storedValues.delete(objectSuffix);
+    const n = clientNumberOf(objectSuffix);
+    const key = n === undefined ? undefined : this.store.keyOf(n);
+    if (n === undefined || key === undefined) {
+      return;
+    }
+    try {
+      this.store.remove(n);
+    } catch (err) {
+      this.logger.warn(
+        `Could not store in ${CLIENTS_FILE} that ${CLIENTS_FOLDER}.${n} was removed (${errText(err)}) — it has no access now, and the next start forgets its key`,
+      );
+    }
     this.clientInfo.delete(key);
     const removed = this.clientKeysCache?.delete(key) ?? false;
     if (removed) {
-      this.logger.info(`Client "${oneLine(key)}" removed — it has no access any more`);
+      this.logger.info(`Client ${CLIENTS_FOLDER}.${n} removed — it has no access any more`);
     }
   }
 
@@ -425,12 +386,8 @@ export class UserService {
   }
 
   /**
-   * Build (or return) the cache of paired client keys.
-   *
-   * The key is `native.username`, which every client object has carried since
-   * the object was introduced. Only an object from before that — or one a user
-   * built by hand — falls back to its own id, which for a generated UUID key is
-   * the same string anyway.
+   * Build (or return) the cache of paired client keys: the key clients.json holds
+   * for each client object `clients.<n>` that exists.
    */
   private ensureCache(): Promise<Set<string>> {
     if (this.clientKeysCache) {
@@ -449,7 +406,7 @@ export class UserService {
    */
   private async readClientValues(): Promise<Record<string, ioBroker.State | null | undefined>> {
     try {
-      return (await this.adapter.getStatesAsync("clients.*")) ?? {};
+      return (await this.adapter.getStatesAsync(`${CLIENTS_FOLDER}.*`)) ?? {};
     } catch (err) {
       this.logger.debug(`Could not read the client states for their pairing time: ${errText(err)}`);
       return {};
@@ -461,32 +418,29 @@ export class UserService {
    */
   private async loadCache(): Promise<Set<string>> {
     const cache = new Set<string>();
-    const owners = new Map<string, string>();
     const info = new Map<string, PairedClient>();
-    const valueById = new Map<string, unknown>();
     try {
-      const stateObjects = (await this.adapter.getStatesOfAsync("clients", undefined)) || [];
+      const stateObjects = (await this.adapter.getStatesOfAsync(CLIENTS_FOLDER, undefined)) || [];
       const values = await this.readClientValues();
-      const offset = this.adapter.namespace.length + 1 + "clients.".length;
+      const offset = this.adapter.namespace.length + 1 + CLIENTS_FOLDER.length + 1;
       for (const state of stateObjects) {
-        const id = state._id.substring(offset);
-        if (!id) {
+        const n = clientNumberOf(state._id.substring(offset));
+        // A key counts only while its object exists AND clients.json holds it — a
+        // file entry alone never signs in, so deleting the object revokes.
+        const key = n === undefined ? undefined : this.store.keyOf(n);
+        if (key === undefined) {
           continue;
         }
-        const stored = (state.native as { username?: unknown } | undefined)?.username;
-        const key = typeof stored === "string" && stored ? stored : id;
         cache.add(key);
-        owners.set(id, key);
-        // The pairing time is the client state's last change: its value is the key,
-        // written at pairing and never changed, and js-controller moves `lc` only
-        // when the value changes (db-states-redis 7.2.5 statesInRedisClient). The
+        // The pairing time is the client state's last change: its value is the device
+        // type, written once at pairing and never changed, and js-controller moves `lc`
+        // only when the value changes (db-states-redis 7.2.5 statesInRedisClient). The
         // object's own `ts` moves with every object write — a name refresh, a rename
         // in the admin — and is only the fallback (audit R-07). Nothing extra is
         // stored: a timestamp in the tree would make every object inventory differ.
-        valueById.set(id, values[state._id]?.val);
         const lc = values[state._id]?.lc;
         const created = typeof lc === "number" ? lc : typeof state.ts === "number" ? state.ts : Date.now();
-        info.set(key, { name: clientDisplayName(state.common?.name, key), created, lastUse: created });
+        info.set(key, { name: nameText(state.common?.name, key), created, lastUse: created });
       }
     } catch (err) {
       // Do NOT cache on failure: caching the empty set here would permanently
@@ -497,9 +451,7 @@ export class UserService {
       return cache;
     }
     this.clientKeysCache = cache;
-    this.idOwners = owners;
     this.clientInfo = info;
-    this.storedValues = valueById;
     return cache;
   }
 }

@@ -23,6 +23,14 @@
  * every installation from that time. The pre-release manifests (0.0.x) also carried `materialize`
  * and `connectionType` with a trailing space — a different key from the `connectionType` the
  * manifest still declares, which is therefore never nulled.
+ *
+ * `udn`, `tlsCert` and `tlsKey` (audit R-24): the bridge identity moved to a file in the instance
+ * data folder (identity-store.ts). They are dropped only once that file holds the identity — a
+ * drop before it would give every paired client a new bridge on the next start.
+ *
+ * `devices` and `lastLightId` (audit R-24): the lights moved to their own device objects (`lights.<n>`, light-store.ts),
+ * the mark to a file in the instance data folder. They are dropped only once every light is stored there — a drop
+ * before it would lose the lights.
  */
 
 import type { NativeKeyMigration } from "./native-key-migration";
@@ -40,11 +48,15 @@ const listensEverywhere = (v: unknown): boolean => chosenAddress(v) === undefine
  *
  * @param native the instance's current native settings
  * @param localAddresses the IPv4 addresses this host carries right now
+ * @param identityStored whether the identity file holds the bridge identity
+ * @param lightsStored whether every light of the settings is a light object, the mark in its file
  * @returns the list for `migrateNativeKeys`
  */
 export function buildNativeKeyMigrations(
   native: Record<string, unknown>,
   localAddresses: readonly string[],
+  identityStored: boolean,
+  lightsStored: boolean,
 ): NativeKeyMigration[] {
   const migrations: NativeKeyMigration[] = [
     { from: "host", to: "bind", coerce: v => (typeof v === "string" && v.trim()) || "0.0.0.0" },
@@ -61,6 +73,12 @@ export function buildNativeKeyMigrations(
   }
 
   migrations.push({ drop: "discoveryHost" }, { drop: "discoveryPort" }, { drop: "upnpPort" });
+  if (identityStored) {
+    migrations.push({ drop: "udn" }, { drop: "tlsCert" }, { drop: "tlsKey" });
+  }
+  if (lightsStored) {
+    migrations.push({ drop: "devices" }, { drop: "lastLightId" });
+  }
   migrations.push(
     { commonDrop: "license" },
     { commonDrop: "main" },

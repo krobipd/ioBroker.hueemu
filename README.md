@@ -82,7 +82,7 @@ Open the **Devices** tab. There are two ways to add lights:
 
 A light the assistant adds keeps its value scales on "Automatic": at every start the adapter reads them from the bound state — a hue that runs 0–360 as degrees, a brightness with `%` or a 0–100 range as percent. Where a state declares neither a unit nor a range, the adapter's default applies — check it on the light's card if a color or brightness looks off, and set it by hand.
 
-Each light shows as a card — use **Edit** to change its mapping or **Delete** to remove it.
+Each light shows as a card — use **Edit** to change its mapping or **Delete** to remove it. A change takes effect at once, without a restart. Every light is also a device in the object tree (`hueemu.0.lights.<n>`, see below); its number stays with it for good — a deleted light's number is never handed out again.
 
 ### Lights Without an On/Off State
 
@@ -142,8 +142,11 @@ hueemu.0.
 │   └── error            — Why it is not answering (empty while it works)
 ├── startPairing         — Enable pairing mode for 50 seconds (button)
 ├── disableAuth          — Disable authentication (switch)
-└── clients/             — Paired client devices
-    └── {username}       — Client API key (created during pairing)
+├── clients/             — Paired client devices
+│   └── {username}       — Client API key (created during pairing)
+└── lights/              — The lights the bridge offers
+    └── {n}/             — One light, named as in the device manager; n is its Hue light number
+        └── reachable    — Whether the bridge can drive it: false while its switch (or brightness) state is missing
 ```
 
 If `info.connection` stays `false` after a start, look at `info.error`: an error from the
@@ -157,7 +160,7 @@ log carries the explanation.
 
 ### Upgrading from 0.x / legacy createLight mode
 
-If you used the old `createLight` JSON state to define lights, your devices are **automatically migrated** on first start. The adapter reads your existing device objects, converts them to the new admin configuration format, and restarts once. No manual action required — your existing scripts and automations continue to work as before.
+If you used the old `createLight` JSON state to define lights, your devices are **automatically migrated** on first start. The adapter reads your existing device objects and turns them into lights under `hueemu.0.lights` — no restart needed. No manual action required — your existing scripts and automations continue to work as before.
 
 **Optional improvement:** The old system used internal adapter states as intermediaries, requiring separate scripts to control the actual devices. You can now open the adapter settings and change the state mappings to point **directly** to your device states (e.g. `hm-rpc.0.dimmer.LEVEL` instead of `hueemu.0.1.state.bri`).
 
@@ -185,7 +188,7 @@ Delete its entry under `hueemu.0.clients` — the key stops working at once, no 
 
 ### Downgrading
 
-Going back to a version below 1.18.0 is not supported: the older version no longer finds the listen address under its new key and numbers the lights anew, so Alexa sees different lamps.
+Going back to an older version is not supported. Version 1.19.0 and older keep the bridge identity and the lights in the instance settings and find neither in their new places: they create a new identity, so every client has to search for the bridge and pair again, and they offer no lights until you add them anew. Below 1.18.0 the older version also no longer finds the listen address under its new key and numbers the lights anew, so Alexa sees different lamps.
 
 ---
 
@@ -195,6 +198,26 @@ Going back to a version below 1.18.0 is not supported: the older version no long
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### **WORK IN PROGRESS**
+
+- Changed: The bridge now answers only clients in its own networks, with a chosen address only those in that network.
+- Changed: The bridge identity (UDN, certificate) moved from the settings into the instance data folder — saving the settings can no longer reset it, and a new instance starts without a restart.
+- Changed: The lights moved from the settings into the object tree (lights) — a change in the device manager takes effect without a restart.
+- New: Every light shows in the object tree whether the bridge can drive it (lights.<n>.reachable).
+- Changed: The keys of paired clients moved from the object tree into the instance data folder — the client objects are now numbered (clients.<n>) and show the device type; every pairing stays.
+- Changed: Going back to 1.19.0 or older is not supported — that version creates a new bridge identity and finds no lights.
+- Changed: The undocumented /health route is gone.
+- Fixed: A text switch (e.g. EIN/AUS) that a client switched on is now read back as on.
+- Fixed: A light bound to another datapoint no longer keeps the old datapoint's scale.
+- Fixed: A client's pairing date no longer changes with every rename or object update.
+- Fixed: A UDN or MAC that is not text no longer stops the start.
+- Fixed: A stray write to one of the adapter's read-only datapoints is no longer confirmed.
+- Fixed: Opening the device manager right after the instance started no longer fails.
+- Fixed: A new instance shows "Unknown" as the reason until its first start instead of an empty text.
+- Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
+- Improved: The settings always open on the first tab, Configuration.
+- Improved: Updated dependencies with security fixes.
 
 ### 1.19.0 (2026-09-25) — stable
 

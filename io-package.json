@@ -80,19 +80,6 @@
         "pl": "Naprawiono: Przy aktualizacji bardzo starej instalacji już sparowane klienty otrzymują poprawną nazwę i wyjaśnienie od razu, a nie dopiero po następnym restarcie.",
         "uk": "Виправлено: Під час оновлення дуже старої інсталяції вже спарені клієнти отримують правильне ім'я та пояснення одразу, а не після наступного перезапуску.",
         "zh-cn": "修复：升级非常旧的安装时，已配对的客户端现在会立即获得正确的名称和说明，而不必等到下次重启。"
-      },
-      "1.15.1": {
-        "en": "Fixed: Every datapoint of the adapter now carries a name and a short explanation in your admin language, paired clients included.",
-        "de": "Behoben: Jeder Datenpunkt des Adapters trägt jetzt einen Namen und eine kurze Erklärung in deiner Admin-Sprache, gekoppelte Clients eingeschlossen.",
-        "ru": "Исправлено: Каждый пункт данных адаптера теперь имеет имя и краткое пояснение на языке админки, включая сопряжённые клиенты.",
-        "pt": "Corrigido: Cada ponto de dados do adaptador tem agora um nome e uma breve explicação no seu idioma do admin, incluindo os clientes emparelhados.",
-        "nl": "Opgelost: Elk datapunt van de adapter heeft nu een naam en een korte uitleg in je admin-taal, gekoppelde clients inbegrepen.",
-        "fr": "Corrigé : Chaque point de données de l'adaptateur porte désormais un nom et une brève explication dans votre langue d'admin, clients appairés compris.",
-        "it": "Corretto: Ogni punto dati dell'adattatore ha ora un nome e una breve spiegazione nella tua lingua dell'admin, client accoppiati compresi.",
-        "es": "Corregido: Cada punto de datos del adaptador tiene ahora un nombre y una breve explicación en tu idioma del admin, incluidos los clientes emparejados.",
-        "pl": "Naprawiono: Każdy punkt danych adaptera ma teraz nazwę i krótkie wyjaśnienie w Twoim języku admina, łącznie ze sparowanymi klientami.",
-        "uk": "Виправлено: Кожна точка даних адаптера тепер має ім'я та коротке пояснення вашою мовою адмінки, включно зі спареними клієнтами.",
-        "zh-cn": "修复：适配器的每个数据点现在都带有名称和简短说明，并以你的管理界面语言显示，已配对客户端也包括在内。"
       }
     },
     "plugins": {
@@ -162,6 +149,7 @@
     "connectionType": "local",
     "dataSource": "push",
     "tier": 3,
+    "dataFolder": "hueemu.%INSTANCE%",
     "supportedMessages": {
       "deviceManager": true
     },
@@ -181,20 +169,9 @@
     "bind": "0.0.0.0",
     "port": 8080,
     "httpsPort": "",
-    "tlsCert": "",
-    "tlsKey": "",
-    "udn": "",
     "mac": "",
-    "devices": [],
-    "lastLightId": 0,
     "trustProxy": false
   },
-  "encryptedNative": [
-    "tlsKey"
-  ],
-  "protectedNative": [
-    "tlsKey"
-  ],
   "objects": [],
   "instanceObjects": [
     {
@@ -276,7 +253,7 @@
         "role": "text",
         "write": false,
         "read": true,
-        "def": "",
+        "def": "Unknown",
         "desc": {
           "en": "Why the bridge is not answering — empty while everything works",
           "de": "Warum die Bridge nicht antwortet — leer, solange alles läuft",
@@ -396,6 +373,39 @@
           "pl": "Urządzenia sparowane z mostkiem — jeden wpis na urządzenie",
           "uk": "Пристрої, спарені з мостом — по одному запису на пристрій",
           "zh-cn": "已与网桥配对的设备——每台设备一个条目"
+        }
+      },
+      "native": {}
+    },
+    {
+      "_id": "lights",
+      "type": "folder",
+      "common": {
+        "name": {
+          "en": "Lights",
+          "de": "Lichter",
+          "ru": "Светильники",
+          "pt": "Luzes",
+          "nl": "Lampen",
+          "fr": "Lumières",
+          "it": "Luci",
+          "es": "Luces",
+          "pl": "Światła",
+          "uk": "Світильники",
+          "zh-cn": "灯"
+        },
+        "desc": {
+          "en": "Lights the bridge serves to Hue clients — one device per light",
+          "de": "Lichter, die die Bridge den Hue-Clients anbietet — ein Gerät je Licht",
+          "ru": "Светильники, которые мост предоставляет клиентам Hue — одно устройство на светильник",
+          "pt": "Luzes que a bridge oferece aos clientes Hue — um dispositivo por luz",
+          "nl": "Lampen die de bridge aan Hue-clients aanbiedt — één apparaat per lamp",
+          "fr": "Lumières que le pont propose aux clients Hue — un appareil par lumière",
+          "it": "Luci che il bridge offre ai client Hue — un dispositivo per luce",
+          "es": "Luces que el puente ofrece a los clientes Hue — un dispositivo por luz",
+          "pl": "Światła, które mostek udostępnia klientom Hue — jedno urządzenie na światło",
+          "uk": "Світильники, які міст надає клієнтам Hue — один пристрій на світильник",
+          "zh-cn": "网桥向 Hue 客户端提供的灯 — 每盏灯一个设备"
         }
       },
       "native": {}

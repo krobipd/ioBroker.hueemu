@@ -4,10 +4,10 @@
  * Replaces the jsonConfig accordion with the sanctioned device-manager UI so
  * that manual add/edit/delete and an "assistant" (scan for lights via
  * `@iobroker/type-detector`) live side by side in ONE tab. The device list is
- * the adapter's own `native.devices` config array — unchanged in shape and still
- * the only thing the runtime reads. Every mutating action writes `native.devices`
- * back, which restarts the adapter (like a jsonConfig save) so the new mappings
- * take effect; the manager reloads the list afterwards.
+ * the adapter's own light objects (`lights.<n>`, light-store.ts — audit R-24; up
+ * to v1.19.0 the instance's `native.devices`, and every change restarted the
+ * instance). The running adapter serves a changed light at once; the manager
+ * reloads the list afterwards.
  *
  * The edit/add form reuses the exact same fields as the old accordion (object
  * pickers, light type, scales), rendered natively by admin. All user-facing
@@ -16,6 +16,7 @@
  * admin language regardless of how the device-manager frontend resolves strings.
  */
 
+import type { AdapterInstance } from "@iobroker/adapter-core";
 import {
   DeviceManagement,
   type DeviceInfo,
@@ -24,9 +25,9 @@ import {
   type JsonFormSchema,
 } from "@iobroker/dm-utils";
 import type { DeviceConfig } from "./hue-api";
-import { isDeviceId, lightIdHighWater, nextDeviceId, normalizeDevices } from "./lib/device-ids";
 import { boundStateIds, scanForLightDevices } from "./lib/device-scan";
-import { t } from "./lib/i18n";
+import { nameIn, t } from "./lib/i18n";
+import type { LightStore } from "./lib/light-store";
 import { SCALE_FIELDS } from "./lib/hue-scales";
 import { errText } from "./lib/err-text";
 import { oneLine } from "./types/utils";
@@ -35,8 +36,6 @@ import { oneLine } from "./types/utils";
 type InstanceResult = { refresh: boolean };
 /** Manager directive returned by a per-device action — reload the device list. */
 type DeviceResult = { refresh: "instance" };
-/** What the device manager reads before a change: the list and the highest number ever handed out. */
-type DeviceStore = { devices: DeviceConfig[]; lastLightId: number };
 
 /**
  * Which DeviceConfig fields are relevant per light type — used to prune the form
@@ -206,7 +205,7 @@ export function buildDeviceForm(): JsonFormSchema {
  * Turn raw form data into a clean DeviceConfig: drop empty pickers, the
  * undecided value scales, and any field not relevant to the chosen light type
  * (e.g. a stale hueState left over when a colour light is switched to on/off),
- * so `native.devices` stays tidy.
+ * so a light object's `native` stays tidy.
  *
  * @param raw The submitted form values.
  * @returns The pruned device mapping.
@@ -281,54 +280,20 @@ export function buildSelectionForm(devices: DeviceConfig[]): JsonFormSchema {
 }
 
 /**
- * ioBroker device-manager backend: exposes `native.devices` as device cards with
+ * ioBroker device-manager backend: exposes the light objects as device cards with
  * add/edit/delete actions plus a "search lights" assistant. Owns no state of its
- * own — it reads and writes the adapter's config object.
+ * own — it reads and writes the lights through the light store.
  */
 export class HueEmuDeviceManagement extends DeviceManagement {
-  /** The `system.adapter.*` object id whose `native.devices` holds the mapping list. */
-  private get objId(): string {
-    return `system.adapter.${this.adapter.namespace}`;
-  }
+  private readonly lights: LightStore;
 
   /**
-   * Read the device list and the highest light number ever handed out, fresh
-   * from the live config object (so it reflects a write that is still
-   * triggering a restart).
-   *
-   * @returns The configured devices (an empty list if none) and `lastLightId` (0 if unknown).
+   * @param adapter The adapter.
+   * @param lights The light store the adapter serves from — one queue for every change.
    */
-  private async readStore(): Promise<DeviceStore> {
-    const obj = await this.adapter.getForeignObjectAsync(this.objId);
-    const native = obj?.native as { devices?: unknown; lastLightId?: unknown } | undefined;
-    return {
-      devices: normalizeDevices(native?.devices),
-      lastLightId: isDeviceId(native?.lastLightId) ? native.lastLightId : 0,
-    };
-  }
-
-  /**
-   * Read the device list only.
-   *
-   * @returns The configured devices, or an empty list if none.
-   */
-  private async readDevices(): Promise<DeviceConfig[]> {
-    return (await this.readStore()).devices;
-  }
-
-  /**
-   * Persist the device list together with the highest light number ever handed
-   * out (v1.19.0, audit 2026-09-25 K3) — the mark covers the list before AND
-   * after the change, so the number of a light deleted right now stays taken.
-   * Writing `native.*` restarts the adapter, which re-binds the lights with the
-   * new mappings.
-   *
-   * @param devices The full device list to store.
-   * @param before The store this change started from.
-   */
-  private async writeDevices(devices: DeviceConfig[], before: DeviceStore): Promise<void> {
-    const lastLightId = lightIdHighWater(before.lastLightId, before.devices, devices);
-    await this.adapter.extendForeignObjectAsync(this.objId, { native: { devices, lastLightId } });
+  public constructor(adapter: AdapterInstance, lights: LightStore) {
+    super(adapter);
+    this.lights = lights;
   }
 
   /**
@@ -368,9 +333,9 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   }
 
   /**
-   * Populate the device-manager list from `native.devices`.
+   * Populate the device-manager list from the light objects.
    *
-   * Reading the config object can fail (objects DB unreachable). This path has no
+   * Reading them can fail (objects DB unreachable). This path has no
    * `ActionContext` — `DeviceLoadContext` only offers `addDevice`/`setTotalDevices`
    * — and it does not go through `sendFinalResult` either: dm-utils handles
    * `dm:loadDevices` separately and, on a throw, skips both the context cleanup and
@@ -381,59 +346,38 @@ export class HueEmuDeviceManagement extends DeviceManagement {
    */
   protected async loadDevices(context: DeviceLoadContext<string>): Promise<void> {
     try {
-      const devices = await this.readDevices();
-      devices.forEach((device, index) => context.addDevice(this.toDeviceInfo(device, index)));
+      const { lights } = await this.lights.list();
+      lights.forEach(device => context.addDevice(this.toDeviceInfo(device)));
     } catch (e) {
       this.adapter.log.warn(`Could not read the configured lights: ${errText(e)}`);
     }
   }
 
   /**
-   * The stable card id of a device: its permanent light number.
+   * The light a card names, in the list as it is right now. The card id is the light's
+   * permanent number — unique by construction, so a list that shifted between rendering
+   * and acting never points the action at another light (audit 2026-09-06 F10,
+   * 2026-09-15 A2).
    *
-   * v1.17.0 keyed the card by the driving state id instead of the array position,
-   * so a list that shifted between rendering and acting no longer pointed the
-   * action at a different light (audit 2026-09-06 F10). v1.18.0: two lights on
-   * the same source shared that key — deleting the second card removed the first
-   * (audit 2026-09-15 A2). The number is unique by construction; the position is
-   * only the fallback for an entry the start-up migration has not numbered yet.
-   *
-   * @param device The stored mapping.
-   * @param index Its position in the list.
-   * @returns A card id that survives a shift of the list.
-   */
-  private static cardId(device: DeviceConfig, index: number): string {
-    return isDeviceId(device.id) ? String(device.id) : `#${index}`;
-  }
-
-  /**
-   * Resolve a card id back to a position in the CURRENT list.
-   *
-   * @param devices The list as it is right now.
    * @param cardId The id the card was built with.
-   * @returns the position, or -1 when the device is gone.
+   * @returns the light, undefined when it is gone
    */
-  private static indexOfCard(devices: DeviceConfig[], cardId: string): number {
-    const byNumber = devices.findIndex((d, i) => HueEmuDeviceManagement.cardId(d, i) === cardId);
-    if (byNumber >= 0) {
-      return byNumber;
-    }
-    // A positional fallback id (`#3`) from a not yet numbered entry.
-    const positional = /^#(\d+)$/.exec(cardId);
-    return positional ? Number(positional[1]) : -1;
+  private async lightOfCard(cardId: string): Promise<(DeviceConfig & { id: number }) | undefined> {
+    const { lights } = await this.lights.list();
+    const light = lights.find(d => String(d.id) === cardId);
+    return light ? (light as DeviceConfig & { id: number }) : undefined;
   }
 
   /**
    * Build one device card with edit/delete actions.
    *
-   * @param device The stored mapping.
-   * @param index Its position in the list.
+   * @param device The stored light, carrying its number.
    * @returns The device-manager card descriptor.
    */
-  private toDeviceInfo(device: DeviceConfig, index: number): DeviceInfo<string> {
+  private toDeviceInfo(device: DeviceConfig): DeviceInfo<string> {
     return {
-      id: HueEmuDeviceManagement.cardId(device, index),
-      name: device.name || t("lightNameFallback", isDeviceId(device.id) ? device.id : index + 1),
+      id: String(device.id),
+      name: device.name || t("lightNameFallback", device.id ?? 0),
       actions: [
         {
           id: "edit",
@@ -482,7 +426,8 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   }
 
   /**
-   * Manual add: show the empty form and append a valid result.
+   * Manual add: show the empty form and store a valid result as a new light — its
+   * number comes from the store, never from the form.
    *
    * @param context The action context.
    * @returns A directive to reload the manager.
@@ -493,26 +438,23 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       data: { lightType: "dimmable" },
     });
     if (data && typeof data.name === "string" && data.name) {
-      const store = await this.readStore();
-      const added = { ...cleanDevice(data), id: nextDeviceId(store.devices, store.lastLightId) };
-      await this.writeDevices([...store.devices, added], store);
-      this.adapter.log.info(`Light "${oneLine(added.name)}" added as light ${added.id}`);
+      const { id: _ignored, ...config } = cleanDevice(data);
+      for (const added of await this.lights.add([config])) {
+        this.adapter.log.info(`Light "${oneLine(added.name)}" added as light ${added.id}`);
+      }
     }
     return { refresh: true };
   }
 
   /**
-   * Edit a device via the form, replacing it in place.
+   * Edit a light via the form.
    *
    * @param cardId The card id the action was raised on.
    * @param context The action context.
    * @returns A directive to reload the list.
    */
   private async editDevice(cardId: string, context: ActionContext): Promise<DeviceResult> {
-    const store = await this.readStore();
-    const devices = [...store.devices];
-    const index = HueEmuDeviceManagement.indexOfCard(devices, cardId);
-    const current = devices[index];
+    const current = await this.lightOfCard(cardId);
     if (!current) {
       return { refresh: "instance" };
     }
@@ -522,46 +464,41 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     });
     if (data && typeof data.name === "string" && data.name) {
       // The number is the light's identity for every paired client — it stays
-      // with the entry, whatever the form sent back.
-      devices[index] = resetReboundScales(current, { ...cleanDevice(data), id: current.id });
-      await this.writeDevices(devices, store);
-      this.adapter.log.info(
-        `Light ${HueEmuDeviceManagement.cardId(current, index)} "${oneLine(devices[index].name)}" saved`,
-      );
+      // with the light, whatever the form sent back.
+      const edited = { ...resetReboundScales(current, cleanDevice(data)), id: current.id };
+      if (await this.lights.save(edited)) {
+        this.adapter.log.info(`Light ${current.id} "${oneLine(edited.name)}" saved`);
+      }
     }
     return { refresh: "instance" };
   }
 
   /**
-   * Delete a device after confirmation.
+   * Delete a light after confirmation.
    *
    * @param cardId The card id the action was raised on.
    * @param context The action context.
    * @returns A directive to reload the list.
    */
   private async deleteDevice(cardId: string, context: ActionContext): Promise<DeviceResult> {
-    const store = await this.readStore();
-    const devices = [...store.devices];
-    const index = HueEmuDeviceManagement.indexOfCard(devices, cardId);
-    const target = devices[index];
+    const target = await this.lightOfCard(cardId);
     if (!target) {
       return { refresh: "instance" };
     }
     const confirmed = await context.showConfirmation(t("dmDeleteConfirm", target.name || ""));
     if (confirmed) {
-      devices.splice(index, 1);
-      await this.writeDevices(devices, store);
-      this.adapter.log.info(`Light ${HueEmuDeviceManagement.cardId(target, index)} "${oneLine(target.name)}" deleted`);
+      await this.lights.remove(target.id);
+      this.adapter.log.info(`Light ${target.id} "${oneLine(target.name)}" deleted`);
     }
     return { refresh: "instance" };
   }
 
   /**
-   * Assistant: scan the object tree for light devices and append the ones that
-   * are not mapped yet. hueemu's own namespace is excluded (its emulated lights
-   * would otherwise be re-detected as sources), and the append is keyed by the
-   * mapped on/off state id so an existing entry is never overwritten — manual
-   * edits and repeated scans stay non-destructive.
+   * Assistant: scan the object tree for light devices and add the ones that are
+   * not mapped yet. hueemu's own namespace is excluded (its emulated lights would
+   * otherwise be re-detected as sources), and a light that shares any bound
+   * datapoint with a stored one is never offered — manual edits and repeated scans
+   * stay non-destructive.
    *
    * @param context The action context.
    * @returns A directive to reload the manager.
@@ -577,17 +514,16 @@ export class HueEmuDeviceManagement extends DeviceManagement {
     };
     try {
       const objects = await this.loadAllObjects();
-      const { devices: found, unmapped } = scanForLightDevices(objects, (id, obj) =>
-        HueEmuDeviceManagement.displayName(obj.common?.name, id, this.adapter.language),
+      const { devices: found, unmapped } = scanForLightDevices(
+        objects,
+        (id, obj) => nameIn(obj.common?.name, this.adapter.language) || id,
       );
 
-      const store = await this.readStore();
-      const existing = store.devices;
-      // Append-only dedup over EVERY bound state: a light that shares any source
-      // with a configured one is already in the bridge. v1.18.0: the check used
-      // to look at the on/off state only, so a light without one (a dimmer with
-      // nothing but a level) was offered — and stored — again on every scan
-      // (audit 2026-09-15 A1).
+      const { lights: existing } = await this.lights.list();
+      // Dedup over EVERY bound state: a light that shares any source with a
+      // stored one is already in the bridge. v1.18.0: the check used to look at
+      // the on/off state only, so a light without one (a dimmer with nothing but
+      // a level) was offered — and stored — again on every scan (audit 2026-09-15 A1).
       const mappedIds = new Set(existing.flatMap(boundStateIds));
       const fresh = found.filter(d => !boundStateIds(d).some(id => mappedIds.has(id)));
       await closeProgress();
@@ -602,21 +538,11 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       const selection = await context.showForm(buildSelectionForm(fresh), { title: t("dmSelectTitle"), data: {} });
       if (selection) {
         const chosen = fresh.filter((_, index) => selection[`sel_${index}`] === true);
-        // v1.19.0: the message goes out BEFORE the write — the write restarts the
-        // instance at once, and a message the user confirms after that restart
-        // reaches a process that no longer knows the request ("Unknown message
-        // origin" in dm-utils 3.2.x, and the refresh never arrives; audit
-        // 2026-09-25 H13). Add, edit and delete already answer before theirs.
         await context.showMessage(
           unmapped.length ? t("dmScanAddedSkipped", chosen.length, unmapped.length) : t("dmScanAdded", chosen.length),
         );
-        if (chosen.length) {
-          let next = nextDeviceId(existing, store.lastLightId);
-          const added = chosen.map(device => ({ ...device, id: next++ }));
-          await this.writeDevices([...existing, ...added], store);
-          for (const light of added) {
-            this.adapter.log.info(`Light "${oneLine(light.name)}" added as light ${light.id}`);
-          }
+        for (const light of await this.lights.add(chosen)) {
+          this.adapter.log.info(`Light "${oneLine(light.name)}" added as light ${light.id}`);
         }
       }
     } catch (e) {
@@ -624,35 +550,6 @@ export class HueEmuDeviceManagement extends DeviceManagement {
       await context.showMessage(t("dmScanFailed", errText(e)));
     }
     return { refresh: true };
-  }
-
-  /**
-   * The name a detected light is offered under: the object's `common.name` in the
-   * system language, its English text, or — when the object carries no usable
-   * name — its id.
-   *
-   * v1.18.0: `common.name` is a translation object on more and more adapters
-   * (the core team's rule for every object type), and a translation object used
-   * to fall through to the id — Alexa then learned "shelly.0.lamp" as the lamp's
-   * name (audit 2026-09-15 A3).
-   *
-   * @param name The object's `common.name`.
-   * @param id The object id, the last resort.
-   * @param language The system language (`this.language`, present with `useFormatDate`).
-   */
-  private static displayName(name: unknown, id: string, language: string | undefined): string {
-    if (typeof name === "string" && name) {
-      return name;
-    }
-    if (name && typeof name === "object") {
-      const translated = name as Record<string, unknown>;
-      const candidates = [language && translated[language], translated.en];
-      const hit = candidates.find(text => typeof text === "string" && text);
-      if (typeof hit === "string") {
-        return hit;
-      }
-    }
-    return id;
   }
 
   /**

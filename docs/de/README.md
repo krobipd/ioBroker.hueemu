@@ -78,7 +78,7 @@ jedes Feld per Objektauswahl auf einen ioBroker-Datenpunkt zeigen lassen.
 
 Jede Lampe behält ihre Nummer dauerhaft: Lampen löschen oder umsortieren ändert für die
 anderen nichts, Alexas Routinen zeigen weiter auf die Lampen, mit denen sie eingerichtet
-wurden. Eine Lampe darf auch auf einen Datenpunkt zeigen, den kein Gerät bestätigt — aus
+wurden. Eine Änderung in den Karten wirkt sofort, ohne Neustart. Eine Lampe darf auch auf einen Datenpunkt zeigen, den kein Gerät bestätigt — aus
 `0_userdata`, einem Skript oder einer Visualisierung — die Bridge folgt jeder Änderung
 daran genauso.
 
@@ -148,8 +148,11 @@ hueemu.0.
 │   └── error      — warum nicht (leer, solange alles läuft)
 ├── startPairing   — öffnet das Kopplungsfenster für 50 Sekunden (Taster)
 ├── disableAuth    — jede Anfrage ohne Kopplung annehmen (Schalter)
-└── clients/       — ein Eintrag je gekoppeltem Client
-    └── <Name>     — der Schlüssel, den dieser Client benutzt
+├── clients/       — ein Eintrag je gekoppeltem Client
+│   └── <n>        — der Gerätetyp, mit dem sich dieser Client gekoppelt hat (sein Schlüssel bleibt im Datenordner der Instanz)
+└── lights/        — die Lampen, die die Bridge anbietet
+    └── <n>/       — eine Lampe, benannt wie auf ihrer Karte; n ist ihre Hue-Lampennummer
+        └── reachable — ob die Bridge sie fahren kann
 ```
 
 `info.connection` ist die schnelle Antwort auf „läuft es überhaupt?". Ein Start kann aus
@@ -160,6 +163,13 @@ der Adapter selbst erkennt (kein Port gesetzt, keine brauchbare Netzwerkadresse)
 
 Einen gekoppelten Client entfernst du, indem du seinen Eintrag unter `hueemu.0.clients`
 löschst — sein Schlüssel gilt ab sofort nicht mehr.
+
+`reachable` wird falsch, solange der Datenpunkt, der die Lampe schaltet — ohne einen
+solchen ihr Helligkeitsdatenpunkt —, nicht existiert (gelöscht oder ein Tippfehler in der
+Karte), für eine Lampe ohne jeden gebundenen Datenpunkt und solange der Adapter gestoppt
+ist — derselbe Wert, den Hue-Clients für die Lampe sehen. Ein fehlender Farbdatenpunkt
+allein lässt sie erreichbar. Eine unter `hueemu.0.lights`
+gelöschte Lampe ist sofort aus der Bridge verschwunden, wie eine auf ihrer Karte gelöschte.
 
 `disableAuth` ist eine Wartungshilfe, keine Dauereinstellung: damit kann jedes Gerät in
 deinem Netz deine Lampen ohne Kopplung steuern. Neue Clients sind ohnehin auf 100 pro
@@ -194,13 +204,15 @@ Wert an und ignoriert jeden Befehl.
 
 **Eine Lampe zeigt die falsche Farbe oder Helligkeit.** Siehe „Werteskalen" oben.
 
-**Zurück auf eine Version unter 1.18.0** wird nicht unterstützt: die ältere Version
-findet die Lauschadresse unter ihrem neuen Schlüssel nicht mehr und nummeriert die
-Lampen neu, Alexa sieht dann andere Lampen.
+**Zurück auf eine ältere Version** wird nicht unterstützt. Version 1.19.0 und älter
+halten die Bridge-Identität und die Lampen in den Instanz-Einstellungen und finden beide
+an ihrem neuen Ort nicht: sie legen eine neue Identität an, jeder Client muss die Bridge
+dann neu suchen und koppeln, und sie bieten keine Lampe an, bis du sie neu anlegst. Unter 1.18.0 findet die ältere Version außerdem die Lauschadresse unter
+ihrem neuen Schlüssel nicht mehr und nummeriert die Lampen neu, Alexa sieht dann andere
+Lampen.
 
 **Du kommst vom alten `createLight`-Aufbau.** Deine Lampen werden beim ersten Start
-automatisch umgestellt, der Adapter startet dabei einmal neu. Von Hand ist nichts zu
-tun. Lohnend im Anschluss: der alte Weg nutzte adapter-eigene Datenpunkte als
+automatisch umgestellt, ohne Neustart. Von Hand ist nichts zu tun. Lohnend im Anschluss: der alte Weg nutzte adapter-eigene Datenpunkte als
 Zwischenschritt, wofür ein Skript nötig war, um das echte Gerät zu fahren. Du kannst
 jede Lampe jetzt direkt auf den Gerätedatenpunkt zeigen lassen und dieses Skript weglassen.
 

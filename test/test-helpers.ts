@@ -40,10 +40,13 @@ export function createMockDeviceBindingAdapter(
   writtenAcks: Map<string, boolean | undefined>;
   /** Every pattern subscribed. */
   subscribedPatterns: string[];
+  /** Every pattern unsubscribed. */
+  unsubscribedPatterns: string[];
 } {
   const writtenStates = new Map<string, unknown>();
   const writtenAcks = new Map<string, boolean | undefined>();
   const subscribedPatterns: string[] = [];
+  const unsubscribedPatterns: string[] = [];
 
   return {
     namespace: "hueemu.0",
@@ -95,7 +98,11 @@ export function createMockDeviceBindingAdapter(
     },
     writtenStates,
     writtenAcks,
+    unsubscribeForeignStates: (pattern: string) => {
+      unsubscribedPatterns.push(pattern);
+    },
     subscribedPatterns,
+    unsubscribedPatterns,
   };
 }
 

@@ -5,14 +5,16 @@
  * makeApiHandler seams, without binding real ports or generating real keys.
  */
 
-import { readFileSync } from "node:fs";
-import type * as os from "node:os";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import * as os from "node:os";
 import type * as tls from "node:tls";
 import { join } from "node:path";
 import { vi } from "vitest";
 
 /** The options the adapter hands to adapter-core — recorded by the stub. */
 const adapterOptions = vi.hoisted((): { last: unknown } => ({ last: undefined }));
+/** The instance data folder the stub hands out — a fresh temporary folder per test (audit R-24). */
+const dataDir = vi.hoisted((): { current: string } => ({ current: "" }));
 
 // Stub the adapter-core base so HueEmu can be instantiated without the
 // ioBroker runtime.
@@ -33,6 +35,8 @@ vi.mock("@iobroker/adapter-core", () => {
     public getDevicesAsync = vi.fn(() => Promise.resolve([]));
     public getStatesOfAsync = vi.fn(() => Promise.resolve([]));
     public getStatesAsync = vi.fn(() => Promise.resolve({}));
+    public getForeignStatesAsync = vi.fn((): Promise<unknown> => Promise.resolve({}));
+    public delForeignObjectAsync = vi.fn(async () => {});
     public extendForeignObjectAsync = vi.fn(async () => {});
     public getForeignObjectAsync = vi.fn((): Promise<unknown> => Promise.resolve(null));
     public getForeignObjectsAsync = vi.fn((): Promise<unknown> => Promise.resolve({}));
@@ -47,12 +51,14 @@ vi.mock("@iobroker/adapter-core", () => {
     // js-controller's own form is `$/aes-192-cbc:<iv>:<ciphertext>` — the prefix is what
     // its start-up decryption keys on; anything without it is decrypted as garbage.
     public encrypt = vi.fn((v: string) => `$/aes-192-cbc:ENC(${v})`);
+    public decrypt = vi.fn((v: string) => v.replace(/^\$\/aes-192-cbc:ENC\(([\s\S]*)\)$/, "$1"));
     constructor(opts: unknown) {
       adapterOptions.last = opts;
     }
   }
   return {
     Adapter,
+    getAbsoluteInstanceDataDir: () => dataDir.current,
     I18n: {
       init: vi.fn(async () => {}),
       getTranslatedObject: (k: string) => ({ en: k }),
@@ -110,6 +116,7 @@ vi.mock("node:tls", async importOriginal => {
 
 import { I18n } from "@iobroker/adapter-core";
 import * as mainModule from "./main";
+import { mergedWith } from "./lib/known-objects";
 
 // main.ts exports the factory with the class riding along (no `export class`, so esbuild builds it as CommonJS).
 /** The public face of the adapter the tests read: the base adapter plus its two getters. */
@@ -131,6 +138,8 @@ interface FakeSsdp {
 
 interface FakeApiHandler {
   initialize: ReturnType<typeof vi.fn>;
+  replaceDevices: ReturnType<typeof vi.fn>;
+  reachability: ReturnType<typeof vi.fn>;
   onStateChange: ReturnType<typeof vi.fn>;
   forgetClient: ReturnType<typeof vi.fn>;
   forgetState: ReturnType<typeof vi.fn>;
@@ -172,21 +181,24 @@ function internalOf(adapter: HueEmu): {
   pairingTimeoutId: unknown;
   _pairingEnabled: boolean;
   _disableAuth: boolean;
-  nativePersistPending: boolean;
+  identity: { udn: string; tlsCert?: string; tlsKey?: string };
+  loadIdentity: () => boolean;
+  decrypt: ReturnType<typeof vi.fn>;
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
   getForeignObjectAsync: ReturnType<typeof vi.fn>;
   getForeignObjectsAsync: ReturnType<typeof vi.fn>;
   onStateChange: (id: string, state: ioBroker.State | null | undefined) => void;
-  buildConfig: () => Promise<{
+  buildConfig: () => {
     bind: string;
     port: number;
     advertiseHost: string;
     identity: { udn: string; mac: string };
     https?: { cert: string; key: string };
-  }>;
-  migrateLegacyDevices: () => Promise<boolean>;
-  migrateUserToClients: () => Promise<void>;
+  };
+  delForeignObjectAsync: ReturnType<typeof vi.fn>;
+  getForeignStatesAsync: ReturnType<typeof vi.fn>;
+  prepareClients: () => Promise<{ keyOf: (n: number) => string | undefined }>;
 } {
   return adapter as unknown as ReturnType<typeof internalOf>;
 }
@@ -230,6 +242,8 @@ function setup(configOverrides: Record<string, unknown> = {}): {
   internal.makeApiHandler = options => {
     const h: FakeApiHandler = {
       initialize: vi.fn(async () => {}),
+      replaceDevices: vi.fn(async () => {}),
+      reachability: vi.fn(() => []),
       onStateChange: vi.fn(),
       forgetState: vi.fn(),
       forgetClient: vi.fn(),
@@ -253,7 +267,99 @@ beforeEach(() => {
   forgeControl.notAfter = new Date("2090-01-01T00:00:00Z");
   forgeControl.parseThrows = false;
   osMock.interfaces = structuredClone(HOST_INTERFACES);
+  dataDir.current = mkdtempSync(join(os.tmpdir(), "hueemu-data-"));
 });
+
+afterEach(() => {
+  rmSync(dataDir.current, { recursive: true, force: true });
+});
+
+/** What the identity file in this test's data folder holds (audit R-24). */
+function storedIdentity(): Record<string, unknown> {
+  return JSON.parse(readFileSync(join(dataDir.current, "identity.json"), "utf8")) as Record<string, unknown>;
+}
+
+/**
+ * Load the identity, then build the configuration — the order onReady runs them in.
+ *
+ * @param adapter the adapter under test
+ */
+function configOf(adapter: HueEmu): ReturnType<ReturnType<typeof internalOf>["buildConfig"]> {
+  const i = internalOf(adapter);
+  i.loadIdentity();
+  return i.buildConfig();
+}
+
+/**
+ * An in-memory object database behind the stub's object calls — what the light store reads and writes (audit R-24).
+ * `system.adapter.hueemu.0` answers with the given native; a write to it is only recorded (the spy keeps the call).
+ *
+ * @param adapter the adapter under test
+ * @param seed the objects there before the start (full id → object)
+ * @param native what the instance object's native holds
+ * @returns the database
+ */
+function objectDb(
+  adapter: HueEmu,
+  seed: Record<string, unknown> = {},
+  native: Record<string, unknown> | undefined = undefined,
+): Map<string, Record<string, unknown>> {
+  const i = internalOf(adapter);
+  const db = new Map(Object.entries(structuredClone(seed)) as Array<[string, Record<string, unknown>]>);
+  const own = "system.adapter.hueemu.0";
+  i.getObjectListAsync.mockImplementation((q: { startkey: string; endkey: string }) =>
+    Promise.resolve({
+      rows: [...db]
+        .filter(([id]) => id >= q.startkey && id <= q.endkey)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, value]) => ({ id, value: structuredClone(value) })),
+    }),
+  );
+  i.setForeignObject.mockImplementation((id: string, obj: Record<string, unknown>) => {
+    db.set(id, structuredClone(obj));
+    return Promise.resolve({ id });
+  });
+  i.extendForeignObjectAsync.mockImplementation((id: string, patch: unknown) => {
+    if (id !== own) {
+      db.set(id, mergedWith(db.get(id), patch) as Record<string, unknown>);
+    }
+    return Promise.resolve();
+  });
+  i.getForeignObjectAsync.mockImplementation((id: string) =>
+    Promise.resolve(
+      id === own ? (native ? structuredClone({ native, common: {} }) : null) : structuredClone(db.get(id) ?? null),
+    ),
+  );
+  i.delForeignObjectAsync.mockImplementation((id: string, opts?: { recursive?: boolean }) => {
+    for (const key of [...db.keys()]) {
+      if (key === id || (opts?.recursive && key.startsWith(`${id}.`))) {
+        db.delete(key);
+      }
+    }
+    return Promise.resolve();
+  });
+  return db;
+}
+
+/**
+ * A light's device object as an earlier start left it — name and settings, nothing else.
+ *
+ * @param name its name
+ * @param native its settings
+ */
+function lightDevice(name: string, native: Record<string, unknown>): Record<string, unknown> {
+  return { type: "device", common: { name: { en: name } }, native };
+}
+
+/** What the number mark file in this test's data folder holds (audit R-24). */
+function storedMark(): unknown {
+  try {
+    return (JSON.parse(readFileSync(join(dataDir.current, "light-ids.json"), "utf8")) as { lastLightId?: unknown })
+      .lastLightId;
+  } catch {
+    return undefined;
+  }
+}
 
 const PERSISTED_CERT = "-----BEGIN CERTIFICATE-----\nPERSISTED\n-----END CERTIFICATE-----";
 const PERSISTED_KEY = "-----BEGIN RSA PRIVATE KEY-----\nPERSISTED\n-----END RSA PRIVATE KEY-----";
@@ -327,44 +433,77 @@ describe("HueEmu network address (fleet master network-address.ts)", () => {
 });
 
 describe("HueEmu buildConfig", () => {
-  it("resolves bind/ports and derives the bridge identity from UDN/MAC", async () => {
+  it("resolves bind/ports and derives the bridge identity from UDN/MAC", () => {
     const { adapter } = setup();
-    const config = await internalOf(adapter).buildConfig();
+    const config = configOf(adapter);
     expect(config.bind).toBe("192.168.1.10");
     expect(config.port).toBe(8080);
     expect(config.identity.udn).toBe("12345678-1234-1234-1234-123456789abc");
     expect(config.identity.mac).toBe("AA:BB:CC:DD:EE:FF");
   });
 
-  it("generates and persists UDN/MAC when not configured (stable identity)", async () => {
+  // Audit R-24: the identity lives in the instance data folder — native is never written for it,
+  // and an empty MAC is derived from the UDN on every start.
+  it("creates and stores a UDN in the data folder when there is none, and writes nothing to native", () => {
     const { adapter } = setup({ udn: "", mac: "" });
     const i = internalOf(adapter);
-    const config = await i.buildConfig();
+    expect(i.loadIdentity()).toBe(true);
+    const config = i.buildConfig();
     expect(config.identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
     expect(config.identity.mac).toMatch(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i);
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({ native: expect.objectContaining({ udn: config.identity.udn }) }),
+    expect(storedIdentity()).toEqual({ udn: config.identity.udn });
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
+  });
+
+  it("keeps the derived MAC the same across starts — it follows the stored UDN", () => {
+    const first = configOf(setup({ udn: "", mac: "" }).adapter);
+    const second = configOf(setup({ udn: "", mac: "" }).adapter);
+    expect(second.identity.udn).toBe(first.identity.udn);
+    expect(second.identity.mac).toBe(first.identity.mac);
+  });
+
+  it("takes the stored identity over a UDN left in native", () => {
+    writeFileSync(
+      join(dataDir.current, "identity.json"),
+      JSON.stringify({ udn: "aaaaaaaa-0000-0000-0000-000000000001" }),
     );
+    const { adapter } = setup();
+    expect(configOf(adapter).identity.udn).toBe("aaaaaaaa-0000-0000-0000-000000000001");
   });
 
   // Audit R-05: a hand-edited instance object can carry a number or null in
   // native.udn / native.mac — `.trim()` on it threw and the adapter never started.
-  it("treats a non-text UDN/MAC as missing and generates a fresh identity", async () => {
+  it("treats a non-text UDN/MAC as missing and creates a fresh identity", () => {
     const { adapter } = setup({ udn: 12345 as unknown as string, mac: null as unknown as string });
-    const i = internalOf(adapter);
-    const config = await i.buildConfig();
+    const config = configOf(adapter);
     expect(config.identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
     expect(config.identity.mac).toMatch(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i);
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({
-        native: expect.objectContaining({ udn: config.identity.udn, mac: config.identity.mac }),
-      }),
-    );
+    expect(storedIdentity()).toEqual({ udn: config.identity.udn });
   });
 
-  it("treats a blank bind as listen-all and announces the routable interface, not loopback", async () => {
+  it("warns about an unusable identity file and takes the identity from native", () => {
+    writeFileSync(join(dataDir.current, "identity.json"), "{ not json");
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    expect(configOf(adapter).identity.udn).toBe("12345678-1234-1234-1234-123456789abc");
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("cannot be used"));
+    expect(storedIdentity()).toEqual({ udn: "12345678-1234-1234-1234-123456789abc" });
+  });
+
+  it("serves with the identity it holds when the file cannot be written, and keeps native", () => {
+    // A file where the data folder should be — the folder cannot be created.
+    const blocker = join(dataDir.current, "blocker");
+    writeFileSync(blocker, "");
+    dataDir.current = join(blocker, "hueemu.0");
+    const { adapter } = setup({ udn: "", mac: "" });
+    const i = internalOf(adapter);
+    expect(i.loadIdentity()).toBe(false);
+    expect(i.buildConfig().identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
+    dataDir.current = join(blocker, "..");
+  });
+
+  it("treats a blank bind as listen-all and announces the routable interface, not loopback", () => {
     osMock.interfaces = {
       lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
       eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
@@ -372,7 +511,7 @@ describe("HueEmu buildConfig", () => {
     try {
       const { adapter } = setup({ bind: "  " });
       const i = internalOf(adapter);
-      const config = await i.buildConfig();
+      const config = configOf(adapter);
       expect(config.bind).toBe("0.0.0.0");
       expect(config.advertiseHost).toBe("192.168.1.20");
       expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Announcing 192.168.1.20 (interface eth0)"));
@@ -383,95 +522,110 @@ describe("HueEmu buildConfig", () => {
 
   // v1.19.0: the pre-1.12 advertiseHost is migrated into bind (or dropped) before
   // buildConfig runs — a leftover value is no longer read.
-  it("ignores a leftover advertiseHost and announces the detected address", async () => {
+  it("ignores a leftover advertiseHost and announces the detected address", () => {
     osMock.interfaces = { eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }] };
     try {
       const { adapter } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
-      const config = await internalOf(adapter).buildConfig();
+      const config = configOf(adapter);
       expect(config.advertiseHost).toBe("192.168.1.20");
     } finally {
       osMock.interfaces = null;
     }
   });
 
-  it("advertises a concrete bind address the host carries", async () => {
+  it("advertises a concrete bind address the host carries", () => {
     osMock.interfaces = {
       ...structuredClone(HOST_INTERFACES),
       eth1: [{ family: "IPv4", address: "192.168.5.5", internal: false, cidr: "192.168.5.5/24" }],
     };
     const { adapter } = setup({ bind: "192.168.5.5" });
-    const config = await internalOf(adapter).buildConfig();
+    const config = configOf(adapter);
     expect(config.bind).toBe("192.168.5.5");
     expect(config.advertiseHost).toBe("192.168.5.5");
   });
 
-  it("throws when the HTTPS port equals the HTTP port", async () => {
+  it("throws when the HTTPS port equals the HTTP port", () => {
     const { adapter } = setup({ httpsPort: 8080 });
-    await expect(internalOf(adapter).buildConfig()).rejects.toThrow(/equals HTTP port/);
+    expect(() => configOf(adapter)).toThrow(/equals HTTP port/);
   });
 
-  it("throws when the port is missing entirely", async () => {
+  it("throws when the port is missing entirely", () => {
     const { adapter } = setup({ port: undefined });
-    await expect(internalOf(adapter).buildConfig()).rejects.toThrow(/Port not specified/);
+    expect(() => configOf(adapter)).toThrow(/Port not specified/);
   });
 
-  it("builds the https block from persisted TLS material when httpsPort is set", async () => {
-    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
+  // Audit R-24: a v1.19.0 installation stored the key encrypted in native; after the update
+  // js-controller no longer decrypts it (encryptedNative follows the manifest), so it arrives
+  // encrypted and is taken over as it is.
+  it("takes over the certificate and the still encrypted key of v1.19.0 and serves with them", () => {
+    const { adapter } = setup({
+      httpsPort: 8443,
+      tlsCert: PERSISTED_CERT,
+      tlsKey: `$/aes-192-cbc:ENC(${PERSISTED_KEY})`,
+    });
     const i = internalOf(adapter);
-    const config = await i.buildConfig();
+    const config = configOf(adapter);
     expect(config.https).toEqual({ port: 8443, cert: PERSISTED_CERT, key: PERSISTED_KEY });
+    expect(storedIdentity()).toEqual({
+      udn: "12345678-1234-1234-1234-123456789abc",
+      tlsCert: PERSISTED_CERT,
+      tlsKey: `$/aes-192-cbc:ENC(${PERSISTED_KEY})`,
+    });
     expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
   });
 
-  // v1.18.0 (audit 2026-09-15 B4): the identity and the certificate used to be
-  // two writes on a first HTTPS start — the second one for a process the first
-  // had already committed to restarting.
-  it("stores a generated identity AND a generated certificate in one write", async () => {
-    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443, tlsCert: "", tlsKey: "" });
+  it("takes over a plain-text key of v1.18.0 and earlier and stores it encrypted", () => {
+    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
+    expect(configOf(adapter).https?.key).toBe(PERSISTED_KEY);
+    expect(storedIdentity().tlsKey).toBe(`$/aes-192-cbc:ENC(${PERSISTED_KEY})`);
+  });
+
+  it("stores a generated certificate in the data folder with the key encrypted, and nothing in native", () => {
+    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443 });
     const i = internalOf(adapter);
-    const config = await i.buildConfig();
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledTimes(1);
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
-      native: {
-        udn: config.identity.udn,
-        mac: config.identity.mac,
-        tlsCert: expect.stringContaining("GENERATED"),
-        // v1.19.0 (audit 2026-09-25 K1): stored encrypted — tlsKey is in encryptedNative.
-        tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
-      },
+    const config = configOf(adapter);
+    expect(storedIdentity()).toEqual({
+      udn: config.identity.udn,
+      tlsCert: expect.stringContaining("GENERATED"),
+      tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
     });
     // …while this run serves with the plaintext key.
     expect(config.https?.key).toContain("GENERATED");
     expect(config.https?.key).not.toContain("aes-192-cbc");
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("persisted self-signed TLS certificate"));
-    expect(i.nativePersistPending).toBe(true);
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("stored self-signed TLS certificate"));
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
   });
 
-  it("regenerates an expired certificate and stores only that", async () => {
+  it("reuses the stored certificate on the next start", () => {
+    configOf(setup({ udn: "", mac: "", httpsPort: 8443 }).adapter);
+    const stored = storedIdentity();
+    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443 });
+    const i = internalOf(adapter);
+    expect(configOf(adapter).https?.cert).toBe(stored.tlsCert);
+    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("stored self-signed TLS certificate"));
+  });
+
+  it("regenerates an expired certificate and stores only that", () => {
     forgeControl.notAfter = new Date("2020-01-01T00:00:00Z");
     const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
     const i = internalOf(adapter);
-    const config = await i.buildConfig();
+    const config = configOf(adapter);
     expect(config.https?.cert).toContain("GENERATED");
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("expired"));
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
-      native: {
-        tlsCert: expect.stringContaining("GENERATED"),
-        tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
-      },
+    expect(storedIdentity()).toEqual({
+      udn: "12345678-1234-1234-1234-123456789abc",
+      tlsCert: expect.stringContaining("GENERATED"),
+      tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
     });
   });
 
-  // N1: the identity write had no fence — an objects-db hiccup on the very first
-  // start took the whole start down although the generated values serve fine.
-  it("serves with the generated values and does not restart when the write fails", async () => {
-    const { adapter } = setup({ udn: "", mac: "" });
+  it("regenerates the pair when the stored key cannot be decrypted", () => {
+    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: "$/aes-192-cbc:broken" });
     const i = internalOf(adapter);
-    i.extendForeignObjectAsync.mockRejectedValueOnce(new Error("db readonly"));
-    const config = await i.buildConfig();
-    expect(config.identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(i.nativePersistPending).toBe(false);
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
+    i.decrypt.mockImplementation(() => {
+      throw new Error("bad decrypt");
+    });
+    expect(configOf(adapter).https?.cert).toContain("GENERATED");
   });
 });
 
@@ -582,9 +736,11 @@ describe("HueEmu onReady", () => {
     expect(i.clearInterval).toHaveBeenCalledWith(i.setInterval.mock.results[0].value);
   });
 
-  it("short-circuits after a legacy-device migration (adapter restarts on config write)", async () => {
-    const { adapter, servers } = setup({ devices: [] });
+  // Audit R-24: a converted legacy light is a light object — served on the same start, no restart.
+  it("serves a converted legacy light as light 1 on the same start", async () => {
+    const { adapter, servers, handlers } = setup();
     const i = internalOf(adapter);
+    const db = objectDb(adapter);
     // One legacy device object with an `on` state child.
     i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.legacylight", common: { name: "Old Lamp" } }]);
     // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
@@ -594,41 +750,75 @@ describe("HueEmu onReady", () => {
     i.getStatesOfAsync.mockResolvedValue([{ _id: "hueemu.0.legacylight.state.on" }]);
     await i.onReady();
 
-    // Migration persisted the device config…
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({
-        native: expect.objectContaining({
-          devices: [
-            expect.objectContaining({ name: "Old Lamp", lightType: "onoff", onState: "hueemu.0.legacylight.state.on" }),
-          ],
-        }),
-      }),
-    );
-    // …and the boot stopped before any server was constructed.
-    expect(servers).toHaveLength(0);
+    expect(db.get("hueemu.0.lights.1")).toMatchObject({
+      type: "device",
+      native: { lightType: "onoff", onState: "hueemu.0.legacylight.state.on" },
+    });
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith("system.adapter.hueemu.0", expect.anything());
+    expect(servers).toHaveLength(1);
+    expect((handlers[0].options as { devices: unknown[] }).devices).toEqual([
+      expect.objectContaining({ id: 1, name: "Old Lamp", onState: "hueemu.0.legacylight.state.on" }),
+    ]);
   });
 
-  it("short-circuits onReady after persisting a generated identity (restart imminent)", async () => {
+  // Audit R-24: a first start no longer restarts — the identity goes to the data folder.
+  it("serves on a first start right away — the identity goes to the file, native is not written", async () => {
     const { adapter, servers } = setup({ udn: "", mac: "" });
     const i = internalOf(adapter);
     await i.onReady();
-    // Identity was generated + persisted…
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({ native: expect.objectContaining({ udn: expect.any(String) }) }),
+    expect(servers).toHaveLength(1);
+    expect(storedIdentity().udn).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
+  });
+
+  it("drops the old identity from native once the file holds it, and stops for the restart", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      udn: "12345678-1234-1234-1234-123456789abc",
+      mac: "AA:BB:CC:DD:EE:FF",
+      tlsCert: PERSISTED_CERT,
+      tlsKey: PERSISTED_KEY,
+    };
+    const { adapter, servers } = setup(native);
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "system.adapter.hueemu.0" ? structuredClone({ native, common: {} }) : null),
     );
-    // …and no server was built — the native write restarts the instance, which
-    // re-runs onReady with the stored identity.
+    await i.onReady();
+    expect(storedIdentity().udn).toBe("12345678-1234-1234-1234-123456789abc");
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      native: { udn: null, tlsCert: null, tlsKey: null },
+    });
     expect(servers).toHaveLength(0);
+  });
+
+  it("keeps the old identity in native while the file cannot be written", async () => {
+    const blocker = join(dataDir.current, "blocker");
+    writeFileSync(blocker, "");
+    dataDir.current = join(blocker, "hueemu.0");
+    const native = { bind: "192.168.1.10", port: 8080, udn: "12345678-1234-1234-1234-123456789abc", mac: "" };
+    const { adapter, servers } = setup(native);
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "system.adapter.hueemu.0" ? structuredClone({ native, common: {} }) : null),
+    );
+    await i.onReady();
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
+    expect(servers).toHaveLength(1);
+    dataDir.current = join(blocker, "..");
   });
 
   it("keeps booting when the cleanup of earlier-version objects fails (state handling stays wired)", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
-    // A leftover "user" folder makes the cleanup run its migration — and the list query blows up.
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockRejectedValue(new Error("objects db timeout"));
+    // An object of an earlier version is there — and its delete blows up.
+    i.getObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "info.configuredDevices" ? { type: "state" } : null),
+    );
+    i.delObjectAsync.mockImplementation((id: string) =>
+      id === "info.configuredDevices" ? Promise.reject(new Error("objects db timeout")) : Promise.resolve(),
+    );
     await i.onReady();
     expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("Cleanup of objects from earlier versions failed"));
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
@@ -930,8 +1120,8 @@ describe("HueEmu onUnload", () => {
     const i = internalOf(adapter);
     const original = i.buildConfig.bind(adapter);
     const callback = vi.fn();
-    i.buildConfig = async () => {
-      const config = await original();
+    i.buildConfig = () => {
+      const config = original();
       i.onUnload(callback);
       return config;
     };
@@ -994,8 +1184,8 @@ describe("HueEmu onUnload", () => {
     const i = internalOf(adapter);
     const callback = vi.fn();
     i.getObjectAsync.mockImplementation((id: string) => {
-      // The last read of the start: the check for the pre-1.2 "user" folder.
-      if (id === "user") {
+      // The last read of the start: the cleanup's check for the last obsolete id.
+      if (id === "createLight") {
         i.onUnload(callback);
       }
       return Promise.resolve(null);
@@ -1038,17 +1228,6 @@ describe("HueEmu onUnload", () => {
     };
     await i.onReady();
     await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
-    expect(servers).toHaveLength(0);
-  });
-
-  it("stops the start when the light numbering wrote the configuration", async () => {
-    const { adapter, servers } = setup({ devices: [{ name: "Unnumbered", lightType: "onoff", onState: "x.on" }] });
-    const i = internalOf(adapter);
-    await i.onReady();
-    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({ native: { devices: [expect.objectContaining({ id: 1 })] } }),
-    );
     expect(servers).toHaveLength(0);
   });
 
@@ -1235,337 +1414,599 @@ describe("HueEmu onUnload", () => {
   });
 });
 
-describe("HueEmu migrateUserToClients (v1.2.0 rename)", () => {
-  it("moves user.* states to clients.* (sanitized) and removes the old folder", async () => {
-    const { adapter } = setup();
+// The client keys left the object tree (Werkbank standard of round 173, point 4 and its addendum): clients.json in the
+// instance data folder holds them, the objects are `clients.<n>`. The move itself is proven in client-move.test.ts —
+// here, where onReady runs it and what it hands on.
+describe("HueEmu prepareClients (client keys in the data folder)", () => {
+  /** A client object as v1.19.0 stored it. */
+  const legacyRow = {
+    id: "hueemu.0.clients.echo-key",
+    value: { type: "state", common: { name: "Echo", type: "string", role: "text" }, native: { username: "echo-key" } },
+  };
+
+  /** What clients.json in this test's data folder holds. */
+  function storedClients(): Record<string, unknown> {
+    return JSON.parse(readFileSync(join(dataDir.current, "clients.json"), "utf8")) as Record<string, unknown>;
+  }
+
+  it("moves a client of an earlier version before the own objects are refreshed and the bridge serves", async () => {
+    const { adapter, servers } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [
-        {
-          id: "hueemu.0.user.alexa.echo",
-          value: { common: { name: "Echo", type: "string", role: "text", read: true, write: false }, native: {} },
-        },
-      ],
-    });
-    i.getStateAsync.mockResolvedValue({ val: "alexa.echo", ack: true });
-
-    await i.migrateUserToClients();
-
-    expect(i.setObjectNotExistsAsync).toHaveBeenCalledWith("clients.alexa_echo", expect.anything());
-    expect(i.setState).toHaveBeenCalledWith("clients.alexa_echo", { val: "alexa.echo", ack: true });
-    expect(i.delObjectAsync).toHaveBeenCalledWith("user.alexa.echo");
-    expect(i.delObjectAsync).toHaveBeenCalledWith("user");
+    i.getObjectListAsync.mockImplementation((q: { startkey: string }) =>
+      Promise.resolve({ rows: q.startkey === "hueemu.0.clients." ? [legacyRow] : [] }),
+    );
+    await i.onReady();
+    expect(storedClients()).toEqual({ lastClientId: 1, clients: { 1: "echo-key" } });
+    expect(i.setObjectNotExistsAsync).toHaveBeenCalledWith("clients.1", expect.objectContaining({ native: {} }));
+    expect(i.delObjectAsync).toHaveBeenCalledWith("clients.echo-key");
+    const deleted =
+      i.delObjectAsync.mock.invocationCallOrder[
+        i.delObjectAsync.mock.calls.findIndex(c => c[0] === "clients.echo-key")
+      ];
+    const refreshed =
+      i.extendObject.mock.invocationCallOrder[i.extendObject.mock.calls.findIndex(c => c[0] === "clients")];
+    expect(deleted).toBeLessThan(refreshed);
+    expect(deleted).toBeLessThan(servers[0].start.mock.invocationCallOrder[0]);
+    // …and before anything listens to the client objects: the move's delete must revoke nobody.
+    expect(deleted).toBeLessThan(i.subscribeObjects.mock.invocationCallOrder[0]);
   });
 
-  // Audit R-07: the pairing time is the client state's `lc` — the move hands the
-  // old one over, or every migrated client would show the migration as its pairing.
-  it("carries the pairing time (the old state's last change) to the moved client", async () => {
-    const { adapter } = setup();
+  it("hands the loaded client keys to the handler", async () => {
+    const { adapter, handlers } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [
-        {
-          id: "hueemu.0.user.echo",
-          value: { common: { name: "Echo", type: "string", role: "text", read: true, write: false }, native: {} },
-        },
-      ],
-    });
-    i.getStateAsync.mockResolvedValue({ val: "echo", ack: true, ts: 1_800_000_000_000, lc: 1_600_000_000_000 });
-
-    await i.migrateUserToClients();
-
-    expect(i.setState).toHaveBeenCalledWith("clients.echo", { val: "echo", ack: true, lc: 1_600_000_000_000 });
+    i.getObjectListAsync.mockImplementation((q: { startkey: string }) =>
+      Promise.resolve({ rows: q.startkey === "hueemu.0.clients." ? [legacyRow] : [] }),
+    );
+    await i.onReady();
+    const options = handlers[0].options as { clients: { keyOf: (n: number) => string | undefined } };
+    expect(options.clients.keyOf(1)).toBe("echo-key");
   });
 
-  // v1.19.0: the move carries the client's room and function assignments — read
-  // first, delete second, write last (enum-carry.ts).
-  it("carries the room assignment of a moved client after deleting the old object", async () => {
-    const { adapter } = setup();
+  it("keeps starting, and warns, when the clients cannot be moved", async () => {
+    const { adapter, servers } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [{ id: "hueemu.0.user.echo", value: { common: { name: "Echo", type: "string", role: "text" } } }],
-    });
-    const room = { type: "enum", common: { name: "Living", members: ["hueemu.0.user.echo", "zigbee.0.lamp"] } };
-    i.getForeignObjectsAsync.mockImplementation(() => Promise.resolve(structuredClone({ "enum.rooms.living": room })));
-    i.getForeignObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(id === "enum.rooms.living" ? structuredClone(room) : null),
+    i.getObjectListAsync.mockImplementation((q: { startkey: string }) =>
+      q.startkey === "hueemu.0.clients."
+        ? Promise.reject(new Error("objects db timeout"))
+        : Promise.resolve({ rows: [] }),
     );
-
-    await i.migrateUserToClients();
-
-    expect(i.setForeignObject).toHaveBeenCalledWith(
-      "enum.rooms.living",
-      expect.objectContaining({
-        common: expect.objectContaining({ members: ["zigbee.0.lamp", "hueemu.0.clients.echo"] }),
-      }),
+    await i.onReady();
+    expect(i.log.warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "could not be brought to the current form — the next start tries again: objects db timeout",
+      ),
     );
-    const deleted = i.delObjectAsync.mock.invocationCallOrder[0];
-    expect(deleted).toBeLessThan(i.setForeignObject.mock.invocationCallOrder[0]);
+    expect(servers).toHaveLength(1);
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Hue Emulator running"));
   });
 
-  // The enum-carry master reads the enums once, deletes once and writes each enum once
-  // with all its new ids — a loop around moveWithEnums read and wrote per client.
-  it("writes a room that holds two moved clients once, with both new ids", async () => {
-    const { adapter } = setup();
+  it("warns about a clients.json it cannot use, keeps it, and serves", async () => {
+    writeFileSync(join(dataDir.current, "clients.json"), "{ broken");
+    const { adapter, servers } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [
-        { id: "hueemu.0.user.echo", value: { common: { name: "Echo", type: "string", role: "text" } } },
-        { id: "hueemu.0.user.harmony", value: { common: { name: "Harmony", type: "string", role: "text" } } },
-      ],
-    });
-    const room = {
-      type: "enum",
-      common: { name: "Living", members: ["hueemu.0.user.echo", "zigbee.0.lamp", "hueemu.0.user.harmony"] },
-    };
-    i.getForeignObjectsAsync.mockImplementation(() => Promise.resolve(structuredClone({ "enum.rooms.living": room })));
-    i.getForeignObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(id === "enum.rooms.living" ? structuredClone(room) : null),
+    await i.onReady();
+    expect(i.log.warn).toHaveBeenCalledWith(
+      expect.stringMatching(/clients\.json cannot be used \(no JSON: .*\) — paired clients must pair again/),
     );
-
-    await i.migrateUserToClients();
-
-    expect(i.getForeignObjectsAsync).toHaveBeenCalledTimes(1);
-    const writes = i.setForeignObject.mock.calls.filter((c: unknown[]) => c[0] === "enum.rooms.living");
-    expect(writes).toHaveLength(1);
-    expect((writes[0][1] as { common: { members: string[] } }).common.members).toEqual([
-      "zigbee.0.lamp",
-      "hueemu.0.clients.echo",
-      "hueemu.0.clients.harmony",
-    ]);
-    // Every old id and the folder go before the first enum write — the folder last.
-    const deletes = i.delObjectAsync.mock.calls.map((c: unknown[]) => c[0]);
-    expect(deletes).toEqual(["user.echo", "user.harmony", "user"]);
-    expect(Math.max(...i.delObjectAsync.mock.invocationCallOrder)).toBeLessThan(
-      i.setForeignObject.mock.invocationCallOrder[0],
-    );
+    expect(readFileSync(join(dataDir.current, "clients.json"), "utf8")).toBe("{ broken");
+    expect(servers).toHaveLength(1);
   });
 
-  it("is a no-op when no user folder exists", async () => {
+  it("starts quietly on an installation without paired clients", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
-    await i.migrateUserToClients();
+    await i.onReady();
+    expect(i.log.warn).not.toHaveBeenCalled();
     expect(i.delObjectAsync).not.toHaveBeenCalled();
-  });
-
-  // Audit 2026-09-25 Q34: a legacy client without native and without a value.
-  it("moves a client whose legacy object has no native and whose state is empty", async () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [{ id: "hueemu.0.user.bare", value: { common: { name: { en: "Bare" }, type: "string", role: "text" } } }],
-    });
-    i.getStateAsync.mockResolvedValue(null);
-
-    await i.migrateUserToClients();
-
-    const created = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients.bare");
-    expect((created?.[1] as { native: object }).native).toEqual({});
-    // A translation-object name is kept as it is.
-    expect((created?.[1] as { common: { name: unknown } }).common.name).toEqual({ en: "Bare" });
-    expect(i.setState).not.toHaveBeenCalledWith("clients.bare", expect.anything());
-    expect(i.delObjectAsync).toHaveBeenCalledWith("user");
-  });
-
-  it("lifts the migrated client to the current name/description standard right away", async () => {
-    // This migration runs LATE in onReady, the client refresh runs early — so a
-    // migrated object would otherwise carry its bare legacy name until the NEXT
-    // start. One restart of nothing but wrong text in the tree.
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [
-        {
-          id: "hueemu.0.user.old.echo",
-          value: { common: { name: "Echo", type: "string", role: "text", read: true, write: false }, native: {} },
-        },
-      ],
-    });
-    i.getStateAsync.mockResolvedValue({ val: "old.echo", ack: true });
-
-    await i.migrateUserToClients();
-
-    const [, obj] = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients.old_echo") as [
-      string,
-      ioBroker.SettableObject,
-    ];
-    expect((obj.common?.name as Record<string, string>).de).toBe("Echo");
-    expect(Object.keys(obj.common?.name as object)).toHaveLength(11);
-    expect(obj.common?.desc).toEqual({ en: "clientDesc" });
-    // The rest of the legacy common survives.
-    expect(obj.common).toMatchObject({ type: "string", role: "text", read: true, write: false });
-  });
-
-  it("keeps a legacy name that is already a translation object", async () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [
-        {
-          id: "hueemu.0.user.done",
-          value: { common: { name: { en: "Echo", de: "Echo" }, type: "string", role: "text" }, native: {} },
-        },
-      ],
-    });
-    i.getStateAsync.mockResolvedValue({ val: "done", ack: true });
-
-    await i.migrateUserToClients();
-
-    const [, obj] = i.setObjectNotExistsAsync.mock.calls.find(c => c[0] === "clients.done") as [
-      string,
-      ioBroker.SettableObject,
-    ];
-    expect(obj.common?.name).toEqual({ en: "Echo", de: "Echo" });
-  });
-
-  it("leaves the clients folder to the manifest on this path too", async () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) => Promise.resolve(id === "user" ? { type: "meta" } : null));
-    i.getObjectListAsync.mockResolvedValue({
-      rows: [{ id: "hueemu.0.user.x", value: { common: { name: "X", type: "string", role: "text" }, native: {} } }],
-    });
-    i.getStateAsync.mockResolvedValue({ val: "x", ack: true });
-
-    await i.migrateUserToClients();
-
-    expect(i.setObjectNotExistsAsync.mock.calls.some((c: unknown[]) => c[0] === "clients")).toBe(false);
-    expect(i.setObjectNotExistsAsync.mock.calls.some((c: unknown[]) => c[0] === "clients.x")).toBe(true);
   });
 });
 
 describe("HueEmu migrateLegacyDevices", () => {
-  it("returns false when devices are already configured", async () => {
-    const { adapter } = setup({ devices: [{ name: "X", lightType: "onoff" }] });
-    expect(await internalOf(adapter).migrateLegacyDevices()).toBe(false);
-  });
-
-  it("returns false when there are no legacy device objects", async () => {
-    const { adapter } = setup();
-    expect(await internalOf(adapter).migrateLegacyDevices()).toBe(false);
-  });
-
-  it("maps legacy state children to the right light type and state ids", async () => {
+  /**
+   * A start on one legacy device of the given state leaves.
+   *
+   * @param leaves the state leaves below `<device>.state`
+   */
+  async function startOnLegacy(
+    leaves: string[],
+  ): Promise<{ i: ReturnType<typeof internalOf>; db: Map<string, Record<string, unknown>> }> {
     const { adapter } = setup();
     const i = internalOf(adapter);
+    const db = objectDb(adapter);
     i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.colorlamp", common: { name: "Color Lamp" } }]);
     // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
     i.getObjectAsync.mockImplementation((id: string) =>
       Promise.resolve(id === "colorlamp.name" ? { type: "state" } : null),
     );
-    i.getStatesOfAsync.mockResolvedValue([
-      { _id: "hueemu.0.colorlamp.state.on" },
-      { _id: "hueemu.0.colorlamp.state.bri" },
-      { _id: "hueemu.0.colorlamp.state.hue" },
-      { _id: "hueemu.0.colorlamp.state.sat" },
-    ]);
+    i.getStatesOfAsync.mockResolvedValue(leaves.map(leaf => ({ _id: `hueemu.0.colorlamp.state.${leaf}` })));
+    await i.onReady();
+    return { i, db };
+  }
 
-    expect(await i.migrateLegacyDevices()).toBe(true);
-    const persisted = i.extendForeignObjectAsync.mock.calls.at(-1)![1] as {
-      native: { devices: Array<Record<string, unknown>> };
-    };
-    const device = persisted.native.devices[0];
-    expect(device.lightType).toBe("color");
-    expect(device.onState).toBe("hueemu.0.colorlamp.state.on");
-    expect(device.hueState).toBe("hueemu.0.colorlamp.state.hue");
-    expect(device.xyState).toBeUndefined(); // xy not present in legacy states
+  it("skips when a light object exists — the device objects are not read on every start", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    objectDb(adapter, { "hueemu.0.lights.1": lightDevice("X", { lightType: "onoff", onState: "x.on" }) });
+    i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.colorlamp", common: { name: "Color Lamp" } }]);
+    await i.onReady();
+    expect(i.getDevicesAsync).not.toHaveBeenCalled();
+  });
+
+  it("creates nothing when there are no legacy device objects", async () => {
+    const { adapter } = setup();
+    const db = objectDb(adapter);
+    await internalOf(adapter).onReady();
+    expect([...db.keys()].filter(id => id.startsWith("hueemu.0.lights."))).toEqual([]);
+  });
+
+  it("maps legacy state children to the right light type and state ids", async () => {
+    const { db } = await startOnLegacy(["on", "bri", "hue", "sat"]);
+    const native = db.get("hueemu.0.lights.1")?.native as Record<string, unknown>;
+    expect(native.lightType).toBe("color");
+    expect(native.onState).toBe("hueemu.0.colorlamp.state.on");
+    expect(native.hueState).toBe("hueemu.0.colorlamp.state.hue");
+    expect(native.xyState).toBeUndefined(); // xy not present in legacy states
   });
 
   it("keeps the device + channel container objects, deleting only the obsolete .name/.data wrappers (L2)", async () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.legacylamp", common: { name: "Legacy" } }]);
-    // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
-    i.getObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(id === "legacylamp.name" ? { type: "state" } : null),
-    );
-    i.getStatesOfAsync.mockResolvedValue([{ _id: "hueemu.0.legacylamp.state.on" }]);
-
-    expect(await i.migrateLegacyDevices()).toBe(true);
-
+    const { i } = await startOnLegacy(["on"]);
     const deleted = i.delObjectAsync.mock.calls.map(c => c[0]);
     // Obsolete metadata wrappers are removed...
-    expect(deleted).toContain("legacylamp.name");
-    expect(deleted).toContain("legacylamp.data");
+    expect(deleted).toContain("colorlamp.name");
+    expect(deleted).toContain("colorlamp.data");
     // ...but the parents of the retained leaf states must NOT be orphaned.
-    expect(deleted).not.toContain("legacylamp.state");
-    expect(deleted).not.toContain("legacylamp");
+    expect(deleted).not.toContain("colorlamp.state");
+    expect(deleted).not.toContain("colorlamp");
   });
 });
 
-describe("HueEmu device numbering (v1.18.0)", () => {
-  // A light's Hue id and uniqueid were its position in native.devices — deleting
-  // one light re-identified every light behind it for Alexa (audit 2026-09-15 A4).
-  // The first start numbers the stored lights once; a native write restarts the
-  // instance, so the start stops exactly like the other migrations.
-  it("numbers the stored lights by position, writes once and stops the start", async () => {
-    const { adapter, servers, ssdps } = setup({
+describe("HueEmu light objects (audit R-24)", () => {
+  const ICON = expect.stringMatching(/^data:image\/svg\+xml;base64,/) as unknown;
+
+  // The first start of this version moves the settings' lights into light objects — an unnumbered list by position —
+  // and only then drops the two keys from native; that write restarts the instance, so the start stops there.
+  it("moves the settings' lights into light objects, then drops them from native and stops for the restart", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
       devices: [
         { name: "Kitchen", lightType: "onoff", onState: "k.on" },
         { name: "Hall", lightType: "dimmable", briState: "h.bri" },
       ],
-    });
+      lastLightId: 0,
+    };
+    const { adapter, servers } = setup(native);
     const i = internalOf(adapter);
+    const db = objectDb(adapter, {}, native);
 
     await i.onReady();
 
+    expect(db.get("hueemu.0.lights.1")).toEqual({
+      type: "device",
+      common: {
+        name: expect.objectContaining({ en: "Kitchen", de: "Kitchen" }) as unknown,
+        icon: ICON,
+        statusStates: { onlineId: "hueemu.0.lights.1.reachable" },
+      },
+      native: { lightType: "onoff", onState: "k.on" },
+    });
+    expect(db.get("hueemu.0.lights.2")).toMatchObject({ native: { lightType: "dimmable", briState: "h.bri" } });
+    expect(db.get("hueemu.0.lights.2.reachable")).toMatchObject({
+      type: "state",
+      common: { type: "boolean", role: "indicator.reachable", read: true, write: false, def: false },
+    });
+    expect(storedMark()).toBe(2);
     expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
-      native: {
-        devices: [
-          { id: 1, name: "Kitchen", lightType: "onoff", onState: "k.on" },
-          { id: 2, name: "Hall", lightType: "dimmable", briState: "h.bri" },
-        ],
+      native: { devices: null, lastLightId: null },
+    });
+    expect(servers).toHaveLength(0);
+  });
+
+  // Audit R-02: an entry without a number continues above the mark — it never gets a deleted light's number back.
+  it("numbers an entry without a number above the settings' mark", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      devices: [
+        { id: 1, name: "Kitchen", lightType: "onoff", onState: "k.on" },
+        { name: "Lost", lightType: "onoff", onState: "l.on" },
+      ],
+      lastLightId: 4,
+    };
+    const { adapter } = setup(native);
+    const db = objectDb(adapter, {}, native);
+    await internalOf(adapter).onReady();
+    expect(db.get("hueemu.0.lights.5")).toMatchObject({ native: { onState: "l.on" } });
+    expect(db.has("hueemu.0.lights.2")).toBe(false);
+    expect(storedMark()).toBe(5);
+  });
+
+  it("keeps a light object a cut-off move already wrote, and creates only the missing ones", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      devices: [
+        { id: 1, name: "Kitchen", lightType: "onoff", onState: "k.on" },
+        { id: 2, name: "Hall", lightType: "onoff", onState: "h.on" },
+      ],
+    };
+    const { adapter } = setup(native);
+    const i = internalOf(adapter);
+    const kept = lightDevice("Kitchen renamed", { lightType: "onoff", onState: "k2.on" });
+    const db = objectDb(adapter, { "hueemu.0.lights.1": kept }, native);
+    await i.onReady();
+    expect(i.setForeignObject.mock.calls.map(c => c[0])).not.toContain("hueemu.0.lights.1");
+    expect(db.get("hueemu.0.lights.2")).toMatchObject({ native: { onState: "h.on" } });
+  });
+
+  it("serves the settings' lights and keeps them in native when the light objects cannot be written", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      devices: [{ name: "Kitchen", lightType: "onoff", onState: "k.on" }],
+    };
+    const { adapter, servers, handlers } = setup(native);
+    const i = internalOf(adapter);
+    objectDb(adapter, {}, native);
+    i.setForeignObject.mockRejectedValue(new Error("objects db down"));
+    const make = (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler;
+    (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler = options => {
+      const h = make(options);
+      h.reachability.mockReturnValue([[1, true]]);
+      return h;
+    };
+
+    await i.onReady();
+
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be moved out of the instance settings"));
+    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith("system.adapter.hueemu.0", expect.anything());
+    expect(servers).toHaveLength(1);
+    expect((handlers[0].options as { devices: unknown[] }).devices).toEqual([
+      expect.objectContaining({ id: 1, name: "Kitchen", onState: "k.on" }),
+    ]);
+    // The served list stays this run: no live reload, and no reachability for objects that are not there.
+    expect(i.subscribeObjects).not.toHaveBeenCalledWith("lights.*");
+    expect(i.setState.mock.calls.map(c => String(c[0])).filter(id => id.includes("lights."))).toEqual([]);
+  });
+
+  // A run that could not read the tree for the move serves the settings' lights — a light the device manager adds
+  // meanwhile must not take one of their numbers (and with it a paired client's uniqueid).
+  it("covers the settings' light numbers with the mark when the move could not read the tree", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      devices: [
+        { id: 4, name: "Kitchen", lightType: "onoff", onState: "k.on" },
+        { name: "Hall", lightType: "onoff", onState: "h.on" },
+      ],
+    };
+    const { adapter, handlers } = setup(native);
+    const i = internalOf(adapter);
+    objectDb(adapter, {}, native);
+    i.getObjectListAsync.mockRejectedValueOnce(new Error("objects db busy"));
+
+    await i.onReady();
+
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be moved out of the instance settings"));
+    expect((handlers[0].options as { devices: Array<{ id: number }> }).devices.map(d => d.id)).toEqual([4, 5]);
+    expect(storedMark()).toBe(5);
+  });
+
+  // The settings' lights are served and their numbers are not in the tree: a legacy device converted in this run would
+  // be numbered past an empty tree — light 1, the number of the settings' light and of a paired client's uniqueid.
+  it("converts no legacy device while it serves the settings' lights", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      devices: [{ id: 1, name: "Kitchen", lightType: "onoff", onState: "k.on" }],
+    };
+    const { adapter } = setup(native);
+    const i = internalOf(adapter);
+    const db = objectDb(adapter, {}, native);
+    i.getObjectListAsync.mockRejectedValueOnce(new Error("objects db busy"));
+    i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.colorlamp", common: { name: "Color Lamp" } }]);
+
+    await i.onReady();
+
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be moved out of the instance settings"));
+    expect(i.getDevicesAsync).not.toHaveBeenCalled();
+    expect([...db.keys()].filter(id => id.startsWith("hueemu.0.lights."))).toEqual([]);
+  });
+
+  // A cut-off move left light 1 behind and light 2 cannot be written: the run serves the settings' lights, and the
+  // light objects get their form on the start that moves the rest.
+  it("brings no light object up to date in a run that serves the settings' lights", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      devices: [
+        { id: 1, name: "Kitchen", lightType: "onoff", onState: "k.on" },
+        { id: 2, name: "Hall", lightType: "onoff", onState: "h.on" },
+      ],
+    };
+    const { adapter } = setup(native);
+    const i = internalOf(adapter);
+    objectDb(adapter, { "hueemu.0.lights.1": lightDevice("Kitchen", { lightType: "onoff", onState: "k.on" }) }, native);
+    i.setForeignObject.mockRejectedValue(new Error("objects db down"));
+
+    await i.onReady();
+
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be moved out of the instance settings"));
+    expect(
+      i.extendForeignObjectAsync.mock.calls.map(c => String(c[0])).filter(id => id.startsWith("hueemu.0.lights.")),
+    ).toEqual([]);
+  });
+
+  it("serves the stored light objects, numbered by their id, named in the system language", async () => {
+    const { adapter, handlers } = setup();
+    (adapter as unknown as { language: string }).language = "de";
+    objectDb(adapter, {
+      "hueemu.0.lights.7": {
+        type: "device",
+        common: { name: { en: "Bulb", de: "Birne" } },
+        native: { lightType: "ct", onState: "z.on", ctState: "z.ct" },
       },
     });
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("permanent light numbers"));
-    expect(servers).toHaveLength(0);
-    expect(ssdps).toHaveLength(0);
-    expect(i.subscribeStates).not.toHaveBeenCalled();
+    await internalOf(adapter).onReady();
+    expect((handlers[0].options as { devices: unknown[] }).devices).toEqual([
+      { id: 7, name: "Birne", lightType: "ct", onState: "z.on", ctState: "z.ct" },
+    ]);
   });
 
-  it("boots with the numbers in memory when the write fails, and retries next start", async () => {
-    const { adapter, servers, handlers } = setup({
-      devices: [{ name: "Kitchen", lightType: "onoff", onState: "k.on" }],
-    });
-    const i = internalOf(adapter);
-    i.extendForeignObjectAsync.mockRejectedValueOnce(new Error("objects db down"));
-
-    await i.onReady();
-
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("Light numbers could not be stored"));
-    expect(servers).toHaveLength(1);
-    // The running adapter works with the numbers the write would have stored.
-    expect((handlers[0].options as { devices: { id?: number }[] }).devices[0].id).toBe(1);
-  });
-
-  it("boots straight through when every light is numbered already", async () => {
-    const { adapter, servers } = setup({
-      devices: [{ id: 7, name: "Bulb", lightType: "ct", onState: "z.on", ctState: "z.ct" }],
-    });
-    const i = internalOf(adapter);
-
-    await i.onReady();
-
-    expect(i.extendForeignObjectAsync).not.toHaveBeenCalledWith(
-      "system.adapter.hueemu.0",
-      expect.objectContaining({ native: expect.objectContaining({ devices: expect.anything() }) }),
-    );
-    expect(servers).toHaveLength(1);
-    expect(i.subscribeStates).toHaveBeenCalledWith("*");
-  });
-
-  it("boots normally for an installation without configured lights", async () => {
+  it("boots normally for an installation without lights", async () => {
     const { adapter, servers } = setup();
-    const i = internalOf(adapter);
-    await i.onReady();
+    objectDb(adapter);
+    await internalOf(adapter).onReady();
     expect(servers).toHaveLength(1);
+  });
+
+  // The fleet rule "rewrites no object unchanged": a light from before gets its pictogram, status link and
+  // reachability datapoint exactly once; the next start writes no light object at all.
+  it("brings an existing light object to the current form once, and writes nothing on the next start", async () => {
+    const seed = { "hueemu.0.lights.3": lightDevice("Desk", { lightType: "onoff", onState: "d.on" }) };
+    const first = setup();
+    const db = objectDb(first.adapter, seed);
+    await internalOf(first.adapter).onReady();
+    expect(db.get("hueemu.0.lights.3")).toMatchObject({
+      common: { name: { en: "Desk" }, icon: ICON, statusStates: { onlineId: "hueemu.0.lights.3.reachable" } },
+      native: { lightType: "onoff", onState: "d.on" },
+    });
+    expect(db.has("hueemu.0.lights.3.reachable")).toBe(true);
+
+    const second = setup();
+    const i = internalOf(second.adapter);
+    objectDb(second.adapter, Object.fromEntries(db));
+    await i.onReady();
+    const lightWrites = [...i.setForeignObject.mock.calls, ...i.extendForeignObjectAsync.mock.calls].filter(c =>
+      String(c[0]).startsWith("hueemu.0.lights."),
+    );
+    expect(lightWrites).toEqual([]);
+    expect(i.log.debug).not.toHaveBeenCalledWith(expect.stringContaining("light object(s) up to the current form"));
+  });
+
+  it("raises the number mark to a light number above it — a light deleted later keeps its number taken", async () => {
+    const { adapter } = setup();
+    objectDb(adapter, { "hueemu.0.lights.9": lightDevice("Copy", { lightType: "onoff", onState: "c.on" }) });
+    writeFileSync(join(dataDir.current, "light-ids.json"), JSON.stringify({ lastLightId: 4 }));
+    await internalOf(adapter).onReady();
+    expect(storedMark()).toBe(9);
+  });
+
+  it("subscribes the light objects only after its own writes of the start", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    objectDb(adapter, { "hueemu.0.lights.3": lightDevice("Desk", { lightType: "onoff", onState: "d.on" }) });
+    await i.onReady();
+    const subscribed =
+      i.subscribeObjects.mock.invocationCallOrder[i.subscribeObjects.mock.calls.findIndex(c => c[0] === "lights.*")];
+    const lastLightWrite = Math.max(
+      ...i.extendForeignObjectAsync.mock.calls.map((c, n) =>
+        String(c[0]).startsWith("hueemu.0.lights.") ? i.extendForeignObjectAsync.mock.invocationCallOrder[n] : 0,
+      ),
+      ...i.setForeignObject.mock.calls.map((c, n) =>
+        String(c[0]).startsWith("hueemu.0.lights.") ? i.setForeignObject.mock.invocationCallOrder[n] : 0,
+      ),
+    );
+    expect(lastLightWrite).toBeGreaterThan(0);
+    expect(subscribed).toBeGreaterThan(lastLightWrite);
+  });
+
+  describe("reachability (lights.<n>.reachable)", () => {
+    /**
+     * A started adapter serving lights 1 and 2, light 1 reachable and light 2 not, with what the datapoints held.
+     *
+     * @param held what `lights.<n>.reachable` held before the start
+     */
+    async function started(held: Record<string, boolean> = {}): Promise<{
+      i: ReturnType<typeof internalOf>;
+      handler: FakeApiHandler;
+      db: Map<string, Record<string, unknown>>;
+      writes: () => Array<[string, unknown]>;
+    }> {
+      const { adapter, handlers } = setup();
+      const i = internalOf(adapter);
+      const db = objectDb(adapter, {
+        "hueemu.0.lights.1": lightDevice("A", { lightType: "onoff", onState: "a.on" }),
+        "hueemu.0.lights.2": lightDevice("B", { lightType: "onoff", onState: "b.on" }),
+      });
+      i.getForeignStatesAsync.mockResolvedValue(
+        Object.fromEntries(Object.entries(held).map(([id, val]) => [id, { val, ack: true }])),
+      );
+      const make = (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler;
+      (adapter as unknown as { makeApiHandler: (o: unknown) => FakeApiHandler }).makeApiHandler = options => {
+        const h = make(options);
+        h.reachability.mockReturnValue([
+          [1, true],
+          [2, false],
+        ]);
+        return h;
+      };
+      await i.onReady();
+      const writes = (): Array<[string, unknown]> =>
+        i.setState.mock.calls
+          .filter(c => String(c[0]).includes(".lights."))
+          .map(c => [c[0] as string, (c[1] as { val: unknown }).val]);
+      return { i, handler: handlers[0], db, writes };
+    }
+
+    it("writes what differs from the stored value after the start", async () => {
+      const { writes } = await started({ "hueemu.0.lights.1.reachable": false, "hueemu.0.lights.2.reachable": false });
+      expect(writes()).toEqual([["hueemu.0.lights.1.reachable", true]]);
+    });
+
+    it("writes nothing when the datapoints already hold the truth", async () => {
+      const { writes } = await started({ "hueemu.0.lights.1.reachable": true, "hueemu.0.lights.2.reachable": false });
+      expect(writes()).toEqual([]);
+    });
+
+    it("writes a change after a bound datapoint changed — and only then", async () => {
+      const { i, handler, writes } = await started({
+        "hueemu.0.lights.1.reachable": true,
+        "hueemu.0.lights.2.reachable": false,
+      });
+      handler.reachability.mockReturnValue([
+        [1, true],
+        [2, true],
+      ]);
+      i.onStateChange("b.on", { val: true, ack: true, ts: 1, lc: 1, from: "x", q: 0 });
+      i.onStateChange("b.on", { val: false, ack: true, ts: 2, lc: 2, from: "x", q: 0 });
+      expect(writes()).toEqual([["hueemu.0.lights.2.reachable", true]]);
+    });
+
+    it("writes the change a deleted bound datapoint causes", async () => {
+      const { i, handler, writes } = await started({
+        "hueemu.0.lights.1.reachable": true,
+        "hueemu.0.lights.2.reachable": false,
+      });
+      handler.reachability.mockReturnValue([
+        [1, false],
+        [2, false],
+      ]);
+      i.onStateChange("a.on", null);
+      expect(handler.forgetState).toHaveBeenCalledWith("a.on");
+      expect(writes()).toEqual([["hueemu.0.lights.1.reachable", false]]);
+    });
+
+    // D4: what a stop sets to "not reachable" is written before the callback, or it never reaches the database.
+    it("marks every reachable light unreachable on the stop, before the callback", async () => {
+      const { i, writes } = await started({
+        "hueemu.0.lights.1.reachable": true,
+        "hueemu.0.lights.2.reachable": false,
+      });
+      let atCallback: Array<[string, unknown]> = [];
+      await new Promise<void>(resolve =>
+        i.onUnload(() => {
+          atCallback = writes();
+          resolve();
+        }),
+      );
+      expect(atCallback).toEqual([["hueemu.0.lights.1.reachable", false]]);
+    });
+
+    // A deleted light has no reachability datapoint any more — the stop must not write one for it.
+    it("forgets a deleted light — the stop writes nothing for it", async () => {
+      const { i, handler, db, writes } = await started({
+        "hueemu.0.lights.1.reachable": true,
+        "hueemu.0.lights.2.reachable": false,
+      });
+      handler.reachability.mockReturnValue([[2, false]]);
+      db.delete("hueemu.0.lights.1");
+      i.onObjectChange("hueemu.0.lights.1", null);
+      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledTimes(1));
+      let atCallback: Array<[string, unknown]> = [];
+      await new Promise<void>(resolve =>
+        i.onUnload(() => {
+          atCallback = writes();
+          resolve();
+        }),
+      );
+      expect(atCallback).toEqual([]);
+    });
+  });
+
+  describe("a changed light object is served at once", () => {
+    /** A started adapter serving light 3, and its database. */
+    async function started(): Promise<{
+      i: ReturnType<typeof internalOf>;
+      handler: FakeApiHandler;
+      db: Map<string, Record<string, unknown>>;
+    }> {
+      const { adapter, handlers } = setup();
+      const i = internalOf(adapter);
+      const db = objectDb(adapter, {
+        "hueemu.0.lights.3": lightDevice("Desk", { lightType: "onoff", onState: "d.on" }),
+      });
+      await i.onReady();
+      return { i, handler: handlers[0], db };
+    }
+
+    it("reads the list again when a light's device object changes, and hands it to the bridge", async () => {
+      const { i, handler, db } = await started();
+      db.set("hueemu.0.lights.4", lightDevice("Hall", { lightType: "onoff", onState: "h.on" }));
+      i.onObjectChange("hueemu.0.lights.4", db.get("hueemu.0.lights.4") as unknown as ioBroker.Object);
+      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledTimes(1));
+      expect(handler.replaceDevices).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 3, name: "Desk" }),
+        expect.objectContaining({ id: 4, name: "Hall", onState: "h.on" }),
+      ]);
+    });
+
+    it("serves a deleted light no more", async () => {
+      const { i, handler, db } = await started();
+      db.delete("hueemu.0.lights.3");
+      i.onObjectChange("hueemu.0.lights.3", null);
+      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledWith([]));
+    });
+
+    // A light copied in the object browser takes its number at once — deleted before the next start, that number
+    // must still never come back.
+    it("raises the number mark to a light added while it runs", async () => {
+      const { i, handler, db } = await started();
+      db.set("hueemu.0.lights.8", lightDevice("Copy", { lightType: "onoff", onState: "c.on" }));
+      i.onObjectChange("hueemu.0.lights.8", db.get("hueemu.0.lights.8") as unknown as ioBroker.Object);
+      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledTimes(1));
+      expect(storedMark()).toBe(8);
+    });
+
+    it("hands nothing to the bridge after the stop", async () => {
+      const { i, handler, db } = await started();
+      await new Promise<void>(resolve => i.onUnload(() => resolve()));
+      db.set("hueemu.0.lights.4", lightDevice("Hall", { lightType: "onoff", onState: "h.on" }));
+      i.onObjectChange("hueemu.0.lights.4", db.get("hueemu.0.lights.4") as unknown as ioBroker.Object);
+      await new Promise(resolve => setImmediate(resolve));
+      await new Promise(resolve => setImmediate(resolve));
+      expect(handler.replaceDevices).not.toHaveBeenCalled();
+    });
+
+    it("ignores a change of a datapoint below a light — its own reachability writes included", async () => {
+      const { i, handler } = await started();
+      i.onObjectChange("hueemu.0.lights.3.reachable", { type: "state" } as unknown as ioBroker.Object);
+      await new Promise(resolve => setImmediate(resolve));
+      expect(handler.replaceDevices).not.toHaveBeenCalled();
+    });
+
+    it("hands nothing over when the list did not change (a pictogram refresh)", async () => {
+      const { i, handler, db } = await started();
+      i.onObjectChange("hueemu.0.lights.3", db.get("hueemu.0.lights.3") as unknown as ioBroker.Object);
+      await new Promise(resolve => setImmediate(resolve));
+      await new Promise(resolve => setImmediate(resolve));
+      expect(handler.replaceDevices).not.toHaveBeenCalled();
+    });
+
+    it("reads once more after changes that came in while a reload ran", async () => {
+      const { i, handler, db } = await started();
+      let release: () => void = () => {};
+      handler.replaceDevices.mockImplementationOnce(() => new Promise<void>(resolve => (release = resolve)));
+      db.set("hueemu.0.lights.4", lightDevice("Hall", { lightType: "onoff", onState: "h.on" }));
+      i.onObjectChange("hueemu.0.lights.4", null);
+      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledTimes(1));
+      db.set("hueemu.0.lights.5", lightDevice("Porch", { lightType: "onoff", onState: "p.on" }));
+      i.onObjectChange("hueemu.0.lights.5", null);
+      i.onObjectChange("hueemu.0.lights.5", null);
+      release();
+      await vi.waitFor(() => expect(handler.replaceDevices).toHaveBeenCalledTimes(2));
+      expect(handler.replaceDevices.mock.calls[1][0]).toHaveLength(3);
+    });
   });
 });
 

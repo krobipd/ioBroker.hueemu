@@ -9,7 +9,8 @@
 
 import { errText } from "./err-text";
 import type { DeviceConfig } from "../hue-api";
-import { assignDeviceIds } from "./device-ids";
+import { assignDeviceIds, isDeviceId, normalizeDevices } from "./device-ids";
+import type { MarkRead, StoredLights } from "./light-store";
 
 /**
  * Upper bound for `getObjectList`/`getObjectView` range queries over an id
@@ -110,8 +111,8 @@ export async function runObsoleteStateCleanup(adapter: ObsoleteStateCleanupAdapt
 export interface LegacyDeviceMigrationAdapter {
   /** Adapter namespace (e.g. hueemu.0) */
   namespace: string;
-  /** Already-configured devices (this.config.devices) — migration is skipped if non-empty. */
-  configuredDevices: DeviceConfig[] | undefined;
+  /** Whether lights are stored already — the migration is skipped then. */
+  lightsStored: boolean;
   /** List legacy device objects in the adapter namespace */
   getDevicesAsync(): Promise<ioBroker.DeviceObject[]>;
   /** Read a state by (namespace-relative) id */
@@ -120,8 +121,8 @@ export interface LegacyDeviceMigrationAdapter {
   getObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
   /** List the state objects of a device's channel */
   getStatesOfAsync(parentDevice: string, parentChannel: string): Promise<ioBroker.StateObject[]>;
-  /** Persist the migrated device list into native (triggers a restart) */
-  extendForeignObjectAsync(id: string, obj: { native: { devices: DeviceConfig[] } }): Promise<unknown>;
+  /** Store the converted lights as light objects (light-store.ts `add`) */
+  addLights(configs: DeviceConfig[]): Promise<unknown>;
   /** Delete an object by (namespace-relative) id */
   delObjectAsync(id: string): Promise<unknown>;
   /** Logger with info + warn */
@@ -129,18 +130,18 @@ export interface LegacyDeviceMigrationAdapter {
 }
 
 /**
- * Migrate legacy devices (created via the old `createLight` JSON) into the admin
- * DeviceConfig format. Pure helper — like {@link runObsoleteStateCleanup} — so it
- * is unit-testable without standing up the full adapter lifecycle. Returns `true`
- * when a migration was written; the caller then lets the resulting native write
- * restart the instance.
+ * Migrate legacy devices (created via the old `createLight` JSON) into light objects. Pure helper — like
+ * {@link runObsoleteStateCleanup} — so it is unit-testable without standing up the full adapter lifecycle.
+ *
+ * Audit R-24: the converted lights become light objects (`lights.<n>`) like every other light; up to v1.19.0 they
+ * went into `native.devices` and the instance restarted.
  *
  * @param adapter Minimal adapter surface (see {@link LegacyDeviceMigrationAdapter}).
- * @returns true if a migration was performed (adapter will restart with the new config)
+ * @returns true if lights were converted
  */
 export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAdapter): Promise<boolean> {
-  // Skip if devices are already configured in admin.
-  if (adapter.configuredDevices && adapter.configuredDevices.length > 0) {
+  // Skip once any light is stored — no reads of every device object on every start.
+  if (adapter.lightsStored) {
     return false;
   }
 
@@ -167,6 +168,7 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
   adapter.log.info(`Found ${devices.length} legacy device(s) — migrating to new configuration`);
 
   const migratedDevices: DeviceConfig[] = [];
+  const converted: string[] = [];
   for (const device of devices) {
     const deviceId = device._id.substring(adapter.namespace.length + 1);
     try {
@@ -202,16 +204,8 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
       }
 
       migratedDevices.push(config);
+      converted.push(deviceId);
       adapter.log.info(`Migrated legacy device "${name}" as ${lightType}`);
-
-      // v1.4.3 (M6) / v1.10.0 (L2): remove only the obsolete metadata wrappers.
-      // The device (`${deviceId}`) + channel (`${deviceId}.state`) containers and
-      // their state.* leaves are kept — DeviceBindingService binds to the leaves
-      // and delObject is non-recursive, so deleting the parents would orphan them.
-      await Promise.all([
-        adapter.delObjectAsync(`${deviceId}.name`).catch(() => {}),
-        adapter.delObjectAsync(`${deviceId}.data`).catch(() => {}),
-      ]);
     } catch (error) {
       adapter.log.warn(`Could not migrate legacy device ${deviceId}: ${errText(error)}`);
     }
@@ -221,58 +215,92 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
     return false;
   }
 
-  await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
-    // Number the converted lights right away — one restart instead of two.
-    native: { devices: assignDeviceIds(migratedDevices).devices },
-  });
-  adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted. Adapter will restart.`);
+  // The lights first: a failed store leaves the legacy wrappers, and the next start tries again.
+  await adapter.addLights(migratedDevices);
+  for (const deviceId of converted) {
+    // v1.4.3 (M6) / v1.10.0 (L2): remove only the obsolete metadata wrappers.
+    // The device (`${deviceId}`) + channel (`${deviceId}.state`) containers and
+    // their state.* leaves are kept — DeviceBindingService binds to the leaves
+    // and delObject is non-recursive, so deleting the parents would orphan them.
+    await Promise.all([
+      adapter.delObjectAsync(`${deviceId}.name`).catch(() => {}),
+      adapter.delObjectAsync(`${deviceId}.data`).catch(() => {}),
+    ]);
+  }
+  adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted`);
   return true;
 }
 
-/** Adapter surface required by {@link runDeviceIdMigration}. */
-export interface DeviceIdMigrationAdapter {
-  /** Adapter namespace (e.g. hueemu.0) */
-  namespace: string;
-  /** Persist the numbered device list into the instance's native config */
-  extendForeignObjectAsync(id: string, obj: { native: { devices: DeviceConfig[] } }): Promise<unknown>;
-  /** Logger */
-  log: { info(message: string): void; warn(message: string): void };
+/** What {@link runLightObjectMigration} needs of the light store. */
+export interface LightMigrationStore {
+  /** Every light and every object below the folder. */
+  list(): Promise<StoredLights>;
+  /** The highest light number ever handed out. */
+  readMark(): MarkRead;
+  /** Store the mark (throws when it cannot). */
+  writeMark(mark: number): void;
+  /** Create a numbered light's objects. */
+  create(light: DeviceConfig & { id: number }): Promise<void>;
+}
+
+/** The result of {@link runLightObjectMigration}. */
+export interface LightMigrationResult {
+  /**
+   * Whether every light the settings held is a light object now, and the mark covers them — only then are the
+   * settings keys dropped.
+   */
+  stored: boolean;
+  /** When not stored: the lights to serve this run, numbered, from the settings. */
+  devices?: DeviceConfig[];
 }
 
 /**
- * Number the stored lights once and persist the result.
+ * Audit R-24: move the lights an earlier version kept in the instance settings (`native.devices`, with the mark
+ * `native.lastLightId`) into light objects, once.
  *
- * Same contract as the settings-key migration: `true` means the instance object
- * was written and the caller must stop — the host restarts the instance with
- * the numbered configuration. `false` means nothing had to change, or the write
- * failed: then `devices` was numbered in memory and the start continues with
- * these numbers (the write is retried on the next start).
+ * Every light keeps its number — an entry without one gets the next number above every number in use and ever handed
+ * out (assignDeviceIds, audit R-02) — and a number that already has an object (a move cut off before) keeps that
+ * object. The mark covers the settings' mark and every number. Only when all of it is stored does the caller drop
+ * the two keys; when anything fails, this run serves the lights from the settings and the next start tries again.
  *
- * @param adapter Minimum adapter surface (object extend + log).
- * @param devices The stored device configurations — numbered IN PLACE on a
- *   failed write, so the running adapter and a later successful write agree.
+ * @param store The light store.
+ * @param legacy What the settings hold.
+ * @param legacy.devices `native.devices`
+ * @param legacy.lastLightId `native.lastLightId`
+ * @param log Logger with info + warn.
+ * @param log.info info line
+ * @param log.warn warning line
+ * @returns whether the lights are stored, and the lights to serve when not
  */
-export async function runDeviceIdMigration(
-  adapter: DeviceIdMigrationAdapter,
-  devices: DeviceConfig[],
-): Promise<boolean> {
-  const numbered = assignDeviceIds(devices);
-  if (!numbered.changed) {
-    return false;
+export async function runLightObjectMigration(
+  store: LightMigrationStore,
+  legacy: { devices: unknown; lastLightId: unknown },
+  log: { info(message: string): void; warn(message: string): void },
+): Promise<LightMigrationResult> {
+  const floor = isDeviceId(legacy.lastLightId) ? legacy.lastLightId : 0;
+  const numbered = assignDeviceIds(normalizeDevices(legacy.devices), floor).devices as Array<
+    DeviceConfig & { id: number }
+  >;
+  if (numbered.length === 0 && floor === 0) {
+    return { stored: true };
   }
   try {
-    await adapter.extendForeignObjectAsync(`system.adapter.${adapter.namespace}`, {
-      native: { devices: numbered.devices },
-    });
-    adapter.log.info(
-      `Assigned permanent light numbers to ${devices.length} configured light(s) — this instance restarts once`,
-    );
-    return true;
+    const { lights } = await store.list();
+    const have = new Set(lights.map(light => light.id));
+    const mark = Math.max(store.readMark().mark, floor, ...numbered.map(d => d.id), ...lights.map(l => l.id ?? 0));
+    store.writeMark(mark);
+    const missing = numbered.filter(d => !have.has(d.id));
+    for (const light of missing) {
+      await store.create(light);
+    }
+    if (missing.length > 0) {
+      log.info(`Moved ${missing.length} light(s) from the instance settings into the object tree (lights)`);
+    }
+    return { stored: true };
   } catch (error) {
-    adapter.log.warn(`Light numbers could not be stored (${errText(error)}) — using them for this run only`);
-    numbered.devices.forEach((device, index) => {
-      devices[index] = device;
-    });
-    return false;
+    log.warn(
+      `The lights could not be moved out of the instance settings (${errText(error)}) — serving them from there for this run`,
+    );
+    return { stored: false, devices: numbered };
   }
 }

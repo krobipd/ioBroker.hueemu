@@ -75,6 +75,7 @@ field at an ioBroker state with the object browser.
 
 Every light keeps its number for good: deleting or reordering lights changes nothing
 for the others, so Alexa's routines keep pointing at the lamps they were set up with.
+A change in the cards takes effect at once, without a restart.
 A light may point at a datapoint that no device confirms — one from `0_userdata`, a
 script or a visualisation — and the bridge follows every change of it just the same.
 
@@ -142,8 +143,11 @@ hueemu.0.
 │   └── error      — why it is not (empty while everything works)
 ├── startPairing   — opens the pairing window for 50 seconds (button)
 ├── disableAuth    — accept every request without pairing (switch)
-└── clients/       — one entry per paired client
-    └── <name>     — the key that client uses
+├── clients/       — one entry per paired client
+│   └── <n>        — the device type that client paired with (its key stays in the instance data folder)
+└── lights/        — the lights the bridge offers
+    └── <n>/       — one light, named as on its card; n is its Hue light number
+        └── reachable — whether the bridge can drive it
 ```
 
 `info.connection` is the quick answer to "is it running at all?". A start can fail for
@@ -154,6 +158,12 @@ and the log carries the explanation.
 
 A paired client is removed by deleting its entry under `hueemu.0.clients` — its key
 stops working at once.
+
+`reachable` turns false while the state that switches the light — without one, its
+brightness state — does not exist (deleted, or a typo in the card), for a light bound to
+no state at all, and while the adapter is stopped — the same value Hue clients see for the
+light. A missing color state alone leaves it reachable. A light deleted under `hueemu.0.lights` is gone from the bridge at
+once, like one deleted on its card.
 
 `disableAuth` is a maintenance aid, not a setting to leave on: with it every device on
 your network can control your lights without pairing. New clients are limited to 100
@@ -186,12 +196,14 @@ written, so the light will show a value and ignore every command.
 
 **A light shows the wrong color or brightness.** See "Value scales" above.
 
-**Going back to a version below 1.18.0** is not supported: the older version no longer
-finds the listen address under its new key and numbers the lights anew, so Alexa sees
-different lamps.
+**Going back to an older version** is not supported. Version 1.19.0 and older keep the
+bridge identity and the lights in the instance settings and find neither in their new
+places: they create a new identity, so every client has to search for the bridge and
+pair again, and they offer no lights until you add them anew. Below 1.18.0 the older version also no longer finds the listen address under its
+new key and numbers the lights anew, so Alexa sees different lamps.
 
 **You come from the old `createLight` setup.** Your lights are converted automatically
-on the first start and the adapter restarts once. Nothing to do by hand. Worth doing
+on the first start, without a restart. Nothing to do by hand. Worth doing
 afterwards: the old approach used adapter-internal states as go-betweens, which needed
 a script to drive the real device. You can now point each light straight at the device
 state and drop that script.

@@ -32,7 +32,7 @@
     },
     "native": {}
   },
-  "hueemu.0.clients.inventory-fixture-client": {
+  "hueemu.0.clients.1": {
     "type": "state",
     "common": {
       "name": {
@@ -49,27 +49,25 @@
         "zh-cn": "inventory#fixture"
       },
       "desc": {
-        "de": "Der Schlüssel, mit dem dieses Gerät mit der Bridge spricht",
-        "en": "The key this device uses to talk to the bridge",
-        "es": "La clave con la que este dispositivo habla con el puente",
-        "fr": "La clé avec laquelle cet appareil dialogue avec le pont",
-        "it": "La chiave con cui questo dispositivo parla con il bridge",
-        "nl": "De sleutel waarmee dit apparaat met de bridge praat",
-        "pl": "Klucz, którym to urządzenie komunikuje się z mostkiem",
-        "pt": "A chave com que este dispositivo fala com a bridge",
-        "ru": "Ключ, с которым это устройство обращается к мосту",
-        "uk": "Ключ, яким цей пристрій спілкується з мостом",
-        "zh-cn": "此设备与网桥通信所用的密钥"
+        "de": "Der Gerätetyp, den dieser Client beim Koppeln genannt hat — sein Schlüssel liegt im Datenordner der Instanz",
+        "en": "The device type this client named when it paired — its key is kept in the instance data folder",
+        "es": "El tipo de dispositivo que este cliente indicó al emparejarse — su clave se guarda en la carpeta de datos de la instancia",
+        "fr": "Le type d'appareil que ce client a indiqué lors de l'appairage — sa clé est conservée dans le dossier de données de l'instance",
+        "it": "Il tipo di dispositivo indicato da questo client durante l'accoppiamento — la sua chiave è conservata nella cartella dati dell'istanza",
+        "nl": "Het apparaattype dat deze client bij het koppelen opgaf — zijn sleutel staat in de gegevensmap van de instantie",
+        "pl": "Typ urządzenia podany przez tego klienta podczas parowania — jego klucz jest przechowywany w folderze danych instancji",
+        "pt": "O tipo de dispositivo que este cliente indicou ao emparelhar — a sua chave fica guardada na pasta de dados da instância",
+        "ru": "Тип устройства, который этот клиент назвал при сопряжении — его ключ хранится в папке данных экземпляра",
+        "uk": "Тип пристрою, який цей клієнт назвав під час сполучення — його ключ зберігається в теці даних екземпляра",
+        "zh-cn": "此客户端配对时报告的设备类型 — 其密钥保存在实例数据文件夹中"
       },
       "type": "string",
       "role": "text",
       "read": true,
       "write": false
     },
-    "native": {
-      "username": "inventory-fixture-client"
-    },
-    "_id": "hueemu.0.clients.inventory-fixture-client"
+    "native": {},
+    "_id": "hueemu.0.clients.1"
   },
   "hueemu.0.disableAuth": {
     "_id": "hueemu.0.disableAuth",
@@ -187,7 +185,7 @@
       "role": "text",
       "write": false,
       "read": true,
-      "def": "",
+      "def": "Unknown",
       "desc": {
         "en": "Why the bridge is not answering — empty while everything works",
         "de": "Warum die Bridge nicht antwortet — leer, solange alles läuft",
@@ -203,6 +201,573 @@
       }
     },
     "native": {}
+  },
+  "hueemu.0.lights": {
+    "_id": "hueemu.0.lights",
+    "type": "folder",
+    "common": {
+      "name": {
+        "en": "Lights",
+        "de": "Lichter",
+        "ru": "Светильники",
+        "pt": "Luzes",
+        "nl": "Lampen",
+        "fr": "Lumières",
+        "it": "Luci",
+        "es": "Luces",
+        "pl": "Światła",
+        "uk": "Світильники",
+        "zh-cn": "灯"
+      },
+      "desc": {
+        "en": "Lights the bridge serves to Hue clients — one device per light",
+        "de": "Lichter, die die Bridge den Hue-Clients anbietet — ein Gerät je Licht",
+        "ru": "Светильники, которые мост предоставляет клиентам Hue — одно устройство на светильник",
+        "pt": "Luzes que a bridge oferece aos clientes Hue — um dispositivo por luz",
+        "nl": "Lampen die de bridge aan Hue-clients aanbiedt — één apparaat per lamp",
+        "fr": "Lumières que le pont propose aux clients Hue — un appareil par lumière",
+        "it": "Luci che il bridge offre ai client Hue — un dispositivo per luce",
+        "es": "Luces que el puente ofrece a los clientes Hue — un dispositivo por luz",
+        "pl": "Światła, które mostek udostępnia klientom Hue — jedno urządzenie na światło",
+        "uk": "Світильники, які міст надає клієнтам Hue — один пристрій на світильник",
+        "zh-cn": "网桥向 Hue 客户端提供的灯 — 每盏灯一个设备"
+      }
+    },
+    "native": {}
+  },
+  "hueemu.0.lights.1": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory on/off",
+        "de": "Inventory on/off",
+        "ru": "Inventory on/off",
+        "pt": "Inventory on/off",
+        "nl": "Inventory on/off",
+        "fr": "Inventory on/off",
+        "it": "Inventory on/off",
+        "es": "Inventory on/off",
+        "pl": "Inventory on/off",
+        "uk": "Inventory on/off",
+        "zh-cn": "Inventory on/off"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.1.reachable"
+      }
+    },
+    "native": {
+      "lightType": "onoff",
+      "onState": "javascript.0.inv.on"
+    },
+    "_id": "hueemu.0.lights.1"
+  },
+  "hueemu.0.lights.1.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.1.reachable"
+  },
+  "hueemu.0.lights.2": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory dimmable",
+        "de": "Inventory dimmable",
+        "ru": "Inventory dimmable",
+        "pt": "Inventory dimmable",
+        "nl": "Inventory dimmable",
+        "fr": "Inventory dimmable",
+        "it": "Inventory dimmable",
+        "es": "Inventory dimmable",
+        "pl": "Inventory dimmable",
+        "uk": "Inventory dimmable",
+        "zh-cn": "Inventory dimmable"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.2.reachable"
+      }
+    },
+    "native": {
+      "lightType": "dimmable",
+      "onState": "javascript.0.inv.on",
+      "briState": "javascript.0.inv.bri",
+      "briScale": "percent"
+    },
+    "_id": "hueemu.0.lights.2"
+  },
+  "hueemu.0.lights.2.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.2.reachable"
+  },
+  "hueemu.0.lights.3": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory colour temperature",
+        "de": "Inventory colour temperature",
+        "ru": "Inventory colour temperature",
+        "pt": "Inventory colour temperature",
+        "nl": "Inventory colour temperature",
+        "fr": "Inventory colour temperature",
+        "it": "Inventory colour temperature",
+        "es": "Inventory colour temperature",
+        "pl": "Inventory colour temperature",
+        "uk": "Inventory colour temperature",
+        "zh-cn": "Inventory colour temperature"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.3.reachable"
+      }
+    },
+    "native": {
+      "lightType": "ct",
+      "onState": "javascript.0.inv.on",
+      "briState": "javascript.0.inv.bri",
+      "ctState": "javascript.0.inv.ct",
+      "ctScale": "kelvin"
+    },
+    "_id": "hueemu.0.lights.3"
+  },
+  "hueemu.0.lights.3.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.3.reachable"
+  },
+  "hueemu.0.lights.4": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory colour",
+        "de": "Inventory colour",
+        "ru": "Inventory colour",
+        "pt": "Inventory colour",
+        "nl": "Inventory colour",
+        "fr": "Inventory colour",
+        "it": "Inventory colour",
+        "es": "Inventory colour",
+        "pl": "Inventory colour",
+        "uk": "Inventory colour",
+        "zh-cn": "Inventory colour"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.4.reachable"
+      }
+    },
+    "native": {
+      "lightType": "color",
+      "onState": "javascript.0.inv.on",
+      "briState": "javascript.0.inv.bri",
+      "hueState": "javascript.0.inv.hue",
+      "hueScale": "degrees",
+      "satState": "javascript.0.inv.sat",
+      "satScale": "percent",
+      "xyState": "javascript.0.inv.xy"
+    },
+    "_id": "hueemu.0.lights.4"
+  },
+  "hueemu.0.lights.4.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.4.reachable"
+  },
+  "hueemu.0.lights.5": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory dimmer without switch",
+        "de": "Inventory dimmer without switch",
+        "ru": "Inventory dimmer without switch",
+        "pt": "Inventory dimmer without switch",
+        "nl": "Inventory dimmer without switch",
+        "fr": "Inventory dimmer without switch",
+        "it": "Inventory dimmer without switch",
+        "es": "Inventory dimmer without switch",
+        "pl": "Inventory dimmer without switch",
+        "uk": "Inventory dimmer without switch",
+        "zh-cn": "Inventory dimmer without switch"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.5.reachable"
+      }
+    },
+    "native": {
+      "lightType": "dimmable",
+      "briState": "javascript.0.inv.level"
+    },
+    "_id": "hueemu.0.lights.5"
+  },
+  "hueemu.0.lights.5.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.5.reachable"
+  },
+  "hueemu.0.lights.6": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory percent colour temperature",
+        "de": "Inventory percent colour temperature",
+        "ru": "Inventory percent colour temperature",
+        "pt": "Inventory percent colour temperature",
+        "nl": "Inventory percent colour temperature",
+        "fr": "Inventory percent colour temperature",
+        "it": "Inventory percent colour temperature",
+        "es": "Inventory percent colour temperature",
+        "pl": "Inventory percent colour temperature",
+        "uk": "Inventory percent colour temperature",
+        "zh-cn": "Inventory percent colour temperature"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.6.reachable"
+      }
+    },
+    "native": {
+      "lightType": "ct",
+      "onState": "javascript.0.inv.on",
+      "ctState": "javascript.0.inv.ctpct"
+    },
+    "_id": "hueemu.0.lights.6"
+  },
+  "hueemu.0.lights.6.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.6.reachable"
+  },
+  "hueemu.0.lights.7": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory mired colour temperature",
+        "de": "Inventory mired colour temperature",
+        "ru": "Inventory mired colour temperature",
+        "pt": "Inventory mired colour temperature",
+        "nl": "Inventory mired colour temperature",
+        "fr": "Inventory mired colour temperature",
+        "it": "Inventory mired colour temperature",
+        "es": "Inventory mired colour temperature",
+        "pl": "Inventory mired colour temperature",
+        "uk": "Inventory mired colour temperature",
+        "zh-cn": "Inventory mired colour temperature"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.7.reachable"
+      }
+    },
+    "native": {
+      "lightType": "ct",
+      "onState": "javascript.0.inv.on",
+      "ctState": "javascript.0.inv.ctmired"
+    },
+    "_id": "hueemu.0.lights.7"
+  },
+  "hueemu.0.lights.7.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.7.reachable"
+  },
+  "hueemu.0.lights.8": {
+    "type": "device",
+    "common": {
+      "name": {
+        "en": "Inventory byte brightness",
+        "de": "Inventory byte brightness",
+        "ru": "Inventory byte brightness",
+        "pt": "Inventory byte brightness",
+        "nl": "Inventory byte brightness",
+        "fr": "Inventory byte brightness",
+        "it": "Inventory byte brightness",
+        "es": "Inventory byte brightness",
+        "pl": "Inventory byte brightness",
+        "uk": "Inventory byte brightness",
+        "zh-cn": "Inventory byte brightness"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Ik0yNCA0NHYtNGMtNS00LTktOS05LTE2YTE3IDE3IDAgMCAxIDM0IDBjMCA3LTQgMTItOSAxNnY0eiIvPgogIDxwYXRoIGQ9Ik0yNSA1MGgxNE0yOCA1Nmg4Ii8+Cjwvc3ZnPgo=",
+      "statusStates": {
+        "onlineId": "hueemu.0.lights.8.reachable"
+      }
+    },
+    "native": {
+      "lightType": "dimmable",
+      "onState": "javascript.0.inv.on",
+      "briState": "javascript.0.inv.bri255"
+    },
+    "_id": "hueemu.0.lights.8"
+  },
+  "hueemu.0.lights.8.reachable": {
+    "type": "state",
+    "common": {
+      "name": {
+        "de": "Erreichbar",
+        "en": "Reachable",
+        "es": "Accesible",
+        "fr": "Joignable",
+        "it": "Raggiungibile",
+        "nl": "Bereikbaar",
+        "pl": "Osiągalne",
+        "pt": "Alcançável",
+        "ru": "Доступен",
+        "uk": "Досяжний",
+        "zh-cn": "可达"
+      },
+      "desc": {
+        "de": "Wahr, solange die Bridge dieses Licht über seinen gebundenen Datenpunkt schalten kann",
+        "en": "True while the bridge can switch this light through its bound datapoint",
+        "es": "Verdadero mientras el puente puede conmutar esta luz a través de su punto de datos vinculado",
+        "fr": "Vrai tant que le pont peut commuter cette lumière via son point de données lié",
+        "it": "Vero finché il bridge può commutare questa luce tramite il suo datapoint collegato",
+        "nl": "Waar zolang de bridge deze lamp via het gekoppelde datapunt kan schakelen",
+        "pl": "Prawda, dopóki mostek może przełączać to światło przez powiązany punkt danych",
+        "pt": "Verdadeiro enquanto a bridge pode comutar esta luz pelo seu ponto de dados vinculado",
+        "ru": "Истина, пока мост может переключать этот светильник через привязанную точку данных",
+        "uk": "Істина, поки міст може перемикати цей світильник через прив'язану точку даних",
+        "zh-cn": "网桥可通过绑定的数据点切换此灯时为真"
+      },
+      "type": "boolean",
+      "role": "indicator.reachable",
+      "read": true,
+      "write": false,
+      "def": false
+    },
+    "native": {},
+    "_id": "hueemu.0.lights.8.reachable"
   },
   "hueemu.0.startPairing": {
     "_id": "hueemu.0.startPairing",

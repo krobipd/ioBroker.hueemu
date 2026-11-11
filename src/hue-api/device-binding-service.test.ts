@@ -1960,6 +1960,45 @@ describe("v1.17.0 — a light whose driving state does not exist is not reachabl
   });
 });
 
+// Audit R-24: what `lights.<n>.reachable` shows, and what a replaced light list unsubscribes.
+describe("audit R-24 — reachability by light number and the bound datapoints", () => {
+  it("names each light's number with whether the bridge can drive it", async () => {
+    const svc = new DeviceBindingService({
+      adapter: createMockDeviceBindingAdapter({ "a.on": true, "c.on": true, "d.bri": 50 }),
+      devices: [
+        { id: 3, name: "Works", lightType: "onoff", onState: "a.on" },
+        { id: 4, name: "Bound to nothing", lightType: "onoff" },
+        { id: 7, name: "Driving state gone", lightType: "onoff", onState: "gone.on" },
+        { id: 8, name: "Colour state gone", lightType: "color", onState: "c.on", hueState: "gone.hue" },
+        { id: 9, name: "Brightness only", lightType: "dimmable", briState: "d.bri" },
+        { id: 10, name: "Brightness gone", lightType: "dimmable", briState: "gone.bri" },
+      ],
+      logger: createMockLogger(),
+    });
+    await svc.initialize();
+    expect(svc.reachability()).toEqual([
+      [3, true],
+      [4, false],
+      [7, false],
+      [8, true],
+      [9, true],
+      [10, false],
+    ]);
+  });
+
+  it("lists every datapoint the lights bind, once", () => {
+    const svc = new DeviceBindingService({
+      adapter: createMockDeviceBindingAdapter({}),
+      devices: [
+        { name: "A", lightType: "dimmable", onState: "x.on", briState: "x.bri" },
+        { name: "B", lightType: "onoff", onState: "x.on" },
+      ],
+      logger: createMockLogger(),
+    });
+    expect(svc.boundStateIds().sort()).toEqual(["x.bri", "x.on"]);
+  });
+});
+
 describe("v1.19.0 — bridge-shaped answers and log hygiene", () => {
   // Audit 2026-09-25 N1/E11: the resource in a type-3 description is its path, the
   // way the bridge and diyHue name it — not the bare number.

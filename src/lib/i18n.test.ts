@@ -8,7 +8,7 @@ vi.mock("@iobroker/adapter-core", () => ({
 }));
 
 import { I18n } from "@iobroker/adapter-core";
-import { t, tName } from "./i18n";
+import { nameIn, t, tName } from "./i18n";
 
 describe("tName", () => {
   it("delegates to I18n.getTranslatedObject", () => {
@@ -22,6 +22,27 @@ describe("t", () => {
     const result = t("dmScanAddedSkipped", 3, 1);
     expect(vi.mocked(I18n.getTranslatedObject)).toHaveBeenCalledWith("dmScanAddedSkipped", 3, 1);
     expect(result).toEqual({ en: "dmScanAddedSkipped", de: "dmScanAddedSkipped_de" });
+  });
+});
+
+describe("nameIn", () => {
+  it("takes a text as it is", () => {
+    expect(nameIn("Desk", "de")).toBe("Desk");
+  });
+
+  it("reads a translation object in the language, else in English", () => {
+    expect(nameIn({ en: "Hall", de: "Flur" }, "de")).toBe("Flur");
+    expect(nameIn({ en: "Hall", de: "Flur" }, "fr")).toBe("Hall");
+    expect(nameIn({ en: "Hall", de: "" }, "de")).toBe("Hall");
+    expect(nameIn({ en: "Hall" }, undefined)).toBe("Hall");
+  });
+
+  // A hand-edited object: a name that is no text, or a translation without one — the caller gets "".
+  it("gives an empty text for a name it cannot read", () => {
+    expect(nameIn(undefined, "en")).toBe("");
+    expect(nameIn(42, "en")).toBe("");
+    expect(nameIn({ de: 7 }, "de")).toBe("");
+    expect(nameIn({}, "en")).toBe("");
   });
 });
 
