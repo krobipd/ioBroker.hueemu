@@ -1090,6 +1090,21 @@ describe("HueEmu onStateChange", () => {
     expect(i.setState).not.toHaveBeenCalled();
   });
 
+  it("takes a confirmed write to its own switches as a report, never as a command", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    i.setState.mockClear();
+    i.setTimeout.mockClear();
+    // The adapter's own ack of startPairing/disableAuth comes back as a stateChange with ack: true — acting on it again
+    // would arm a second pairing window, or flip the auth switch from a report.
+    i.onStateChange("hueemu.0.startPairing", { val: true, ack: true } as ioBroker.State);
+    i.onStateChange("hueemu.0.disableAuth", { val: true, ack: true } as ioBroker.State);
+    expect(adapter.pairingEnabled).toBe(false);
+    expect(adapter.disableAuth).toBe(false);
+    expect(i.setTimeout).not.toHaveBeenCalled();
+    expect(i.setState).not.toHaveBeenCalled();
+  });
+
   it("clears no timer when pairing was never armed", async () => {
     const { adapter } = await ready();
     const i = internalOf(adapter);
@@ -2273,6 +2288,7 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
     objectDb(adapter, { "hueemu.0.clients": { _id: "hueemu.0.clients", type: "folder", common: { name: {} } } });
     await i.onReady();
     expect(i.setForeignObject.mock.calls.filter((c: unknown[]) => c[0] === "hueemu.0.clients")).toEqual([]);
+    expect(i.log.debug).not.toHaveBeenCalledWith(expect.stringContaining("Removed the stale common.type"));
   });
 
   it("creates both objects on every start so an update reaches an existing tree", async () => {

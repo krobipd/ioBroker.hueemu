@@ -112,7 +112,7 @@ _Je Nummer der Regel-Satz; Beleg, Messung und Verlauf wörtlich in `.claude/dev-
 - **hue**: raw 0-65535 oder Grad 0-360 (`hueScale`, I2), **ct**: raw Mired 153-500, Kelvin oder Prozent 0..100 linear über 153..500, 0 = kalt (`ctScale`, I2; `percent` v1.19.0), **xy**: Array oder CSV → [x,y]
 - **on**: via shared `coerceBool` (Allowlist `ON_WORDS` in `lib/coerce.ts` — `on/true/1/yes/an/ein`, case-insensitiv; alles andere → aus); dieselbe Liste mit `OFF_WORDS` wählt beim Schreiben den Schlüssel eines Text-Schalters (Audit R-01)
 
-## Tests (1192 vitest inkl. Repo-Standard-Prüfungen und 19 Wächter unter `src/decisions/` + 62 Package-Tests, gemessen 2026-11-11; dazu Integration und Objekt-Inventar mit 16 Objekten)
+## Tests (1194 vitest inkl. Repo-Standard-Prüfungen und 19 Wächter unter `src/decisions/` + 62 Package-Tests, gemessen 2026-11-11; dazu Integration und Objekt-Inventar mit 16 Objekten)
 
 Runner: **vitest 5** (globals, pool: forks, coverage.include src/** für ehrliche Headline). Config: `vitest.config.mts`. Umstieg 4→5 am 2026-09-03 (krobis Entscheidung) — **ohne jede Anpassung an Tests oder Konfiguration**; vite 8 bringt rolldown statt rollup mit, die Sperrdatei trägt danach 26 esbuild-, 15 rolldown- und 11 lightningcss-Bindungen (Plattform-Vollständigkeit gegen den `npm ci`-Bruch geprüft, [[feedback_vitest_install_lockfile_pitfall]]). Über die volle CI-Matrix belegt: `adapter-tests` auf Ubuntu/Windows/macOS je unter Node 22, 24 und 26 (9/9 grün, seit v1.18.0 mit 26.x — der Prüfbot verlangt die Matrix `[22.x, 24.x, 26.x]`, W3026; der Deploy-Step läuft auf 26.x).
 

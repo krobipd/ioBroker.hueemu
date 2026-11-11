@@ -163,6 +163,16 @@ describe("ApiHandler", () => {
       }
     });
 
+    it("answers a pairing whose client could not be stored like a bridge whose link button is not pressed", async () => {
+      const { handler, adapter } = createHandler([], { pairingEnabled: true });
+      adapter.setObjectNotExistsAsync = () => Promise.reject(new Error("db down"));
+      // Decision 21: the client simply tries again — never an internal error it cannot read.
+      await expect(handler.createUser({ devicetype: "Harmony Hub" })).rejects.toMatchObject({
+        type: HueErrorType.LINK_BUTTON_NOT_PRESSED,
+        address: "",
+      });
+    });
+
     it("allows pairing when pairingEnabled=true", async () => {
       const { handler } = createHandler([], { pairingEnabled: true });
       const username = await handler.createUser({
