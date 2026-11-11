@@ -153,7 +153,8 @@ describe("urlForLog", () => {
     expect([
       urlForLog("/api/abcdef/config/whitelist/16f8b066-5b1e", nameOf),
       urlForLog("/api/config/whitelist/abcdefgh", nameOf),
-    ]).toEqual(["/api/<6>/config/whitelist/<13>", "/api/config/whitelist/<8>"]);
+      urlForLog("/API/abcdef/Config/WhiteList/abcdefgh", nameOf),
+    ]).toEqual(["/api/<6>/config/whitelist/<13>", "/api/config/whitelist/<8>", "/API/<6>/Config/WhiteList/<8>"]);
   });
 });
 
@@ -166,6 +167,10 @@ describe("textForLog", () => {
       textForLog("resource, /config/whitelist/16f8b066-5b1e, not available", url, nameOf),
       textForLog("user abcdef failed", url, nameOf),
     ]).toEqual(["resource, /config/whitelist/<13>, not available", "user <6> failed"]);
+  });
+
+  it("names the longer key first, so a key inside another one leaves nothing of it behind", () => {
+    expect(textForLog("abcdefgh and abcd", "/api/abcdefgh/config/whitelist/abcd", nameOf)).toBe("<8> and <4>");
   });
 
   it("leaves a text alone when the URL carries no key", () => {

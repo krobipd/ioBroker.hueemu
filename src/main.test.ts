@@ -1037,6 +1037,25 @@ describe("HueEmu onStateChange", () => {
     expect(handlers[0].forgetState).not.toHaveBeenCalled();
   });
 
+  // H-06 (krobi 2026-11-11 16:59): a log line names an own client object by the id clients.json holds; an object of an
+  // earlier version — its id and its value were the key — by the last four characters of its id, without its value.
+  it("names a client object by its id in the state lines, an earlier version's object without its key", async () => {
+    const { adapter } = await ready();
+    const i = internalOf(adapter);
+    const key = "16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37";
+    (i as unknown as { clients: { add(key: string, devicetype: string): string } }).clients.add(key, "Harmony Hub");
+    i.log.debug.mockClear();
+    i.onStateChange("hueemu.0.clients.harmony-hub-ac37", { val: "Harmony Hub", ack: true } as ioBroker.State);
+    i.onStateChange(`hueemu.0.clients.${key}`, { val: key, ack: true } as ioBroker.State);
+    i.onStateChange(`hueemu.0.user.${key}`, null);
+    const lines = i.log.debug.mock.calls.map(call => String(call[0])).filter(line => line.startsWith("State "));
+    expect(lines).toEqual([
+      "State hueemu.0.clients.harmony-hub-ac37 changed: Harmony Hub (ack = true)",
+      "State hueemu.0.clients.…ac37 changed: … (ack = true)",
+      "State hueemu.0.user.…ac37 deleted",
+    ]);
+  });
+
   it("revokes a client whose object was deleted, and watches the client objects for it", async () => {
     const { adapter, handlers } = await ready();
     const i = internalOf(adapter);
