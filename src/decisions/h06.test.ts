@@ -25,13 +25,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/** The stand-in's database, the timers the adapter set, the instance data folder and every line it logged. */
+/**
+ * The stand-in's database, the timers the adapter set, the instance data folder, every line it logged — and whether
+ * the database refuses a new object.
+ */
 const db = vi.hoisted(() => ({
   objects: new Map<string, Record<string, unknown>>(),
   states: new Map<string, Record<string, unknown>>(),
   timers: [] as Array<{ run: () => void; ms: number }>,
   dir: "",
   logs: [] as string[],
+  refuse: false,
 }));
 
 vi.mock("@iobroker/adapter-core", () => {
@@ -51,6 +55,9 @@ vi.mock("@iobroker/adapter-core", () => {
       return Promise.resolve(id);
     }
     public setObjectNotExistsAsync(id: string, obj: Record<string, unknown>): Promise<{ id: string }> {
+      if (db.refuse) {
+        return Promise.reject(new Error("the database refuses the object"));
+      }
       if (!db.objects.has(full(id))) {
         db.objects.set(full(id), { ...structuredClone(obj), _id: full(id) });
       }
@@ -161,6 +168,8 @@ const TWIN_KEY = "c4665271-7d2e-4f1a-8b3c-5e6f7a8bac37";
 const OLD_KEY = "0d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d3b9";
 /** A device the pairing window takes in without a text. */
 const SILENT_KEY = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b0001";
+/** A device the pairing window would take in while the database refuses its object. */
+const REFUSED_KEY = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f0002";
 
 const folders: string[] = [];
 const servers: Routes[] = [];
@@ -177,6 +186,7 @@ afterEach(async () => {
   db.timers.length = 0;
   db.dir = "";
   db.logs.length = 0;
+  db.refuse = false;
 });
 
 /** A hub paired with the version before the update: `clients.<key>`, the key in native and as the value. */
@@ -282,6 +292,7 @@ describe("H-06: a paired device is named after its device text and the last four
     await pair(adapter, routes, "Harmony Hub", HUB_KEY);
     openWindow(adapter);
     await routes.inject({ method: "GET", url: `/api/${SILENT_KEY}/lights` });
+    await routes.inject({ method: "GET", url: `/api/${HUB_KEY}` });
     await routes.inject({ method: "GET", url: `/api/${HUB_KEY}/lights` });
     await routes.inject({ method: "GET", url: `/api/${HUB_KEY}/capabilities` });
     await routes.inject({ method: "DELETE", url: `/api/${HUB_KEY}/config/whitelist/${SILENT_KEY}` });
@@ -297,9 +308,14 @@ describe("H-06: a paired device is named after its device text and the last four
       from: "system.adapter.x.0",
     });
     onStateChange(`hueemu.0.clients.${OLD_KEY}`, null);
+    // A device the window would take in, while the database refuses its object.
+    db.refuse = true;
+    openWindow(adapter);
+    await routes.inject({ method: "GET", url: `/api/${REFUSED_KEY}/lights` });
+    db.refuse = false;
     const file = JSON.parse(readFileSync(join(db.dir, "clients.json"), "utf8")) as unknown;
     const tree = JSON.stringify({ objects: [...db.objects], states: [...db.states] });
-    const keys = [HUB_KEY, OLD_KEY, SILENT_KEY];
+    const keys = [HUB_KEY, OLD_KEY, SILENT_KEY, REFUSED_KEY];
     const inTree = keys.filter(key => tree.includes(key));
     const inLog = db.logs.filter(line => keys.some(key => line.includes(key)));
 
