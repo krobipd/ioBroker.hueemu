@@ -173,6 +173,8 @@ const REFUSED_KEY = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f0002";
 
 const folders: string[] = [];
 const servers: Routes[] = [];
+/** Whether the next request comes from outside the adapter's networks. */
+const network = { foreign: false };
 
 afterEach(async () => {
   for (const server of servers.splice(0)) {
@@ -187,6 +189,7 @@ afterEach(async () => {
   db.dir = "";
   db.logs.length = 0;
   db.refuse = false;
+  network.foreign = false;
 });
 
 /** A hub paired with the version before the update: `clients.<key>`, the key in native and as the value. */
@@ -222,7 +225,7 @@ async function started(): Promise<{ adapter: ApiHandlerAdapter; routes: Routes }
     config: { bind: "0.0.0.0", port: 8080, advertiseHost: "192.168.1.10", identity: IDENTITY, trustProxy: false },
     handler,
     logger: adapter.log,
-    isClientAllowed: () => true,
+    isClientAllowed: () => !network.foreign,
   });
   const routes = await (server as unknown as { createServer(https: boolean): Promise<Routes> }).createServer(false);
   servers.push(routes);
@@ -308,6 +311,10 @@ describe("H-06: a paired device is named after its device text and the last four
       from: "system.adapter.x.0",
     });
     onStateChange(`hueemu.0.clients.${OLD_KEY}`, null);
+    // A paired device asking from outside the adapter's networks — refused, and its line names the key all the same.
+    network.foreign = true;
+    await routes.inject({ method: "GET", url: `/api/${HUB_KEY}/lights` });
+    network.foreign = false;
     // A device the window would take in, while the database refuses its object.
     db.refuse = true;
     openWindow(adapter);
