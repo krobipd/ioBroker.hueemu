@@ -1,14 +1,15 @@
 /**
- * Guard K14 — a light is reachable only with an assigned datapoint and its switch or brightness present; a missing color
- * datapoint does not count.
+ * Guard K14 — the bridge reports a light to a paired device as "not reachable" when no datapoint is assigned to it or
+ * the datapoint that switches it is missing (the switch; without a switch, the brightness); a missing color datapoint
+ * does not count.
  *
- * The page, K14: "A light shows 'not reachable' when no datapoint is assigned to it or its switch or its brightness is
- * missing. A missing color datapoint does not count." Origin: built by the AI when the lights became objects of their
- * own in the object tree.
- * Accepted by krobi with the page of hueemu's core decisions (version 3) on 2026-11-11 07:37 ("Yes, accepted"). Its
- * third sentence ("When the adapter stops, all lights are 'not reachable'") went with the datapoint `lights.<n>.reachable`
- * it was about — krobi 2026-11-11 14:27: "no, reachable is pointless in this case BECAUSE we only link internal data,
- * so to speak".
+ * The register, K14: "The bridge reports a light to a paired device as 'not reachable' when no datapoint is assigned to
+ * it or the datapoint that switches it is missing (the switch; without a switch, the brightness). A missing color
+ * datapoint does not count." Origin: built by the AI in two audits in September 2026. Its third sentence ("When the
+ * adapter stops, all lights are 'not reachable'") was about the datapoint `lights.<n>.reachable`, which H-07 leaves out
+ * (krobi 2026-11-11 14:27: "no, reachable is pointless in this case BECAUSE we only link internal data, so to speak").
+ * Accepted by krobi with the page of hueemu's datapoint tree (Ressourcen/hueemu/baum-2026-11-11e.html) on 2026-11-11
+ * 16:59 ("yes").
  *
  * Path: the adapter itself (main.ts, adapter-core replaced by an in-memory stand-in) with the bridge's handler over the
  * lights; the bridge answers each light's `reachable` field.
@@ -123,11 +124,10 @@ async function started(devices: DeviceConfig[]): Promise<{ handler: ApiHandler }
   return { handler };
 }
 
-describe("K14: when a light is reachable", () => {
-  it("is reachable only with an assigned datapoint and its switch or brightness present, whatever its color datapoint", async () => {
+describe("K14: when the bridge reports a light as not reachable", () => {
+  it("reports a light as not reachable when nothing is assigned or the datapoint that switches it is missing", async () => {
     datapoint("javascript.0.on", "boolean", true);
     datapoint("javascript.0.level", "number", 40);
-    datapoint("javascript.0.colorOn", "boolean", true);
     const { handler } = await started([
       { id: 1, name: "Nothing assigned", lightType: "onoff" },
       { id: 2, name: "Switch", lightType: "onoff", onState: "javascript.0.on" },
@@ -136,15 +136,49 @@ describe("K14: when a light is reachable", () => {
       { id: 5, name: "Brightness gone", lightType: "dimmable", briState: "javascript.0.dimGone" },
       {
         id: 6,
-        name: "Color gone",
-        lightType: "color",
-        onState: "javascript.0.colorOn",
-        xyState: "javascript.0.xyGone",
+        name: "Switch, brightness gone",
+        lightType: "dimmable",
+        onState: "javascript.0.on",
+        briState: "javascript.0.dimGone",
+      },
+      {
+        id: 7,
+        name: "Switch gone, brightness",
+        lightType: "dimmable",
+        onState: "javascript.0.gone",
+        briState: "javascript.0.level",
       },
     ]);
     const lights = await handler.getAllLights();
     const reachable = Object.fromEntries(Object.entries(lights).map(([n, light]) => [n, light.state.reachable]));
 
-    expect(reachable).toEqual({ 1: false, 2: true, 3: false, 4: true, 5: false, 6: true });
+    expect(reachable).toEqual({ 1: false, 2: true, 3: false, 4: true, 5: false, 6: true, 7: false });
+  });
+
+  it("does not count a missing color datapoint", async () => {
+    datapoint("javascript.0.colorOn", "boolean", true);
+    datapoint("javascript.0.ctOn", "boolean", true);
+    const { handler } = await started([
+      {
+        id: 1,
+        name: "Color gone",
+        lightType: "color",
+        onState: "javascript.0.colorOn",
+        hueState: "javascript.0.hueGone",
+        satState: "javascript.0.satGone",
+        xyState: "javascript.0.xyGone",
+      },
+      {
+        id: 2,
+        name: "Color temperature gone",
+        lightType: "ct",
+        onState: "javascript.0.ctOn",
+        ctState: "javascript.0.ctGone",
+      },
+    ]);
+    const lights = await handler.getAllLights();
+    const reachable = Object.fromEntries(Object.entries(lights).map(([n, light]) => [n, light.state.reachable]));
+
+    expect(reachable).toEqual({ 1: true, 2: true });
   });
 });

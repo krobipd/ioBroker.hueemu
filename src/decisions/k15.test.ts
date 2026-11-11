@@ -1,13 +1,18 @@
 /**
- * Guard K15 — lights carry their own number as id in the object tree (`lights.1`, `lights.2` …), not model plus serial.
+ * Guard K15 — a light stands in the object tree under its number (`lights.1`, `lights.2` …); its name is the name the
+ * user gives it on the card and follows every rename there.
  *
- * The page, K15: "The lights are called `lights.1`, `lights.2` … in the object tree. The other adapters name a device
- * after its model and the last four characters of its serial number. A light in hueemu has no serial number, and its
- * name may occur twice." Why: "The number is the same as in H-02; the AI chose it as the identifier in the object tree."
- * Accepted by krobi with the page of hueemu's core decisions (version 3) on 2026-11-11 07:37 ("Yes, accepted").
+ * The register, K15: "A light stands in the object tree under its number (lights.1, lights.2 …). Its name is the name
+ * the user gives it on the card, and it follows every rename there."
+ * krobi 2026-11-11 15:15, on the questions "Do you mean the explanatory sentence or the id in the path by
+ * 'description'?" and "Shall a light's id be formed from its name (lights.wohnzimmer-licht) instead of its number
+ * (lights.1)?": "the id may well be lights.1 and so on, but the description shall carry the name I give, and be updated
+ * too" — meant is the name the object list shows (`common.name`). Accepted by krobi with the page of hueemu's datapoint
+ * tree (Ressourcen/hueemu/baum-2026-11-11e.html) on 2026-11-11 16:59 ("yes").
  *
- * Path: the light store (light-store.ts) over an object database in memory and a data folder in the system's temporary
- * folder.
+ * Path: the device manager behind the "Devices" tab (device-management.ts — its registered add and edit handlers,
+ * dm-utils as installed) over the light store, an object database in memory and a data folder in the system's
+ * temporary folder.
  */
 
 import { mkdtempSync, rmSync } from "node:fs";
@@ -19,8 +24,27 @@ vi.mock("@iobroker/adapter-core", () => ({
   I18n: { getTranslatedObject: (key: string) => ({ en: key }), translate: (key: string) => key },
 }));
 
-import type { DeviceConfig } from "../hue-api/device-binding-service";
+import { HueEmuDeviceManagement } from "../device-management";
 import { LightStore, type LightStoreAdapter } from "../lib/light-store";
+
+/** The form the card shows, answered with what the user typed. */
+interface Card {
+  showForm: (schema: unknown, options: unknown) => Promise<Record<string, unknown> | undefined>;
+  showMessage: () => Promise<void>;
+  showConfirmation: () => Promise<boolean>;
+}
+
+/** A card action as the device manager registers it. */
+interface CardAction {
+  id: string;
+  handler: (...args: unknown[]) => Promise<unknown>;
+}
+
+/** The handlers dm-utils calls — the add action above the list, the actions of each light's card. */
+interface Registered {
+  getInstanceInfo(): { actions: CardAction[] };
+  loadDevices(context: { addDevice(card: { id: string; actions: CardAction[] }): void }): Promise<void>;
+}
 
 const folders: string[] = [];
 
@@ -31,14 +55,17 @@ afterEach(() => {
 });
 
 /**
- * An object database in memory with the calls the light store makes.
+ * The device manager over an object database in memory with the calls it and the light store make.
  *
  * @param objects where the objects land
  */
-function memoryObjects(objects: Map<string, ioBroker.Object>): LightStoreAdapter {
-  return {
+function manager(objects: Map<string, ioBroker.Object>): Registered {
+  const noop = (): void => undefined;
+  const adapter: LightStoreAdapter & Record<string, unknown> = {
     namespace: "hueemu.0",
     language: "en",
+    log: { silly: noop, debug: noop, info: noop, warn: noop, error: noop },
+    on: noop,
     getObjectListAsync({ startkey, endkey }) {
       const rows = [...objects]
         .filter(([id]) => id >= startkey && id <= endkey)
@@ -60,26 +87,90 @@ function memoryObjects(objects: Map<string, ioBroker.Object>): LightStoreAdapter
       return Promise.resolve();
     },
   };
+  const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k15-"));
+  folders.push(folder);
+  const store = new LightStore(adapter, folder, undefined);
+  const dm = new HueEmuDeviceManagement(
+    adapter as unknown as ConstructorParameters<typeof HueEmuDeviceManagement>[0],
+    store,
+  );
+  return dm as unknown as Registered;
 }
 
 /**
- * A light with the same name as another and no serial number at all.
+ * The card's form, answered with a light the user typed.
  *
- * @param state the datapoint it switches
+ * @param name the name typed into the form
  */
-function lamp(state: string): DeviceConfig {
-  return { name: "Lamp", lightType: "onoff", onState: state };
+function card(name: string): Card {
+  return {
+    showForm: () => Promise.resolve({ name, lightType: "onoff", onState: "javascript.0.lamp" }),
+    showMessage: () => Promise.resolve(),
+    showConfirmation: () => Promise.resolve(true),
+  };
 }
 
-describe("K15: lights carry their own number as id in the object tree", () => {
+/**
+ * Add a light through the add action above the list.
+ *
+ * @param dm the device manager
+ * @param name the name typed into the form
+ */
+async function addOnCard(dm: Registered, name: string): Promise<void> {
+  const add = dm.getInstanceInfo().actions.find(action => action.id === "add");
+  await add?.handler(card(name));
+}
+
+/**
+ * Rename a light through the edit action of its card.
+ *
+ * @param dm the device manager
+ * @param n the light's number — its card id
+ * @param name the new name typed into the form
+ */
+async function renameOnCard(dm: Registered, n: number, name: string): Promise<void> {
+  const cards: Array<{ id: string; actions: CardAction[] }> = [];
+  await dm.loadDevices({ addDevice: shown => cards.push(shown) });
+  const edit = cards.find(shown => shown.id === String(n))?.actions.find(action => action.id === "edit");
+  await edit?.handler(String(n), card(name));
+}
+
+/**
+ * Every text a light's object carries as its name — one, in whatever languages it is stored.
+ *
+ * @param objects the object database
+ * @param id the light's full id
+ */
+function namesOf(objects: Map<string, ioBroker.Object>, id: string): string[] {
+  const name = objects.get(id)?.common?.name;
+  return typeof name === "string" ? [name] : [...new Set(Object.values(name ?? {}))];
+}
+
+describe("K15: a light stands under its number and carries the user's name from the card", () => {
   it("creates the device objects lights.1 and lights.2", async () => {
     const objects = new Map<string, ioBroker.Object>();
-    const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k15-"));
-    folders.push(folder);
-    const store = new LightStore(memoryObjects(objects), folder, undefined);
-    await store.add([lamp("javascript.0.left"), lamp("javascript.0.right")]);
+    const dm = manager(objects);
+    await addOnCard(dm, "Lamp");
+    await addOnCard(dm, "Lamp");
     const devices = [...objects.values()].filter(obj => obj.type === "device").map(obj => obj._id);
 
     expect(devices.sort()).toEqual(["hueemu.0.lights.1", "hueemu.0.lights.2"]);
+  });
+
+  it("names the light as the user names it on the card and follows every rename there", async () => {
+    const objects = new Map<string, ioBroker.Object>();
+    const dm = manager(objects);
+    await addOnCard(dm, "Living room - Light");
+    const added = namesOf(objects, "hueemu.0.lights.1");
+    await renameOnCard(dm, 1, "Living room - Ceiling");
+    const renamed = namesOf(objects, "hueemu.0.lights.1");
+    await renameOnCard(dm, 1, "Dining room - Light");
+    const renamedAgain = namesOf(objects, "hueemu.0.lights.1");
+
+    expect({ added, renamed, renamedAgain }).toEqual({
+      added: ["Living room - Light"],
+      renamed: ["Living room - Ceiling"],
+      renamedAgain: ["Dining room - Light"],
+    });
   });
 });
