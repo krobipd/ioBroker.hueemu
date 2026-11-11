@@ -97,6 +97,37 @@ _Je Nummer der Regel-Satz; Beleg, Messung und Verlauf wörtlich in `.claude/dev-
 36. **Die Bridge-Identität liegt im Datenordner der Instanz, nie im eigenen `native`** — UDN und TLS-Paar in `identity.json`; die Kopie einer früheren Version in native wird erst genullt, wenn die Datei sie hält (Audit R-24).
 37. **Die Client-Schlüssel liegen als Datei im Datenordner der Instanz (`clients.json`), nie im eigenen `native`, das Objekt heißt nach Gerätetyp und den letzten vier Zeichen des Schlüssels** — B02 `audit_own_native_at_runtime` (krobi 2026-11-05 22:46) und krobi 2026-11-10 14:34 „Datei im Datenordner“; die Id-Form `clients.harmony-hub-ac37` krobi 2026-11-11 14:25/14:27, nur für hueemu; einmal vergeben, bei Gleichstand mit Zähler; Zugang = Objekt UND Dateieintrag (Audit R-24).
 
+<!-- core-decisions:begin (generated from the sealed register — change only through the Werkbank) -->
+
+## Core decisions (sealed)
+
+krobi's decisions for this adapter. The register with his verbatim words lives in the locked Werkbank tool tree; a change is a request to the Werkbank, never an edit here. Each guarded rule has a test under `src/decisions/`.
+
+- **Z-01** hueemu is there first of all for the Logitech Harmony platform: the Harmony Hub drives the ioBroker devices through the emulated Hue bridge. Beside it for other devices and apps that only speak Hue (Bosch Smart Home Controller, older Echos, wall panels). It never switches a light the user did not assign; it grants no device access outside the pairing window.
+- **H-02** Every light keeps its number for ever: deleting light 1 leaves light 2 as number 2, a new light gets the next number never given (4), never a freed one; the highest number ever given lives in a file in the instance's data folder.
+- **H-03** The value scale is decided at start from the target datapoint: half brightness on a 0–100 % dimmer writes 50, not 127; no scale is written back into the settings.
+- **H-04** Every change of a mapped datapoint reaches the bridge, also one with ack: false.
+- **H-05** There is no test "device gone, device back": "connected" means the adapter runs, the ports are free and the settings fit. No datapoint shows whether an Echo or a Harmony Hub is there right now.
+- **H-06** A paired device is named in the object tree after its device text and the last four characters of its key. If it names no text when pairing, 'client' stands in front; if the id is already taken, a counter follows. The key itself stands only in a file in the instance's data folder, not in the id, not in the value and not in the hidden data. Applies to hueemu only.
+- **H-07** A light has no datapoint for its reachability. Applies to hueemu only.
+- **K1** A new instance listens on port 8080 by default.
+- **K2** A pure on/off light presents itself as a dimmable light, not as a color light.
+- **K3** Pairing is open only in the pairing window (50 s after "pair"): every device that asks inside it gets access, none after it.
+- **K4** HTTPS only when an HTTPS port is set; then hueemu creates its own certificate, valid ten years, and keeps it across restarts.
+- **K5** The query of the bridge data never pairs: a search app asking inside the window gets the answer but no access.
+- **K6** No limit for pairings: the 101st pairing within an hour is accepted like the first.
+- **K7** An invalid value is not written (brightness "abc", an empty color), the device still gets success.
+- **K8** A scale only with evidence at the datapoint: unit, min and max decide, never the role name; a color temperature without unit and limits gets no guessed scale.
+- **K9** Off wins: "off, brightness 40 %" in one command switches off and writes no brightness; a dimmer without a switch: off = 0, on = full.
+- **K10** Errors like the real bridge: a property no light knows gets an error; a known property the light lacks (color on a dimmer) gets success.
+- **K11** Only the group "all lights" exists: any other group number gets "not available", no light changes.
+- **K12** Writes fit the target datapoint: clamped to its min/max (6500 K), a read-only datapoint is not written, a text switch gets its own texts for on and off.
+- **K13** A deleted paired device loses its access at once, also when deleted while the adapter was stopped (from the next start).
+- **K14** The bridge reports a light to a paired device as 'not reachable' when no datapoint is assigned to it or the datapoint that switches it is missing (the switch; without a switch, the brightness). A missing color datapoint does not count.
+- **K15** A light stands in the object tree under its number (lights.1, lights.2 …). Its name is the name the user gives it on the card, and it follows every rename there.
+
+<!-- core-decisions:end -->
+
 ## Light-Typen
 
 | Typ      | States                    | Model ID |
