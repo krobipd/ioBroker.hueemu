@@ -208,9 +208,9 @@ export class ApiHandler implements HueApiHandler {
     try {
       username = await this.userService.createUser(providedUsername, devicetype);
     } catch (err) {
-      // The only throw left in the create path is the hourly ceiling on new
-      // clients (UserService warns once per window) — answer like a bridge whose
-      // link button is not pressed, so the client simply retries later.
+      // The create path throws when the key or its object could not be stored
+      // (UserService warns) — answer like a bridge whose link button is not
+      // pressed, so the client simply retries (decision 21).
       this.logger.debug(`Pairing rejected for "${oneLine(devicetype)}": ${errText(err)}`);
       throw HueApiError.linkButtonNotPressed("");
     }
@@ -368,29 +368,22 @@ export class ApiHandler implements HueApiHandler {
         );
         return false;
       }
-      // v1.4.3 (U1+R2): defense-in-depth cap inside addUser(viaAutoAdd=true)
-      // — a hostile or chatty client can't fill the clients folder during
-      // the 50 s window.
+      // Every device that asks inside the window gets access (decision K3).
       try {
-        await this.userService.addUser(username, "auto-paired", true);
+        await this.userService.addUser(username, "auto-paired");
         this.logger.debug(`Pairing enabled, auto-added user: ${oneLine(username)}`);
         return true;
       } catch (err) {
         // Debug, not warn: this route needs no authentication, so a warning here
         // is a log line anyone on the LAN can produce at will during the pairing
-        // window — the same reasoning `fallback` below already follows. The
-        // budget that was actually hit warns once per window in UserService.
+        // window — the same reasoning `fallback` below already follows. A key or
+        // object that could not be stored warns in UserService.
         this.logger.debug(`Auto-add rejected for ${oneLine(username)}: ${errText(err)}`);
         return false;
       }
     }
 
     return isAuth;
-  }
-
-  /** Reset the per-pairing-window auto-add budget (called on pairing-on). */
-  public resetAutoAddBudget(): void {
-    this.userService.resetAutoAddBudget();
   }
 
   /**

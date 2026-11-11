@@ -172,8 +172,8 @@ allein lässt sie erreichbar. Eine unter `hueemu.0.lights`
 gelöschte Lampe ist sofort aus der Bridge verschwunden, wie eine auf ihrer Karte gelöschte.
 
 `disableAuth` ist eine Wartungshilfe, keine Dauereinstellung: damit kann jedes Gerät in
-deinem Netz deine Lampen ohne Kopplung steuern. Neue Clients sind ohnehin auf 100 pro
-Stunde begrenzt; eine einzelne Warnung im Protokoll sagt dir, wann diese Grenze erreicht war.
+deinem Netz deine Lampen ohne Kopplung steuern, und jede Kopplungsanfrage wird
+angenommen.
 
 ## Ports, die der Adapter benutzt
 

@@ -48,6 +48,8 @@ vi.mock("@iobroker/adapter-core", () => {
     public clearTimeout = vi.fn();
     public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
+    public terminate = vi.fn();
+    public sendTo = vi.fn();
     // js-controller's own form is `$/aes-192-cbc:<iv>:<ciphertext>` — the prefix is what
     // its start-up decryption keys on; anything without it is decrypted as garbage.
     public encrypt = vi.fn((v: string) => `$/aes-192-cbc:ENC(${v})`);
@@ -58,6 +60,7 @@ vi.mock("@iobroker/adapter-core", () => {
   }
   return {
     Adapter,
+    EXIT_CODES: { UNCAUGHT_EXCEPTION: 6, ADAPTER_REQUESTED_TERMINATION: 11 },
     getAbsoluteInstanceDataDir: () => dataDir.current,
     I18n: {
       init: vi.fn(async () => {}),
@@ -143,7 +146,6 @@ interface FakeApiHandler {
   onStateChange: ReturnType<typeof vi.fn>;
   forgetClient: ReturnType<typeof vi.fn>;
   forgetState: ReturnType<typeof vi.fn>;
-  resetAutoAddBudget: ReturnType<typeof vi.fn>;
   options: unknown;
 }
 
@@ -165,9 +167,13 @@ function internalOf(adapter: HueEmu): {
   clearTimeout: ReturnType<typeof vi.fn>;
   setInterval: ReturnType<typeof vi.fn>;
   clearInterval: ReturnType<typeof vi.fn>;
+  terminate: ReturnType<typeof vi.fn>;
   subscribeStates: ReturnType<typeof vi.fn>;
   subscribeObjects: ReturnType<typeof vi.fn>;
   onObjectChange: (id: string, obj: ioBroker.Object | null | undefined) => void;
+  onMessage: (obj: ioBroker.Message) => void;
+  sendTo: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
   extendForeignObjectAsync: ReturnType<typeof vi.fn>;
   extendObject: ReturnType<typeof vi.fn>;
   getStateAsync: ReturnType<typeof vi.fn>;
@@ -247,7 +253,6 @@ function setup(configOverrides: Record<string, unknown> = {}): {
       onStateChange: vi.fn(),
       forgetState: vi.fn(),
       forgetClient: vi.fn(),
-      resetAutoAddBudget: vi.fn(),
       options,
     };
     handlers.push(h);
@@ -884,6 +889,52 @@ describe("HueEmu onReady", () => {
   });
 });
 
+// Fleet rule D10 (inventory "answers an unknown message with an error"): a message gets an answer, never silence.
+describe("HueEmu onMessage", () => {
+  const message = (command: string, callback?: ioBroker.MessageCallbackInfo): ioBroker.Message => ({
+    command,
+    from: "system.adapter.admin.0",
+    message: {},
+    callback,
+    _id: 1,
+  });
+  const callback = { message: {}, id: 7, ack: false, time: 0 } as ioBroker.MessageCallbackInfo;
+
+  it("listens on the message event once I18n is ready", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    expect(i.on).not.toHaveBeenCalledWith("message", expect.any(Function));
+    await i.onReady();
+    expect(i.on).toHaveBeenCalledWith("message", expect.any(Function));
+  });
+
+  it("answers a command it does not know with an error the sender can read", () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.onMessage(message("inventoryUnknownCommand", callback));
+    expect(i.sendTo).toHaveBeenCalledWith(
+      "system.adapter.admin.0",
+      "inventoryUnknownCommand",
+      { error: expect.stringContaining("inventoryUnknownCommand") },
+      callback,
+    );
+  });
+
+  it("leaves the device manager's commands to dm-utils", () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.onMessage(message("dm:loadDevices", callback));
+    expect(i.sendTo).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing for a message that waits for no answer", () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    i.onMessage(message("inventoryUnknownCommand"));
+    expect(i.sendTo).not.toHaveBeenCalled();
+  });
+});
+
 describe("HueEmu onStateChange", () => {
   async function ready(overrides: Record<string, unknown> = {}): Promise<ReturnType<typeof setup>> {
     const ctx = setup(overrides);
@@ -891,13 +942,12 @@ describe("HueEmu onStateChange", () => {
     return ctx;
   }
 
-  it("startPairing=true enables pairing, resets the auto-add budget and arms the 50s timeout", async () => {
-    const { adapter, handlers } = await ready();
+  it("startPairing=true enables pairing and arms the 50s timeout", async () => {
+    const { adapter } = await ready();
     const i = internalOf(adapter);
     i.onStateChange("hueemu.0.startPairing", { val: true, ack: false } as ioBroker.State);
 
     expect(adapter.pairingEnabled).toBe(true);
-    expect(handlers[0].resetAutoAddBudget).toHaveBeenCalled();
     expect(i.setTimeout).toHaveBeenCalledWith(expect.any(Function), 50_000);
     expect(i.setState).toHaveBeenCalledWith("startPairing", { ack: true, val: true });
   });
@@ -2072,6 +2122,49 @@ describe("HueEmu refreshInstanceObjects (v1.15.0)", () => {
     expect(byId.get("clients")?.common?.desc).toEqual({ en: "clientsFolderDesc" });
     expect(byId.get("info.connection")?.common?.desc).toEqual({ en: "infoConnectionDesc" });
   });
+
+  // Inventory "rewrites no object unchanged": an unchanged write still stamps `ts` and wakes every subscriber.
+  it("writes no own object whose stored form already carries its name and description", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    const texts: Record<string, Record<string, unknown>> = {
+      startPairing: { name: { en: "startPairingName" }, desc: { en: "startPairingDesc" } },
+      disableAuth: { name: { en: "disableAuthName" }, desc: { en: "disableAuthDesc" } },
+      info: { name: { en: "infoFolder" } },
+      "info.connection": { name: { en: "infoConnectionName" }, desc: { en: "infoConnectionDesc" } },
+      "info.error": { name: { en: "infoErrorName" }, desc: { en: "infoErrorDesc" } },
+      clients: { name: { en: "clientsFolder" }, desc: { en: "clientsFolderDesc" } },
+      lights: { name: { en: "lightsFolder" }, desc: { en: "lightsFolderDesc" } },
+    };
+    objectDb(
+      adapter,
+      Object.fromEntries(
+        Object.entries(texts).map(([id, common]) => [
+          `hueemu.0.${id}`,
+          { _id: `hueemu.0.${id}`, type: "state", common: { role: "text", ...common } },
+        ]),
+      ),
+    );
+    await i.onReady();
+    const written = i.extendObject.mock.calls.map(c => c[0] as string).filter(id => id in texts);
+    expect(written).toEqual([]);
+  });
+
+  it("writes only the text that differs from the stored object", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    objectDb(adapter, {
+      "hueemu.0.info.error": {
+        _id: "hueemu.0.info.error",
+        type: "state",
+        common: { name: { en: "an older name" }, desc: { en: "infoErrorDesc" } },
+      },
+    });
+    await i.onReady();
+    expect(i.extendObject.mock.calls.filter(c => c[0] === "info.error")).toEqual([
+      ["info.error", { common: { name: { en: "infoErrorName" }, desc: { en: "infoErrorDesc" } } }],
+    ]);
+  });
 });
 
 describe("HueEmu refreshClientNames (v1.15.1)", () => {
@@ -2220,6 +2313,43 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
     expect(i.setState).not.toHaveBeenCalledWith("info.connection", { ack: true, val: true });
   });
 
+  // GV-28 (krobi 2026-10-03 12:01): an adapter that cannot communicate has a fatal error — inventory "a taken port".
+  it("ends with an error that js-controller restarts once the listener cannot open — after its writes are done", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    const busy = "listen EADDRINUSE: address already in use 0.0.0.0:8080";
+    (adapter as unknown as { makeHueServer: (o: unknown) => FakeHueServer }).makeHueServer = options => ({
+      start: vi.fn(() => Promise.reject(new Error(busy))),
+      stop: vi.fn(() => Promise.resolve()),
+      options,
+    });
+    const done: string[] = [];
+    i.setState.mockImplementation(async (id: string) => {
+      await Promise.resolve();
+      done.push(id);
+    });
+    i.terminate.mockImplementation(() => done.push("terminate"));
+    await i.onReady();
+    expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 6);
+    expect(done.slice(-3).sort()).toEqual(["info.connection", "info.error", "terminate"].sort());
+    expect(done.at(-1)).toBe("terminate");
+  });
+
+  it("does not end the process when a stop already came during the failed start", async () => {
+    const { adapter } = setup();
+    const i = internalOf(adapter);
+    (adapter as unknown as { makeHueServer: (o: unknown) => FakeHueServer }).makeHueServer = options => ({
+      start: vi.fn(() => {
+        (adapter as unknown as { unloaded: boolean }).unloaded = true;
+        return Promise.reject(new Error("listen EADDRINUSE"));
+      }),
+      stop: vi.fn(() => Promise.resolve()),
+      options,
+    });
+    await i.onReady();
+    expect(i.terminate).not.toHaveBeenCalled();
+  });
+
   it("strips the stale meta common.type WITHOUT the null patch js-controller rejects", async () => {
     // `extendObject(… common: { type: null })` does delete the field, but
     // js-controller validates the PATCH first and logs "obj.common.type has an
@@ -2228,13 +2358,13 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
     // touches the object only when there is really something to remove.
     const { adapter } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(
-        id === "clients"
-          ? { _id: "hueemu.0.clients", type: "folder", common: { name: { en: "Clients" }, type: "meta.folder" } }
-          : null,
-      ),
-    );
+    objectDb(adapter, {
+      "hueemu.0.clients": {
+        _id: "hueemu.0.clients",
+        type: "folder",
+        common: { name: { en: "Clients" }, type: "meta.folder" },
+      },
+    });
     await i.onReady();
     // The copy goes back under the FULL id — setForeignObject does not prefix the namespace.
     const written = i.setForeignObject.mock.calls.find((c: unknown[]) => c[0] === "hueemu.0.clients");
@@ -2247,9 +2377,7 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
   it("leaves the clients folder alone when it never was a meta object", async () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
-    i.getObjectAsync.mockImplementation((id: string) =>
-      Promise.resolve(id === "clients" ? { _id: "hueemu.0.clients", type: "folder", common: { name: {} } } : null),
-    );
+    objectDb(adapter, { "hueemu.0.clients": { _id: "hueemu.0.clients", type: "folder", common: { name: {} } } });
     await i.onReady();
     expect(i.setForeignObject.mock.calls.filter((c: unknown[]) => c[0] === "hueemu.0.clients")).toEqual([]);
   });

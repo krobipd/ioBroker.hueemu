@@ -24,7 +24,9 @@ describe("lightIcon", () => {
 describe("normaliseLineEndings", () => {
   // The Windows runner checks out with CRLF — the same file must give the same URI there.
   it("turns a CRLF checkout into the bytes of the LF file", () => {
-    expect(normaliseLineEndings(svg.replace(/\n/g, "\r\n"))).toBe(svg.replace(/\r\n/g, "\n"));
+    // From the LF form: on a Windows checkout the file read above already carries CRLF.
+    const lf = svg.replace(/\r\n/g, "\n");
+    expect(normaliseLineEndings(lf.replace(/\n/g, "\r\n"))).toBe(lf);
   });
 });
 

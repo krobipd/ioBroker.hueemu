@@ -34,8 +34,8 @@ export interface ClientMoveAdapter extends EnumCarryAdapter {
     startkey: string;
     endkey: string;
   }): Promise<{ rows: Array<{ id: string; value: unknown }> } | null | undefined>;
-  /** Reads one own state. */
-  getStateAsync(id: string): Promise<ioBroker.State | null | undefined>;
+  /** Reads the own states matching a pattern, keyed by full id. */
+  getStatesAsync(pattern: string): Promise<Record<string, ioBroker.State | null | undefined> | null | undefined>;
   /** Creates an own object unless it exists. */
   setObjectNotExistsAsync(id: string, obj: ioBroker.SettableObject): Promise<unknown>;
   /** Writes an own state. */
@@ -126,6 +126,19 @@ export async function moveClients(
   describeError: (err: unknown) => string,
 ): Promise<ClientMoveResult> {
   const ns = adapter.namespace;
+  // The states of a folder, read once with one call when a client of an earlier version needs them — keyed by full id,
+  // and kept up to date with what the move writes.
+  const states = new Map<string, Map<string, ioBroker.State | null | undefined>>();
+  const statesOf = async (folder: string): Promise<Map<string, ioBroker.State | null | undefined>> => {
+    let read = states.get(folder);
+    if (!read) {
+      read = new Map(Object.entries((await adapter.getStatesAsync(`${folder}.*`)) ?? {}));
+      states.set(folder, read);
+    }
+    return read;
+  };
+  const stateOf = async (id: string): Promise<ioBroker.State | null | undefined> =>
+    (await statesOf(id.slice(0, id.indexOf(".")))).get(`${ns}.${id}`);
   const legacy: LegacyClient[] = [];
   const present = new Set<number>();
   /** Every number an id below `clients.` carries — an old `clients.<key>` whose key is a number included. */
@@ -140,7 +153,7 @@ export async function moveClients(
     for (const row of users?.rows ?? []) {
       const obj = (row.value ?? {}) as Partial<ioBroker.Object>;
       const id = row.id.slice(ns.length + 1);
-      const value = (await adapter.getStateAsync(id))?.val;
+      const value = (await stateOf(id))?.val;
       const key =
         text((obj.native as { username?: unknown } | undefined)?.username) ??
         text(value) ??
@@ -172,7 +185,7 @@ export async function moveClients(
       continue;
     }
     const id = row.id.slice(ns.length + 1);
-    const key = stored ?? text((await adapter.getStateAsync(id))?.val) ?? suffix;
+    const key = stored ?? text((await stateOf(id))?.val) ?? suffix;
     legacy.push({ id, obj, key });
   }
   // No new number may be the id of an object that is still there — the move would delete its own successor.
@@ -198,13 +211,22 @@ export async function moveClients(
       },
       native: {},
     });
-    const old = await adapter.getStateAsync(client.id);
-    const now = await adapter.getStateAsync(newId);
+    const old = await stateOf(client.id);
+    const now = await stateOf(newId);
     if (now?.val !== devicetype) {
       // The pairing time is the state's last change (audit R-07) — handed over, or every moved client would show the
       // move as its pairing.
       const lc = typeof old?.lc === "number" ? old.lc : typeof client.obj.ts === "number" ? client.obj.ts : undefined;
-      await adapter.setState(newId, { val: devicetype, ack: true, ...(lc === undefined ? {} : { lc }) });
+      const state = { val: devicetype, ack: true, ...(lc === undefined ? {} : { lc }) };
+      await adapter.setState(newId, state);
+      // A second old object with the same key (`user.<key>` and `clients.<key>`) finds the value already written.
+      (await statesOf(CLIENTS_FOLDER)).set(`${ns}.${newId}`, {
+        ...state,
+        ts: Date.now(),
+        lc: lc ?? Date.now(),
+        from: "",
+        q: 0,
+      });
     }
     successors.set(`${ns}.${client.id}`, `${ns}.${newId}`);
   }

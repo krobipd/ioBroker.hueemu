@@ -39,30 +39,13 @@ export interface UserServiceConfig {
   store: ClientStore;
 }
 
-/**
- * v1.4.3 (U1+R2): cap on auto-added clients within a single pairing window.
- * The auto-add path in `ApiHandler.isUserAuthenticated` accepts any unknown
- * username during the 50 s pairing window — necessary for Echo/Harmony
- * compatibility, but a misbehaving (or hostile) client could create
- * thousands of permanent client records over those seconds. Real Hue
- * bridges press only one pair per button-press; we keep the auto-add for
- * compat but cap the total per window. Manual `createUser` (POST /api with
- * the link button held) is not counted here — the hourly ceiling below bounds
- * it together with every other path.
+/*
+ * No limit for pairings (decision K6, krobi 2026-11-10 16:10: "who on earth will ever pair 100 Harmonies", accepted
+ * 2026-11-11 07:37), and every device that asks inside the pairing window gets access (K3). Up to 1.19.0 a ceiling of
+ * 100 new clients an hour and a cap of 64 auto-added clients a window refused the rest — not again: K6 and K3 decide
+ * it, and the window itself is the gate.
  */
-const AUTO_ADD_CAP_PER_WINDOW = 64;
 
-/**
- * Ceiling on persistent client creations per hour, over every path (manual
- * POST /api and auto-add). The per-window auto-add cap does not cover
- * POST /api, and with `disableAuth` on that path has no link-button gate
- * either — without a ceiling one device could grow the object DB without
- * bound (one object + one state per request). Legitimate use pairs a handful
- * of clients over the lifetime of an install; 100 in one hour is only ever a
- * flood.
- */
-export const CLIENT_CREATE_CEILING_PER_HOUR = 100;
-const CLIENT_CREATE_WINDOW_MS = 60 * 60 * 1000;
 /** A provided username is stored for good (clients.json) — real bridges issue 40 chars. */
 export const MAX_USERNAME_LENGTH = 64;
 /** The devicetype is stored as the client object's display name. */
@@ -116,8 +99,7 @@ export class UserService {
   /**
    * v1.18.0: the `addUser` in flight per client key. A client's first burst of
    * parallel requests during pairing used to run the whole add path once per
-   * request — and booked the auto-add budget and the hourly ceiling once per
-   * request too (measured, audit 2026-09-15 B2). The second caller now simply
+   * request (measured, audit 2026-09-15 B2). The second caller now simply
    * shares the first one's outcome.
    */
   private readonly pendingAdds: Map<string, Promise<void>> = new Map();
@@ -128,17 +110,6 @@ export class UserService {
    * whitelist used to carry the key as its name and "now" as both dates.
    */
   private clientInfo: Map<string, PairedClient> = new Map();
-
-  /**
-   * v1.4.3 (U1+R2): defense-in-depth counter for auto-added clients in the
-   * current pairing window. Reset by {@link resetAutoAddBudget} which the
-   * adapter calls when pairing flips on.
-   */
-  private autoAddedThisWindow = 0;
-  private autoAddCapWarned = false;
-
-  /** Fixed hourly window for {@link CLIENT_CREATE_CEILING_PER_HOUR}; starts with the first creation. */
-  private createWindow = { startedAt: 0, count: 0, warned: false };
 
   /**
    * Create a new user service
@@ -152,67 +123,18 @@ export class UserService {
   }
 
   /**
-   * Reset the auto-add counter — call when a new pairing window opens so
-   * every press of the link button gets a fresh budget.
-   */
-  public resetAutoAddBudget(): void {
-    this.autoAddedThisWindow = 0;
-    this.autoAddCapWarned = false;
-  }
-
-  /**
-   * Throw when the hourly ceiling is already used up (warns once per window).
-   * The window is fixed, not sliding: it starts with the first creation and the
-   * counter is zeroed when a new one starts — never a counter that only rises.
-   *
-   * v1.15.0: this only CHECKS. Counting moved to {@link countCreatedClient},
-   * which runs after a client was really persisted. Counting the attempt let
-   * rejected requests eat the budget: 64 auto-adds plus the auto-add cap's own
-   * rejections exhausted all 100 slots inside one 50-second pairing window, and
-   * the owner's next manual pairing was refused for the rest of the hour
-   * (measured, 2026-09-03 audit F5). It still runs BEFORE the object write, so a
-   * request over the ceiling creates nothing.
-   */
-  private enforceCreateCeiling(): void {
-    const now = Date.now();
-    if (now - this.createWindow.startedAt >= CLIENT_CREATE_WINDOW_MS) {
-      this.createWindow = { startedAt: now, count: 0, warned: false };
-    }
-    if (this.createWindow.count >= CLIENT_CREATE_CEILING_PER_HOUR) {
-      if (!this.createWindow.warned) {
-        this.createWindow.warned = true;
-        this.logger.warn(
-          `Client creation ceiling reached (${CLIENT_CREATE_CEILING_PER_HOUR} new clients within one hour) — further pairing requests are rejected until the hour is over (a misbehaving client, or disableAuth on an untrusted network?)`,
-        );
-      }
-      throw new Error("Client creation ceiling reached for this hour");
-    }
-  }
-
-  /**
-   * Book one actually-created client against the hourly ceiling. Only called
-   * once the client is persisted and new — a re-pairing under an existing name
-   * costs nothing, and neither does a creation whose object write failed.
-   */
-  private countCreatedClient(): void {
-    this.createWindow.count += 1;
-  }
-
-  /**
-   * Add a new client (Hue API "user").
+   * Add a new client (Hue API "user") — from the pairing-window auto-add or from
+   * `POST /api` (gated by the link button).
    *
    * @param username The client key (stored in clients.json, never in the tree).
    * @param devicetype Client-supplied device type (purely informational).
-   * @param viaAutoAdd `true` when called from the pairing-window auto-add
-   *   path — counts against the per-window cap. `false` for explicit
-   *   `POST /api` createUser calls (gated by the link button and the hourly ceiling).
    */
-  public addUser(username: string, devicetype = "unknown", viaAutoAdd = false): Promise<void> {
+  public addUser(username: string, devicetype = "unknown"): Promise<void> {
     const pending = this.pendingAdds.get(username);
     if (pending) {
       return pending;
     }
-    const run = this.addUserOnce(username, devicetype, viaAutoAdd).finally(() => {
+    const run = this.addUserOnce(username, devicetype).finally(() => {
       this.pendingAdds.delete(username);
     });
     this.pendingAdds.set(username, run);
@@ -224,25 +146,11 @@ export class UserService {
    *
    * @param username - Username (real key) to add
    * @param devicetype - Device type string, stored as the object's display name
-   * @param viaAutoAdd - True when this add was triggered by pairing-window auto-add
    */
-  private async addUserOnce(username: string, devicetype: string, viaAutoAdd: boolean): Promise<void> {
-    // Every path — the ceiling is what bounds the object DB when nothing else does.
-    this.enforceCreateCeiling();
-
-    if (viaAutoAdd && this.autoAddedThisWindow >= AUTO_ADD_CAP_PER_WINDOW) {
-      if (!this.autoAddCapWarned) {
-        this.logger.warn(
-          `Auto-add cap reached (${AUTO_ADD_CAP_PER_WINDOW} clients in this pairing window) — further unknown clients will be rejected until pairing is re-enabled`,
-        );
-        this.autoAddCapWarned = true;
-      }
-      throw new Error("Auto-add cap reached for this pairing window");
-    }
-
+  private async addUserOnce(username: string, devicetype: string): Promise<void> {
     // v1.4.3 (U2): keep the auth-cache fresh after every add. Warmed BEFORE the
-    // write since v1.15.0, because the ceiling has to tell a genuinely new
-    // client from a client re-pairing under a name that already exists.
+    // write, because a genuinely new client is told from a client re-pairing
+    // under a name that already exists: only the new one gets its state written.
     const cache = await this.ensureCache();
     const isNewClient = !cache.has(username);
     const name = devicetype.slice(0, MAX_DEVICETYPE_LENGTH);
@@ -291,16 +199,6 @@ export class UserService {
       this.logger.warn(`Failed to set client state ${id}: ${errText(err)}`);
     }
 
-    // Book against the hourly ceiling only for a client that is really new AND
-    // really stored — the ceiling exists to bound the object database, so a
-    // request that grew it by nothing must not consume a slot.
-    this.countCreatedClient();
-    // v1.17.0: the per-window auto-add budget is booked here too, for the same
-    // reason the hourly ceiling moved in v1.15.0 — a failed write used to eat
-    // one of the 64 slots (audit 2026-09-06 F12).
-    if (viaAutoAdd) {
-      this.autoAddedThisWindow += 1;
-    }
     this.clientKeysCache?.add(username);
     const now = Date.now();
     this.clientInfo.set(username, { name, created: now, lastUse: now });

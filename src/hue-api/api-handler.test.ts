@@ -354,22 +354,6 @@ describe("ApiHandler", () => {
     });
   });
 
-  describe("hourly ceiling on new clients (any path)", () => {
-    it("answers 'link button not pressed' once 100 clients were created within the hour", async () => {
-      // disableAuth removes the link-button gate from POST /api — the ceiling is
-      // the only bound left on persistent client objects.
-      const { handler } = createHandler([], { disableAuth: true });
-      for (let i = 0; i < 100; i++) {
-        const body: CreateUserRequest = { devicetype: "flood", username: `flood-${i}` };
-        await handler.createUser(body);
-      }
-      const over: CreateUserRequest = { devicetype: "flood", username: "flood-100" };
-      await expect(handler.createUser(over)).rejects.toMatchObject({
-        type: HueErrorType.LINK_BUTTON_NOT_PRESSED,
-      });
-    });
-  });
-
   describe("isAuthDisabled", () => {
     it("reflects adapter.disableAuth", () => {
       const { handler } = createHandler([], { disableAuth: true });
@@ -668,17 +652,6 @@ describe("ApiHandler", () => {
         // The failed list hears nothing any more.
         expect((handler as unknown as { pendingBinding?: unknown }).pendingBinding).toBeUndefined();
       });
-    });
-
-    it("resetAutoAddBudget re-opens the auto-add window", async () => {
-      const { handler } = createHandler([], { pairingEnabled: true });
-      // Exhaust the cap via auto-adds
-      for (let i = 0; i < 64; i++) {
-        expect(await handler.isUserAuthenticated(`echo-${i}`)).toBe(true);
-      }
-      expect(await handler.isUserAuthenticated("over-cap")).toBe(false);
-      handler.resetAutoAddBudget();
-      expect(await handler.isUserAuthenticated("fresh-client")).toBe(true);
     });
   });
 });

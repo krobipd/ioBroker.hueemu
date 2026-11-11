@@ -105,7 +105,7 @@ Before any client can connect, pairing must be activated:
 2. Start the device search / pairing in your client app within **50 seconds**
 3. After successful pairing a new entry appears under `hueemu.0.clients.*`
 
-New clients are limited to 100 per hour across all pairing paths; a single warning tells you when that limit was hit. A client-supplied username longer than 64 characters is replaced by a generated one.
+A client-supplied username longer than 64 characters is replaced by a generated one.
 
 ### Connecting with Alexa (older Echo without Matter)
 
@@ -208,6 +208,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Changed: The keys of paired clients moved from the object tree into the instance data folder — the client objects are now numbered (clients.<n>) and show the device type; every pairing stays.
 - Changed: Going back to 1.19.0 or older is not supported — that version creates a new bridge identity and finds no lights.
 - Changed: The undocumented /health route is gone.
+- Changed: Pairing has no limit any more — every device that asks within the 50 seconds is paired.
 - Fixed: A text switch (e.g. EIN/AUS) that a client switched on is now read back as on.
 - Fixed: A light bound to another datapoint no longer keeps the old datapoint's scale.
 - Fixed: A client's pairing date no longer changes with every rename or object update.
@@ -215,6 +216,8 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Fixed: A stray write to one of the adapter's read-only datapoints is no longer confirmed.
 - Fixed: Opening the device manager right after the instance started no longer fails.
 - Fixed: A new instance shows "Unknown" as the reason until its first start instead of an empty text.
+- Fixed: A bridge that cannot start, for example on a taken port, now ends with an error and js-controller restarts it.
+- Fixed: A message the adapter does not know (sendTo from a script) now gets an error answer instead of none.
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.
 - Improved: Updated dependencies with security fixes.

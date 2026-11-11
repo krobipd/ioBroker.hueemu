@@ -11,13 +11,7 @@ vi.mock("@iobroker/adapter-core", () => ({
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Mock } from "vitest";
-import {
-  CLIENT_CREATE_CEILING_PER_HOUR,
-  MAX_DEVICETYPE_LENGTH,
-  UserService,
-  type UserServiceAdapter,
-} from "./user-service";
+import { MAX_DEVICETYPE_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { CLIENTS_FILE, ClientStore } from "../lib/client-store";
 import { createMockLogger } from "../../test/test-helpers";
 
@@ -395,168 +389,43 @@ describe("UserService", () => {
     });
   });
 
-  describe("auto-add cap (U1+R2 v1.4.3)", () => {
-    it("rejects auto-add once 64 clients are added in the same window", async () => {
-      const { service } = createService([]);
-      service.resetAutoAddBudget();
-      // 64 successful auto-adds
-      for (let i = 0; i < 64; i++) {
-        await service.addUser(`auto-${i}`, "echo", true);
-      }
-      // 65th throws — the per-window cap is exhausted
-      try {
-        await service.addUser("auto-65", "echo", true);
-        throw new Error("Should have thrown after cap");
-      } catch (err) {
-        expect((err as Error).message).toMatch(/cap reached/i);
-      }
-    });
-
-    it("manual createUser is NOT counted against the auto-add cap", async () => {
-      const { service } = createService([]);
-      service.resetAutoAddBudget();
-      // Fill the auto-add cap
-      for (let i = 0; i < 64; i++) {
-        await service.addUser(`auto-${i}`, "echo", true);
-      }
-      // Manual createUser still works (gated by the link button, not the cap)
-      const manual = await service.createUser("explicit-user", "browser");
-      expect(manual).toBe("explicit-user");
-    });
-
-    it("resetAutoAddBudget clears the counter (per pairing window)", async () => {
-      const { service } = createService([]);
-      service.resetAutoAddBudget();
-      for (let i = 0; i < 64; i++) {
-        await service.addUser(`auto-${i}`, "echo", true);
-      }
-      // Cap exhausted: a further auto-add throws...
-      await expect(service.addUser("over-cap", "echo", true)).rejects.toThrow(/cap reached/i);
-      // ...until the window resets, after which auto-add works again.
-      service.resetAutoAddBudget();
-      await service.addUser("fresh-1", "echo", true);
-    });
-  });
-
-  describe("hourly ceiling on persistent client creations (any path)", () => {
-    type LogFn = (message: string) => void;
-    function serviceWithWarnSpy(): { service: UserService; adapter: MockUserAdapter; warn: Mock<LogFn> } {
+  describe("no limit for pairings (decisions K6 and K3)", () => {
+    it("adds a 65th client in one window and a 101st within one hour, warning about none", async () => {
       const adapter = createMockAdapter();
-      const warn = vi.fn<LogFn>();
-      const service = new UserService({
-        adapter,
-        logger: { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn, error: vi.fn<LogFn>() },
-        store: storeWith([]),
-      });
-      return { service, adapter, warn };
-    }
-
-    async function fillTheHour(service: UserService, prefix: string): Promise<void> {
-      for (let i = 0; i < CLIENT_CREATE_CEILING_PER_HOUR; i++) {
-        await service.createUser(`${prefix}-${i}`, "flood");
+      const warn = vi.fn();
+      const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store: storeWith([]) });
+      for (let i = 0; i < 65; i++) {
+        await service.addUser(`auto-${i}`, "echo");
       }
-    }
-
-    beforeEach(() => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-09-02T10:00:00Z"));
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it("rejects the 101st creation within one hour and warns exactly once", async () => {
-      const { service, adapter, warn } = serviceWithWarnSpy();
-      await fillTheHour(service, "c");
-      await expect(service.createUser("c-100", "flood")).rejects.toThrow(/ceiling/i);
-      await expect(service.createUser("c-101", "flood")).rejects.toThrow(/ceiling/i);
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("Client creation ceiling reached"));
-      expect(adapter.writtenObjects.size).toBe(CLIENT_CREATE_CEILING_PER_HOUR);
-    });
-
-    it("auto-adds count against the same ceiling", async () => {
-      const { service } = serviceWithWarnSpy();
-      await fillTheHour(service, "c");
-      service.resetAutoAddBudget();
-      await expect(service.addUser("auto-1", "echo", true)).rejects.toThrow(/ceiling/i);
-    });
-
-    it("a rejected attempt does not eat a slot — the owner can still pair after a flood", async () => {
-      // 2026-09-03 audit (F5): the ceiling counted the ATTEMPT, so the auto-add
-      // cap's own rejections burned the hourly budget. Measured: 64 clients
-      // created, and the owner's next manual pairing refused for the rest of
-      // the hour. 200 attempts must cost exactly the 64 that were persisted.
-      const { service } = serviceWithWarnSpy();
-      let created = 0;
-      for (let i = 0; i < 200; i++) {
-        try {
-          await service.addUser(`auto-${i}`, "flood", true);
-          created++;
-        } catch {
-          /* rejected — must not cost anything */
-        }
+      for (let i = 0; i < 36; i++) {
+        await service.createUser(`manual-${i}`, "harmony");
       }
-      expect(created).toBe(64);
-      await expect(service.createUser("owners-echo", "Echo")).resolves.toBeTruthy();
+      expect(adapter.writtenObjects.size).toBe(101);
+      expect(await service.isUserAuthenticated("auto-64")).toBe(true);
+      expect(await service.isUserAuthenticated("manual-35")).toBe(true);
+      expect(warn).not.toHaveBeenCalled();
     });
 
-    it("re-pairing under an existing name costs nothing — no new object, no slot", async () => {
-      const { service } = serviceWithWarnSpy();
+    it("re-pairing under an existing name creates no second object", async () => {
+      const { service, adapter } = createService([]);
       await service.createUser("known", "Echo");
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 50; i++) {
         await service.createUser("known", "Echo");
       }
-      // The one real creation is the only one booked, so 99 slots are still
-      // free — the 500 repeats cost nothing.
-      for (let i = 0; i < CLIENT_CREATE_CEILING_PER_HOUR - 1; i++) {
-        await service.createUser(`rest-${i}`, "flood");
-      }
-      await expect(service.createUser("one-too-many", "flood")).rejects.toThrow(/ceiling/i);
+      expect(adapter.writtenObjects.size).toBe(1);
+      expect(storedFile().lastClientId).toBe(1);
     });
 
-    it("a creation whose object write failed does not eat a slot", async () => {
-      const { service, adapter } = serviceWithWarnSpy();
+    it("a creation whose object write failed leaves nothing behind, and the next one works", async () => {
+      const { service, adapter } = createService([]);
       adapter.setObjectShouldFail = true;
-      for (let i = 0; i < 150; i++) {
-        await expect(service.createUser(`broken-${i}`, "flood")).rejects.toThrow();
+      for (let i = 0; i < 5; i++) {
+        await expect(service.addUser(`ghost-${i}`, "auto-paired")).rejects.toThrow();
       }
       adapter.setObjectShouldFail = false;
-      await expect(service.createUser("now-working", "Echo")).resolves.toBeTruthy();
-    });
-
-    // v1.17.0 (audit 2026-09-06 F12): the per-window auto-add budget is booked
-    // after the client exists, exactly like the hourly ceiling since v1.15.0.
-    it("a failed auto-add does not eat one of the 64 window slots", async () => {
-      const { service, adapter } = serviceWithWarnSpy();
-      adapter.setObjectShouldFail = true;
-      for (let i = 0; i < 100; i++) {
-        await expect(service.addUser(`ghost-${i}`, "auto-paired", true)).rejects.toThrow();
-      }
-      adapter.setObjectShouldFail = false;
-      await expect(service.addUser("real", "auto-paired", true)).resolves.toBeUndefined();
-    });
-
-    it("still refuses to create anything once the ceiling is reached", async () => {
-      // The check has to stay AHEAD of the object write — counting later must
-      // not turn the ceiling into a post-hoc tally.
-      const { service, adapter } = serviceWithWarnSpy();
-      await fillTheHour(service, "c");
-      await expect(service.createUser("c-100", "flood")).rejects.toThrow(/ceiling/i);
-      expect(adapter.writtenObjects.size).toBe(CLIENT_CREATE_CEILING_PER_HOUR);
-      expect(storedFile().lastClientId).toBe(CLIENT_CREATE_CEILING_PER_HOUR);
-    });
-
-    it("opens a fresh window after the hour — a whole chain passes again and the warning re-arms", async () => {
-      const { service, warn } = serviceWithWarnSpy();
-      await fillTheHour(service, "c");
-      await expect(service.createUser("over", "flood")).rejects.toThrow(/ceiling/i);
-      vi.setSystemTime(new Date("2026-09-02T11:00:01Z"));
-      // Not just one — the counter must be zeroed, or the second creation trips again.
-      await fillTheHour(service, "later");
-      await expect(service.createUser("later-over", "ok")).rejects.toThrow(/ceiling/i);
-      expect(warn).toHaveBeenCalledTimes(2);
+      await expect(service.createUser("now-working", "Echo")).resolves.toBe("now-working");
+      expect(await service.isUserAuthenticated("ghost-0")).toBe(false);
+      expect(await service.isUserAuthenticated("now-working")).toBe(true);
     });
   });
 
@@ -579,7 +448,6 @@ describe("UserService", () => {
       const { service } = createService([]);
       // Prime cache
       expect(await service.isUserAuthenticated("just-added")).toBe(false);
-      // Add WITHOUT viaAutoAdd flag (manual path)
       await service.addUser("just-added", "browser");
       // Without cache update, this would still return false from the cache.
       expect(await service.isUserAuthenticated("just-added")).toBe(true);
@@ -646,7 +514,7 @@ describe("v1.18.0 — parallel requests on a cold cache", () => {
       adapter.writtenObjects.set(id, obj);
       return { id };
     };
-    await Promise.all([service.addUser("key-A", "auto-paired", true), service.addUser("key-B", "auto-paired", true)]);
+    await Promise.all([service.addUser("key-A", "auto-paired"), service.addUser("key-B", "auto-paired")]);
     expect(await service.isUserAuthenticated("key-A")).toBe(true);
     expect(await service.isUserAuthenticated("key-B")).toBe(true);
   });
@@ -672,29 +540,23 @@ describe("v1.18.0 — parallel requests on a cold cache", () => {
       objectWrites += 1;
       return original(id, obj);
     };
-    service.resetAutoAddBudget();
     await Promise.all([
-      service.addUser("echo-key", "auto-paired", true),
-      service.addUser("echo-key", "auto-paired", true),
-      service.addUser("echo-key", "auto-paired", true),
+      service.addUser("echo-key", "auto-paired"),
+      service.addUser("echo-key", "auto-paired"),
+      service.addUser("echo-key", "auto-paired"),
     ]);
-    const internals = service as unknown as { autoAddedThisWindow: number; createWindow: { count: number } };
-    expect(internals.autoAddedThisWindow).toBe(1);
-    expect(internals.createWindow.count).toBe(1);
     expect(objectWrites).toBe(1);
+    expect(storedFile().lastClientId).toBe(1);
   });
 
   it("lets a second parallel add of the same key share the first one's rejection", async () => {
     const { service, adapter } = createService([]);
     adapter.setObjectShouldFail = true;
-    const results = await Promise.allSettled([
-      service.addUser("echo-key", "x", true),
-      service.addUser("echo-key", "x", true),
-    ]);
+    const results = await Promise.allSettled([service.addUser("echo-key", "x"), service.addUser("echo-key", "x")]);
     expect(results.map(r => r.status)).toEqual(["rejected", "rejected"]);
     // The guard is released afterwards — a later add is a new attempt.
     adapter.setObjectShouldFail = false;
-    await expect(service.addUser("echo-key", "x", true)).resolves.toBeUndefined();
+    await expect(service.addUser("echo-key", "x")).resolves.toBeUndefined();
   });
 });
 

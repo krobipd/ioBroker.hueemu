@@ -28,7 +28,7 @@ import { LightStore, type StoredLights } from "./lib/light-store";
 import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE } from "./lib/client-store";
 import { moveClients } from "./lib/client-move";
 import { lightIcon } from "./lib/device-icons";
-import { sameStructure } from "./lib/known-objects";
+import { KnownObjects, sameStructure } from "./lib/known-objects";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
   BRIDGE_MODEL_ID,
@@ -183,7 +183,21 @@ class HueEmu extends utils.Adapter {
    * @param val - Value to write with ack:true
    */
   private ackState(id: string, val: ioBroker.StateValue): void {
-    void this.setState(id, { ack: true, val }).catch(e => this.log.error(`setState ${id} failed: ${errText(e)}`));
+    void this.writeAcked(id, val);
+  }
+
+  /**
+   * The ack write {@link ackState} starts, to wait for — before the process ends. Never rejects.
+   *
+   * @param id - State id (relative to namespace)
+   * @param val - Value to write with ack:true
+   */
+  private async writeAcked(id: string, val: ioBroker.StateValue): Promise<void> {
+    try {
+      await this.setState(id, { ack: true, val });
+    } catch (e) {
+      this.log.error(`setState ${id} failed: ${errText(e)}`);
+    }
   }
 
   /**
@@ -199,10 +213,10 @@ class HueEmu extends utils.Adapter {
    *
    * @param connected - Whether the HTTP listener is accepting requests
    * @param reason - The failure to show, or "" when there is none
+   * @returns when both writes are done — never rejects
    */
-  private setConnected(connected: boolean, reason: string): void {
-    this.ackState("info.connection", connected);
-    this.ackState("info.error", reason);
+  private async setConnected(connected: boolean, reason: string): Promise<void> {
+    await Promise.all([this.writeAcked("info.connection", connected), this.writeAcked("info.error", reason)]);
   }
 
   /** Whether authentication is disabled */
@@ -261,6 +275,8 @@ class HueEmu extends utils.Adapter {
       // First of all: js-controller delivers messages before onReady has finished,
       // and every handler translates (iobroker-adapter-checks i18n-before-messages).
       await I18n.init(join(this.adapterDir, "admin"), this);
+      // Unknown messages get an answer (D10) — after I18n.init like every message handler (dm-utils' too).
+      this.on("message", this.onMessage.bind(this));
       // Next: without this the whole shutdown path stays dead on an updated install.
       // A correction means the host is restarting us — no point binding anything.
       if (await this.clearStopInstanceFlag()) {
@@ -272,7 +288,7 @@ class HueEmu extends utils.Adapter {
       this.deviceManagement = new HueEmuDeviceManagement(this, lights);
       // Nothing to report yet — the listener is not up. Written before anything
       // can fail, so a crash between here and the listen leaves the truth behind.
-      this.setConnected(false, REASON_UNKNOWN);
+      await this.setConnected(false, REASON_UNKNOWN);
 
       // v1.18.0: the listen address moved from `host` to the standard key `bind` and
       // the port became a number, so the admin's port-conflict check sees this bridge.
@@ -430,7 +446,7 @@ class HueEmu extends utils.Adapter {
       if (this.unloaded) {
         return;
       }
-      this.setConnected(true, "");
+      await this.setConnected(true, "");
       this.log.info(
         `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
       );
@@ -441,10 +457,20 @@ class HueEmu extends utils.Adapter {
       // message from outside (node's `listen EADDRINUSE …`) names a cause the
       // user could not have read off the instance state anyway. The full text,
       // hint included, goes to the log where it is actionable.
-      this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail);
       this.log.error(`Failed to start Hue Emulator: ${detail}`);
-      // The bridge serves nothing — no light is reachable through it (D4, like the stop).
-      await this.markLightsUnreachable();
+      // The bridge serves nothing — no light is reachable through it (D4, like the stop). All of it reaches the
+      // database before the process ends: a write still in flight at the exit is lost.
+      await Promise.all([
+        this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail),
+        this.markLightsUnreachable(),
+      ]);
+      // GV-28 (krobi 2026-10-03 12:01): a bridge that serves nothing talks to nobody — a fatal error, never a process
+      // that runs on idle. UNCAUGHT_EXCEPTION, not ADAPTER_REQUESTED_TERMINATION: js-controller restarts it after 30 s,
+      // so a port that was taken only for a while heals itself, and gives up after three failures in ten minutes; 11
+      // would mean "never restart".
+      if (!this.unloaded) {
+        this.terminate("Hue Emulator could not start", utils.EXIT_CODES.UNCAUGHT_EXCEPTION);
+      }
     }
   }
 
@@ -821,21 +847,27 @@ class HueEmu extends utils.Adapter {
    *
    * This replaces the v1.4.0 name migration, which only ever patched an object
    * whose name was still the exact pre-1.4.0 English default — every later text
-   * change was invisible to existing installations. The adapter owns its own
-   * datapoints, so it writes them unconditionally.
+   * change was invisible to existing installations.
+   *
+   * The own tree is read once (fleet master `known-objects.ts`) and a text the stored
+   * object already carries is not written again: `extendObject` writes, stamps `ts`
+   * and wakes every subscriber also when nothing changed (inventory "rewrites no
+   * object unchanged").
    */
   private async refreshInstanceObjects(): Promise<void> {
-    await this.extendObject("startPairing", {
+    const known = new KnownObjects(this);
+    await known.load();
+    await known.extend("startPairing", {
       common: { name: tName("startPairingName"), desc: tName("startPairingDesc") },
     });
-    await this.extendObject("disableAuth", {
+    await known.extend("disableAuth", {
       common: { name: tName("disableAuthName"), desc: tName("disableAuthDesc") },
     });
-    await this.extendObject("info", { common: { name: tName("infoFolder") } });
-    await this.extendObject("info.connection", {
+    await known.extend("info", { common: { name: tName("infoFolder") } });
+    await known.extend("info.connection", {
       common: { name: tName("infoConnectionName"), desc: tName("infoConnectionDesc") },
     });
-    await this.extendObject("info.error", {
+    await known.extend("info.error", {
       common: { name: tName("infoErrorName"), desc: tName("infoErrorDesc") },
     });
     // The object type (`folder`, a `meta` until v1.17.0 — decision 24) comes from the
@@ -843,13 +875,13 @@ class HueEmu extends utils.Adapter {
     // included, into the existing object on each start (`_extendObjects` →
     // `extendForeignObjectAsync(task._id, task, …)`). Only the stale `common.type` of
     // the old meta object needs removing, below.
-    await this.extendObject("clients", {
+    await known.extend("clients", {
       common: { name: tName("clientsFolder"), desc: tName("clientsFolderDesc") },
     });
-    await this.extendObject("lights", {
+    await known.extend("lights", {
       common: { name: tName("lightsFolder"), desc: tName("lightsFolderDesc") },
     });
-    await this.dropClientsFolderType();
+    await this.dropClientsFolderType(known);
     this.log.debug("Refreshed the adapter's own objects (names/descriptions reach existing installations)");
     await this.refreshClientNames();
   }
@@ -868,22 +900,24 @@ class HueEmu extends utils.Adapter {
    * (measured against js-controller 7.2.3, 2026-09-06). The value did get deleted,
    * but at the price of a warning in every user's log and an announced hard error.
    *
-   * So: read first, and rewrite only when the field is really there — the copy
-   * without the key, written back whole with `setForeignObject` under the full id
-   * (v1.19.0; `setObject`/`setObjectAsync` is the whole-object write the repository
-   * checker refuses, and delete + recreate would drop the enum memberships). No
-   * merge, nothing to validate — and on an installation that never had a meta
-   * object nothing happens at all.
+   * So: rewrite only when the field is really there — the copy without the key,
+   * written back whole with `setForeignObject` under the full id (v1.19.0;
+   * `setObject`/`setObjectAsync` is the whole-object write the repository checker
+   * refuses, and delete + recreate would drop the enum memberships). No merge,
+   * nothing to validate — and on an installation that never had a meta object
+   * nothing happens at all.
+   *
+   * @param known the own tree as read at this start
    */
-  private async dropClientsFolderType(): Promise<void> {
+  private async dropClientsFolderType(known: KnownObjects): Promise<void> {
     try {
-      const clients = await this.getObjectAsync("clients");
+      const clients = known.get("clients") as ioBroker.Object | undefined;
       if (!clients?.common || !("type" in clients.common)) {
         return;
       }
       const common = { ...clients.common } as Record<string, unknown>;
       delete common.type;
-      await this.setForeignObject(`${this.namespace}.clients`, {
+      await known.replace(`${this.namespace}.clients`, {
         ...clients,
         common,
       } as unknown as ioBroker.SettableFolderObject);
@@ -986,6 +1020,24 @@ class HueEmu extends utils.Adapter {
   }
 
   /**
+   * A message gets an answer, never silence (fleet rule D10): the device manager's `dm:` commands are answered by
+   * dm-utils, which listens on the same event; any other command is none of this adapter's and gets an error the
+   * sender can read. A message without a callback waits for nothing.
+   *
+   * @param obj - The message
+   */
+  private onMessage(obj: ioBroker.Message): void {
+    try {
+      if (!obj?.callback || typeof obj.command !== "string" || obj.command.startsWith("dm:")) {
+        return;
+      }
+      this.sendTo(obj.from, obj.command, { error: `Unknown command: ${obj.command}` }, obj.callback);
+    } catch (error) {
+      this.log.debug(`Could not answer the message: ${errText(error)}`);
+    }
+  }
+
+  /**
    * Called if a subscribed object changes. A deleted client object revokes that client
    * (v1.19.0, audit 2026-09-25 H12; the state deletion usually arrives as well, revoking
    * twice is harmless). A light's device object that was added, changed or deleted makes
@@ -1074,9 +1126,6 @@ class HueEmu extends utils.Adapter {
     this.pairingEnabled = enabled;
 
     if (enabled) {
-      // v1.4.3 (U1+R2): fresh auto-add budget per pairing window — a
-      // virtual "press of the link button" resets the per-window cap.
-      this.apiHandler?.resetAutoAddBudget();
       const seconds = HueEmu.PAIRING_TIMEOUT_MS / 1000;
       this.log.debug(`Pairing mode enabled — waiting for client to connect (${seconds} seconds)`);
       this.pairingTimeoutId = this.setTimeout(() => {

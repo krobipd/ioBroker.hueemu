@@ -29,7 +29,8 @@ describe("readIdentity / writeIdentity", () => {
 
   it("keeps the file readable for the owner only — it holds the encrypted key", () => {
     writeIdentity(dir, { udn: UDN });
-    expect(statSync(join(dir, IDENTITY_FILE)).mode & 0o077).toBe(0);
+    // Windows keeps no POSIX mode bits: node reports 0o666 for every writable file (the master's data-file.test.ts).
+    expect(statSync(join(dir, IDENTITY_FILE)).mode & 0o777).toBe(process.platform === "win32" ? 0o666 : 0o600);
   });
 
   it("leaves no temporary file behind", () => {

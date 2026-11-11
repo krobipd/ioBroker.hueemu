@@ -166,8 +166,8 @@ light. A missing color state alone leaves it reachable. A light deleted under `h
 once, like one deleted on its card.
 
 `disableAuth` is a maintenance aid, not a setting to leave on: with it every device on
-your network can control your lights without pairing. New clients are limited to 100
-per hour in any case; a single log warning tells you when that limit was reached.
+your network can control your lights without pairing, and every request to pair is
+granted.
 
 ## Ports the adapter uses
 

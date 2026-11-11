@@ -35,6 +35,7 @@ interface Fake extends ClientMoveAdapter {
   log: { debug: Mock<LogFn>; info: Mock<LogFn>; warn: Mock<LogFn> };
   setObjectNotExistsAsync: Mock<ClientMoveAdapter["setObjectNotExistsAsync"]>;
   setState: Mock<ClientMoveAdapter["setState"]>;
+  getStatesAsync: Mock<ClientMoveAdapter["getStatesAsync"]>;
   delObjectAsync: Mock<ClientMoveAdapter["delObjectAsync"]>;
   setForeignObject: Mock<ClientMoveAdapter["setForeignObject"]>;
 }
@@ -66,7 +67,14 @@ function fake(
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([id, value]) => ({ id, value: structuredClone(value) })),
       }),
-    getStateAsync: id => Promise.resolve(structuredClone(values.get(id) ?? null)),
+    getStatesAsync: vi.fn<ClientMoveAdapter["getStatesAsync"]>(pattern => {
+      const prefix = pattern.replace(/\*$/, "");
+      return Promise.resolve(
+        Object.fromEntries(
+          [...values].filter(([id]) => id.startsWith(prefix)).map(([id, st]) => [`${NS}.${id}`, structuredClone(st)]),
+        ),
+      );
+    }),
     setObjectNotExistsAsync: vi.fn<ClientMoveAdapter["setObjectNotExistsAsync"]>((id, obj) => {
       if (!db.has(`${NS}.${id}`)) {
         db.set(`${NS}.${id}`, structuredClone(obj));
@@ -300,6 +308,30 @@ describe("moveClients", () => {
     expect(adapter.delObjectAsync).not.toHaveBeenCalled();
     expect(adapter.setForeignObject).not.toHaveBeenCalled();
     expect(adapter.log.info).not.toHaveBeenCalled();
+  });
+
+  // Inventory "read-only states read one by one": one bulk read per folder, then compared in memory.
+  it("reads the states of each folder with one call, never one by one", async () => {
+    const adapter = fake(
+      {
+        user: { type: "meta" },
+        "user.a": { type: "state", common: { name: "A" }, native: { username: "user-a" } },
+        "user.b": { type: "state", common: { name: "B" } },
+        "clients.c": v119Client("c"),
+        "clients.d": v119Client("d"),
+      },
+      { "user.b": { val: "user-b" }, "clients.c": { val: "c", lc: 1 }, "clients.d": { val: "d", lc: 2 } },
+    );
+    await moveClients(adapter, store(), String);
+    expect(adapter.getStatesAsync.mock.calls).toEqual([["user.*"], ["clients.*"]]);
+    expect(stored()).toEqual({ lastClientId: 4, clients: { 1: "user-a", 2: "user-b", 3: "c", 4: "d" } });
+  });
+
+  it("reads no state while every client is in the current form", async () => {
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 1, clients: { 1: "k" } }));
+    const adapter = fake({ "clients.1": currentClient() });
+    await moveClients(adapter, store(), String);
+    expect(adapter.getStatesAsync).not.toHaveBeenCalled();
   });
 
   it("does nothing at all on a tree without clients", async () => {
