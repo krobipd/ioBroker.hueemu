@@ -93,6 +93,7 @@ function createMockHandler(
       calls.isKnownUser++;
       return Promise.resolve(opts.isAuthenticated ?? true);
     },
+    keyForLog: key => key,
     isAuthDisabled: () => opts.authDisabled ?? false,
   };
 

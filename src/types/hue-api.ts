@@ -194,6 +194,11 @@ export interface HueApiHandler {
   isKnownUser(username: string): Promise<boolean>;
 
   /**
+   * A client key as a log line names it — never whole (H-06)
+   */
+  keyForLog(key: string): string;
+
+  /**
    * Check if auth is disabled
    */
   isAuthDisabled(): boolean;

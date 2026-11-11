@@ -15,7 +15,9 @@
  * Path: the adapter itself (main.ts, adapter-core replaced by an in-memory stand-in) loads the client keys from its
  * instance data folder and moves a client of the earlier form (`clients.<key>`, the key in `native.username` and as
  * the value) at start; the bridge's routes (HueServer, inject without a listener) pair the devices against it — a
- * `POST /api` with the device text inside the pairing window, or a device the window takes in without one.
+ * `POST /api` with the device text inside the pairing window, or a device the window takes in without one. Every line
+ * the adapter logs, on any level, is recorded: the key stands in none of them either (werkbank-adapter 2026-11-11, on
+ * the third sentence: no log line names a whole key).
  */
 
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -23,21 +25,24 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/** The stand-in's database, the timers the adapter set and the instance data folder. */
+/** The stand-in's database, the timers the adapter set, the instance data folder and every line it logged. */
 const db = vi.hoisted(() => ({
   objects: new Map<string, Record<string, unknown>>(),
   states: new Map<string, Record<string, unknown>>(),
   timers: [] as Array<{ run: () => void; ms: number }>,
   dir: "",
+  logs: [] as string[],
 }));
 
 vi.mock("@iobroker/adapter-core", () => {
   const full = (id: string): string => (id.startsWith("hueemu.0.") ? id : `hueemu.0.${id}`);
-  const noop = (): void => undefined;
+  const record = (message: unknown): void => {
+    db.logs.push(String(message));
+  };
   class Adapter {
     public namespace = "hueemu.0";
     public config = {};
-    public log = { silly: noop, debug: noop, info: noop, warn: noop, error: noop, level: "info" };
+    public log = { silly: record, debug: record, info: record, warn: record, error: record, level: "silly" };
     public on(): void {
       // the guard calls the handlers itself
     }
@@ -171,6 +176,7 @@ afterEach(async () => {
   db.states.clear();
   db.timers.length = 0;
   db.dir = "";
+  db.logs.length = 0;
 });
 
 /** A hub paired with the version before the update: `clients.<key>`, the key in native and as the value. */
@@ -270,18 +276,43 @@ describe("H-06: a paired device is named after its device text and the last four
     ]);
   });
 
-  it("keeps the key only in a file in the instance's data folder — not in the id, the value or the hidden data", async () => {
+  it("keeps the key only in a file in the instance's data folder — not in the id, the value, the hidden data or the log", async () => {
     oldClient();
     const { adapter, routes } = await started();
     await pair(adapter, routes, "Harmony Hub", HUB_KEY);
+    openWindow(adapter);
+    await routes.inject({ method: "GET", url: `/api/${SILENT_KEY}/lights` });
+    await routes.inject({ method: "GET", url: `/api/${HUB_KEY}/lights` });
+    await routes.inject({ method: "GET", url: `/api/${HUB_KEY}/capabilities` });
+    await routes.inject({ method: "DELETE", url: `/api/${HUB_KEY}/config/whitelist/${SILENT_KEY}` });
+    // An object of the version before whose move failed — its id and value are the key — written and then deleted.
+    const onStateChange = (
+      adapter as unknown as { onStateChange(id: string, state: unknown): void }
+    ).onStateChange.bind(adapter);
+    onStateChange(`hueemu.0.clients.${OLD_KEY}`, {
+      val: OLD_KEY,
+      ack: false,
+      ts: 2,
+      lc: 2,
+      from: "system.adapter.x.0",
+    });
+    onStateChange(`hueemu.0.clients.${OLD_KEY}`, null);
     const file = JSON.parse(readFileSync(join(db.dir, "clients.json"), "utf8")) as unknown;
     const tree = JSON.stringify({ objects: [...db.objects], states: [...db.states] });
-    const inTree = [HUB_KEY, OLD_KEY].filter(key => tree.includes(key));
+    const keys = [HUB_KEY, OLD_KEY, SILENT_KEY];
+    const inTree = keys.filter(key => tree.includes(key));
+    const inLog = db.logs.filter(line => keys.some(key => line.includes(key)));
 
-    expect({ clients: clientIds(), file, inTree }).toEqual({
-      clients: ["hueemu.0.clients.harmony-hub-ac37", "hueemu.0.clients.harmony-hub-d3b9"],
-      file: { clients: { "harmony-hub-ac37": HUB_KEY, "harmony-hub-d3b9": OLD_KEY } },
+    expect({ clients: clientIds(), file, inTree, logged: db.logs.length > 0, inLog }).toEqual({
+      clients: [
+        "hueemu.0.clients.client-0001",
+        "hueemu.0.clients.harmony-hub-ac37",
+        "hueemu.0.clients.harmony-hub-d3b9",
+      ],
+      file: { clients: { "client-0001": SILENT_KEY, "harmony-hub-ac37": HUB_KEY, "harmony-hub-d3b9": OLD_KEY } },
       inTree: [],
+      logged: true,
+      inLog: [],
     });
   });
 });

@@ -90,6 +90,7 @@ function makeHandler(): HueApiHandler {
     fallback: () => undefined,
     isUserAuthenticated: () => Promise.resolve(true),
     isKnownUser: () => Promise.resolve(true),
+    keyForLog: key => `<${key.slice(-4)}>`,
     isAuthDisabled: () => false,
   };
 }
@@ -125,6 +126,28 @@ describe("HueServer wiring (inject)", () => {
     expect(foreign.body).toBe("");
     const own = await app.inject({ method: "GET", url: "/api/config", remoteAddress: "192.168.1.20" });
     expect(own.statusCode).toBe(200);
+  });
+
+  // H-06 (krobi 2026-11-11 16:59): a client's key stands only in a file in the instance data folder — the request
+  // line names the key part of the URL the way the handler names a key, served or turned away.
+  it("names a request's key the way the handler does, never whole, in both request lines", async () => {
+    const key = "16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37";
+    const lines: string[] = [];
+    const server = new HueServer({
+      config: makeConfig(),
+      handler: makeHandler(),
+      logger: { ...createMockLogger(), debug: (message: string) => lines.push(message) },
+      isClientAllowed: address => address === "192.168.1.20",
+    });
+    app = await (server as unknown as { createServer(https: boolean): Promise<FastifyInstance> }).createServer(false);
+    await app.inject({ method: "GET", url: `/api/${key}/lights`, remoteAddress: "192.168.1.20" });
+    await app.inject({ method: "GET", url: `/api/${key}/lights`, remoteAddress: "203.0.113.9" });
+
+    expect({
+      served: lines.some(line => line.startsWith("GET /api/<ac37>/lights [")),
+      refused: lines.some(line => line.startsWith("GET /api/<ac37>/lights [") && line.includes("rejected (403)")),
+      whole: lines.filter(line => line.includes(key)),
+    }).toEqual({ served: true, refused: true, whole: [] });
   });
 
   it("serves /description.xml with content-type and identity payload", async () => {

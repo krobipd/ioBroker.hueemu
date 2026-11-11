@@ -18,7 +18,7 @@ import { oneLine } from "../types/utils";
 import { MAX_DEVICETYPE_LENGTH, MAX_USERNAME_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
 import { ConfigService, type ConfigServiceConfig } from "./config-service";
 import { DeviceBindingService, type DeviceConfig, type DeviceBindingAdapter } from "./device-binding-service";
-import { AUTO_PAIRED_DEVICETYPE, type ClientStore } from "../lib/client-store";
+import { AUTO_PAIRED_DEVICETYPE, urlForLog, type ClientStore } from "../lib/client-store";
 import { LIGHT_STATE_KEYS, READ_ONLY_STATE_KEYS } from "./light-state-keys";
 
 /**
@@ -59,6 +59,8 @@ export class ApiHandler implements HueApiHandler {
   private pendingBinding: DeviceBindingService | undefined;
   private readonly configService: ConfigService;
   private readonly logger: Logger;
+  /** The paired clients' keys — a log line names a key through them, never whole (H-06). */
+  private readonly clients: ClientStore;
   /**
    * Create a new API handler and initialize all services
    *
@@ -67,6 +69,7 @@ export class ApiHandler implements HueApiHandler {
   constructor(config: ApiHandlerConfig) {
     this.adapter = config.adapter;
     this.logger = config.logger;
+    this.clients = config.clients;
     // Initialize user service
     this.userService = new UserService({
       adapter: config.adapter,
@@ -192,7 +195,7 @@ export class ApiHandler implements HueApiHandler {
         : undefined;
 
     if (providedUsername) {
-      this.logger.debug(`Using provided username: ${oneLine(providedUsername)}`);
+      this.logger.debug(`Using provided username: ${oneLine(this.keyForLog(providedUsername))}`);
     } else if (typeof rawUsername === "string" && rawUsername.length > MAX_USERNAME_LENGTH) {
       this.logger.debug(
         `Ignoring provided username (${rawUsername.length} chars, max ${MAX_USERNAME_LENGTH}) — generating one`,
@@ -209,7 +212,7 @@ export class ApiHandler implements HueApiHandler {
       this.logger.debug(`Pairing rejected for "${oneLine(devicetype)}": ${errText(err)}`);
       throw HueApiError.linkButtonNotPressed("");
     }
-    this.logger.info(`Paired client "${oneLine(devicetype)}" as user ${oneLine(username)}`);
+    this.logger.info(`Paired client "${oneLine(devicetype)}" as ${oneLine(this.keyForLog(username))}`);
 
     // Disable pairing after successful user creation (like real Hue bridge — link
     // button resets after use). Only when it was on: the setter writes the
@@ -228,7 +231,7 @@ export class ApiHandler implements HueApiHandler {
    * @param username - Authenticated username
    */
   public async getFullState(username: string): Promise<FullState> {
-    this.logger.debug(`Get full state for user: ${oneLine(username)}`);
+    this.logger.debug(`Get full state for user: ${oneLine(this.keyForLog(username))}`);
 
     const lights = await this.deviceBinding.getAllLights();
     const state = this.configService.buildFullState(lights);
@@ -342,7 +345,7 @@ export class ApiHandler implements HueApiHandler {
    * @param req - Incoming HTTP request
    */
   public fallback(req: HueRequest): void {
-    this.logger.debug(`Unhandled request: ${req.method} ${req.url}`);
+    this.logger.debug(`Unhandled request: ${req.method} ${urlForLog(req.url, key => this.keyForLog(key))}`);
   }
 
   /**
@@ -366,14 +369,14 @@ export class ApiHandler implements HueApiHandler {
       // Every device that asks inside the window gets access (decision K3).
       try {
         await this.userService.addUser(username, AUTO_PAIRED_DEVICETYPE);
-        this.logger.debug(`Pairing enabled, auto-added user: ${oneLine(username)}`);
+        this.logger.debug(`Pairing enabled, auto-added user: ${oneLine(this.keyForLog(username))}`);
         return true;
       } catch (err) {
         // Debug, not warn: this route needs no authentication, so a warning here
         // is a log line anyone on the LAN can produce at will during the pairing
         // window — the same reasoning `fallback` below already follows. A key or
         // object that could not be stored warns in UserService.
-        this.logger.debug(`Auto-add rejected for ${oneLine(username)}: ${errText(err)}`);
+        this.logger.debug(`Auto-add rejected for ${oneLine(this.keyForLog(username))}: ${errText(err)}`);
         return false;
       }
     }
@@ -390,6 +393,16 @@ export class ApiHandler implements HueApiHandler {
    */
   public async isKnownUser(username: string): Promise<boolean> {
     return this.userService.isUserAuthenticated(username);
+  }
+
+  /**
+   * A client key as a log line names it — never whole (H-06, krobi 2026-11-11: the key stands only in a file in the
+   * instance data folder): the object id of its paired client, else its last four characters.
+   *
+   * @param key - The client key
+   */
+  public keyForLog(key: string): string {
+    return this.clients.forLog(key);
   }
 
   /**

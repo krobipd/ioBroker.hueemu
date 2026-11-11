@@ -274,7 +274,7 @@ export class UserService {
     // The REAL key, not its sanitized object id — see {@link clientKeysCache}.
     const found = cache.has(username);
     if (found) {
-      this.logger.debug(`Client authenticated: ${oneLine(username)}`);
+      this.logger.debug(`Client authenticated: ${oneLine(this.store.forLog(username))}`);
       const info = this.clientInfo.get(username);
       if (info) {
         info.lastUse = Date.now();

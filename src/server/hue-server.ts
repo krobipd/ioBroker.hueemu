@@ -9,6 +9,7 @@ import type { HueEmulatorConfig, Logger, HueApiHandler } from "../types";
 import { descriptionRoute } from "./routes/description-route";
 import { apiV1Routes } from "./routes/api-v1-routes";
 import { createHueErrorHandler } from "./middleware/error-handler";
+import { urlForLog } from "../lib/client-store";
 
 /**
  * The Fastify options every listener of the bridge is built with — exported so
@@ -177,18 +178,20 @@ export class HueServer {
 
     // Register error handler (v1.4.5 (I): factory wires debug-trace for every
     // converged Fastify error — validation/parse-fail/internal/Hue-typed)
-    server.setErrorHandler(createHueErrorHandler(this.logger));
+    server.setErrorHandler(createHueErrorHandler(this.logger, key => this.handler.keyForLog(key)));
 
     // The trust boundary first, then the request log (krobi 2026-10-03, fleet master
     // network-address.ts: only a client in the adapter's networks is answered).
     server.addHook("onRequest", async (request, reply) => {
       if (!this.isClientAllowed(request.ip)) {
         this.logger.debug(
-          `${request.method} ${request.url} [${request.ip}] rejected (403) — not in the adapter's networks`,
+          `${request.method} ${urlForLog(request.url, key => this.handler.keyForLog(key))} [${request.ip}] rejected (403) — not in the adapter's networks`,
         );
         return reply.code(403).send();
       }
-      this.logger.debug(`${request.method} ${request.url} [${request.ip}]`);
+      this.logger.debug(
+        `${request.method} ${urlForLog(request.url, key => this.handler.keyForLog(key))} [${request.ip}]`,
+      );
     });
 
     // Add CORS headers for Hue API compatibility

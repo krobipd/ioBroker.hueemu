@@ -11,7 +11,11 @@ import {
   clientIdFor,
   clientModel,
   isClientId,
+  keyForLog,
+  objectIdForLog,
   slugOf,
+  textForLog,
+  urlForLog,
 } from "./client-store";
 
 let dir: string;
@@ -108,6 +112,88 @@ describe("clientIdFor", () => {
     ]) {
       expect(isClientId(clientIdFor(devicetype, key, new Set()))).toBe(true);
     }
+  });
+});
+
+// H-06 (krobi 2026-11-11 16:59): the key stands only in a file in the instance data folder — never whole in a log line.
+describe("keyForLog", () => {
+  it("names a key by the object id of the client that holds it", () => {
+    expect(keyForLog("16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37", "harmony-hub-ac37")).toBe("clients.harmony-hub-ac37");
+  });
+
+  it("names a key no client holds by its last four characters, and a key that short by nothing", () => {
+    expect([keyForLog("16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37", undefined), keyForLog("abcd", undefined)]).toEqual([
+      "…ac37",
+      "…",
+    ]);
+  });
+});
+
+describe("urlForLog", () => {
+  const nameOf = (key: string): string => `<${key.length}>`;
+
+  it("names the key part of an /api/<key> URL, whatever follows and however /api is written", () => {
+    expect([
+      urlForLog("/api/16f8b066-5b1e-4c3a/lights/1/state", nameOf),
+      urlForLog("/API/abcdef", nameOf),
+      urlForLog("/api/abcdef?x=1", nameOf),
+    ]).toEqual(["/api/<18>/lights/1/state", "/API/<6>", "/api/<6>?x=1"]);
+  });
+
+  it("leaves the public /api/config, a bare /api and every path outside /api/ as they are", () => {
+    expect([
+      urlForLog("/api/config", nameOf),
+      urlForLog("/api", nameOf),
+      urlForLog("/api/", nameOf),
+      urlForLog("/description.xml", nameOf),
+    ]).toEqual(["/api/config", "/api", "/api/", "/description.xml"]);
+  });
+
+  it("names a whitelist entry as well — the one path that carries a second key", () => {
+    expect([
+      urlForLog("/api/abcdef/config/whitelist/16f8b066-5b1e", nameOf),
+      urlForLog("/api/config/whitelist/abcdefgh", nameOf),
+    ]).toEqual(["/api/<6>/config/whitelist/<13>", "/api/config/whitelist/<8>"]);
+  });
+});
+
+describe("textForLog", () => {
+  const nameOf = (key: string): string => `<${key.length}>`;
+
+  it("names every key of the URL wherever the text repeats it", () => {
+    const url = "/api/abcdef/config/whitelist/16f8b066-5b1e";
+    expect([
+      textForLog("resource, /config/whitelist/16f8b066-5b1e, not available", url, nameOf),
+      textForLog("user abcdef failed", url, nameOf),
+    ]).toEqual(["resource, /config/whitelist/<13>, not available", "user <6> failed"]);
+  });
+
+  it("leaves a text alone when the URL carries no key", () => {
+    expect([
+      textForLog("config failed", "/api/config", nameOf),
+      textForLog("not found", "/description.xml", nameOf),
+    ]).toEqual(["config failed", "not found"]);
+  });
+});
+
+describe("objectIdForLog", () => {
+  const store = { keyOf: (id: string): string | undefined => (id === "harmony-hub-ac37" ? "a-key" : undefined) };
+  const key = "16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37";
+
+  it("keeps a client id the table holds and every id outside the client folders", () => {
+    expect([
+      objectIdForLog("hueemu.0.clients.harmony-hub-ac37", "hueemu.0", store),
+      objectIdForLog("hueemu.0.lights.1", "hueemu.0", store),
+      objectIdForLog(`hueemu.1.clients.${key}`, "hueemu.0", store),
+    ]).toEqual(["hueemu.0.clients.harmony-hub-ac37", "hueemu.0.lights.1", `hueemu.1.clients.${key}`]);
+  });
+
+  it("names an earlier version's object — its id was the key — by the last four characters, also before the table is loaded", () => {
+    expect([
+      objectIdForLog(`hueemu.0.clients.${key}`, "hueemu.0", store),
+      objectIdForLog(`hueemu.0.user.${key}`, "hueemu.0", store),
+      objectIdForLog("hueemu.0.clients.harmony-hub-ac37", "hueemu.0", undefined),
+    ]).toEqual(["hueemu.0.clients.…ac37", "hueemu.0.user.…ac37", "hueemu.0.clients.…ac37"]);
   });
 });
 

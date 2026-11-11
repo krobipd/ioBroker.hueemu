@@ -5,6 +5,7 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
 import type { Logger } from "../../types/config";
 import { HueApiError } from "../../types/errors";
+import { textForLog, urlForLog } from "../../lib/client-store";
 
 /**
  * The body-parser failures a real bridge answers with "body contains invalid json"
@@ -82,15 +83,19 @@ export function hueErrorHandler(
  * Factory returning a Fastify error handler with debug logging.
  *
  * @param logger - Logger for the debug line
+ * @param keyForLog - How the line names the client key in the URL — never whole (H-06)
  */
 export function createHueErrorHandler(
   logger: Logger,
+  keyForLog: (key: string) => string,
 ): (error: FastifyError | HueApiError | Error, request: FastifyRequest, reply: FastifyReply) => void {
   return function loggedHueErrorHandler(error, request, reply): void {
     const errorType =
       error instanceof HueApiError ? String(error.type) : isInvalidJsonError(error) ? "invalid_json" : "internal_error";
     const message = error.message || "Unknown error";
-    logger.debug(`Hue error-handler: ${request.method} ${request.url} → ${errorType} (${message})`);
+    logger.debug(
+      `Hue error-handler: ${request.method} ${urlForLog(request.url, keyForLog)} → ${errorType} (${textForLog(message, request.url, keyForLog)})`,
+    );
     hueErrorHandler(error, request, reply);
   };
 }

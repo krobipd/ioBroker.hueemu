@@ -96,12 +96,12 @@ describe("createHueErrorHandler", () => {
   it("logs method/url/type and still sends the response when a logger is given", () => {
     const debug = vi.fn();
     const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
-    const handler = createHueErrorHandler(logger);
+    const handler = createHueErrorHandler(logger, key => `<${key.slice(-4)}>`);
     const { reply, sent } = mockReply();
 
     handler(new Error("kaboom"), req("/api/y", "PUT"), reply);
 
-    expect(debug).toHaveBeenCalledWith(expect.stringContaining("PUT /api/y"));
+    expect(debug).toHaveBeenCalledWith(expect.stringContaining("PUT /api/<y>"));
     expect(debug).toHaveBeenCalledWith(expect.stringContaining("internal_error"));
     // delegates: response still produced
     expect(firstError(sent.body).type).toBe(HueErrorType.INTERNAL_ERROR);
@@ -110,7 +110,7 @@ describe("createHueErrorHandler", () => {
   it("logs 'invalid_json' for a Fastify body-parse error (L4)", () => {
     const debug = vi.fn();
     const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
-    const handler = createHueErrorHandler(logger);
+    const handler = createHueErrorHandler(logger, key => `<${key.slice(-4)}>`);
     const { reply } = mockReply();
     const parseErr = Object.assign(new Error("bad json"), {
       code: "FST_ERR_CTP_INVALID_JSON_BODY",
@@ -122,10 +122,35 @@ describe("createHueErrorHandler", () => {
   it("logs the numeric type for a HueApiError", () => {
     const debug = vi.fn();
     const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
-    const handler = createHueErrorHandler(logger);
+    const handler = createHueErrorHandler(logger, key => `<${key.slice(-4)}>`);
     const { reply } = mockReply();
     handler(HueApiError.unauthorizedUser("/api/z/lights"), req("/api/z/lights", "GET"), reply);
     expect(debug).toHaveBeenCalledWith(expect.stringContaining(String(HueErrorType.UNAUTHORIZED_USER)));
+  });
+
+  it("names the key in the URL the way it is told to, never whole (H-06)", () => {
+    const debug = vi.fn();
+    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
+    const handler = createHueErrorHandler(logger, key => `<${key.slice(-4)}>`);
+    const { reply } = mockReply();
+    const key = "16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37";
+    handler(HueApiError.unauthorizedUser(`/api/${key}/capabilities`), req(`/api/${key}/capabilities`, "GET"), reply);
+    const line = String(debug.mock.calls[0][0]);
+    expect(line).toContain("GET /api/<ac37>/capabilities");
+    expect(line).not.toContain(key);
+  });
+
+  it("names a key the error message repeats from the URL — a whitelist entry (H-06)", () => {
+    const debug = vi.fn();
+    const logger = { debug, info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
+    const handler = createHueErrorHandler(logger, key => `<${key.slice(-4)}>`);
+    const { reply } = mockReply();
+    const other = "c4665271-7d2e-4f1a-8b3c-5e6f7a8bac37";
+    const resource = `/config/whitelist/${other}`;
+    handler(HueApiError.resourceNotAvailable(resource, resource), req(`/api/abcdef${resource}`, "DELETE"), reply);
+    const line = String(debug.mock.calls[0][0]);
+    expect(line).toContain("DELETE /api/<cdef>/config/whitelist/<ac37>");
+    expect(line).not.toContain(other);
   });
 });
 

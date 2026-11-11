@@ -16,10 +16,7 @@
 import { tName, tRaw } from "./i18n";
 import { moveAllWithEnums, type EnumCarryAdapter } from "./enum-carry";
 import { ID_RANGE_END } from "./migrations";
-import { CLIENTS_FILE, CLIENTS_FOLDER, UNKNOWN_DEVICETYPE, type ClientStore } from "./client-store";
-
-/** The folder the clients lived in before v1.2.0. */
-const LEGACY_USER_FOLDER = "user";
+import { CLIENTS_FILE, CLIENTS_FOLDER, LEGACY_USER_FOLDER, UNKNOWN_DEVICETYPE, type ClientStore } from "./client-store";
 
 /** What the move needs from the adapter. */
 export interface ClientMoveAdapter extends EnumCarryAdapter {

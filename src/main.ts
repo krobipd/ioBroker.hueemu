@@ -25,7 +25,7 @@ import {
 } from "./lib/identity-store";
 import { runObsoleteStateCleanup, runLegacyDeviceMigration, runLightObjectMigration } from "./lib/migrations";
 import { LightStore, type StoredLights } from "./lib/light-store";
-import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE } from "./lib/client-store";
+import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE, objectIdForLog } from "./lib/client-store";
 import { moveClients } from "./lib/client-move";
 import { lightIcon } from "./lib/device-icons";
 import { KnownObjects, sameStructure } from "./lib/known-objects";
@@ -91,6 +91,8 @@ class HueEmu extends utils.Adapter {
   private hueServer: HueServer | null = null;
   private ssdpServer: HueSsdpServer | null = null;
   private apiHandler: ApiHandler | null = null;
+  /** The paired clients' keys of this start — a log line names an own client object through it (H-06). */
+  private clients: ClientStore | undefined;
 
   // v1.11.0: official ioBroker device-manager backend for the devices tab
   // (manual add/edit/delete + a "search lights" assistant). It owns no state: it
@@ -324,6 +326,7 @@ class HueEmu extends utils.Adapter {
       // The paired clients: their keys from clients.json, the objects of earlier versions moved to `clients.<id>` —
       // before the own objects are refreshed and before the bridge serves, so the first request reads the moved tree.
       const clients = await this.prepareClients();
+      this.clients = clients;
 
       // Carry the names of the manifest's own objects into an EXISTING tree
       // (js-controller merges instanceObjects on every start but keeps common.name).
@@ -998,8 +1001,18 @@ class HueEmu extends utils.Adapter {
         this.scheduleLightReload();
       }
     } catch (error) {
-      this.log.error(`Error handling object change for ${id}: ${errText(error)}`);
+      this.log.error(`Error handling object change for ${this.idForLog(id)}: ${errText(error)}`);
     }
+  }
+
+  /**
+   * An object id as a log line names it — an object of an earlier version below `clients.` or `user.` carries the
+   * client's key as its id, so only its last four characters (H-06).
+   *
+   * @param id - Full object ID
+   */
+  private idForLog(id: string): string {
+    return objectIdForLog(id, this.namespace, this.clients);
   }
 
   /**
@@ -1011,7 +1024,7 @@ class HueEmu extends utils.Adapter {
   private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
     try {
       if (!state) {
-        this.log.debug(`State ${id} deleted`);
+        this.log.debug(`State ${this.idForLog(id)} deleted`);
         // v1.19.0 (audit 2026-09-25 H12): a deleted client object revokes that client
         // at once — its key used to stay valid until the next start.
         const clientPrefix = `${this.namespace}.clients.`;
@@ -1025,7 +1038,9 @@ class HueEmu extends utils.Adapter {
         return;
       }
 
-      this.log.debug(`State ${id} changed: ${state.val} (ack = ${state.ack})`);
+      // An object of an earlier version below `clients.` held the key as its value as well (H-06).
+      const named = this.idForLog(id);
+      this.log.debug(`State ${named} changed: ${named === id ? state.val : "…"} (ack = ${state.ack})`);
 
       // Update the light cache for every change of a bound datapoint, confirmed
       // or not. v1.18.0: an unconfirmed (ack:false) change used to be ignored —

@@ -28,6 +28,9 @@ export const UNREADABLE_CLIENTS_FILE = `${CLIENTS_FILE}.unreadable`;
 /** The folder of the client objects. */
 export const CLIENTS_FOLDER = "clients";
 
+/** The folder the clients lived in before v1.2.0. */
+export const LEGACY_USER_FOLDER = "user";
+
 /** The device type the adapter puts in for a client that names none (`POST /api` without one, an old object). */
 export const UNKNOWN_DEVICETYPE = "unknown";
 
@@ -93,6 +96,82 @@ export function clientIdFor(devicetype: unknown, key: string, taken: ReadonlySet
   let id = base;
   for (let n = 2; taken.has(id); n++) {
     id = `${base}-${n}`;
+  }
+  return id;
+}
+
+/** How many trailing characters of a key a log line shows when no paired client holds it. */
+const LOG_KEY_TAIL = 4;
+
+/**
+ * A client key as a log line names it — never whole (H-06, krobi 2026-11-11: the key stands only in a file in the
+ * instance data folder): the object id of the paired client that holds it, else its last four characters behind an
+ * ellipsis; of a key that short nothing.
+ *
+ * @param key the key
+ * @param id the id of the client that holds it, undefined when none does
+ */
+export function keyForLog(key: string, id: string | undefined): string {
+  if (id !== undefined) {
+    return `${CLIENTS_FOLDER}.${id}`;
+  }
+  return key.length > LOG_KEY_TAIL ? `…${key.slice(-LOG_KEY_TAIL)}` : "…";
+}
+
+/** The key part of a request URL: `/api/<key>/…`. */
+const API_KEY = /^(\/api\/)([^/?#]+)/i;
+
+/** The one Hue path that names a second key: a whitelist entry (`DELETE /api/<key>/config/whitelist/<key>`). */
+const WHITELIST_ENTRY = /(\/config\/whitelist\/)([^/?#]+)/gi;
+
+/**
+ * A request URL as a log line names it: the key part of `/api/<key>/…` and a whitelist entry as `nameOf` names them.
+ * The public `/api/config` (decision 10) and every other path stay as they are.
+ *
+ * @param url the request URL
+ * @param nameOf how a key is named in a log line
+ */
+export function urlForLog(url: string, nameOf: (key: string) => string): string {
+  return url
+    .replace(API_KEY, (whole: string, api: string, key: string) =>
+      key.toLowerCase() === "config" ? whole : `${api}${nameOf(key)}`,
+    )
+    .replace(WHITELIST_ENTRY, (_whole: string, path: string, key: string) => `${path}${nameOf(key)}`);
+}
+
+/**
+ * A text about a request — an error message that repeats part of its path — as a log line names it: every key the
+ * request's URL carries ({@link urlForLog}), wherever the text repeats it, as `nameOf` names it.
+ *
+ * @param text the text
+ * @param url the request URL
+ * @param nameOf how a key is named in a log line
+ */
+export function textForLog(text: string, url: string, nameOf: (key: string) => string): string {
+  const keys = [...url.matchAll(WHITELIST_ENTRY)].map(match => match[2]);
+  const api = API_KEY.exec(url);
+  if (api && api[2].toLowerCase() !== "config") {
+    keys.push(api[2]);
+  }
+  return keys.sort((a, b) => b.length - a.length).reduce((named, key) => named.split(key).join(nameOf(key)), text);
+}
+
+/**
+ * An own object id as a log line names it. Below `clients.` and the `user.` folder of versions before v1.2.0, an id
+ * the table holds stays as it is; any other — an object of an earlier version, whose id was the key — shows only its
+ * last four characters ({@link keyForLog}, H-06). Every id outside them stays as it is.
+ *
+ * @param id the full object id
+ * @param namespace the adapter's namespace (`hueemu.0`)
+ * @param store the client table, undefined before it is loaded
+ */
+export function objectIdForLog(id: string, namespace: string, store: Pick<ClientStore, "keyOf"> | undefined): string {
+  for (const folder of [CLIENTS_FOLDER, LEGACY_USER_FOLDER]) {
+    const prefix = `${namespace}.${folder}.`;
+    if (id.startsWith(prefix)) {
+      const suffix = id.slice(prefix.length);
+      return store?.keyOf(suffix) !== undefined ? id : `${prefix}${keyForLog(suffix, undefined)}`;
+    }
   }
   return id;
 }
@@ -182,6 +261,15 @@ export class ClientStore {
       }
     }
     return undefined;
+  }
+
+  /**
+   * A key as a log line names it — the id of its client, else its last four characters ({@link keyForLog}).
+   *
+   * @param key the client key
+   */
+  public forLog(key: string): string {
+    return keyForLog(key, this.idOf(key));
   }
 
   /** Every stored id, sorted. */

@@ -357,7 +357,8 @@ describe("ApiHandler", () => {
       await handler.createUser({ devicetype });
       const paired = logger.info.mock.calls.map(c => c[0]).find(m => m.startsWith("Paired client"));
       expect(paired).toBeDefined();
-      expect(paired!.length).toBeLessThan(200);
+      // The line names the device type and the client id, which carries it once more (H-06) — 100 characters each.
+      expect(paired!.length).toBeLessThan(250);
     });
 
     it("never auto-pairs an over-long username taken from the URL during the pairing window", async () => {
@@ -387,9 +388,57 @@ describe("ApiHandler", () => {
         logger,
         clients: storeWith([]),
       });
-      handler.fallback({ method: "GET", url: "/api/x/capabilities" });
-      expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining("Unhandled request: GET /api/x/capabilities"));
+      handler.fallback({ method: "GET", url: "/api/nouser1234/capabilities" });
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining("Unhandled request: GET /api/…1234/capabilities"),
+      );
       expect(logger.warn).not.toHaveBeenCalled();
+    });
+  });
+
+  // H-06 (krobi 2026-11-11 16:59): a client's key stands only in a file in the instance data folder — a log line names
+  // a paired client by its object id and any other key by its last four characters.
+  describe("log lines", () => {
+    const HUB_KEY = "16f8b066-5b1e-4c3a-9d2f-0a1b2c3dac37";
+    const ECHO_KEY = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b0001";
+    const STRAY_KEY = "77aa66bb-55cc-44dd-83ee-22ff11aa5678";
+
+    it("names a paired client by its object id and never writes a whole key, on any level", async () => {
+      const lines: string[] = [];
+      const record = (message: string): void => {
+        lines.push(message);
+      };
+      const adapter = createMockAdapter([], { pairingEnabled: true });
+      const handler = new ApiHandler({
+        adapter,
+        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        devices: [],
+        logger: { debug: record, info: record, warn: record, error: record },
+        clients: storeWith([]),
+      });
+      await handler.createUser({ devicetype: "Harmony Hub", username: HUB_KEY });
+      await handler.isUserAuthenticated(HUB_KEY);
+      await handler.getFullState(HUB_KEY);
+      adapter.pairingEnabled = true;
+      await handler.isUserAuthenticated(ECHO_KEY);
+      adapter.setObjectNotExistsAsync = () => Promise.reject(new Error("db down"));
+      await handler.isUserAuthenticated(STRAY_KEY);
+      handler.fallback({ method: "GET", url: `/api/${HUB_KEY}/capabilities` });
+
+      expect({
+        paired: lines.filter(line => line.startsWith("Paired client")),
+        named: [
+          lines.some(line => line === "Client authenticated: clients.harmony-hub-ac37"),
+          lines.some(line => line === "Pairing enabled, auto-added user: clients.client-0001"),
+          lines.some(line => line.startsWith("Auto-add rejected for …5678:")),
+          lines.some(line => line === "Unhandled request: GET /api/clients.harmony-hub-ac37/capabilities"),
+        ],
+        whole: lines.filter(line => [HUB_KEY, ECHO_KEY, STRAY_KEY].some(key => line.includes(key))),
+      }).toEqual({
+        paired: ['Paired client "Harmony Hub" as clients.harmony-hub-ac37'],
+        named: [true, true, true, true],
+        whole: [],
+      });
     });
   });
 
