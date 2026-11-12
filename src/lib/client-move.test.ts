@@ -8,7 +8,14 @@ vi.mock("@iobroker/adapter-core", () => ({
 }));
 
 import { CLIENTS_FILE, ClientStore } from "./client-store";
-import { clientCommon, moveClients, nameText, type ClientMoveAdapter } from "./client-move";
+import {
+  clientCommon,
+  movedAliasTarget,
+  moveClients,
+  nameText,
+  retargetAliases,
+  type ClientMoveAdapter,
+} from "./client-move";
 
 let dir: string;
 beforeEach(() => {
@@ -32,7 +39,9 @@ interface Fake extends ClientMoveAdapter {
   objects: Map<string, Record<string, unknown>>;
   states: Map<string, ioBroker.State>;
   enums: Record<string, { type: string; common: { name: string; members: string[] } }>;
+  aliases: Record<string, { type: string; common: { name: string; alias: { id: unknown } }; native: object }>;
   log: { debug: Mock<LogFn>; info: Mock<LogFn>; warn: Mock<LogFn> };
+  getForeignObjectsAsync: Mock<ClientMoveAdapter["getForeignObjectsAsync"]>;
   setObjectNotExistsAsync: Mock<ClientMoveAdapter["setObjectNotExistsAsync"]>;
   setState: Mock<ClientMoveAdapter["setState"]>;
   getStatesAsync: Mock<ClientMoveAdapter["getStatesAsync"]>;
@@ -57,6 +66,7 @@ function fake(
     objects: db,
     states: values,
     enums: {},
+    aliases: {},
     log: { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>() },
     getObjectAsync: id =>
       Promise.resolve(structuredClone((db.get(`${NS}.${id}`) as ioBroker.Object | undefined) ?? null)),
@@ -90,10 +100,16 @@ function fake(
       values.delete(id);
       return Promise.resolve();
     }),
-    getForeignObjectsAsync: () => Promise.resolve(structuredClone(adapter.enums)),
+    getForeignObjectsAsync: vi.fn<ClientMoveAdapter["getForeignObjectsAsync"]>(pattern =>
+      Promise.resolve(structuredClone(pattern === "alias.*" ? adapter.aliases : adapter.enums)),
+    ),
     getForeignObjectAsync: id => Promise.resolve(structuredClone(adapter.enums[id] ?? null)),
     setForeignObject: vi.fn<ClientMoveAdapter["setForeignObject"]>((id, obj) => {
-      adapter.enums[id] = structuredClone(obj) as Fake["enums"][string];
+      if (id.startsWith("alias.")) {
+        adapter.aliases[id] = structuredClone(obj) as Fake["aliases"][string];
+      } else {
+        adapter.enums[id] = structuredClone(obj) as Fake["enums"][string];
+      }
       return Promise.resolve();
     }),
   };
@@ -165,6 +181,61 @@ describe("clientCommon", () => {
   });
 });
 
+/**
+ * An alias state object on a target.
+ *
+ * @param target `common.alias.id` — a plain id or the read/write pair
+ * @param name its name
+ */
+function alias(target: unknown, name = "Alias"): Fake["aliases"][string] {
+  return { type: "state", common: { name, alias: { id: target } }, native: {} };
+}
+
+// Fleet rule (krobi 2026-11-12): an adapter that moves datapoints to a new id retargets the aliases on them. The model's
+// form and its tests: homeconnect `src/lib/device-move.ts`.
+describe("movedAliasTarget", () => {
+  const move = (id: string): string | undefined => (id === `${NS}.clients.k` ? `${NS}.clients.echo-k` : undefined);
+  it("follows a plain target and each half of a read/write pair", () => {
+    expect(movedAliasTarget(`${NS}.clients.k`, move)).toBe(`${NS}.clients.echo-k`);
+    expect(movedAliasTarget({ read: `${NS}.clients.k`, write: "js.0.x" }, move)).toEqual({
+      read: `${NS}.clients.echo-k`,
+      write: "js.0.x",
+    });
+    expect(movedAliasTarget({ read: "js.0.y", write: `${NS}.clients.k` }, move)).toEqual({
+      read: "js.0.y",
+      write: `${NS}.clients.echo-k`,
+    });
+    expect(movedAliasTarget(`${NS}.clients.k2`, move)).toBeUndefined();
+    expect(movedAliasTarget(undefined, move)).toBeUndefined();
+    expect(movedAliasTarget({ read: 5 }, move)).toBeUndefined();
+  });
+});
+
+describe("retargetAliases", () => {
+  it("rewrites only the aliases that point at something that moves", async () => {
+    const written: Record<string, ioBroker.SettableObject> = {};
+    const aliases = {
+      "alias.0.hub": alias(`${NS}.clients.k`, "Hub"),
+      "alias.0.pair": alias({ read: `${NS}.clients.k`, write: "javascript.0.x" }),
+      "alias.0.other": alias(`${NS}.clients.echo-k`),
+      "alias.0.lamp": alias("zigbee.0.lamp.state"),
+      "alias.0.folder": { type: "channel", common: { name: "Folder" }, native: {} },
+      "alias.0.gone": null,
+    } as unknown as Record<string, ioBroker.Object | null>;
+    const count = await retargetAliases(
+      aliases,
+      id => (id === `${NS}.clients.k` ? `${NS}.clients.echo-k` : undefined),
+      (id, obj) => {
+        written[id] = obj;
+        return Promise.resolve();
+      },
+    );
+    expect(count).toBe(2);
+    expect(Object.keys(written).sort()).toEqual(["alias.0.hub", "alias.0.pair"]);
+    expect((written["alias.0.hub"].common as { name: string }).name).toBe("Hub");
+  });
+});
+
 describe("moveClients", () => {
   // krobi 2026-11-11 14:25/14:27: the model it paired as and the last four characters of its key.
   it("moves a client of v1.19.0 to its model and the last four characters of its key — the key into clients.json", async () => {
@@ -174,7 +245,7 @@ describe("moveClients", () => {
     );
     const s = store();
     const result = await moveClients(adapter, s, String);
-    expect(result).toEqual({ moved: 1, keyless: 0, forgotten: 0 });
+    expect(result).toEqual({ moved: 1, keyless: 0, forgotten: 0, aliases: 0 });
     expect(stored()).toEqual({ clients: { "echo-okey": "echo-key" } });
     expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-okey`]);
     const moved = adapter.objects.get(`${NS}.clients.echo-okey`) as { native: object; common: Record<string, unknown> };
@@ -268,7 +339,7 @@ describe("moveClients", () => {
       },
       { "clients.a_b": { val: "ignored" }, "clients.from-value": { val: "real.key" }, "clients.from-id": { val: 7 } },
     );
-    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 1, keyless: 2, forgotten: 0 });
+    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 1, keyless: 2, forgotten: 0, aliases: 0 });
     expect(stored()).toEqual({ clients: { "echo-ab": "a.b" } });
     expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-ab`, `${NS}.clients.from-id`, `${NS}.clients.from-value`]);
   });
@@ -284,7 +355,7 @@ describe("moveClients", () => {
   // An object whose key the file lost keeps its id — a moved client must not take it over.
   it("never gives a moved client the id of an object without a key", async () => {
     const adapter = fake({ "clients.zzz1": v119Client("zzz1"), "clients.echo-zzz1": currentClient() });
-    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 1, keyless: 1, forgotten: 0 });
+    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 1, keyless: 1, forgotten: 0, aliases: 0 });
     expect(stored()).toEqual({ clients: { "echo-zzz1-2": "zzz1" } });
     expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-zzz1`, `${NS}.clients.echo-zzz1-2`]);
   });
@@ -317,7 +388,7 @@ describe("moveClients", () => {
     writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
     const adapter = fake({ "clients.echo-k": currentClient() });
     const result = await moveClients(adapter, store(), String);
-    expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0 });
+    expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0, aliases: 0 });
     expect(adapter.setObjectNotExistsAsync).not.toHaveBeenCalled();
     expect(adapter.delObjectAsync).not.toHaveBeenCalled();
     expect(adapter.setForeignObject).not.toHaveBeenCalled();
@@ -350,7 +421,7 @@ describe("moveClients", () => {
 
   it("does nothing at all on a tree without clients", async () => {
     const adapter = fake();
-    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 0, keyless: 0, forgotten: 0 });
+    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 0, keyless: 0, forgotten: 0, aliases: 0 });
     expect(adapter.delObjectAsync).not.toHaveBeenCalled();
     expect(adapter.log.info).not.toHaveBeenCalled();
     expect(adapter.log.warn).not.toHaveBeenCalled();
@@ -393,7 +464,7 @@ describe("moveClients", () => {
   it("forgets nothing and adds no warning while clients.json cannot be read", async () => {
     writeFileSync(join(dir, CLIENTS_FILE), "{ broken");
     const adapter = fake({ "clients.echo-a": currentClient() });
-    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 0, keyless: 1, forgotten: 0 });
+    expect(await moveClients(adapter, store(), String)).toEqual({ moved: 0, keyless: 1, forgotten: 0, aliases: 0 });
     expect(adapter.log.warn).not.toHaveBeenCalled();
     expect(readFileSync(join(dir, CLIENTS_FILE), "utf8")).toBe("{ broken");
   });
@@ -416,7 +487,7 @@ describe("moveClients", () => {
       "clients.a.b": v119Client("deep"),
     });
     const result = await moveClients(adapter, store(), String);
-    expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0 });
+    expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0, aliases: 0 });
     expect(adapter.delObjectAsync).not.toHaveBeenCalled();
     expect(adapter.log.warn).not.toHaveBeenCalled();
   });
@@ -505,6 +576,69 @@ describe("moveClients", () => {
       expect(Math.max(...adapter.delObjectAsync.mock.invocationCallOrder)).toBeLessThan(
         adapter.setForeignObject.mock.invocationCallOrder[0],
       );
+    });
+  });
+
+  // Fleet rule (krobi 2026-11-12): an alias on a moved client points at the new object; a foreign target stays.
+  describe("aliases", () => {
+    it("points an alias on a moved client at the new object, plain and as a read/write pair", async () => {
+      const adapter = fake({ "clients.k": v119Client("k"), user: { type: "meta" }, "user.u": v119Client("u") });
+      adapter.aliases = {
+        "alias.0.hub": alias(`${NS}.clients.k`, "Hub"),
+        "alias.0.pair": alias({ read: "javascript.0.x", write: `${NS}.user.u` }),
+        "alias.0.lamp": alias("zigbee.0.lamp.state"),
+        "alias.0.current": alias(`${NS}.clients.echo-zzz1`),
+      };
+      const result = await moveClients(adapter, store(), String);
+      expect(result.aliases).toBe(2);
+      expect(adapter.aliases["alias.0.hub"]).toEqual(alias(`${NS}.clients.echo-k`, "Hub"));
+      expect(adapter.aliases["alias.0.pair"]).toEqual(alias({ read: "javascript.0.x", write: `${NS}.clients.echo-u` }));
+      expect(adapter.aliases["alias.0.lamp"]).toEqual(alias("zigbee.0.lamp.state"));
+      expect(adapter.aliases["alias.0.current"]).toEqual(alias(`${NS}.clients.echo-zzz1`));
+      expect(adapter.setForeignObject.mock.calls.map(c => c[0]).sort()).toEqual(["alias.0.hub", "alias.0.pair"]);
+    });
+
+    // Only while the old object stands does a start know where it went.
+    it("retargets the aliases before the first old object is deleted", async () => {
+      const adapter = fake({ "clients.k": v119Client("k") });
+      adapter.aliases = { "alias.0.hub": alias(`${NS}.clients.k`) };
+      await moveClients(adapter, store(), String);
+      expect(adapter.setForeignObject.mock.invocationCallOrder[0]).toBeLessThan(
+        adapter.delObjectAsync.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("keeps every old object when an alias cannot be written", async () => {
+      const adapter = fake({ "clients.k": v119Client("k") });
+      adapter.aliases = { "alias.0.hub": alias(`${NS}.clients.k`) };
+      adapter.setForeignObject.mockRejectedValue(new Error("objects db down"));
+      await expect(moveClients(adapter, store(), String)).rejects.toThrow("objects db down");
+      expect(adapter.delObjectAsync).not.toHaveBeenCalled();
+      expect(clientIds(adapter)).toEqual([`${NS}.clients.echo-k`, `${NS}.clients.k`]);
+    });
+
+    // A start that ended after the aliases but before the delete: the next one finds them on the new id already.
+    it("finishes a half-done move without writing an alias that already points at the new object", async () => {
+      writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+      const adapter = fake(
+        { "clients.k": v119Client("k"), "clients.echo-k": currentClient() },
+        { "clients.echo-k": { val: "Echo", lc: 5 } },
+      );
+      adapter.aliases = {
+        "alias.0.done": alias(`${NS}.clients.echo-k`),
+        "alias.0.open": alias(`${NS}.clients.k`),
+      };
+      expect((await moveClients(adapter, store(), String)).aliases).toBe(1);
+      expect(adapter.setForeignObject.mock.calls.map(c => c[0])).toEqual(["alias.0.open"]);
+      expect(adapter.aliases["alias.0.open"]).toEqual(alias(`${NS}.clients.echo-k`));
+    });
+
+    it("reads no alias while nothing moves", async () => {
+      writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+      const adapter = fake({ "clients.echo-k": currentClient(), user: { type: "meta" } });
+      adapter.aliases = { "alias.0.hub": alias(`${NS}.clients.echo-k`) };
+      await moveClients(adapter, store(), String);
+      expect(adapter.getForeignObjectsAsync.mock.calls.map(c => c[0])).not.toContain("alias.*");
     });
   });
 });
