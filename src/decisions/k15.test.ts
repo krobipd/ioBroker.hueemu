@@ -8,7 +8,7 @@
  * 'description'?" and "Shall a light's id be formed from its name (lights.wohnzimmer-licht) instead of its number
  * (lights.1)?": "the id may well be lights.1 and so on, but the description shall carry the name I give, and be updated
  * too" — meant is the name the object list shows (`common.name`). Accepted by krobi with the page of hueemu's datapoint
- * tree (Ressourcen/hueemu/baum-2026-11-11e.html) on 2026-11-11 16:59 ("yes").
+ * tree on 2026-11-11 16:59 ("yes").
  *
  * Path: the device manager behind the "Devices" tab (device-management.ts — its registered add and edit handlers,
  * dm-utils as installed) over the light store, an object database in memory and a data folder in the system's

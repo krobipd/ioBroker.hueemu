@@ -8,7 +8,7 @@
  * datapoint does not count." Origin: built by the AI in two audits in September 2026. Its third sentence ("When the
  * adapter stops, all lights are 'not reachable'") was about the datapoint `lights.<n>.reachable`, which H-07 leaves out
  * (krobi 2026-11-11 14:27: "no, reachable is pointless in this case BECAUSE we only link internal data, so to speak").
- * Accepted by krobi with the page of hueemu's datapoint tree (Ressourcen/hueemu/baum-2026-11-11e.html) on 2026-11-11
+ * Accepted by krobi with the page of hueemu's datapoint tree on 2026-11-11
  * 16:59 ("yes").
  *
  * Path: the adapter itself (main.ts, adapter-core replaced by an in-memory stand-in) with the bridge's handler over the

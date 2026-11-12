@@ -4,7 +4,7 @@
  * The register, H-07: "A light has no datapoint for its reachability. Applies to hueemu only."
  * krobi 2026-11-11 14:27, on the question "Is reachable dropped per light?": "2. no, reachable is pointless in this
  * case BECAUSE we only link internal data, so to speak." Accepted by krobi with the page of hueemu's datapoint tree
- * (Ressourcen/hueemu/baum-2026-11-11e.html) on 2026-11-11 16:59 ("yes").
+ * on 2026-11-11 16:59 ("yes").
  *
  * Path: the light store (light-store.ts) over an object database in memory and a data folder in the system's temporary
  * folder — every way a light's objects are written: adding (device manager, scan, the move at start), saving an edit,

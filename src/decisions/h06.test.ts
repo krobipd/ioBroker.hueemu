@@ -10,7 +10,7 @@
  * krobi 2026-11-11 14:27, on the question "Do you accept the id clients.harmony-hub-ac37 (model, hyphen, last 4
  * characters of the key) for the paired devices?": "1. yes, that sounds good." The counter for a taken id is the AI's
  * choice from the proposal he said yes to. Accepted by krobi with the page of hueemu's datapoint tree
- * (Ressourcen/hueemu/baum-2026-11-11e.html) on 2026-11-11 16:59 ("yes").
+ * on 2026-11-11 16:59 ("yes").
  *
  * Path: the adapter itself (main.ts, adapter-core replaced by an in-memory stand-in) loads the client keys from its
  * instance data folder and moves a client of the earlier form (`clients.<key>`, the key in `native.username` and as
