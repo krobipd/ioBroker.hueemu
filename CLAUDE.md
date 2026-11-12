@@ -9,7 +9,7 @@
 - **Version + Changelog:** current version in `io-package.json`; full internal dev history moved to `.claude/dev-history.md` (local, not auto-loaded). User-facing changelog: `README.md` + `io-package.json` news.
 - **GitHub:** https://github.com/krobipd/ioBroker.hueemu
 - **npm:** https://www.npmjs.com/package/iobroker.hueemu
-- **Repository PR:** ioBroker/ioBroker.repositories#5634 (MERGED, Latest); Stable seit #6720
+- **Repository PR:** ioBroker/ioBroker.repositories#5634 (Latest); Stable seit #6057 (2026-06-06) — welche Version dort steht, nur live (`show-adapter-repo-status.py`)
 - **Herkunft:** Fork von Christopher Holomeks GitHub-Projekt (@holomekc, aktiv 2020-03 bis 2021-05). **Keine Übergabe** — nie auf npm, nie bei ioBroker eingereicht; krobi hat ab 2026-03 übernommen und das npm-Paket am 2026-03-16 erstveröffentlicht. Copyright/Credits-Zuordnung folgt der flottenweiten 4-Ebenen-Regel (Memory `reference_copyright_credits_rewrite`)
 - **Runtime-Deps:** `@iobroker/adapter-core`, `fastify`, `node-forge`, `uuid`, `@iobroker/dm-utils` (Geräte-Manager-Backend), `@iobroker/type-detector` (Licht-Scan). `node-ssdp` wurde v1.13.0 durch einen Eigenbau ersetzt (unmaintained seit 2020, unfixbarer `ip`-Advisory, verschluckte Bind-Fehler)
 - **Test-Setup:** vitest (globals mode, pool: forks) — Tests neben Source unter `src/**/*.test.ts` (modulare Sub-Folders), `test/test-helpers.ts` als Shared-Mock-Factory außerhalb src/. **Die Test-Suiten laufen unter dem Lint** (seit 2026-09-02, Flotte): Attrappen ohne `await` als `Promise.resolve()/reject()`, Mock-Fabriken mit Rückgabetyp, `require-await` bleibt an. **Das Wurzel-`tsconfig.json` umfasst seit v1.17.1 `src/**/*.ts` UND `test/**/*.ts`** (Flotten-Master, offizielle Vorlage) — vorher prüfte `tsc --noEmit` die zwei `.ts`-Dateien unter `test/` (`test-helpers.ts`, `standards/repo-standards.test.ts`) gar nicht: `test/tsconfig.json` führt nur `./**/*.js`
@@ -57,7 +57,7 @@ docs/en/README.md, docs/de/README.md → Nutzerdoku fürs ioBroker-Doku-Portal (
 
 ## Design-Entscheidungen
 
-_Je Nummer der Regel-Satz; Beleg, Messung und Verlauf wörtlich in `.claude/dev-history.md`, Eintrag „2026-09-25 — Design-Entscheidungen: Belege aus CLAUDE.md verlegt“ (Nummern 1–27 im Stand 1.18.0) und je neue Nummer im Eintrag zu v1.19.0._
+_Je Nummer der Regel-Satz; Beleg, Messung und Verlauf wörtlich in `.claude/dev-history.md`, Eintrag „2026-09-25 — Design-Entscheidungen: Belege aus CLAUDE.md verlegt“ (Nummern 1–27 im Stand 1.18.0) und den Einträgen danach (u. a. v1.19.0; 36 und 37 im Eintrag „Review 2026-11-07“, Audit R-24)._
 
 1. **Fastify** statt Express — schneller, besserer TypeScript-Support.
 2. **SSDP Port 1900 hardcoded** — UPnP-Standard, alle Clients scannen fix diesen Port.
