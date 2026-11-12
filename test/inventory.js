@@ -823,9 +823,28 @@ async function dumpObjects(harness) {
     for (const row of list.rows.sort((a, b) => a.id.localeCompare(b.id))) {
         const obj = { ...row.value };
         for (const key of VOLATILE) delete obj[key];
+        if (obj.native) obj.native = maskEncrypted(obj.native);
         out[row.id] = obj;
     }
     return out;
+}
+
+/**
+ * Round 173: a copy of an object's native with ENCRYPTED_MARKER in place of every non-empty string under a key of
+ * ENCRYPTED_NATIVE, at any depth (a field of a row in a list too) — what dumpObjects writes into the inventory.
+ *
+ * @param {unknown} value a native, or a part of it
+ * @returns {unknown} the copy
+ */
+function maskEncrypted(value) {
+    if (Array.isArray(value)) return value.map(maskEncrypted);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(
+        Object.entries(value).map(([key, v]) => [
+            key,
+            ENCRYPTED_NATIVE.includes(key) && typeof v === "string" && v !== "" ? ENCRYPTED_MARKER : maskEncrypted(v),
+        ]),
+    );
 }
 
 /**
@@ -1032,6 +1051,16 @@ async function seedPrevious(harness, previous) {
 
 /** Round 67: the text a dump puts where the adapter stored a secret encrypted with its installation's secret. */
 const ENCRYPTED_MARKER = "<encrypted with the installation secret>";
+
+/**
+ * Round 173: adapter-specific like FIXTURE_NATIVE — the native fields the adapter stores encrypted with its installation's
+ * secret (encrypt(), encryptPassword). Their cipher differs from controller to controller; dumpObjects writes
+ * ENCRYPTED_MARKER in their place (maskEncrypted). Empty where the adapter encrypts nothing. What goes into a file in
+ * the instance data folder instead says CLAUDE_PATTERNS.md, section native „Wohin“.
+ *
+ * @type {string[]}
+ */
+const ENCRYPTED_NATIVE = [];
 
 /**
  * Round 67 (reported by dl-manager): adapter-specific like feedFixtures. The previous release's dump carries
@@ -1656,7 +1685,8 @@ function networkUse(seen) {
  * hold before the adapter starts — every `primary` port of fleet.json
  * `listenPorts` and the first device's port of a `perDevice` entry, at the value the fixture gives it — and every other
  * port the adapter declares (`secondary`, the other devices), each a path it can still talk on. `shared` ports (SSDP)
- * are no path of their own. `declared` holds every port fleet.json names, at its fixture value (F6, round 104).
+ * are no path of their own, and an answer that came in on one is none either (`shared`, round 173). `declared` holds
+ * every port fleet.json names, at its fixture value (F6, round 104).
  */
 function listenPortPlan() {
     const file = path.join(ADAPTER_DIR, "fleet.json");
@@ -1664,6 +1694,7 @@ function listenPortPlan() {
     const native = { ...require(path.join(ADAPTER_DIR, "io-package.json")).native, ...FIXTURE_NATIVE };
     const taken = [];
     const others = [];
+    const shared = [];
     const declared = new Set();
     for (const entry of fleet.listenPorts ?? []) {
         if (entry.role === "perDevice") {
@@ -1680,11 +1711,13 @@ function listenPortPlan() {
                     taken.push({ protocol: entry.protocol, port });
                 } else if (entry.role === "secondary") {
                     others.push(port);
+                } else if (entry.role === "shared") {
+                    shared.push(port);
                 }
             }
         }
     }
-    return { taken, others, declared, address: native.bind || "0.0.0.0" };
+    return { taken, others, shared, declared, address: native.bind || "0.0.0.0" };
 }
 
 /**
@@ -1991,7 +2024,9 @@ tests.integration(ADAPTER_DIR, {
                     await waitWindow("a taken port", since + TAKEN_WINDOW_MS - Date.now(), () => harness.didAdapterStop(), 500);
                     await waitWindow("the feed ends", 1000, fed);
                     const taken = new Set(plan.taken.map((p) => p.port));
-                    const via = (answers) => [...new Set(answers.filter((a) => !taken.has(a.local)).map((a) => `${a.kind} ${a.host}:${a.port} answers`))];
+                    // round 173: an answer that came in on a shared port (SSDP) is no path either — the port is none
+                    const shared = new Set(plan.shared);
+                    const via = (answers) => [...new Set(answers.filter((a) => !taken.has(a.local) && !shared.has(a.local)).map((a) => `${a.kind} ${a.host}:${a.port} answers`))];
                     const open = networkUse(seen).filter((r) => (r.kind === "listen" || r.kind === "bind") && plan.others.includes(r.port)).map((r) => `listens on ${r.port}`);
                     // the suites before this one ran with the port free: what answered there on another port is a path too —
                     // an adapter that stops at once never gets to show it here
