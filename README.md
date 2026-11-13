@@ -201,10 +201,11 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 ### **WORK IN PROGRESS**
 
 - Changed: The bridge now answers only clients in its own networks, with a chosen address only those in that network.
-- Changed: The bridge identity (UDN, certificate, encrypted key) moved from the settings into the instance data folder — saving the settings no longer resets it, a new instance needs no restart.
+- Changed: Saving the settings can no longer reset the bridge identity.
 - Changed: A damaged identity file stops the start with an error.
 - Changed: The lights moved from the settings into the object tree (lights) — a change in the device manager takes effect without a restart.
-- Changed: The keys of paired clients moved, encrypted, into the instance data folder; a client object is named after its device type and key end (e.g. clients.harmony-hub-ac37); every pairing stays.
+- Changed: A paired client's object is now named after its device type, e.g. clients.harmony-hub-ac37; every pairing stays.
+- Improved: The keys of paired clients no longer show in the object tree.
 - Changed: An alias on a paired client's object follows it to the new object.
 - Changed: Going back to 1.19.0 or older is not supported — that version creates a new bridge identity and finds no lights.
 - Changed: The undocumented /health route is gone.
@@ -220,7 +221,6 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Fixed: A message the adapter does not know (sendTo from a script) now gets an error answer instead of none.
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.
-- Improved: Updated dependencies with security fixes.
 
 ### 1.19.0 (2026-09-25) — stable
 
