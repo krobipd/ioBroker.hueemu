@@ -854,6 +854,23 @@ async function encryptLikeController(harness, value) {
 }
 
 /**
+ * Decrypt a value js-controller's `encrypt` made (the counterpart of {@link encryptLikeController}) — how the test
+ * reads back a secret field the fleet master data-file.ts sealed with the adapter's `encrypt` (round 174, S7).
+ *
+ * @param {import("@iobroker/testing").IntegrationTestHarness} harness
+ * @param {string} value the encrypted value, `$/aes-192-cbc:<iv>:<ciphertext>`
+ * @returns {Promise<string>} the plain text
+ */
+async function decryptLikeController(harness, value) {
+  const crypto = require("node:crypto");
+  // private in the harness' types, the one way to the installation secret
+  const secret = await /** @type {any} */ (harness).getSystemSecret();
+  const [iv, encrypted] = value.slice("$/aes-192-cbc:".length).split(":");
+  const decipher = crypto.createDecipheriv("aes-192-cbc", Buffer.from(secret, "hex"), Buffer.from(iv, "hex"));
+  return Buffer.concat([decipher.update(Buffer.from(encrypted, "hex")), decipher.final()]).toString("utf8");
+}
+
+/**
  * The bridge identity file in the instance data folder (src/lib/identity-store.ts) — the folder clearInstanceData empties.
  *
  * @param {import("@iobroker/testing").IntegrationTestHarness} harness
@@ -2321,7 +2338,8 @@ tests.integration(ADAPTER_DIR, {
     // Audit R-24 (hueemu decision 36): an installation of v1.19.0 or older keeps its bridge. The UDN every paired client
     // knows and the certificate move from `native` into the identity file of the data folder; the copies in `native` go
     // only once the file holds them, and that one write restarts the instance once. The key arrives as v1.19.0 stored
-    // it — encrypted with the installation secret, which only the real controller holds. The lights move the same way
+    // it — encrypted with the installation secret, which only the real controller holds — and the fleet master
+    // data-file.ts seals it again in the file's secret field privateKey (round 174, S3/S7). The lights move the same way
     // (decision 25): each keeps its number as its own device object, the mark of the settings goes into the data folder,
     // and a light added afterwards is numbered above it.
     suite("bridge identity from an earlier version", getHarness => {
@@ -2411,8 +2429,21 @@ tests.integration(ADAPTER_DIR, {
         );
       });
 
-      it("keeps the identity in its data folder, the key encrypted as it came", function () {
-        assert.deepStrictEqual(stored, { udn: LEGACY_UDN, tlsCert: tls.cert.trim(), tlsKey: legacyKey });
+      it("keeps the identity in its data folder, the key sealed by the fleet master", async function () {
+        const { privateKey, ...rest } = stored;
+        assert.deepStrictEqual(rest, { udn: LEGACY_UDN, tlsCert: tls.cert.trim() });
+        const sealed = privateKey?.$encrypted;
+        assert.ok(
+          typeof sealed === "string" &&
+            sealed.startsWith("$/aes-192-cbc:") &&
+            !JSON.stringify(stored).includes(tls.key),
+          `the key is not sealed in the file: ${JSON.stringify(privateKey)}`,
+        );
+        assert.strictEqual(
+          JSON.parse(await decryptLikeController(harness, sealed)),
+          tls.key,
+          "the sealed key is not the key the earlier version stored",
+        );
       });
 
       it("leaves no copy of the identity in native", function () {
