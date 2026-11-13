@@ -6,6 +6,9 @@
 
 **Support:** [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi)](https://ko-fi.com/krobipd) [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/krobipd)
 
+> [!IMPORTANT]
+> This adapter cannot be installed from github
+
 Emulates a [Philips Hue](https://www.philips-hue.com) Bridge (v2, BSB002) so that ioBroker devices appear as Hue lights to clients that only support the Hue API.
 
 It is meant for older devices and apps that only speak the Hue API — Logitech Harmony Hub, Bosch Smart Home Controller, legacy Echo firmware, in-wall touch panels, old control systems with a Hue plugin. Modern Alexa, Google Home and Apple Home support Matter directly; for them use the [ioBroker Matter adapter](https://github.com/ioBroker/ioBroker.matter).
@@ -43,8 +46,6 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 - **Node.js >= 22**
 - **ioBroker js-controller >= 7.2.5**
 - **ioBroker Admin >= 8.3.5**
-
-> The adapter CANNOT be installed via GitHub: The adapter must be installed via the ioBroker repository (stable or latest).
 
 ---
 
