@@ -351,7 +351,8 @@ describe("ClientStore", () => {
   });
 
   it("reads an empty table from a file without a client list", () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: ["a", "b"] }));
+    // Entries in the stored form: read by position, "0" and "1" would pass as ids.
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: [entry("key-a"), entry("key-b")] }));
     const store = loaded();
     expect(store.ids()).toEqual([]);
     expect(store.add("new-k", "Echo")).toBe("echo-newk");
