@@ -242,11 +242,21 @@ async function watchObjectWrites(harness) {
     // writable: setStateChangedAsync) — a write that changes nothing is a finding. Compared is what js-controller
     // 7.2.2 compares in setStateChangedAsync: val strictly, ack, q, c; an object value always counts as changed.
     // Round 104 (krobi 2026-09-29: adapters waste no resources, GV-05): every state, not only `indicator.*`.
+    // Round 174 (a responder's report of 2026-11-12): a write of another — the user choosing the value that stands, with
+    // ack false — changes what the database holds, and the adapter's confirmation after it is a change, as
+    // setStateChangedAsync judges it. It moves the compared state of an id the adapter wrote in this start and is never
+    // a finding itself; an id the adapter has not written yet stays without one (a seed, a value from before the restart).
     harness.on("stateChange", (id, state) => {
-        if (!id.startsWith(NS) || !state || state.from !== `system.adapter.${ADAPTER}.0`) {
+        if (!id.startsWith(NS) || !state) {
             return;
         }
         const now = state.val !== null && typeof state.val === "object" ? null : canonical([state.val, state.ack, state.q, state.c]);
+        if (state.from !== `system.adapter.${ADAPTER}.0`) {
+            if (states.has(id)) {
+                states.set(id, now);
+            }
+            return;
+        }
         if (now !== null && states.get(id) === now) {
             watch.unchangedStates.push(id);
         }
@@ -1067,7 +1077,9 @@ const ENCRYPTED_NATIVE = [];
  * ENCRYPTED_MARKER wherever the adapter stored a secret encrypted with its installation's secret — no other controller
  * can read that cipher. Put a working secret back into every such seeded object, the fixture's value in the form the
  * adapter stores it (encrypted like the adapter does, e.g. with encryptPassword), so the upgrade starts on objects the
- * adapter can use. Empty where the dump masks nothing.
+ * adapter can use. The same holds for whatever else the dump flattened in a seeded object (an id or a value it
+ * replaced by a stable stand-in): put back the form the PREVIOUS release wrote — never the form this version migrates
+ * to, that step is what the upgrade proves. Empty where the dump masks and flattens nothing.
  *
  * @param {import("@iobroker/testing").IntegrationTestHarness} harness
  */
@@ -1768,12 +1780,19 @@ function fileWrites() {
 
 /**
  * Round 104: every answer a counterpart sent (`<pid>.answers`, test/network-hook.js) from `from` until `until`, with the
- * adapter's own port it came in on (`local`).
+ * adapter's own port it came in on (`local`). Round 174: with `own` ports, a process counts only until something came in
+ * on one of them — what the adapter asks a counterpart because a client asked the adapter over its own port is no path
+ * of its own once another program holds that port. A request that reached an http server of the adapter (kind
+ * `asked`) marks that place and is never returned: the adapter serves it, no counterpart answered with it.
  */
-function readAnswers(from, until = Infinity) {
+function readAnswers(from, until = Infinity, own = new Set()) {
     return fs.readdirSync(RESOURCE_DIR)
         .filter((f) => f.endsWith(".answers"))
-        .flatMap((f) => fs.readFileSync(path.join(RESOURCE_DIR, f), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)))
+        .flatMap((f) => {
+            const all = fs.readFileSync(path.join(RESOURCE_DIR, f), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+            const asked = all.findIndex((a) => own.has(a.local));
+            return (asked < 0 ? all : all.slice(0, asked)).filter((a) => a.kind !== "asked");
+        })
         .filter((a) => a.t >= from && a.t < until);
 }
 
@@ -2029,8 +2048,10 @@ tests.integration(ADAPTER_DIR, {
                     const via = (answers) => [...new Set(answers.filter((a) => !taken.has(a.local) && !shared.has(a.local)).map((a) => `${a.kind} ${a.host}:${a.port} answers`))];
                     const open = networkUse(seen).filter((r) => (r.kind === "listen" || r.kind === "bind") && plan.others.includes(r.port)).map((r) => `listens on ${r.port}`);
                     // the suites before this one ran with the port free: what answered there on another port is a path too —
-                    // an adapter that stops at once never gets to show it here
-                    verdict = { plan, stopped: harness.didAdapterStop(), exit: harness.adapterExit, paths: [...open, ...via(readAnswers(since))], before: via(readAnswers(0, since)),
+                    // an adapter that stops at once never gets to show it here. Round 174: of each start there only what
+                    // answered before anything came in on a taken port — a request the adapter makes because a client
+                    // asked it something over that port has no way left once another program holds the port
+                    verdict = { plan, stopped: harness.didAdapterStop(), exit: harness.adapterExit, paths: [...open, ...via(readAnswers(since))], before: via(readAnswers(0, since, taken)),
                         errors: harness.getLogs().filter((l) => l.level === "error" && l.from === `${ADAPTER}.0`) };
                 });
                 after(() => releasePorts(held));
@@ -2635,7 +2656,7 @@ tests.integration(ADAPTER_DIR, {
                             wrong.push(`${origin} → ${ids.join(", ")}: one recording on several datapoints`);
                         } else if (ids[0] !== origin && live[origin]?.type === "state") {
                             wrong.push(`${origin} → ${ids[0]}: copied while ${origin} lives on`);
-                        } else if (ids[0] !== origin && live[ids[0]].common?.type !== previous[origin]?.common?.type) {
+                        } else if (ids[0] !== origin && MOVES[origin] !== ids[0] && live[ids[0]].common?.type !== previous[origin]?.common?.type) {
                             wrong.push(`${origin} → ${ids[0]}: another value type — a new datapoint, not the same one moved`);
                         }
                     }
@@ -2646,6 +2667,10 @@ tests.integration(ADAPTER_DIR, {
                         }
                     }
                     // A state the release moves under a new id (MOVES) takes its recording along (krobi 2026-09-02).
+                    // Round 174 (a responder 2026-11-12: a state that moved and changed its value type in one release had
+                    // no green way): the move the adapter declares is the same datapoint — the value-type line above
+                    // judges only a recording that landed on another id without one; the type change itself is the
+                    // tree's to judge (A14 G8).
                     for (const [from, to] of Object.entries(MOVES)) {
                         if (previous[from]?.type === "state" && !carriers.get(from)?.includes(to)) {
                             wrong.push(`${from} → ${to}: its recording did not move with the datapoint`);
