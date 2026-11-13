@@ -650,6 +650,22 @@ describe("HueEmu buildConfig", () => {
     });
     expect(configOf(adapter).https?.cert).toContain("GENERATED");
   });
+
+  // Design decision 36: the identity file is readable and holds the UDN, only the write of a TLS pair generated
+  // later in the start fails — this run serves with the pair and warns; the stored identity stays as it was.
+  it("serves a generated certificate it cannot store for this run and keeps the stored identity", () => {
+    configOf(setup({ udn: "", mac: "" }).adapter);
+    const stored = readFileSync(join(dataDir.current, "identity.json"), "utf8");
+    // A folder where the master writes its temporary file — the file stays readable, the write fails.
+    mkdirSync(join(dataDir.current, "identity.json.tmp"));
+    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443 });
+    const i = internalOf(adapter);
+    const config = configOf(adapter);
+    expect(config.https?.cert).toContain("GENERATED");
+    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
+    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("stored self-signed TLS certificate"));
+    expect(readFileSync(join(dataDir.current, "identity.json"), "utf8")).toBe(stored);
+  });
 });
 
 describe("HueEmu onReady", () => {
