@@ -8,12 +8,12 @@ vi.mock("@iobroker/adapter-core", () => ({
   },
 }));
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MAX_DEVICETYPE_LENGTH, UserService, type UserServiceAdapter } from "./user-service";
-import { CLIENTS_FILE, ClientStore, clientIdFor } from "../lib/client-store";
-import { createMockLogger } from "../../test/test-helpers";
+import { ClientStore, clientIdFor } from "../lib/client-store";
+import { FAKE_CIPHER, createMockLogger, storedClientKeys } from "../../test/test-helpers";
 
 interface MockUserAdapter extends UserServiceAdapter {
   stateValues: Record<string, ioBroker.State>;
@@ -36,7 +36,7 @@ afterEach(() => {
 
 /** The table clients.json holds right now. */
 function storedFile(): { clients: Record<string, string> } {
-  return JSON.parse(readFileSync(join(dataDir, CLIENTS_FILE), "utf8")) as { clients: Record<string, string> };
+  return storedClientKeys(dataDir) as { clients: Record<string, string> };
 }
 
 /** The device type the clients of {@link storeWith} paired with. */
@@ -55,7 +55,7 @@ const idFor = (key: string): string => clientIdFor(PAIRED_AS, key, new Set());
  * @param keys the keys
  */
 function storeWith(keys: string[]): ClientStore {
-  const store = new ClientStore(dataDir);
+  const store = new ClientStore(dataDir, FAKE_CIPHER);
   store.load();
   for (const key of keys) {
     store.add(key, PAIRED_AS);
@@ -249,7 +249,7 @@ describe("UserService", () => {
       writeFileSync(blocked, "");
       const adapter = createMockAdapter();
       const warn = vi.fn();
-      const store = new ClientStore(blocked);
+      const store = new ClientStore(blocked, FAKE_CIPHER);
       store.load();
       const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store });
       await expect(service.addUser("foo", "bar")).rejects.toThrow(/could not be stored/i);

@@ -472,7 +472,7 @@ class HueEmu extends utils.Adapter {
    * @returns the client keys, loaded
    */
   private async prepareClients(): Promise<ClientStore> {
-    const clients = new ClientStore(this.identityDir());
+    const clients = new ClientStore(this.identityDir(), this);
     const unusable = clients.load();
     if (unusable !== undefined) {
       this.log.warn(

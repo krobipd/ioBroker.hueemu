@@ -6,7 +6,9 @@
  * the fleet standard") and 14:27 ("yes, that sounds good"): a client object is named like the fleet
  * names a device — the model it pairs as, a hyphen and the last four characters of its own number, its key
  * (`clients.harmony-hub-ac37`). The key itself stands in this file, which maps each id to its key — an access key is a
- * secret (B02 `audit_own_native_at_runtime`, krobi 2026-11-05 22:46: secrets as a file in the instance data folder).
+ * secret (B02 `audit_own_native_at_runtime`, krobi 2026-11-05 22:46: secrets as a file in the instance data folder),
+ * stored encrypted by the fleet master under the field {@link KEY_FIELD} (CLAUDE_PATTERNS.md, Geheimnisse S3/S7, round
+ * 174): `{ "clients": { "<id>": { "apiKey": { "$encrypted": … } } } }`.
  *
  * The id is handed out once and never derived again: renaming the object changes its name, not its id, and a lookup
  * goes through this file, never through the device type. Two clients of one model with the same four characters get a
@@ -17,10 +19,13 @@
  * taken for an empty one — it is set aside before the next write, so nothing it holds is overwritten.
  */
 
-import { readDataFile, setAsideDataFile, writeDataFile } from "./data-file";
+import { type DataFileCipher, type DataFileSecrets, readDataFile, setAsideDataFile, writeDataFile } from "./data-file";
 
 /** The file in the instance data folder. */
 export const CLIENTS_FILE = "clients.json";
+
+/** The field of an entry that holds the key — a name the fleet's word list knows as a secret (S7: `^.*api.?key$`). */
+export const KEY_FIELD = "apiKey";
 
 /** Where an unreadable file is moved before a new one is written. */
 export const UNREADABLE_CLIENTS_FILE = `${CLIENTS_FILE}.unreadable`;
@@ -188,6 +193,7 @@ export function isClientId(suffix: string): boolean {
 /** The id ↔ key table of the paired clients, read from and written to {@link CLIENTS_FILE}. */
 export class ClientStore {
   private readonly dir: string;
+  private readonly secrets: DataFileSecrets;
   private keys = new Map<string, string>();
   /** Ids an object below `clients.` holds without an entry here — never handed out. */
   private readonly reserved = new Set<string>();
@@ -196,9 +202,11 @@ export class ClientStore {
 
   /**
    * @param dir the instance data folder
+   * @param cipher encrypts and decrypts the keys — the adapter instance
    */
-  public constructor(dir: string) {
+  public constructor(dir: string, cipher: DataFileCipher) {
     this.dir = dir;
+    this.secrets = { cipher, fields: [KEY_FIELD] };
   }
 
   /**
@@ -210,7 +218,7 @@ export class ClientStore {
   public load(): string | undefined {
     this.keys = new Map();
     this.unreadable = undefined;
-    const read = readDataFile(this.dir, CLIENTS_FILE);
+    const read = readDataFile(this.dir, CLIENTS_FILE, this.secrets);
     if (read.error !== undefined) {
       this.unreadable = read.error;
       return read.error;
@@ -226,7 +234,9 @@ export class ClientStore {
     }
     const { clients } = data as Record<string, unknown>;
     if (typeof clients === "object" && clients !== null && !Array.isArray(clients)) {
-      for (const [id, key] of Object.entries(clients)) {
+      for (const [id, entry] of Object.entries(clients)) {
+        const key =
+          typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>)[KEY_FIELD] : undefined;
         if (isClientId(id) && typeof key === "string" && key) {
           this.keys.set(id, key);
         }
@@ -358,6 +368,8 @@ export class ClientStore {
     for (const id of this.ids()) {
       clients[id] = this.keys.get(id) as string;
     }
-    writeDataFile(this.dir, CLIENTS_FILE, { clients });
+    // Each key under its named field, so the master stores it encrypted (S7).
+    const entries = Object.fromEntries(Object.entries(clients).map(([id, key]) => [id, { [KEY_FIELD]: key }]));
+    writeDataFile(this.dir, CLIENTS_FILE, { clients: entries }, this.secrets);
   }
 }

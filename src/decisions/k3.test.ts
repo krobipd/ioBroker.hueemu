@@ -31,6 +31,12 @@ vi.mock("@iobroker/adapter-core", () => {
     public namespace = "hueemu.0";
     public config = {};
     public log = { silly: noop, debug: noop, info: noop, warn: noop, error: noop, level: "info" };
+    public encrypt(value: string): string {
+      return `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`;
+    }
+    public decrypt(value: string): string {
+      return Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString();
+    }
     public on(): void {
       // the guard calls the handlers itself
     }
@@ -94,6 +100,7 @@ vi.mock("@iobroker/adapter-core", () => {
 import * as mainModule from "../main";
 import { ApiHandler, type ApiHandlerAdapter } from "../hue-api/api-handler";
 import { ClientStore } from "../lib/client-store";
+import type { DataFileCipher } from "../lib/data-file";
 import { HueServer } from "../server/hue-server";
 import type { BridgeIdentity } from "../types/config";
 
@@ -145,7 +152,7 @@ async function openWindow(): Promise<{ adapter: ApiHandlerAdapter; routes: Route
   );
   const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k3-"));
   folders.push(folder);
-  const clients = new ClientStore(folder);
+  const clients = new ClientStore(folder, adapter as unknown as DataFileCipher);
   clients.load();
   const handler = new ApiHandler({
     adapter,

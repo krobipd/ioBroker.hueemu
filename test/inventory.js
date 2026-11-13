@@ -2486,18 +2486,26 @@ tests.integration(ADAPTER_DIR, {
 
       // B02 audit_own_native_at_runtime (krobi 2026-11-05 22:46): a secret is a file in the instance data folder;
       // the id names the model and the last four characters of the key (krobi 2026-11-11 14:25/14:27).
-      it("moves the client it had to its model and the last four characters of its key — the key in clients.json", function () {
+      // The key lies sealed by the fleet master data-file.ts in the entry's secret field apiKey (round 174, S3/S7).
+      it("moves the client it had to its model and the last four characters of its key — the key in clients.json", async function () {
         assert.strictEqual(clientObjects[LEGACY_CLIENT_ID], undefined, `${LEGACY_CLIENT_ID} is still there`);
         const forms = [LEGACY_CLIENT_KEY, LEGACY_CLIENT_ID.slice(`${NS}clients.`.length)];
         const carrying = Object.entries(clientObjects)
           .filter(([id, obj]) => forms.some(form => id.includes(form) || JSON.stringify(obj).includes(form)))
           .map(([id]) => id);
         assert.deepStrictEqual(carrying, [], `objects carrying the key: ${carrying.join(", ")}`);
-        const n = Object.entries(clientKeys.clients ?? {}).find(([, key]) => key === LEGACY_CLIENT_KEY)?.[0];
+        assert.ok(!JSON.stringify(clientKeys).includes(LEGACY_CLIENT_KEY), "clients.json holds the key in clear text");
+        /** @type {Record<string, unknown>} */
+        const keys = {};
+        for (const [id, entry] of Object.entries(clientKeys.clients ?? {})) {
+          const sealed = entry?.apiKey?.$encrypted;
+          keys[id] = typeof sealed === "string" ? JSON.parse(await decryptLikeController(harness, sealed)) : undefined;
+        }
+        const n = Object.entries(keys).find(([, key]) => key === LEGACY_CLIENT_KEY)?.[0];
         assert.strictEqual(
           n,
           "earlier-echo-tkey",
-          `clients.json does not hold the key under its id: ${JSON.stringify(clientKeys)}`,
+          `clients.json does not hold the key sealed under its id (ids: ${Object.keys(keys).join(", ")})`,
         );
         const moved = clientObjects[`${NS}clients.${n}`];
         assert.strictEqual(moved?.type, "state", `clients.${n} is no client datapoint: ${JSON.stringify(moved)}`);

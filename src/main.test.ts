@@ -121,6 +121,7 @@ import * as mainModule from "./main";
 import { readDataFile } from "./lib/data-file";
 import { mergedWith } from "./lib/known-objects";
 import { ConfigurationError } from "./types/errors";
+import { storedClientKeys } from "../test/test-helpers";
 
 /** The cipher of the fake adapter above, for reading back what it encrypted. */
 const MAIN_CIPHER = {
@@ -1539,7 +1540,7 @@ describe("HueEmu prepareClients (client keys in the data folder)", () => {
 
   /** What clients.json in this test's data folder holds. */
   function storedClients(): Record<string, unknown> {
-    return JSON.parse(readFileSync(join(dataDir.current, "clients.json"), "utf8")) as Record<string, unknown>;
+    return storedClientKeys(dataDir.current, MAIN_CIPHER);
   }
 
   it("moves a client of an earlier version before the own objects are refreshed and the bridge serves", async () => {

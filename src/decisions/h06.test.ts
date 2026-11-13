@@ -20,7 +20,7 @@
  * the third sentence: no log line names a whole key).
  */
 
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -47,6 +47,12 @@ vi.mock("@iobroker/adapter-core", () => {
     public namespace = "hueemu.0";
     public config = {};
     public log = { silly: record, debug: record, info: record, warn: record, error: record, level: "silly" };
+    public encrypt(value: string): string {
+      return `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`;
+    }
+    public decrypt(value: string): string {
+      return Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString();
+    }
     public on(): void {
       // the guard calls the handlers itself
     }
@@ -136,6 +142,7 @@ vi.mock("@iobroker/adapter-core", () => {
 import * as mainModule from "../main";
 import { ApiHandler, type ApiHandlerAdapter } from "../hue-api/api-handler";
 import type { ClientStore } from "../lib/client-store";
+import { type DataFileCipher, readDataFile } from "../lib/data-file";
 import { HueServer } from "../server/hue-server";
 import type { BridgeIdentity } from "../types/config";
 
@@ -320,7 +327,8 @@ describe("H-06: a paired device is named after its device text and the last four
     openWindow(adapter);
     await routes.inject({ method: "GET", url: `/api/${REFUSED_KEY}/lights` });
     db.refuse = false;
-    const file = JSON.parse(readFileSync(join(db.dir, "clients.json"), "utf8")) as unknown;
+    const cipher = adapter as unknown as DataFileCipher;
+    const file = readDataFile(db.dir, "clients.json", { cipher, fields: ["apiKey"] }).value;
     const tree = JSON.stringify({ objects: [...db.objects], states: [...db.states] });
     const keys = [HUB_KEY, OLD_KEY, SILENT_KEY, REFUSED_KEY];
     const inTree = keys.filter(key => tree.includes(key));
@@ -332,7 +340,13 @@ describe("H-06: a paired device is named after its device text and the last four
         "hueemu.0.clients.harmony-hub-ac37",
         "hueemu.0.clients.harmony-hub-d3b9",
       ],
-      file: { clients: { "client-0001": SILENT_KEY, "harmony-hub-ac37": HUB_KEY, "harmony-hub-d3b9": OLD_KEY } },
+      file: {
+        clients: {
+          "client-0001": { apiKey: SILENT_KEY },
+          "harmony-hub-ac37": { apiKey: HUB_KEY },
+          "harmony-hub-d3b9": { apiKey: OLD_KEY },
+        },
+      },
       inTree: [],
       logged: true,
       inLog: [],

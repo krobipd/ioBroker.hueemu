@@ -11,7 +11,7 @@
  * deleted client object, and the preparation of the clients at start; the bridge's handler answers who has access.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +32,12 @@ vi.mock("@iobroker/adapter-core", () => {
     public namespace = "hueemu.0";
     public config = {};
     public log = { silly: noop, debug: noop, info: noop, warn: noop, error: noop, level: "info" };
+    public encrypt(value: string): string {
+      return `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`;
+    }
+    public decrypt(value: string): string {
+      return Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString();
+    }
     public on(): void {
       // the guard calls the handlers itself
     }
@@ -88,6 +94,7 @@ vi.mock("@iobroker/adapter-core", () => {
 import * as mainModule from "../main";
 import { ApiHandler, type ApiHandlerAdapter } from "../hue-api/api-handler";
 import type { ClientStore } from "../lib/client-store";
+import { type DataFileCipher, readDataFile } from "../lib/data-file";
 
 const { HueEmu } = mainModule as unknown as { HueEmu: new () => ApiHandlerAdapter };
 
@@ -137,7 +144,9 @@ async function started(): Promise<{ adapter: ApiHandlerAdapter; internals: Inter
 
 /** The stored client keys. */
 function storedKeys(): unknown {
-  return (JSON.parse(readFileSync(join(db.folder, "clients.json"), "utf8")) as { clients?: unknown }).clients;
+  const cipher = new HueEmu() as unknown as DataFileCipher;
+  return (readDataFile(db.folder, "clients.json", { cipher, fields: ["apiKey"] }).value as { clients?: unknown })
+    .clients;
 }
 
 describe("K13: a deleted paired device loses its access at once", () => {
@@ -162,7 +171,9 @@ describe("K13: a deleted paired device loses its access at once", () => {
     db.folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k13-"));
     writeFileSync(
       join(db.folder, "clients.json"),
-      JSON.stringify({ clients: { "echo-dot-okey": "echo-key", "harmony-hub-ykey": "harmony-key" } }),
+      JSON.stringify({
+        clients: { "echo-dot-okey": { apiKey: "echo-key" }, "harmony-hub-ykey": { apiKey: "harmony-key" } },
+      }),
     );
     db.objects.set("hueemu.0.clients.harmony-hub-ykey", {
       _id: "hueemu.0.clients.harmony-hub-ykey",
@@ -177,7 +188,7 @@ describe("K13: a deleted paired device loses its access at once", () => {
     expect({ echo, harmony, stored: storedKeys() }).toEqual({
       echo: false,
       harmony: true,
-      stored: { "harmony-hub-ykey": "harmony-key" },
+      stored: { "harmony-hub-ykey": { apiKey: "harmony-key" } },
     });
   });
 });

@@ -204,7 +204,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Changed: The bridge identity (UDN, certificate and its encrypted key) moved from the settings into the instance data folder — saving the settings can no longer reset it, and a new instance starts without a restart.
 - Changed: A damaged identity file stops the start with an error.
 - Changed: The lights moved from the settings into the object tree (lights) — a change in the device manager takes effect without a restart.
-- Changed: The keys of paired clients moved into the instance data folder — a client object is named after its device type and the end of its key (e.g. clients.harmony-hub-ac37); every pairing stays.
+- Changed: The keys of paired clients moved, encrypted, into the instance data folder; a client object is named after its device type and key end (e.g. clients.harmony-hub-ac37); every pairing stays.
 - Changed: An alias on a paired client's object follows it to the new object.
 - Changed: Going back to 1.19.0 or older is not supported — that version creates a new bridge identity and finds no lights.
 - Changed: The undocumented /health route is gone.

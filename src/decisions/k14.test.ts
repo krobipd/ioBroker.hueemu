@@ -33,6 +33,12 @@ vi.mock("@iobroker/adapter-core", () => {
     public namespace = "hueemu.0";
     public config = {};
     public log = { silly: noop, debug: noop, info: noop, warn: noop, error: noop, level: "info" };
+    public encrypt(value: string): string {
+      return `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`;
+    }
+    public decrypt(value: string): string {
+      return Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString();
+    }
     public on(): void {
       // the guard calls the handlers itself
     }
@@ -68,6 +74,7 @@ import * as mainModule from "../main";
 import { ApiHandler, type ApiHandlerAdapter } from "../hue-api/api-handler";
 import type { DeviceConfig } from "../hue-api/device-binding-service";
 import { ClientStore } from "../lib/client-store";
+import type { DataFileCipher } from "../lib/data-file";
 
 const { HueEmu } = mainModule as unknown as { HueEmu: new () => ApiHandlerAdapter };
 
@@ -102,7 +109,7 @@ async function started(devices: DeviceConfig[]): Promise<{ handler: ApiHandler }
   const adapter = new HueEmu();
   const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k14-"));
   folders.push(folder);
-  const clients = new ClientStore(folder);
+  const clients = new ClientStore(folder, adapter as unknown as DataFileCipher);
   clients.load();
   const handler = new ApiHandler({
     adapter,

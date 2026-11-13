@@ -7,6 +7,7 @@ vi.mock("@iobroker/adapter-core", () => ({
   I18n: { getTranslatedObject: (key: string) => ({ en: key }) },
 }));
 
+import { FAKE_CIPHER, clientsFileOf, storedClientKeys } from "../../test/test-helpers";
 import { CLIENTS_FILE, ClientStore } from "./client-store";
 import {
   clientCommon,
@@ -29,7 +30,7 @@ const NS = "hueemu.0";
 
 /** What clients.json holds. */
 function stored(): unknown {
-  return JSON.parse(readFileSync(join(dir, CLIENTS_FILE), "utf8"));
+  return storedClientKeys(dir);
 }
 
 type LogFn = (msg: string) => void;
@@ -142,7 +143,7 @@ function currentClient(name = "Echo"): Record<string, unknown> {
 
 /** The store over this test's folder, loaded. */
 function store(): ClientStore {
-  const s = new ClientStore(dir);
+  const s = new ClientStore(dir, FAKE_CIPHER);
   s.load();
   return s;
 }
@@ -373,7 +374,7 @@ describe("moveClients", () => {
   });
 
   it("finishes a move a stopped start left half done — same id, no second write", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+    writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-k": "k" }));
     const adapter = fake(
       { "clients.k": v119Client("k"), "clients.echo-k": currentClient() },
       { "clients.echo-k": { val: "Echo", lc: 5 } },
@@ -385,7 +386,7 @@ describe("moveClients", () => {
   });
 
   it("leaves a client in the current form alone", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+    writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-k": "k" }));
     const adapter = fake({ "clients.echo-k": currentClient() });
     const result = await moveClients(adapter, store(), String);
     expect(result).toEqual({ moved: 0, keyless: 0, forgotten: 0, aliases: 0 });
@@ -413,7 +414,7 @@ describe("moveClients", () => {
   });
 
   it("reads no state while every client is in the current form", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+    writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-k": "k" }));
     const adapter = fake({ "clients.echo-k": currentClient() });
     await moveClients(adapter, store(), String);
     expect(adapter.getStatesAsync).not.toHaveBeenCalled();
@@ -430,7 +431,7 @@ describe("moveClients", () => {
 
   // Decision 31: a client deleted while the adapter was stopped stays revoked.
   it("forgets a key whose object was deleted while the adapter was stopped", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-a": "a", "echo-b": "b" } }));
+    writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-a": "a", "echo-b": "b" }));
     const adapter = fake({ "clients.echo-a": currentClient() });
     expect((await moveClients(adapter, store(), String)).forgotten).toBe(1);
     expect(stored()).toEqual({ clients: { "echo-a": "a" } });
@@ -438,7 +439,7 @@ describe("moveClients", () => {
   });
 
   it("leaves a client object without a stored key in place and says once that it cannot sign in", async () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-a": "a" } }));
+    writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-a": "a" }));
     const adapter = fake({
       "clients.echo-a": currentClient(),
       "clients.echo-zzz1": currentClient(),
@@ -472,7 +473,7 @@ describe("moveClients", () => {
   it("keeps the old objects when the key cannot be stored", async () => {
     const blocked = join(dir, "not-a-folder");
     writeFileSync(blocked, "");
-    const s = new ClientStore(blocked);
+    const s = new ClientStore(blocked, FAKE_CIPHER);
     s.load();
     const adapter = fake({ "clients.k": v119Client("k") });
     await expect(moveClients(adapter, s, String)).rejects.toThrow();
@@ -619,7 +620,7 @@ describe("moveClients", () => {
 
     // A start that ended after the aliases but before the delete: the next one finds them on the new id already.
     it("finishes a half-done move without writing an alias that already points at the new object", async () => {
-      writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+      writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-k": "k" }));
       const adapter = fake(
         { "clients.k": v119Client("k"), "clients.echo-k": currentClient() },
         { "clients.echo-k": { val: "Echo", lc: 5 } },
@@ -634,7 +635,7 @@ describe("moveClients", () => {
     });
 
     it("reads no alias while nothing moves", async () => {
-      writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-k": "k" } }));
+      writeFileSync(join(dir, CLIENTS_FILE), clientsFileOf({ "echo-k": "k" }));
       const adapter = fake({ "clients.echo-k": currentClient(), user: { type: "meta" } });
       adapter.aliases = { "alias.0.hub": alias(`${NS}.clients.echo-k`) };
       await moveClients(adapter, store(), String);

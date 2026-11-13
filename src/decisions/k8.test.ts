@@ -132,7 +132,14 @@ function memory(datapoints: Record<string, Partial<ioBroker.StateCommon>>): Memo
 async function bridge(mem: Memory, devices: DeviceConfig[]): Promise<{ routes: Routes; folder: string }> {
   const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k8-"));
   folders.push(folder);
-  const clients = new ClientStore(folder);
+  const clients = new ClientStore(folder, {
+    encrypt(value: string): string {
+      return `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`;
+    },
+    decrypt(value: string): string {
+      return Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString();
+    },
+  });
   clients.load();
   const handler = new ApiHandler({
     adapter: mem.adapter,

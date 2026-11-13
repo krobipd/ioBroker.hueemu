@@ -16,7 +16,7 @@ import { ApiHandler, type ApiHandlerAdapter } from "./api-handler";
 import { ClientStore, clientIdFor } from "../lib/client-store";
 import type { CreateUserRequest } from "../types/hue-api";
 import { HueApiError, HueErrorType } from "../types/errors";
-import { createMockLogger, createTestIdentity } from "../../test/test-helpers";
+import { FAKE_CIPHER, createMockLogger, createTestIdentity } from "../../test/test-helpers";
 
 interface MockApiAdapter extends ApiHandlerAdapter {
   writtenObjects: Map<string, ioBroker.SettableObject>;
@@ -43,7 +43,7 @@ const PAIRED_AS = "Echo";
  * @param keys the keys
  */
 function storeWith(keys: string[]): ClientStore {
-  const store = new ClientStore(dataDir);
+  const store = new ClientStore(dataDir, FAKE_CIPHER);
   store.load();
   for (const key of keys) {
     store.add(key, PAIRED_AS);

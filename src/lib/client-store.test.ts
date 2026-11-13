@@ -6,6 +6,7 @@ import {
   AUTO_PAIRED_DEVICETYPE,
   CLIENTS_FILE,
   ClientStore,
+  KEY_FIELD,
   UNKNOWN_DEVICETYPE,
   UNREADABLE_CLIENTS_FILE,
   clientIdFor,
@@ -17,6 +18,7 @@ import {
   textForLog,
   urlForLog,
 } from "./client-store";
+import { readDataFile } from "./data-file";
 
 let dir: string;
 beforeEach(() => {
@@ -26,14 +28,27 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-/** What the file holds. */
+/** The adapter's cipher as the fleet's guards fake it (k4.test.ts): js-controller's prefix and base64. */
+const CIPHER = {
+  encrypt: (value: string): string => `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`,
+  decrypt: (value: string): string => Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString(),
+};
+
+/** What the file holds, read back through the fleet master — each entry's key in clear text. */
 function stored(): unknown {
-  return JSON.parse(readFileSync(join(dir, CLIENTS_FILE), "utf8"));
+  return readDataFile(dir, CLIENTS_FILE, { cipher: CIPHER, fields: [KEY_FIELD] }).value;
 }
+
+/**
+ * An entry of the file, in clear text.
+ *
+ * @param key the client's key
+ */
+const entry = (key: string): Record<string, string> => ({ [KEY_FIELD]: key });
 
 /** A store on this test's folder, loaded. */
 function loaded(): ClientStore {
-  const store = new ClientStore(dir);
+  const store = new ClientStore(dir, CIPHER);
   expect(store.load()).toBeUndefined();
   return store;
 }
@@ -227,9 +242,20 @@ describe("ClientStore", () => {
   it("names each key after its device type and stores it before it returns", () => {
     const store = loaded();
     expect(store.add(HARMONY_KEY, "Harmony Hub")).toBe("harmony-hub-ac37");
-    expect(stored()).toEqual({ clients: { "harmony-hub-ac37": HARMONY_KEY } });
+    expect(stored()).toEqual({ clients: { "harmony-hub-ac37": entry(HARMONY_KEY) } });
     expect(store.add("echo-key", "Echo")).toBe("echo-okey");
-    expect(stored()).toEqual({ clients: { "echo-okey": "echo-key", "harmony-hub-ac37": HARMONY_KEY } });
+    expect(stored()).toEqual({ clients: { "echo-okey": entry("echo-key"), "harmony-hub-ac37": entry(HARMONY_KEY) } });
+  });
+
+  // S3/S7 (CLAUDE_PATTERNS.md, Geheimnisse, round 174): a key is a secret — the file holds it encrypted, never in clear.
+  it("stores every key encrypted by the fleet master, never in clear text", () => {
+    const store = loaded();
+    store.add(HARMONY_KEY, "Harmony Hub");
+    const raw = readFileSync(join(dir, CLIENTS_FILE), "utf8");
+    expect(raw.includes(HARMONY_KEY)).toBe(false);
+    expect(JSON.parse(raw)).toEqual({
+      clients: { "harmony-hub-ac37": { [KEY_FIELD]: { $encrypted: CIPHER.encrypt(JSON.stringify(HARMONY_KEY)) } } },
+    });
   });
 
   // The id is handed out once: a client pairing again under another device type keeps it.
@@ -262,7 +288,7 @@ describe("ClientStore", () => {
     store.add("key-a", "Echo");
     store.add("key-b", "Echo");
     expect(store.remove("echo-keyb")).toBe("key-b");
-    expect(stored()).toEqual({ clients: { "echo-keya": "key-a" } });
+    expect(stored()).toEqual({ clients: { "echo-keya": entry("key-a") } });
   });
 
   it("removes nothing for an id it does not hold — and writes nothing", () => {
@@ -275,19 +301,53 @@ describe("ClientStore", () => {
   });
 
   it("reads back what it stored", () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-okey": "echo-key", client: "c" } }));
+    const first = loaded();
+    first.add("echo-key", "Echo");
+    first.add("c", "client");
     const store = loaded();
-    expect(store.ids()).toEqual(["client", "echo-okey"]);
+    expect(store.ids()).toEqual(["client-c", "echo-okey"]);
     expect(store.keyOf("echo-okey")).toBe("echo-key");
     expect(store.add("other-okey", "Echo")).toBe("echo-okey-2");
+  });
+
+  // A file a hand put the keys into in clear text is read, and the master writes it back encrypted at once.
+  it("reads a key a hand wrote in clear text and stores it encrypted at once", () => {
+    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ clients: { "echo-okey": entry("echo-key") } }));
+    const store = loaded();
+    expect(store.keyOf("echo-okey")).toBe("echo-key");
+    expect(readFileSync(join(dir, CLIENTS_FILE), "utf8").includes("echo-key")).toBe(false);
+    expect(stored()).toEqual({ clients: { "echo-okey": entry("echo-key") } });
   });
 
   it("skips an entry that is no client id or holds no key", () => {
     writeFileSync(
       join(dir, CLIENTS_FILE),
-      JSON.stringify({ clients: { "": "a", "Echo-1": "b", "a.b": "c", "echo-x": "", "echo-y": 4, "echo-z": "z" } }),
+      JSON.stringify({
+        clients: {
+          "": entry("a"),
+          "Echo-1": entry("b"),
+          "a.b": entry("c"),
+          "echo-w": "w",
+          "echo-x": entry(""),
+          "echo-y": { [KEY_FIELD]: 4 },
+          "echo-v": null,
+          "echo-z": entry("z"),
+        },
+      }),
     );
     expect(loaded().ids()).toEqual(["echo-z"]);
+  });
+
+  // A key encrypted under another system secret is no key: the file is unusable, never read as an empty one.
+  it("calls a file unusable whose key cannot be decrypted, and keeps it", () => {
+    writeFileSync(
+      join(dir, CLIENTS_FILE),
+      JSON.stringify({ clients: { "echo-okey": { [KEY_FIELD]: { $encrypted: "x" } } } }),
+    );
+    const store = new ClientStore(dir, CIPHER);
+    expect(store.load()).toBe("secret field clients.echo-okey.apiKey cannot be decrypted");
+    expect(store.readable).toBe(false);
+    expect(store.ids()).toEqual([]);
   });
 
   it("reads an empty table from a file without a client list", () => {
@@ -300,7 +360,7 @@ describe("ClientStore", () => {
   // A file it cannot read is never taken for an empty one: nothing it holds is overwritten.
   it("names why it cannot use a file and keeps the file", () => {
     writeFileSync(join(dir, CLIENTS_FILE), "{ broken");
-    const store = new ClientStore(dir);
+    const store = new ClientStore(dir, CIPHER);
     expect(store.load()).toMatch(/^no JSON: /);
     expect(store.readable).toBe(false);
     expect(store.ids()).toEqual([]);
@@ -310,7 +370,7 @@ describe("ClientStore", () => {
   it("calls a file that holds no table unusable", () => {
     for (const content of ["[1, 2]", '"text"', "null"]) {
       writeFileSync(join(dir, CLIENTS_FILE), content);
-      const store = new ClientStore(dir);
+      const store = new ClientStore(dir, CIPHER);
       expect(store.load()).toBe("no table in it");
       expect(store.readable).toBe(false);
     }
@@ -318,28 +378,28 @@ describe("ClientStore", () => {
 
   it("sets an unusable file aside before it writes a new one", () => {
     writeFileSync(join(dir, CLIENTS_FILE), "{ broken");
-    const store = new ClientStore(dir);
+    const store = new ClientStore(dir, CIPHER);
     store.load();
     expect(store.add("key-a", "Echo")).toBe("echo-keya");
     expect(readFileSync(join(dir, UNREADABLE_CLIENTS_FILE), "utf8")).toBe("{ broken");
-    expect(stored()).toEqual({ clients: { "echo-keya": "key-a" } });
+    expect(stored()).toEqual({ clients: { "echo-keya": entry("key-a") } });
     expect(store.readable).toBe(true);
   });
 
   it("writes a new file when the unusable one is gone meanwhile", () => {
     writeFileSync(join(dir, CLIENTS_FILE), "{ broken");
-    const store = new ClientStore(dir);
+    const store = new ClientStore(dir, CIPHER);
     store.load();
     rmSync(join(dir, CLIENTS_FILE));
     expect(store.add("key-a", "Echo")).toBe("echo-keya");
     expect(existsSync(join(dir, UNREADABLE_CLIENTS_FILE))).toBe(false);
-    expect(stored()).toEqual({ clients: { "echo-keya": "key-a" } });
+    expect(stored()).toEqual({ clients: { "echo-keya": entry("key-a") } });
   });
 
   it("keeps the table as it was when a new key cannot be stored", () => {
     const blocked = join(dir, "not-a-folder");
     writeFileSync(blocked, "");
-    const store = new ClientStore(blocked);
+    const store = new ClientStore(blocked, CIPHER);
     store.load();
     expect(() => store.add("key-a", "Echo")).toThrow();
     expect(store.ids()).toEqual([]);
@@ -365,7 +425,7 @@ describe("ClientStore", () => {
     store.add("b", "Echo");
     store.add("c", "Echo");
     expect(store.keepOnly(new Set(["echo-b"]))).toBe(2);
-    expect(stored()).toEqual({ clients: { "echo-b": "b" } });
+    expect(stored()).toEqual({ clients: { "echo-b": entry("b") } });
   });
 
   it("writes nothing when every key still has its object", () => {
@@ -394,9 +454,12 @@ describe("ClientStore", () => {
   });
 
   it("ignores the number mark of a file written before the ids carried the model", () => {
-    writeFileSync(join(dir, CLIENTS_FILE), JSON.stringify({ lastClientId: 7, clients: { "echo-okey": "echo-key" } }));
+    writeFileSync(
+      join(dir, CLIENTS_FILE),
+      JSON.stringify({ lastClientId: 7, clients: { "echo-okey": entry("echo-key") } }),
+    );
     const store = loaded();
     store.add("key-a", "Echo");
-    expect(stored()).toEqual({ clients: { "echo-keya": "key-a", "echo-okey": "echo-key" } });
+    expect(stored()).toEqual({ clients: { "echo-keya": entry("key-a"), "echo-okey": entry("echo-key") } });
   });
 });
