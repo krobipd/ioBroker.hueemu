@@ -8,16 +8,14 @@ const LOCAL = ["192.168.1.20", "10.1.2.3"];
  *
  * @param native the instance's native settings
  * @param local the IPv4 addresses the host carries
- * @param identityStored whether the identity file holds the bridge identity
  * @param lightsStored whether every light of the settings is a light object
  */
 function patchFor(
   native: Record<string, unknown>,
   local: readonly string[] = LOCAL,
-  identityStored = false,
   lightsStored = false,
 ): Record<string, unknown> {
-  return buildNativeKeyPatch(native, buildNativeKeyMigrations(native, local, identityStored, lightsStored));
+  return buildNativeKeyPatch(native, buildNativeKeyMigrations(native, local, lightsStored));
 }
 
 describe("buildNativeKeyMigrations", () => {
@@ -85,7 +83,7 @@ describe("buildNativeKeyMigrations", () => {
       connectionType: "local",
       "connectionType ": "local",
     };
-    expect(buildCommonKeyPatch(common, buildNativeKeyMigrations({}, LOCAL, false, false))).toEqual({
+    expect(buildCommonKeyPatch(common, buildNativeKeyMigrations({}, LOCAL, false))).toEqual({
       license: null,
       main: null,
       supportCustoms: null,
@@ -98,7 +96,7 @@ describe("buildNativeKeyMigrations", () => {
     expect(
       buildCommonKeyPatch(
         { name: "hueemu", title: "Hue Emulator", connectionType: "local", licenseInformation: { license: "MIT" } },
-        buildNativeKeyMigrations({}, LOCAL, false, false),
+        buildNativeKeyMigrations({}, LOCAL, false),
       ),
     ).toEqual({});
   });
@@ -109,7 +107,8 @@ describe("buildNativeKeyMigrations", () => {
     ).toEqual({});
   });
 
-  // Audit R-24: the identity moved to the data folder — dropped from native only once the file holds it.
+  // Audit R-24: the identity moved to the data folder — dropped from native only once the file holds it: a start that
+  // cannot read or store the file stops before the migrations (main.ts loadIdentity, S9).
   const IDENTITY_IN_NATIVE = {
     bind: "0.0.0.0",
     port: 8080,
@@ -119,12 +118,8 @@ describe("buildNativeKeyMigrations", () => {
     tlsKey: "$/aes-192-cbc:00:11",
   };
 
-  it("drops udn, tlsCert and tlsKey once the identity file holds them — the MAC stays a setting", () => {
-    expect(patchFor(IDENTITY_IN_NATIVE, LOCAL, true)).toEqual({ udn: null, tlsCert: null, tlsKey: null });
-  });
-
-  it("keeps the identity in native while the file does not hold it", () => {
-    expect(patchFor(IDENTITY_IN_NATIVE, LOCAL, false)).toEqual({});
+  it("drops udn, tlsCert and tlsKey — the MAC stays a setting", () => {
+    expect(patchFor(IDENTITY_IN_NATIVE, LOCAL)).toEqual({ udn: null, tlsCert: null, tlsKey: null });
   });
 
   // Audit R-24: the lights moved to their own objects — dropped from native only once every one is stored there.
@@ -136,17 +131,17 @@ describe("buildNativeKeyMigrations", () => {
   };
 
   it("drops devices and lastLightId once every light is a light object", () => {
-    expect(patchFor(LIGHTS_IN_NATIVE, LOCAL, false, true)).toEqual({ devices: null, lastLightId: null });
+    expect(patchFor(LIGHTS_IN_NATIVE, LOCAL, true)).toEqual({ devices: null, lastLightId: null });
   });
 
   it("drops the manifest's empty list and zero mark as well", () => {
-    expect(patchFor({ bind: "0.0.0.0", port: 8080, devices: [], lastLightId: 0 }, LOCAL, false, true)).toEqual({
+    expect(patchFor({ bind: "0.0.0.0", port: 8080, devices: [], lastLightId: 0 }, LOCAL, true)).toEqual({
       devices: null,
       lastLightId: null,
     });
   });
 
   it("keeps the lights in native while they are not all stored as objects", () => {
-    expect(patchFor(LIGHTS_IN_NATIVE, LOCAL, false, false)).toEqual({});
+    expect(patchFor(LIGHTS_IN_NATIVE, LOCAL, false)).toEqual({});
   });
 });

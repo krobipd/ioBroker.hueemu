@@ -5,7 +5,7 @@
  * makeApiHandler seams, without binding real ports or generating real keys.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import type * as tls from "node:tls";
 import { join } from "node:path";
@@ -118,7 +118,15 @@ vi.mock("node:tls", async importOriginal => {
 
 import { I18n } from "@iobroker/adapter-core";
 import * as mainModule from "./main";
+import { readDataFile } from "./lib/data-file";
 import { mergedWith } from "./lib/known-objects";
+import { ConfigurationError } from "./types/errors";
+
+/** The cipher of the fake adapter above, for reading back what it encrypted. */
+const MAIN_CIPHER = {
+  encrypt: (v: string): string => `$/aes-192-cbc:ENC(${v})`,
+  decrypt: (v: string): string => v.replace(/^\$\/aes-192-cbc:ENC\(([\s\S]*)\)$/, "$1"),
+};
 
 // main.ts exports the factory with the class riding along (no `export class`, so esbuild builds it as CommonJS).
 /** The public face of the adapter the tests read: the base adapter plus its two getters. */
@@ -275,10 +283,23 @@ afterEach(() => {
   rmSync(dataDir.current, { recursive: true, force: true });
 });
 
-/** What the identity file in this test's data folder holds (audit R-24). */
+/** What the identity file in this test's data folder holds (audit R-24), read back through the fleet master. */
 function storedIdentity(): Record<string, unknown> {
+  const read = readDataFile(dataDir.current, "identity.json", { cipher: MAIN_CIPHER, fields: ["privateKey"] });
+  return read.value as Record<string, unknown>;
+}
+
+/** The identity file as it lies on the disk — the private key sealed by the fleet master (S7, round 174). */
+function rawIdentity(): Record<string, unknown> {
   return JSON.parse(readFileSync(join(dataDir.current, "identity.json"), "utf8")) as Record<string, unknown>;
 }
+
+/**
+ * The private key as the fleet master stores it with the fake adapter's cipher.
+ *
+ * @param key the key in clear text
+ */
+const sealedKey = (key: string): { $encrypted: string } => ({ $encrypted: MAIN_CIPHER.encrypt(JSON.stringify(key)) });
 
 /**
  * Load the identity, then build the configuration — the order onReady runs them in.
@@ -448,7 +469,7 @@ describe("HueEmu buildConfig", () => {
   it("creates and stores a UDN in the data folder when there is none, and writes nothing to native", () => {
     const { adapter } = setup({ udn: "", mac: "" });
     const i = internalOf(adapter);
-    expect(i.loadIdentity()).toBe(true);
+    i.loadIdentity();
     const config = i.buildConfig();
     expect(config.identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
     expect(config.identity.mac).toMatch(/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i);
@@ -482,26 +503,23 @@ describe("HueEmu buildConfig", () => {
     expect(storedIdentity()).toEqual({ udn: config.identity.udn });
   });
 
-  it("warns about an unusable identity file and takes the identity from native", () => {
-    writeFileSync(join(dataDir.current, "identity.json"), "{ not json");
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    expect(configOf(adapter).identity.udn).toBe("12345678-1234-1234-1234-123456789abc");
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("cannot be used"));
-    expect(storedIdentity()).toEqual({ udn: "12345678-1234-1234-1234-123456789abc" });
+  // S9 (CLAUDE_PATTERNS.md, Geheimnisse, round 174): the UDN is an id the adapter must keep — a file it cannot read
+  // fails the start; the bridge never serves under the UDN native still holds or a new one, and the file stays.
+  it("fails the start on an unusable identity file and keeps the file", () => {
+    for (const content of ["{ not json", JSON.stringify({ udn: "x", tlsCert: "C", privateKey: { $encrypted: "?" } })]) {
+      writeFileSync(join(dataDir.current, "identity.json"), content);
+      const { adapter } = setup();
+      expect(() => internalOf(adapter).loadIdentity()).toThrow(ConfigurationError);
+      expect(() => internalOf(adapter).loadIdentity()).toThrow(/identity\.json cannot be used/);
+      expect(readFileSync(join(dataDir.current, "identity.json"), "utf8")).toBe(content);
+    }
   });
 
-  it("serves with the identity it holds when the file cannot be written, and keeps native", () => {
-    // A file where the data folder should be — the folder cannot be created.
-    const blocker = join(dataDir.current, "blocker");
-    writeFileSync(blocker, "");
-    dataDir.current = join(blocker, "hueemu.0");
+  it("fails the start when a new identity cannot be stored", () => {
+    // A folder where the master writes its temporary file — the file is readable (there is none), the write fails.
+    mkdirSync(join(dataDir.current, "identity.json.tmp"));
     const { adapter } = setup({ udn: "", mac: "" });
-    const i = internalOf(adapter);
-    expect(i.loadIdentity()).toBe(false);
-    expect(i.buildConfig().identity.udn).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
-    dataDir.current = join(blocker, "..");
+    expect(() => internalOf(adapter).loadIdentity()).toThrow(/could not be stored/);
   });
 
   it("treats a blank bind as listen-all and announces the routable interface, not loopback", () => {
@@ -557,7 +575,7 @@ describe("HueEmu buildConfig", () => {
 
   // Audit R-24: a v1.19.0 installation stored the key encrypted in native; after the update
   // js-controller no longer decrypts it (encryptedNative follows the manifest), so it arrives
-  // encrypted and is taken over as it is.
+  // encrypted — decrypted once, the fleet master seals it again in the file (S7).
   it("takes over the certificate and the still encrypted key of v1.19.0 and serves with them", () => {
     const { adapter } = setup({
       httpsPort: 8443,
@@ -570,15 +588,16 @@ describe("HueEmu buildConfig", () => {
     expect(storedIdentity()).toEqual({
       udn: "12345678-1234-1234-1234-123456789abc",
       tlsCert: PERSISTED_CERT,
-      tlsKey: `$/aes-192-cbc:ENC(${PERSISTED_KEY})`,
+      privateKey: PERSISTED_KEY,
     });
+    expect(rawIdentity().privateKey).toEqual(sealedKey(PERSISTED_KEY));
     expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
   });
 
   it("takes over a plain-text key of v1.18.0 and earlier and stores it encrypted", () => {
     const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
     expect(configOf(adapter).https?.key).toBe(PERSISTED_KEY);
-    expect(storedIdentity().tlsKey).toBe(`$/aes-192-cbc:ENC(${PERSISTED_KEY})`);
+    expect(rawIdentity().privateKey).toEqual(sealedKey(PERSISTED_KEY));
   });
 
   it("stores a generated certificate in the data folder with the key encrypted, and nothing in native", () => {
@@ -588,8 +607,9 @@ describe("HueEmu buildConfig", () => {
     expect(storedIdentity()).toEqual({
       udn: config.identity.udn,
       tlsCert: expect.stringContaining("GENERATED"),
-      tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
+      privateKey: config.https?.key,
     });
+    expect(rawIdentity().privateKey).toEqual(sealedKey(config.https?.key ?? ""));
     // …while this run serves with the plaintext key.
     expect(config.https?.key).toContain("GENERATED");
     expect(config.https?.key).not.toContain("aes-192-cbc");
@@ -616,8 +636,9 @@ describe("HueEmu buildConfig", () => {
     expect(storedIdentity()).toEqual({
       udn: "12345678-1234-1234-1234-123456789abc",
       tlsCert: expect.stringContaining("GENERATED"),
-      tlsKey: expect.stringMatching(/^\$\/aes-192-cbc:ENC\(.*GENERATED/s),
+      privateKey: config.https?.key,
     });
+    expect(rawIdentity().privateKey).toEqual(sealedKey(config.https?.key ?? ""));
   });
 
   it("regenerates the pair when the stored key cannot be decrypted", () => {
@@ -794,10 +815,9 @@ describe("HueEmu onReady", () => {
     expect(servers).toHaveLength(0);
   });
 
-  it("keeps the old identity in native while the file cannot be written", async () => {
-    const blocker = join(dataDir.current, "blocker");
-    writeFileSync(blocker, "");
-    dataDir.current = join(blocker, "hueemu.0");
+  // S9: a start that cannot store the identity serves nothing and drops nothing — js-controller starts it again.
+  it("stops the start and keeps the old identity in native while the file cannot be written", async () => {
+    mkdirSync(join(dataDir.current, "identity.json.tmp"));
     const native = { bind: "192.168.1.10", port: 8080, udn: "12345678-1234-1234-1234-123456789abc", mac: "" };
     const { adapter, servers } = setup(native);
     const i = internalOf(adapter);
@@ -806,8 +826,21 @@ describe("HueEmu onReady", () => {
     );
     await i.onReady();
     expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
-    expect(servers).toHaveLength(1);
-    dataDir.current = join(blocker, "..");
+    expect(servers).toHaveLength(0);
+    expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
+    expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "Unknown" });
+    expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 6);
+  });
+
+  it("stops the start on an identity file it cannot use, and leaves the file as it is", async () => {
+    writeFileSync(join(dataDir.current, "identity.json"), "{ not json");
+    const { adapter, servers } = setup();
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(servers).toHaveLength(0);
+    expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("identity.json cannot be used (no JSON"));
+    expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 6);
+    expect(readFileSync(join(dataDir.current, "identity.json"), "utf8")).toBe("{ not json");
   });
 
   it("keeps booting when the cleanup of earlier-version objects fails (state handling stays wired)", async () => {

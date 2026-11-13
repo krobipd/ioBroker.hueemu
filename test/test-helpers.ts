@@ -3,7 +3,14 @@
  */
 
 import type { DeviceBindingAdapter } from "../src/hue-api/device-binding-service";
+import type { DataFileCipher } from "../src/lib/data-file";
 import type { BridgeIdentity, Logger } from "../src/types/config";
+
+/** The adapter's cipher as the fleet's guards fake it (src/decisions/k4.test.ts): js-controller's prefix and base64. */
+export const FAKE_CIPHER: DataFileCipher = {
+  encrypt: (value: string): string => `$/aes-192-cbc:${Buffer.from(value).toString("base64")}`,
+  decrypt: (value: string): string => Buffer.from(value.replace("$/aes-192-cbc:", ""), "base64").toString(),
+};
 
 /** A logger that swallows everything. */
 export function createMockLogger(): Logger {

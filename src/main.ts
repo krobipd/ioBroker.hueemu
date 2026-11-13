@@ -15,14 +15,7 @@ import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName, tRaw } from "./lib/i18n";
 import { CERT_VALIDITY_YEARS, getOrCreateTlsMaterial } from "./lib/tls-material";
-import {
-  IDENTITY_FILE,
-  plainKeyOf,
-  readIdentity,
-  resolveIdentity,
-  type StoredIdentity,
-  writeIdentity,
-} from "./lib/identity-store";
+import { IDENTITY_FILE, readIdentity, resolveIdentity, type StoredIdentity, writeIdentity } from "./lib/identity-store";
 import { runObsoleteStateCleanup, runLegacyDeviceMigration, runLightObjectMigration } from "./lib/migrations";
 import { LightStore, type StoredLights } from "./lib/light-store";
 import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE, objectIdForLog } from "./lib/client-store";
@@ -296,8 +289,9 @@ class HueEmu extends utils.Adapter {
       // into bind first where that keeps the announced address — native-key-list.ts).
       // A write restarts the instance — stop here like every other native migration.
       // Audit R-24: the identity file is written first, the lights become objects first;
-      // only once they hold it are the old copies in native dropped.
-      const identityStored = this.loadIdentity();
+      // only once they hold it are the old copies in native dropped. A start that cannot
+      // read or store the identity stops here (S9) — nothing of it in native is dropped then.
+      this.loadIdentity();
       const moved = await runLightObjectMigration(
         lights,
         { devices: this.config.devices, lastLightId: this.config.lastLightId },
@@ -306,7 +300,6 @@ class HueEmu extends utils.Adapter {
       const migrations = buildNativeKeyMigrations(
         this.config as unknown as Record<string, unknown>,
         listIPv4Addresses().map(a => a.address),
-        identityStored,
         moved.stored,
       );
       if (await migrateNativeKeys(this, migrations, errText)) {
@@ -573,36 +566,44 @@ class HueEmu extends utils.Adapter {
   /**
    * Audit R-24: the bridge identity for this start — the file in the instance data folder,
    * or on its first start what an earlier version left in native (or a fresh UDN), stored
-   * there right away. A file that cannot be written is not fatal: this run serves with the
-   * identity it holds, the old copy in native stays, and the next start tries again.
+   * there right away. The UDN is an id the adapter must keep (CLAUDE_PATTERNS.md, Geheimnisse
+   * S9, round 174): a file that cannot be read, or an identity that cannot be stored, fails the
+   * start — js-controller starts it again — instead of serving under a UDN the next start would
+   * not know.
    *
-   * @returns whether the file holds the identity — only then are the old copies dropped
+   * @throws {ConfigurationError} when the file cannot be used or the identity cannot be stored
    */
-  private loadIdentity(): boolean {
-    const read = readIdentity(this.identityDir());
+  private loadIdentity(): void {
+    const read = readIdentity(this.identityDir(), this);
     if (read.error) {
-      this.log.warn(
-        `The stored bridge identity ${join(this.identityDir(), IDENTITY_FILE)} cannot be used (${read.error}) — taking it from the settings or creating a new one`,
+      throw new ConfigurationError(
+        `The stored bridge identity ${join(this.identityDir(), IDENTITY_FILE)} cannot be used (${read.error}) — repair or remove it; without it every paired client sees a new bridge`,
       );
     }
     const { identity, unsaved } = resolveIdentity(
       read.identity,
       { udn: this.config.udn, tlsCert: this.config.tlsCert, tlsKey: this.config.tlsKey },
       () => uuid.v4(),
-      v => this.encrypt(v),
+      v => this.decrypt(v),
     );
     this.identity = identity;
-    return unsaved ? this.storeIdentity() : true;
+    if (unsaved) {
+      try {
+        writeIdentity(this.identityDir(), identity, this);
+      } catch (error) {
+        throw new ConfigurationError(`The bridge identity could not be stored (${errText(error)})`);
+      }
+    }
   }
 
   /**
-   * Write the identity of this start to its file.
+   * Write the identity of this start to its file — after a new TLS pair, which this run serves either way.
    *
    * @returns whether it was stored
    */
   private storeIdentity(): boolean {
     try {
-      writeIdentity(this.identityDir(), this.identity);
+      writeIdentity(this.identityDir(), this.identity, this);
       return true;
     } catch (error) {
       this.log.warn(`The bridge identity could not be stored (${errText(error)}) — using it for this run`);
@@ -673,15 +674,11 @@ class HueEmu extends utils.Adapter {
     // Build TLS config if HTTPS is enabled
     let https: TlsConfig | undefined;
     if (httpsPort) {
-      const material = getOrCreateTlsMaterial(
-        this.identity.tlsCert,
-        plainKeyOf(this.identity.tlsKey, v => this.decrypt(v)),
-        this.log,
-      );
+      const material = getOrCreateTlsMaterial(this.identity.tlsCert, this.identity.privateKey, this.log);
       if (material.generated) {
-        // The key is stored encrypted (design decision 8); this run serves with the
-        // plaintext it holds in memory.
-        this.identity = { ...this.identity, tlsCert: material.cert, tlsKey: this.encrypt(material.key) };
+        // The file stores the key encrypted (design decision 8, S7 — identity-store.ts); this
+        // run serves with the clear text it holds in memory.
+        this.identity = { ...this.identity, tlsCert: material.cert, privateKey: material.key };
         if (this.storeIdentity()) {
           this.log.info(`Generated and stored self-signed TLS certificate (${CERT_VALIDITY_YEARS}-year validity)`);
         }

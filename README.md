@@ -201,7 +201,8 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 ### **WORK IN PROGRESS**
 
 - Changed: The bridge now answers only clients in its own networks, with a chosen address only those in that network.
-- Changed: The bridge identity (UDN, certificate) moved from the settings into the instance data folder — saving the settings can no longer reset it, and a new instance starts without a restart.
+- Changed: The bridge identity (UDN, certificate and its encrypted key) moved from the settings into the instance data folder — saving the settings can no longer reset it, and a new instance starts without a restart.
+- Changed: A damaged identity file now stops the start with an error instead of giving every paired client a new bridge.
 - Changed: The lights moved from the settings into the object tree (lights) — a change in the device manager takes effect without a restart.
 - Changed: The keys of paired clients moved into the instance data folder — a client object is named after its device type and the end of its key (e.g. clients.harmony-hub-ac37); every pairing stays.
 - Changed: An alias on a paired client's object follows it to the new object.
