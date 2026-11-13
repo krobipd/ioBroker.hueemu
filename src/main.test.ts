@@ -194,8 +194,8 @@ function internalOf(adapter: HueEmu): {
   pairingTimeoutId: unknown;
   _pairingEnabled: boolean;
   _disableAuth: boolean;
-  identity: { udn: string; tlsCert?: string; tlsKey?: string };
-  loadIdentity: () => boolean;
+  identity: { udn: string; tlsCert?: string; privateKey?: string };
+  loadIdentity: () => void;
   decrypt: ReturnType<typeof vi.fn>;
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
@@ -642,7 +642,7 @@ describe("HueEmu buildConfig", () => {
     expect(rawIdentity().privateKey).toEqual(sealedKey(config.https?.key ?? ""));
   });
 
-  it("regenerates the pair when the stored key cannot be decrypted", () => {
+  it("regenerates the pair when the key in the earlier settings cannot be decrypted", () => {
     const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: "$/aes-192-cbc:broken" });
     const i = internalOf(adapter);
     i.decrypt.mockImplementation(() => {

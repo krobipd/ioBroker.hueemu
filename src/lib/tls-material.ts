@@ -27,8 +27,8 @@ export interface TlsMaterial {
 /** The result of resolving the material, plus whether it is new. */
 export interface TlsMaterialResult extends TlsMaterial {
   /**
-   * True when the material was generated just now — the caller persists it
-   * (together with whatever else it has to store) and lets the instance restart.
+   * True when the material was generated just now — the caller stores it in the
+   * bridge identity file and serves it in this run.
    */
   generated: boolean;
 }
@@ -125,8 +125,13 @@ export function tlsPairUsable(cert: string, key: string): boolean {
  * the same merge as the bridge identity, so a first start writes the instance
  * object once instead of twice (audit 2026-09-15 B4).
  *
- * @param persistedCert The `native.tlsCert` value, whatever type it has.
- * @param persistedKey The `native.tlsKey` value, whatever type it has.
+ * Since audit R-24 the pair lives in the bridge identity file in the instance
+ * data folder, the key as its secret field `privateKey`, which the data-file
+ * master seals; the caller writes a generated pair there and serves it in the
+ * same run.
+ *
+ * @param persistedCert The stored certificate of the bridge identity, whatever type it has.
+ * @param persistedKey The stored private key in clear text, whatever type it has.
  * @param log Where to report a replaced certificate.
  * @param pairUsable Whether Node's TLS accepts the pair — injectable for tests.
  * @returns the material to serve, and whether it was generated just now.
