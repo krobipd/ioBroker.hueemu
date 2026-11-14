@@ -27,7 +27,7 @@ It is meant for older devices and apps that only speak the Hue API — Logitech 
 - **Per-device value scale** — detected from the source state where it is declared, and always adjustable by hand
 - **Lights without a switch** — a dimmer that only offers a brightness state is driven by that state
 - **Relative commands** — "a bit darker", "a bit warmer" and dimmer rockers adjust the current value
-- **Persistent TLS certificate** — clients only trust the bridge once, restarts keep the same identity
+- **Persistent bridge identity** — restarts keep the same identity, clients never have to search for the bridge again
 - **Localized state names** — admin labels follow the ioBroker system language
 - **Automatic migration** — legacy `createLight` setups are converted to the admin configuration on first start
 
