@@ -114,7 +114,6 @@ krobi's decisions for this adapter. The register with his verbatim words lives i
 - **K1** A new instance listens on port 8080 by default.
 - **K2** A pure on/off light presents itself as a dimmable light, not as a color light.
 - **K3** Pairing is open only in the pairing window (50 s after "pair"): every device that asks inside it gets access, none after it.
-- **K4** HTTPS only when an HTTPS port is set; then hueemu creates its own certificate, valid ten years, and keeps it across restarts.
 - **K5** The query of the bridge data never pairs: a search app asking inside the window gets the answer but no access.
 - **K6** No limit for pairings: the 101st pairing within an hour is accepted like the first.
 - **K7** An invalid value is not written (brightness "abc", an empty color), the device still gets success.
