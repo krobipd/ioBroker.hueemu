@@ -51,6 +51,9 @@ vi.mock("@iobroker/adapter-core", () => {
     public terminate = vi.fn();
     public registerNotification = vi.fn((): Promise<void> => Promise.resolve());
     public sendTo = vi.fn();
+    public getCertificatesAsync = vi.fn((): Promise<unknown> => Promise.resolve(undefined));
+    public subscribeForeignObjectsAsync = vi.fn(async () => {});
+    public unsubscribeForeignObjectsAsync = vi.fn(async () => {});
     // js-controller's own form is `$/aes-192-cbc:<iv>:<ciphertext>` — the prefix is what
     // its start-up decryption keys on; anything without it is decrypted as garbage.
     public encrypt = vi.fn((v: string) => `$/aes-192-cbc:ENC(${v})`);
@@ -82,37 +85,8 @@ vi.mock("node:os", async importOriginal => {
   return { ...actual, default: { ...actual, networkInterfaces }, networkInterfaces };
 });
 
-// Mock node-forge: real 2048-bit keygen takes ~1s per call and is not the
-// unit under test — the BRANCHING around persist/expiry/corruption is.
-const forgeControl = vi.hoisted(() => ({
-  // What certificateFromPem reports for the persisted cert.
-  notAfter: new Date("2090-01-01T00:00:00Z"),
-  parseThrows: false,
-}));
-vi.mock("node-forge", () => ({
-  pki: {
-    rsa: { generateKeyPair: vi.fn(() => ({ publicKey: {}, privateKey: {} })) },
-    createCertificate: vi.fn(() => ({
-      publicKey: null,
-      serialNumber: "",
-      validity: { notBefore: new Date(), notAfter: new Date() },
-      setSubject: vi.fn(),
-      setIssuer: vi.fn(),
-      sign: vi.fn(),
-    })),
-    certificateFromPem: vi.fn(() => {
-      if (forgeControl.parseThrows) {
-        throw new Error("malformed PEM");
-      }
-      return { validity: { notAfter: forgeControl.notAfter } };
-    }),
-    certificateToPem: vi.fn(() => "-----BEGIN CERTIFICATE-----\nGENERATED\n-----END CERTIFICATE-----"),
-    privateKeyToPem: vi.fn(() => "-----BEGIN RSA PRIVATE KEY-----\nGENERATED\n-----END RSA PRIVATE KEY-----"),
-  },
-  md: { sha256: { create: vi.fn(() => ({})) } },
-}));
-// The fake PEM blocks above are no material OpenSSL loads — the pair check in
-// tls-material (v1.19.0) is proven against real certificates in its own suite.
+// The fake PEM blocks of the HTTPS tests are no material OpenSSL loads — the fleet master builds its fall-back context
+// from them (secure-server.ts); TLS itself is proven in the master's own suite and in hue-server.test.ts.
 vi.mock("node:tls", async importOriginal => {
   const actual = await importOriginal<typeof tls>();
   return { ...actual, createSecureContext: vi.fn(() => ({})) };
@@ -122,6 +96,7 @@ import { I18n } from "@iobroker/adapter-core";
 import * as mainModule from "./main";
 import { readDataFile } from "./lib/data-file";
 import { mergedWith } from "./lib/known-objects";
+import { SettingsError } from "./lib/start-failure";
 import { StartError } from "./types/errors";
 import { storedClientKeys } from "../test/test-helpers";
 
@@ -197,8 +172,12 @@ function internalOf(adapter: HueEmu): {
   pairingTimeoutId: unknown;
   _pairingEnabled: boolean;
   _disableAuth: boolean;
-  identity: { udn: string; tlsCert?: string; privateKey?: string };
-  loadIdentity: () => void;
+  identity: { udn: string };
+  tlsSetup: unknown;
+  loadIdentity: () => boolean;
+  getCertificatesAsync: ReturnType<typeof vi.fn>;
+  subscribeForeignObjectsAsync: ReturnType<typeof vi.fn>;
+  unsubscribeForeignObjectsAsync: ReturnType<typeof vi.fn>;
   decrypt: ReturnType<typeof vi.fn>;
   onReady: () => Promise<void>;
   onUnload: (cb: () => void) => void;
@@ -209,7 +188,7 @@ function internalOf(adapter: HueEmu): {
     bind: string;
     port: number;
     identity: { udn: string; mac: string };
-    https?: { cert: string; key: string };
+    https?: { port: number; setup: unknown };
   };
   delForeignObjectAsync: ReturnType<typeof vi.fn>;
   prepareClients: () => Promise<{ keyOf: (id: string) => string | undefined }>;
@@ -276,8 +255,6 @@ const HOST_INTERFACES = {
 };
 
 beforeEach(() => {
-  forgeControl.notAfter = new Date("2090-01-01T00:00:00Z");
-  forgeControl.parseThrows = false;
   osMock.interfaces = structuredClone(HOST_INTERFACES);
   dataDir.current = mkdtempSync(join(os.tmpdir(), "hueemu-data-"));
 });
@@ -288,21 +265,33 @@ afterEach(() => {
 
 /** What the identity file in this test's data folder holds (audit R-24), read back through the fleet master. */
 function storedIdentity(): Record<string, unknown> {
-  const read = readDataFile(dataDir.current, "identity.json", { cipher: MAIN_CIPHER, fields: ["privateKey"] });
-  return read.value as Record<string, unknown>;
+  return readDataFile(dataDir.current, "identity.json").value as Record<string, unknown>;
 }
 
-/** The identity file as it lies on the disk — the private key sealed by the fleet master (S7, round 174). */
-function rawIdentity(): Record<string, unknown> {
-  return JSON.parse(readFileSync(join(dataDir.current, "identity.json"), "utf8")) as Record<string, unknown>;
-}
+/** A certificate pair of the fake controller (no material OpenSSL loads — node:tls is stubbed above). */
+const HELD_CERT = "-----BEGIN CERTIFICATE-----\nHELD\n-----END CERTIFICATE-----";
+const HELD_KEY = "-----BEGIN PRIVATE KEY-----\nHELD\n-----END PRIVATE KEY-----";
 
 /**
- * The private key as the fleet master stores it with the fake adapter's cipher.
+ * Let the fake controller hold ioBroker's default certificate pair (`system.certificates`), with the given collections,
+ * and hand it over through `getCertificatesAsync` — what the fleet master reads with HTTPS on.
  *
- * @param key the key in clear text
+ * @param adapter the adapter under test
+ * @param collections the Let's Encrypt collections `system.certificates` keeps
  */
-const sealedKey = (key: string): { $encrypted: string } => ({ $encrypted: MAIN_CIPHER.encrypt(JSON.stringify(key)) });
+function holdCertificates(adapter: HueEmu, collections: Record<string, unknown> = {}): void {
+  const i = internalOf(adapter);
+  i.getForeignObjectAsync.mockImplementation((id: string) =>
+    Promise.resolve(
+      id === "system.certificates"
+        ? structuredClone({
+            native: { certificates: { defaultPublic: HELD_CERT, defaultPrivate: HELD_KEY }, collections },
+          })
+        : null,
+    ),
+  );
+  i.getCertificatesAsync.mockResolvedValue([{ cert: HELD_CERT, key: HELD_KEY }]);
+}
 
 /**
  * Load the identity, then build the configuration — the order onReady runs them in.
@@ -512,7 +501,7 @@ describe("HueEmu buildConfig", () => {
   // S9 (CLAUDE_PATTERNS.md, Geheimnisse, round 174): the UDN is an id the adapter must keep — a file it cannot read
   // fails the start; the bridge never serves under the UDN native still holds or a new one, and the file stays.
   it("fails the start on an unusable identity file and keeps the file", () => {
-    for (const content of ["{ not json", JSON.stringify({ udn: "x", tlsCert: "C", privateKey: { $encrypted: "?" } })]) {
+    for (const content of ["{ not json", JSON.stringify({ udn: 42 })]) {
       writeFileSync(join(dataDir.current, "identity.json"), content);
       const { adapter } = setup();
       expect(() => internalOf(adapter).loadIdentity()).toThrow(StartError);
@@ -575,6 +564,7 @@ describe("HueEmu buildConfig", () => {
 
   it("throws when the HTTPS port equals the HTTP port", () => {
     const { adapter } = setup({ httpsPort: 8080 });
+    internalOf(adapter).tlsSetup = { options: {}, name: undefined };
     expect(() => configOf(adapter)).toThrow(/equals HTTP port/);
   });
 
@@ -583,97 +573,42 @@ describe("HueEmu buildConfig", () => {
     expect(() => configOf(adapter)).toThrow(/Port not specified/);
   });
 
-  // Audit R-24: a v1.19.0 installation stored the key encrypted in native; after the update
-  // js-controller no longer decrypts it (encryptedNative follows the manifest), so it arrives
-  // encrypted — decrypted once, the fleet master seals it again in the file (S7).
-  it("takes over the certificate and the still encrypted key of v1.19.0 and serves with them", () => {
+  // The fleet's HTTPS option (secure-server.ts, krobi 2026-11-14 19:15): HTTPS is switched with `secure`, the HTTPS
+  // port alone no longer starts it.
+  it("serves no HTTPS while it is off, whatever the HTTPS port holds", () => {
+    const { adapter } = setup({ httpsPort: 8443 });
+    expect(configOf(adapter).https).toBeUndefined();
+  });
+
+  it("serves HTTPS beside HTTP on the HTTPS port with the certificates the fleet master loaded", () => {
+    const { adapter } = setup({ httpsPort: "8443" });
+    const tls = { options: { cert: HELD_CERT, key: HELD_KEY }, name: undefined };
+    internalOf(adapter).tlsSetup = tls;
+    const config = configOf(adapter);
+    expect(config.port).toBe(8080);
+    expect(config.https).toEqual({ port: 8443, setup: tls });
+  });
+
+  it("stops with a wrong setting when HTTPS is on without a port", () => {
+    for (const httpsPort of [undefined, "", "abc"]) {
+      const { adapter } = setup({ httpsPort });
+      internalOf(adapter).tlsSetup = { options: {}, name: undefined };
+      expect(() => configOf(adapter)).toThrow(SettingsError);
+      expect(() => configOf(adapter)).toThrow(/HTTPS is on, but no HTTPS port is set/);
+    }
+  });
+
+  // The own certificate of v1.19.0 and earlier is gone: nothing of it reaches the identity file.
+  it("keeps no certificate in the identity file and takes none over from native", () => {
     const { adapter } = setup({
       httpsPort: 8443,
-      tlsCert: PERSISTED_CERT,
-      tlsKey: `$/aes-192-cbc:ENC(${PERSISTED_KEY})`,
+      tlsCert: "-----BEGIN CERTIFICATE-----\nOLD\n-----END CERTIFICATE-----",
+      tlsKey: "$/aes-192-cbc:ENC(old)",
     });
-    const i = internalOf(adapter);
-    const config = configOf(adapter);
-    expect(config.https).toEqual({ port: 8443, cert: PERSISTED_CERT, key: PERSISTED_KEY });
-    expect(storedIdentity()).toEqual({
+    configOf(adapter);
+    expect(JSON.parse(readFileSync(join(dataDir.current, "identity.json"), "utf8"))).toEqual({
       udn: "12345678-1234-1234-1234-123456789abc",
-      tlsCert: PERSISTED_CERT,
-      privateKey: PERSISTED_KEY,
     });
-    expect(rawIdentity().privateKey).toEqual(sealedKey(PERSISTED_KEY));
-    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
-  });
-
-  it("takes over a plain-text key of v1.18.0 and earlier and stores it encrypted", () => {
-    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
-    expect(configOf(adapter).https?.key).toBe(PERSISTED_KEY);
-    expect(rawIdentity().privateKey).toEqual(sealedKey(PERSISTED_KEY));
-  });
-
-  it("stores a generated certificate in the data folder with the key encrypted, and nothing in native", () => {
-    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443 });
-    const i = internalOf(adapter);
-    const config = configOf(adapter);
-    expect(storedIdentity()).toEqual({
-      udn: config.identity.udn,
-      tlsCert: expect.stringContaining("GENERATED"),
-      privateKey: config.https?.key,
-    });
-    expect(rawIdentity().privateKey).toEqual(sealedKey(config.https?.key ?? ""));
-    // …while this run serves with the plaintext key.
-    expect(config.https?.key).toContain("GENERATED");
-    expect(config.https?.key).not.toContain("aes-192-cbc");
-    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("stored self-signed TLS certificate"));
-    expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
-  });
-
-  it("reuses the stored certificate on the next start", () => {
-    configOf(setup({ udn: "", mac: "", httpsPort: 8443 }).adapter);
-    const stored = storedIdentity();
-    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443 });
-    const i = internalOf(adapter);
-    expect(configOf(adapter).https?.cert).toBe(stored.tlsCert);
-    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("stored self-signed TLS certificate"));
-  });
-
-  it("regenerates an expired certificate and stores only that", () => {
-    forgeControl.notAfter = new Date("2020-01-01T00:00:00Z");
-    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: PERSISTED_KEY });
-    const i = internalOf(adapter);
-    const config = configOf(adapter);
-    expect(config.https?.cert).toContain("GENERATED");
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("expired"));
-    expect(storedIdentity()).toEqual({
-      udn: "12345678-1234-1234-1234-123456789abc",
-      tlsCert: expect.stringContaining("GENERATED"),
-      privateKey: config.https?.key,
-    });
-    expect(rawIdentity().privateKey).toEqual(sealedKey(config.https?.key ?? ""));
-  });
-
-  it("regenerates the pair when the key in the earlier settings cannot be decrypted", () => {
-    const { adapter } = setup({ httpsPort: 8443, tlsCert: PERSISTED_CERT, tlsKey: "$/aes-192-cbc:broken" });
-    const i = internalOf(adapter);
-    i.decrypt.mockImplementation(() => {
-      throw new Error("bad decrypt");
-    });
-    expect(configOf(adapter).https?.cert).toContain("GENERATED");
-  });
-
-  // Design decision 36: the identity file is readable and holds the UDN, only the write of a TLS pair generated
-  // later in the start fails — this run serves with the pair and warns; the stored identity stays as it was.
-  it("serves a generated certificate it cannot store for this run and keeps the stored identity", () => {
-    configOf(setup({ udn: "", mac: "" }).adapter);
-    const stored = readFileSync(join(dataDir.current, "identity.json"), "utf8");
-    // A folder where the master writes its temporary file — the file stays readable, the write fails.
-    mkdirSync(join(dataDir.current, "identity.json.tmp"));
-    const { adapter } = setup({ udn: "", mac: "", httpsPort: 8443 });
-    const i = internalOf(adapter);
-    const config = configOf(adapter);
-    expect(config.https?.cert).toContain("GENERATED");
-    expect(i.log.warn).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
-    expect(i.log.info).not.toHaveBeenCalledWith(expect.stringContaining("stored self-signed TLS certificate"));
-    expect(readFileSync(join(dataDir.current, "identity.json"), "utf8")).toBe(stored);
   });
 });
 
@@ -841,6 +776,31 @@ describe("HueEmu onReady", () => {
     expect(servers).toHaveLength(0);
   });
 
+  // The fleet's HTTPS option: an installation of v1.19.0 that served HTTPS keeps it — `secure` goes on in the same
+  // write that drops the own certificate, and the start stops for the restart that write causes.
+  it("switches HTTPS on for an installation that served it, in the write that drops its certificate", async () => {
+    const native = {
+      bind: "192.168.1.10",
+      port: 8080,
+      httpsPort: "443",
+      secure: false,
+      udn: "12345678-1234-1234-1234-123456789abc",
+      mac: "",
+      tlsCert: PERSISTED_CERT,
+      tlsKey: PERSISTED_KEY,
+    };
+    const { adapter, servers } = setup(native);
+    const i = internalOf(adapter);
+    i.getForeignObjectAsync.mockImplementation((id: string) =>
+      Promise.resolve(id === "system.adapter.hueemu.0" ? structuredClone({ native, common: {} }) : null),
+    );
+    await i.onReady();
+    expect(i.extendForeignObjectAsync).toHaveBeenCalledWith("system.adapter.hueemu.0", {
+      native: { secure: true, udn: null, tlsCert: null, tlsKey: null },
+    });
+    expect(servers).toHaveLength(0);
+  });
+
   // S9: a start that cannot store the identity serves nothing and drops nothing — js-controller starts it again.
   it("stops the start and keeps the old identity in native while the file cannot be written", async () => {
     mkdirSync(join(dataDir.current, "identity.json.tmp"));
@@ -907,7 +867,8 @@ describe("HueEmu onReady", () => {
   // Start-failure standard (krobi 2026-11-11 23:32): a wrong setting ends with one error line, a notification and
   // exit code 11 — js-controller starts the instance again when the user saves its settings.
   it("ends a start with a wrong setting with one error line, a notification and exit code 11", async () => {
-    const { adapter, servers } = setup({ httpsPort: 8080 }); // httpsPort === port → buildConfig throws
+    const { adapter, servers } = setup({ secure: true, httpsPort: 8080 }); // httpsPort === port → buildConfig throws
+    holdCertificates(adapter);
     const i = internalOf(adapter);
     await i.onReady();
     expect(servers).toHaveLength(0);
@@ -919,6 +880,74 @@ describe("HueEmu onReady", () => {
       expect.stringContaining("choose a different HTTPS port in the instance settings"),
     );
     expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 11);
+  });
+
+  // The fleet's HTTPS option (secure-server.ts): with HTTPS on, the certificate ioBroker holds — loaded before anything
+  // listens, the HTTPS listener beside HTTP.
+  it("starts the HTTPS listener beside HTTP with ioBroker's certificate when HTTPS is on", async () => {
+    const { adapter, servers } = setup({ secure: true, httpsPort: "443" });
+    holdCertificates(adapter);
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(i.getCertificatesAsync).toHaveBeenCalledWith("defaultPublic", "defaultPrivate", undefined);
+    expect(servers).toHaveLength(1);
+    const config = (servers[0].options as { config: { port: number; https?: { port: number } } }).config;
+    expect(config.port).toBe(8080);
+    expect(config.https?.port).toBe(443);
+    expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("(HTTPS 443)"));
+  });
+
+  // ST1/ST2 (krobi 2026-11-11 23:32): without its certificate the start ends — never a bridge on HTTP alone.
+  it("ends the start with a wrong setting when ioBroker holds no certificate the settings choose", async () => {
+    const { adapter, servers } = setup({ secure: true, httpsPort: "443", certPublic: "mine" });
+    holdCertificates(adapter);
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(servers).toHaveLength(0);
+    expect(i.getCertificatesAsync).not.toHaveBeenCalled();
+    expect(i.log.error).toHaveBeenCalledTimes(1);
+    expect(i.log.error).toHaveBeenCalledWith(
+      expect.stringMatching(/^Settings: HTTPS is on, but ioBroker holds no certificate "mine"/),
+    );
+    expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 11);
+  });
+
+  it("ends the start with exit code 6 when the controller hands over no usable certificate", async () => {
+    const { adapter, servers } = setup({ secure: true, httpsPort: "443" });
+    holdCertificates(adapter);
+    const i = internalOf(adapter);
+    i.getCertificatesAsync.mockResolvedValue(undefined);
+    await i.onReady();
+    expect(servers).toHaveLength(0);
+    expect(i.log.error).toHaveBeenCalledWith(
+      expect.stringContaining("HTTPS cannot start: the controller handed over no usable certificate"),
+    );
+    expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "Unknown" });
+    expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 6);
+  });
+
+  // The fleet master subscribes `system.certificates` for renewed collections; the stop takes the subscription along.
+  it("subscribes the certificate collections when one is chosen and gives the subscription up on the stop", async () => {
+    const { adapter } = setup({ secure: true, httpsPort: "443", leCollection: true });
+    holdCertificates(adapter);
+    const i = internalOf(adapter);
+    await i.onReady();
+    expect(i.subscribeForeignObjectsAsync).toHaveBeenCalledWith("system.certificates");
+    const callback = vi.fn();
+    i.onUnload(callback);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(i.unsubscribeForeignObjectsAsync).toHaveBeenCalledWith("system.certificates");
+  });
+
+  it("subscribes nothing of the certificates while HTTPS is off", async () => {
+    const { adapter } = setup({ leCollection: true });
+    const i = internalOf(adapter);
+    await i.onReady();
+    const callback = vi.fn();
+    i.onUnload(callback);
+    await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(i.subscribeForeignObjectsAsync).not.toHaveBeenCalled();
+    expect(i.unsubscribeForeignObjectsAsync).not.toHaveBeenCalled();
   });
 
   it("restores disableAuth from the persisted state with strict bool coercion (M2+M4)", async () => {

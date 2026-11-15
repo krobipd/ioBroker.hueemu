@@ -29,11 +29,21 @@
  * drop before it would give every paired client a new bridge on the next start. The start never
  * gets here before: one that cannot read or store the identity fails (main.ts `loadIdentity`, S9).
  *
+ * `secure` (the fleet's HTTPS option, krobi 2026-11-14 19:15, translated: "yes, k4 shall be replaced by the fleet
+ * rule"): up to v1.19.0 a
+ * set `httpsPort` alone switched HTTPS on, with a certificate of hueemu's own. Now the switch is `secure` (manifest
+ * default `false`, which js-controller adds to every existing installation on the update) and the certificate comes from
+ * ioBroker. An installation that served HTTPS keeps it: on the first start of this version a set `httpsPort` turns
+ * `secure` on — once. The marks of that first start are the identity file this start had to write (no earlier version
+ * wrote one) and the own certificate still in `native.tlsCert`; the latter goes in the same write as `secure`, so a
+ * failed write repeats the step and a user who switches HTTPS off afterwards is never switched on again.
+ *
  * `devices` and `lastLightId` (audit R-24): the lights moved to their own device objects (`lights.<n>`, light-store.ts),
  * the mark to a file in the instance data folder. They are dropped only once every light is stored there — a drop
  * before it would lose the lights.
  */
 
+import { parsePort } from "./coerce";
 import type { NativeKeyMigration } from "./native-key-migration";
 import { chosenAddress } from "./network-address";
 
@@ -50,12 +60,14 @@ const listensEverywhere = (v: unknown): boolean => chosenAddress(v) === undefine
  * @param native the instance's current native settings
  * @param localAddresses the addresses this host carries right now (`localNets` of the fleet master)
  * @param lightsStored whether every light of the settings is a light object, the mark in its file
+ * @param identityNew whether this start wrote the identity file first — the first start of this version
  * @returns the list for `migrateNativeKeys`
  */
 export function buildNativeKeyMigrations(
   native: Record<string, unknown>,
   localAddresses: readonly string[],
   lightsStored: boolean,
+  identityNew: boolean,
 ): NativeKeyMigration[] {
   const migrations: NativeKeyMigration[] = [
     { from: "host", to: "bind", coerce: v => (typeof v === "string" && v.trim()) || "0.0.0.0" },
@@ -72,6 +84,10 @@ export function buildNativeKeyMigrations(
   }
 
   migrations.push({ drop: "discoveryHost" }, { drop: "discoveryPort" }, { drop: "upnpPort" });
+  const ownCertificate = typeof native.tlsCert === "string" && native.tlsCert.trim() !== "";
+  if ((identityNew || ownCertificate) && parsePort(native.httpsPort) !== undefined) {
+    migrations.push({ key: "secure", coerce: () => true });
+  }
   migrations.push({ drop: "udn" }, { drop: "tlsCert" }, { drop: "tlsKey" });
   if (lightsStored) {
     migrations.push({ drop: "devices" }, { drop: "lastLightId" });

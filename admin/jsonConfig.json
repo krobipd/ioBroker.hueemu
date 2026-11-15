@@ -56,18 +56,6 @@
             "marginBottom": 8
           }
         },
-        "httpsPort": {
-          "type": "text",
-          "label": "httpsPort",
-          "tooltip": "httpsPortTooltip",
-          "validator": "!data.httpsPort || (parseInt(data.httpsPort, 10) >= 1 && parseInt(data.httpsPort, 10) <= 65535)",
-          "validatorErrorText": "httpsPortError",
-          "xs": 12,
-          "sm": 12,
-          "md": 4,
-          "lg": 4,
-          "xl": 4
-        },
         "mac": {
           "type": "text",
           "label": "mac",
@@ -89,6 +77,56 @@
           "md": 12,
           "lg": 12,
           "xl": 12
+        },
+        "secure": {
+          "newLine": true,
+          "type": "checkbox",
+          "label": "secure",
+          "tooltip": "secureTooltip",
+          "default": false,
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12
+        },
+        "httpsPort": {
+          "newLine": true,
+          "type": "text",
+          "label": "httpsPort",
+          "tooltip": "httpsPortTooltip",
+          "hidden": "!data.secure",
+          "validator": "!data.secure || (parseInt(data.httpsPort, 10) >= 1 && parseInt(data.httpsPort, 10) <= 65535)",
+          "validatorErrorText": "httpsPortError",
+          "xs": 12,
+          "sm": 12,
+          "md": 4,
+          "lg": 4,
+          "xl": 4
+        },
+        "_certs": {
+          "newLine": true,
+          "type": "certificates",
+          "hidden": "!data.secure",
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12
+        },
+        "_httpsInfo": {
+          "type": "staticText",
+          "text": "httpsInfo",
+          "hidden": "!data.secure",
+          "xs": 12,
+          "sm": 12,
+          "md": 12,
+          "lg": 12,
+          "xl": 12,
+          "style": {
+            "fontSize": 12,
+            "marginBottom": 8
+          }
         },
         "_supportHeader": {
           "newLine": true,

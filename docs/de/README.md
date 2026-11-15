@@ -46,11 +46,27 @@ dann lauscht und antwortet sie allein dort.
 
 `8080` ist die Vorgabe und funktioniert mit einem Harmony-Hub.
 
-**Alexa braucht Port 80, und aktuelle Echo-Geräte versuchen zusätzlich HTTPS auf 443.**
-Für Alexa stellst du **Port** auf `80` und **HTTPS-Port** auf `443`; die Bridge antwortet
-auf HTTPS mit ihrem eigenen, selbst signierten Zertifikat. Ein Port unter 1024 braucht
+**Alexa braucht Port 80, und neuere Echo-Geräte versuchen zusätzlich HTTPS auf 443.**
+Für Alexa stellst du **Port** auf `80`; für einen neueren Echo schaltest du zusätzlich
+**HTTPS verwenden** ein und stellst **HTTPS-Port** auf `443`. Ein Port unter 1024 braucht
 das Recht, ihn zu belegen — der ioBroker-Installer gibt es Node.js unter Linux; meldet
 das Protokoll, dass der Port nicht belegt werden kann, fehlt dieses Recht.
+
+**HTTPS** ist eine Option für genau diesen Fall, und sie ist deine Sache:
+
+- HTTPS ist nur für neuere Echos da, die zusätzlich Port 443 versuchen — der HTTPS-Port
+  muss dafür `443` sein.
+- Die Harmony nutzt nur HTTP, ebenso die Ansage im Netz und ältere Echos: HTTPS
+  einzuschalten bringt der Harmony nichts, und HTTP läuft immer weiter.
+- HTTPS schützt hier nichts: Der Echo prüft das Zertifikat nicht, und HTTP bleibt
+  daneben offen.
+
+Mit **HTTPS verwenden** nimmt die Bridge das in den Zertifikatsfeldern gewählte Zertifikat
+von ioBroker (Systemeinstellungen → Zertifikate; ohne Auswahl ioBrokers eigenes Paar, auf
+Wunsch Let's-Encrypt-Sammlungen des acme-Adapters). Ein Zertifikat, das ioBroker nicht
+hat, oder HTTPS ohne HTTPS-Port stoppt die Instanz mit einer Benachrichtigung, bis du die
+Einstellungen korrigierst. Hat eine frühere Version HTTPS bedient, schaltet das Update
+**HTTPS verwenden** einmal selbst ein.
 
 **X-Forwarded-\* Header vertrauen** bleibt aus, außer der Adapter steht hinter einem
 Reverse-Proxy, dem du vertraust und der vom Client mitgeschickte Weiterleitungs-Header
@@ -179,11 +195,11 @@ angenommen.
 
 ## Ports, die der Adapter benutzt
 
-| Port | Protokoll | Wofür                                    | Einstellbar                            |
-| ---- | --------- | ---------------------------------------- | -------------------------------------- |
-| 8080 | TCP       | die Hue-Schnittstelle selbst (Alexa: 80) | ja — Clients erfahren ihn per SSDP     |
-| 1900 | UDP       | Erkennung, damit Clients dich finden     | nein — vom UPnP-Standard festgelegt    |
-| —    | TCP       | optionales HTTPS (Alexa: 443)            | ja, aus, solange kein Port gesetzt ist |
+| Port | Protokoll | Wofür                                    | Einstellbar                                  |
+| ---- | --------- | ---------------------------------------- | -------------------------------------------- |
+| 8080 | TCP       | die Hue-Schnittstelle selbst (Alexa: 80) | ja — Clients erfahren ihn per SSDP           |
+| 1900 | UDP       | Erkennung, damit Clients dich finden     | nein — vom UPnP-Standard festgelegt          |
+| —    | TCP       | optionales HTTPS (Alexa: 443)            | ja, aus, solange **HTTPS verwenden** aus ist |
 
 ## Wenn etwas nicht geht
 

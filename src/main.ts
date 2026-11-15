@@ -14,7 +14,7 @@ import { ApiHandler, type DeviceConfig } from "./hue-api";
 import { HueEmuDeviceManagement } from "./device-management";
 import { coerceBool, parsePort } from "./lib/coerce";
 import { tName, tRaw } from "./lib/i18n";
-import { CERT_VALIDITY_YEARS, getOrCreateTlsMaterial } from "./lib/tls-material";
+import { CERTIFICATES_OBJECT_ID, collectionChoice, loadCertificates, type SecureSetup } from "./lib/secure-server";
 import { IDENTITY_FILE, readIdentity, resolveIdentity, type StoredIdentity, writeIdentity } from "./lib/identity-store";
 import { runObsoleteStateCleanup, runLegacyDeviceMigration, runLightObjectMigration } from "./lib/migrations";
 import { LightStore, type StoredLights } from "./lib/light-store";
@@ -27,6 +27,7 @@ import {
   BRIDGE_MODEL_ID,
   generateBridgeId,
   generateSerialNumber,
+  httpsPortOf,
   macFromUdn,
   validateNetworkConfig,
 } from "./types/config";
@@ -59,6 +60,9 @@ class HueEmu extends utils.Adapter {
   // Audit R-24: the bridge identity of this start, kept in the instance data folder
   // (identity-store.ts) — loaded before the native migrations, which drop its old copy.
   private identity: StoredIdentity = { udn: "" };
+  // The HTTPS part of this start (fleet master secure-server.ts) — loaded once the settings are final, before anything
+  // listens; undefined while HTTPS is off.
+  private tlsSetup: SecureSetup | undefined;
   // v1.18.0: set the moment the host asks us to stop. onReady checks it after
   // every long await: in compact mode the process survives an unload, so a
   // start that carried on would leave a bound server behind for the restarted
@@ -301,7 +305,7 @@ class HueEmu extends utils.Adapter {
       // Audit R-24: the identity file is written first, the lights become objects first;
       // only once they hold it are the old copies in native dropped. A start that cannot
       // read or store the identity stops here (S9) — nothing of it in native is dropped then.
-      this.loadIdentity();
+      const identityNew = this.loadIdentity();
       const moved = await runLightObjectMigration(
         lights,
         { devices: this.config.devices, lastLightId: this.config.lastLightId },
@@ -311,8 +315,16 @@ class HueEmu extends utils.Adapter {
         this.config as unknown as Record<string, unknown>,
         localNets().map(net => net.address),
         moved.stored,
+        identityNew,
       );
       if (await migrateNativeKeys(this, migrations, errText)) {
+        return;
+      }
+
+      // The fleet's HTTPS option (secure-server.ts): with HTTPS on, the certificates the settings choose — before
+      // anything listens, so a certificate ioBroker does not hold stops the start instead of leaving a bridge on HTTP.
+      this.tlsSetup = await this.loadTls();
+      if (this.unloaded) {
         return;
       }
 
@@ -572,43 +584,44 @@ class HueEmu extends utils.Adapter {
    * start — js-controller starts it again — instead of serving under a UDN the next start would
    * not know.
    *
+   * @returns whether the identity is new to the file — the first start of this version or of a new instance
    * @throws {StartError} when the file cannot be used or the identity cannot be stored
    */
-  private loadIdentity(): void {
-    const read = readIdentity(this.identityDir(), this);
+  private loadIdentity(): boolean {
+    const read = readIdentity(this.identityDir());
     if (read.error) {
       throw new StartError(
         `The stored bridge identity ${join(this.identityDir(), IDENTITY_FILE)} cannot be used (${read.error}) — repair or remove it; without it every paired client sees a new bridge`,
       );
     }
-    const { identity, unsaved } = resolveIdentity(
-      read.identity,
-      { udn: this.config.udn, tlsCert: this.config.tlsCert, tlsKey: this.config.tlsKey },
-      () => uuid.v4(),
-      v => this.decrypt(v),
-    );
+    const { identity, unsaved } = resolveIdentity(read.identity, { udn: this.config.udn }, () => uuid.v4());
     this.identity = identity;
     if (unsaved) {
       try {
-        writeIdentity(this.identityDir(), identity, this);
+        writeIdentity(this.identityDir(), identity);
       } catch (error) {
         throw new StartError(`The bridge identity could not be stored (${errText(error)})`);
       }
     }
+    return unsaved;
   }
 
   /**
-   * Write the identity of this start to its file — after a new TLS pair, which this run serves either way.
+   * The certificates of the HTTPS option for this start, through the fleet master (secure-server.ts). A certificate
+   * ioBroker does not hold is a wrong setting (`SettingsError`, exit code 11 and a notification); anything else the
+   * master or TLS reports — a collection the acme adapter has not issued yet, a certificate TLS cannot use — ends the
+   * start with exit code 6, as a `StartError`: the line names it, the reason datapoint stays `Unknown`.
    *
-   * @returns whether it was stored
+   * @returns the HTTPS part, or undefined while HTTPS is off
    */
-  private storeIdentity(): boolean {
+  private async loadTls(): Promise<SecureSetup | undefined> {
     try {
-      writeIdentity(this.identityDir(), this.identity, this);
-      return true;
+      return await loadCertificates(this);
     } catch (error) {
-      this.log.warn(`The bridge identity could not be stored (${errText(error)}) — using it for this run`);
-      return false;
+      if (error instanceof SettingsError) {
+        throw error;
+      }
+      throw new StartError(`HTTPS cannot start: ${errText(error)}`);
     }
   }
 
@@ -642,7 +655,8 @@ class HueEmu extends utils.Adapter {
     // client — `ownAddressForClient` for the HTTP server, ssdp-server.ts for the search answer).
     // (The pre-1.12 advertiseHost field is migrated into bind
     // or dropped on the first start of v1.19.0 — native-key-list.ts.)
-    const httpsPort = parsePort(this.config.httpsPort);
+    // HTTPS beside HTTP only while it is on (fleet master secure-server.ts); then its port is required.
+    const httpsPort = httpsPortOf(this.tlsSetup !== undefined, this.config.httpsPort);
     // v1.4.3 (SV4): an HTTPS port equal to the HTTP port makes the second listen() throw
     // EADDRINUSE far from the cause — surfaced up-front via validateNetworkConfig.
     validateNetworkConfig(port, httpsPort);
@@ -662,20 +676,9 @@ class HueEmu extends utils.Adapter {
       serialNumber: generateSerialNumber(mac),
     };
 
-    // Build TLS config if HTTPS is enabled
-    let https: TlsConfig | undefined;
-    if (httpsPort) {
-      const material = getOrCreateTlsMaterial(this.identity.tlsCert, this.identity.privateKey, this.log);
-      if (material.generated) {
-        // The file stores the key encrypted (design decision 8, S7 — identity-store.ts); this
-        // run serves with the clear text it holds in memory.
-        this.identity = { ...this.identity, tlsCert: material.cert, privateKey: material.key };
-        if (this.storeIdentity()) {
-          this.log.info(`Generated and stored self-signed TLS certificate (${CERT_VALIDITY_YEARS}-year validity)`);
-        }
-      }
-      https = { port: httpsPort, cert: material.cert, key: material.key };
-    }
+    // The HTTPS listener beside HTTP: the certificates loadTls read, on the HTTPS port.
+    const https: TlsConfig | undefined =
+      this.tlsSetup && httpsPort !== undefined ? { port: httpsPort, setup: this.tlsSetup } : undefined;
 
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
@@ -949,6 +952,11 @@ class HueEmu extends utils.Adapter {
     this.stopSsdpAnnounce();
     await this.ssdpServer?.stop();
     await this.hueServer?.stop();
+    // The fleet master subscribed `system.certificates` for renewed collections — in compact mode the process outlives
+    // the instance, so the subscription goes with it.
+    if (this.tlsSetup && collectionChoice(this.config.leCollection) !== false) {
+      await this.unsubscribeForeignObjectsAsync(CERTIFICATES_OBJECT_ID).catch(() => undefined);
+    }
     // The bridge is gone — say so before the callback or the end of the process, or the
     // write never reaches the database (the host allows one second, then kills).
     await this.setConnected(false, reason);

@@ -285,7 +285,7 @@ async function watchObjectWrites(harness) {
 
 /** A port the emulator can bind in CI without colliding with anything real. */
 const FIXTURE_PORT = 18080;
-/** The HTTPS listener — on, so every start proves the certificate it read back or made is served (v1.19.0). */
+/** The HTTPS listener — on, so every start proves the certificate ioBroker holds is served (the fleet's HTTPS option). */
 const FIXTURE_HTTPS_PORT = 18443;
 /** A fixed pairing key — a generated UUID would make the inventory differ per run. */
 const FIXTURE_CLIENT_KEY = "inventory-fixture-client";
@@ -630,8 +630,8 @@ function names(served) {
  */
 async function feedFixtures(harness) {
   await seedSources(harness);
-  // Both listeners answer — HTTPS with the certificate the start read back or made (a pair it cannot use would stop
-  // the start before either port is bound).
+  // Both listeners answer — HTTPS with the certificate ioBroker holds (one it does not hold would stop the start before
+  // either port is bound).
   const up = async () =>
     (await askBridge({ address: "/description.xml" })).status === 200 &&
     (await askBridge({ secure: true, address: "/description.xml" })).status === 200;
@@ -700,10 +700,23 @@ const waitForAdapterWork = workWaitOf(async function (harness) {
 });
 
 /**
- * Adapter-specific config the fixtures need: the listeners on fixed test ports. Nothing else — the bridge identity, the
- * certificate and the lights are what a fresh installation makes or a user adds (feedFixtures).
+ * Adapter-specific config the fixtures need: the listeners on fixed test ports. HTTPS on with ioBroker's own certificate
+ * pair, which the harness's controller setup creates. Nothing else — the bridge identity and the lights are what a fresh
+ * installation makes or a user adds (feedFixtures).
  */
-const FIXTURE_NATIVE = { bind: "0.0.0.0", port: FIXTURE_PORT, httpsPort: FIXTURE_HTTPS_PORT, trustProxy: false };
+const FIXTURE_NATIVE = {
+  bind: "0.0.0.0",
+  port: FIXTURE_PORT,
+  secure: true,
+  httpsPort: FIXTURE_HTTPS_PORT,
+  // The certificate fields as the settings page writes them (manifest defaults): resetInstanceNative nulls every key it
+  // is not given, and js-controller reads `certChained` itself when the adapter names no chain — `null` it refuses.
+  certPublic: "",
+  certPrivate: "",
+  certChained: "",
+  leCollection: false,
+  trustProxy: false,
+};
 /**
  * Round 113 (krobi 2026-10-14 11:28, every copy improvised its own hook names before): adapter-specific — the `--require`
  * hooks that route the adapter to its fixtures inside its own process (a host, a device address or `fetch` sent to the
@@ -804,6 +817,10 @@ async function feedReservedNames(harness) {
  * from an earlier version" starts on it.
  */
 const LEGACY_UDN = "12345678-1234-1234-1234-123456789abc";
+/** The own certificate v1.19.0 kept in `native.tlsCert` — any text: this version only drops it. */
+const LEGACY_TLS_CERT = "-----BEGIN CERTIFICATE-----\nearlier own certificate\n-----END CERTIFICATE-----\n";
+/** Its key, which v1.19.0 stored encrypted with the installation secret in `native.tlsKey`. */
+const LEGACY_TLS_KEY = "-----BEGIN RSA PRIVATE KEY-----\nearlier own key\n-----END RSA PRIVATE KEY-----\n";
 /** The MAC stays a field of the settings page (decision 36) — one a user typed is kept and serves the bridge id. */
 const LEGACY_MAC = "AA:BB:CC:DD:EE:FF";
 /**
@@ -2401,18 +2418,19 @@ tests.integration(ADAPTER_DIR, {
     });
 
     // Audit R-24 (hueemu decision 36): an installation of v1.19.0 or older keeps its bridge. The UDN every paired client
-    // knows and the certificate move from `native` into the identity file of the data folder; the copies in `native` go
-    // only once the file holds them, and that one write restarts the instance once. The key arrives as v1.19.0 stored
-    // it — encrypted with the installation secret, which only the real controller holds — and the fleet master
-    // data-file.ts seals it again in the file's secret field privateKey (round 174, S3/S7). The lights move the same way
+    // knows moves from `native` into the identity file of the data folder; the copies in `native` go only once the file
+    // holds it, and that one write restarts the instance once. The own certificate of v1.19.0 (`tlsCert`, the key
+    // encrypted with the installation secret) is dropped: HTTPS takes ioBroker's certificate through the fleet's HTTPS
+    // option (krobi 2026-11-14 19:15), and the set HTTPS port turns `secure` on in the same write — the update adds the
+    // manifest default `false`, so the suite starts with it. The lights move the same way
     // (decision 25): each keeps its number as its own device object, the mark of the settings goes into the data folder,
     // and a light added afterwards is numbered above it.
     suite("bridge identity from an earlier version", getHarness => {
       let harness;
       let watch;
       let restarts;
-      let tls;
       let legacyKey;
+      let held;
       let description;
       let served;
       let stored;
@@ -2428,14 +2446,14 @@ tests.integration(ADAPTER_DIR, {
         harness = getHarness();
         clearInstanceData(harness);
         watch = await watchObjectWrites(harness);
-        tls = require(path.join(ADAPTER_DIR, "build/lib/tls-material.js")).generateCertificate();
-        legacyKey = await encryptLikeController(harness, tls.key);
+        legacyKey = await encryptLikeController(harness, LEGACY_TLS_KEY);
         await resetInstanceNative(
           harness,
           await fixtureNative({
             udn: LEGACY_UDN,
             mac: LEGACY_MAC,
-            tlsCert: tls.cert,
+            secure: false,
+            tlsCert: LEGACY_TLS_CERT,
             tlsKey: legacyKey,
             devices: LEGACY_LIGHTS,
             lastLightId: LEGACY_LAST_LIGHT_ID,
@@ -2457,6 +2475,7 @@ tests.integration(ADAPTER_DIR, {
         clientKnown = await bridgeKnows(LEGACY_CLIENT_KEY);
         description = (await askBridge({ address: "/description.xml" })).body;
         served = await servedCertificate();
+        held = (await harness.objects.getObjectAsync("system.certificates"))?.native?.certificates?.defaultPublic;
         stored = JSON.parse(fs.readFileSync(identityFile(harness), "utf8"));
         native = (await harness.objects.getObjectAsync(`system.adapter.${ADAPTER}.0`)).native;
         lightObjects = Object.fromEntries(
@@ -2486,32 +2505,18 @@ tests.integration(ADAPTER_DIR, {
         assert.strictEqual(native.mac, LEGACY_MAC, "the MAC left the settings page");
       });
 
-      it("presents the certificate it had", function () {
-        const had = new (require("node:crypto").X509Certificate)(tls.cert).raw;
-        assert.ok(
-          served && served.equals(had),
-          "the HTTPS listener presents another certificate than the one the earlier version stored",
-        );
+      it("keeps HTTPS on, with the certificate ioBroker holds", function () {
+        assert.strictEqual(native.secure, true, "the HTTPS port the earlier version served on did not turn HTTPS on");
+        assert.ok(typeof held === "string" && held !== "", "the controller holds no defaultPublic certificate");
+        const want = new (require("node:crypto").X509Certificate)(held).raw;
+        assert.ok(served && served.equals(want), "the HTTPS listener presents another certificate than ioBroker's own");
       });
 
-      it("keeps the identity in its data folder, the key sealed by the fleet master", async function () {
-        const { privateKey, ...rest } = stored;
-        assert.deepStrictEqual(rest, { udn: LEGACY_UDN, tlsCert: tls.cert.trim() });
-        const sealed = privateKey?.$encrypted;
-        assert.ok(
-          typeof sealed === "string" &&
-            sealed.startsWith("$/aes-192-cbc:") &&
-            !JSON.stringify(stored).includes(tls.key),
-          `the key is not sealed in the file: ${JSON.stringify(privateKey)}`,
-        );
-        assert.strictEqual(
-          JSON.parse(await decryptLikeController(harness, sealed)),
-          tls.key,
-          "the sealed key is not the key the earlier version stored",
-        );
+      it("keeps the UDN alone in its data folder", function () {
+        assert.deepStrictEqual(stored, { udn: LEGACY_UDN }, `identity.json holds more: ${JSON.stringify(stored)}`);
       });
 
-      it("leaves no copy of the identity in native", function () {
+      it("leaves no copy of the identity or the own certificate in native", function () {
         const left = ["udn", "tlsCert", "tlsKey"].filter(key => native[key] !== undefined && native[key] !== null);
         assert.deepStrictEqual(left, [], `native still holds: ${left.join(", ")}`);
       });

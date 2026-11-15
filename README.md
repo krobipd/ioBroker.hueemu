@@ -51,11 +51,11 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ## Ports
 
-| Port | Protocol  | Purpose                                        | Configurable                        |
-| ---- | --------- | ---------------------------------------------- | ----------------------------------- |
-| 8080 | TCP/HTTP  | Hue Bridge API (Alexa needs 80)                | Yes — clients are informed via SSDP |
-| 1900 | UDP       | SSDP/UPnP Discovery                            | No — fixed by the UPnP standard     |
-| —    | TCP/HTTPS | Optional TLS, off unless set (Alexa tries 443) | Yes                                 |
+| Port | Protocol  | Purpose                                                 | Configurable                        |
+| ---- | --------- | ------------------------------------------------------- | ----------------------------------- |
+| 8080 | TCP/HTTP  | Hue Bridge API (Alexa needs 80)                         | Yes — clients are informed via SSDP |
+| 1900 | UDP       | SSDP/UPnP Discovery                                     | No — fixed by the UPnP standard     |
+| —    | TCP/HTTPS | Optional, only with **Use HTTPS** (newer Echos try 443) | Yes                                 |
 
 ---
 
@@ -65,13 +65,25 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 The instance is created stopped: choose the Host / IP and the port first, then start it.
 
-| Option                           | Description                                                                                                                                                  | Default |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| **Host / IP Address**            | Address the bridge listens on. `0.0.0.0`: all interfaces, each client is told the host's address in its network. A set address limits it to that network     | 0.0.0.0 |
-| **Port**                         | HTTP port for the Hue API                                                                                                                                    | 8080    |
-| **HTTPS Port**                   | Empty = no HTTPS. Current Echo devices try `443` first — see "Connecting with Alexa"                                                                         | —       |
-| **MAC Address**                  | Bridge MAC (auto-generated if empty)                                                                                                                         | —       |
-| __Trust X-Forwarded-* headers__  | Only behind a trusted reverse proxy that strips client-supplied forwarding headers; the forwarded address then shows in the debug log instead of the proxy's | off     |
+| Option                           | Description                                                                                                                                                  | Default        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| **Host / IP Address**            | Address the bridge listens on. `0.0.0.0`: all interfaces, each client is told the host's address in its network. A set address limits it to that network     | 0.0.0.0        |
+| **Port**                         | HTTP port for the Hue API                                                                                                                                    | 8080           |
+| **MAC Address**                  | Bridge MAC (auto-generated if empty)                                                                                                                         | —              |
+| **Trust X-Forwarded-\* headers** | Only behind a trusted reverse proxy that strips client-supplied forwarding headers; the forwarded address then shows in the debug log instead of the proxy's | off            |
+| **Use HTTPS**                    | Only for newer Echos — see "HTTPS" below. HTTP keeps running beside it                                                                                       | off            |
+| **HTTPS Port**                   | Shown with **Use HTTPS**. Newer Echos try `443`                                                                                                              | —              |
+| Certificate fields               | Shown with **Use HTTPS**: a certificate ioBroker holds (system settings → Certificates), optionally Let's Encrypt collections of the acme adapter            | ioBroker's own |
+
+### HTTPS
+
+HTTPS is an option for one case only, and it is the user's matter:
+
+- **HTTPS is only for newer Echos**, which also try port 443 — so the **HTTPS Port** must be `443`.
+- **The Harmony uses HTTP only**, as do the network announcement and older Echos: switching HTTPS on gains the Harmony nothing, and HTTP always keeps running.
+- **HTTPS protects nothing here**: the Echo does not check the certificate, and HTTP stays open beside it.
+
+The bridge takes the certificate chosen in the certificate fields from ioBroker — it no longer makes one of its own. A certificate ioBroker does not hold stops the instance with a notification until the settings are fixed; HTTPS on without an HTTPS port does the same. An installation that served HTTPS with an earlier version keeps it: the update switches **Use HTTPS** on once when an HTTPS port was set.
 
 ### Adding Devices
 
@@ -118,7 +130,7 @@ A client-supplied username longer than 64 characters is replaced by a generated 
 Alexa is strict about how it reaches a Hue bridge:
 
 - Set the **Port** to `80` — current Echo devices only look for the bridge there.
-- Set the **HTTPS Port** to `443` as well — current Echo firmware tries HTTPS first and reports the lights as unresponsive when nothing answers there. The bridge serves its own self-signed certificate.
+- Switch **Use HTTPS** on and set the **HTTPS Port** to `443` — newer Echo firmware also tries HTTPS and reports the lights as unresponsive when nothing answers there. See "HTTPS" above.
 - A port below 1024 needs the right to bind it; the ioBroker installer grants that to Node.js on Linux. If the log says the port cannot be bound, that right is missing.
 - First-generation Echo devices no longer support the Hue bridge path.
 - Alexa handles at most 49 lights per bridge — with more, it finds none.
@@ -228,6 +240,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - New: Light type "Color without white" for a lamp with color but no white temperature, such as a light strip.
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.
+- Changed: HTTPS is switched on with the new option "Use HTTPS" and takes a certificate ioBroker holds instead of its own; an HTTPS port set before keeps HTTPS on.
 
 ### 1.19.0 (2026-09-25) — stable
 

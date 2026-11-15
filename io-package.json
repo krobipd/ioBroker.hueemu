@@ -170,7 +170,12 @@
     "port": 8080,
     "httpsPort": "",
     "mac": "",
-    "trustProxy": false
+    "trustProxy": false,
+    "secure": false,
+    "certPublic": "",
+    "certPrivate": "",
+    "certChained": "",
+    "leCollection": false
   },
   "objects": [],
   "instanceObjects": [

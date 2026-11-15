@@ -9,13 +9,15 @@ const LOCAL = ["192.168.1.20", "10.1.2.3"];
  * @param native the instance's native settings
  * @param local the IPv4 addresses the host carries
  * @param lightsStored whether every light of the settings is a light object
+ * @param identityNew whether this start wrote the identity file first
  */
 function patchFor(
   native: Record<string, unknown>,
   local: readonly string[] = LOCAL,
   lightsStored = false,
+  identityNew = false,
 ): Record<string, unknown> {
-  return buildNativeKeyPatch(native, buildNativeKeyMigrations(native, local, lightsStored));
+  return buildNativeKeyPatch(native, buildNativeKeyMigrations(native, local, lightsStored, identityNew));
 }
 
 describe("buildNativeKeyMigrations", () => {
@@ -83,7 +85,7 @@ describe("buildNativeKeyMigrations", () => {
       connectionType: "local",
       "connectionType ": "local",
     };
-    expect(buildCommonKeyPatch(common, buildNativeKeyMigrations({}, LOCAL, false))).toEqual({
+    expect(buildCommonKeyPatch(common, buildNativeKeyMigrations({}, LOCAL, false, false))).toEqual({
       license: null,
       main: null,
       supportCustoms: null,
@@ -96,7 +98,7 @@ describe("buildNativeKeyMigrations", () => {
     expect(
       buildCommonKeyPatch(
         { name: "hueemu", title: "Hue Emulator", connectionType: "local", licenseInformation: { license: "MIT" } },
-        buildNativeKeyMigrations({}, LOCAL, false),
+        buildNativeKeyMigrations({}, LOCAL, false, false),
       ),
     ).toEqual({});
   });
@@ -120,6 +122,37 @@ describe("buildNativeKeyMigrations", () => {
 
   it("drops udn, tlsCert and tlsKey — the MAC stays a setting", () => {
     expect(patchFor(IDENTITY_IN_NATIVE, LOCAL)).toEqual({ udn: null, tlsCert: null, tlsKey: null });
+  });
+
+  // The fleet's HTTPS option (krobi 2026-11-14 19:15): up to v1.19.0 a set httpsPort alone served HTTPS. On the first
+  // start of this version — the identity file is new, or the own certificate still sits in native — it turns `secure`
+  // on, in the same write that drops the certificate; js-controller added `secure: false` with the update.
+  it("switches HTTPS on for an installation of v1.19.0 that served it, in the write that drops its certificate", () => {
+    const updated = { ...IDENTITY_IN_NATIVE, httpsPort: "443", secure: false };
+    expect(patchFor(updated, LOCAL)).toEqual({ secure: true, udn: null, tlsCert: null, tlsKey: null });
+    expect(patchFor(updated, LOCAL, false, true)).toEqual({ secure: true, udn: null, tlsCert: null, tlsKey: null });
+  });
+
+  it("switches HTTPS on for an older installation without a stored certificate — its identity file is new", () => {
+    expect(patchFor({ bind: "0.0.0.0", port: 8080, httpsPort: 443, secure: false }, LOCAL, false, true)).toEqual({
+      secure: true,
+    });
+  });
+
+  it("leaves HTTPS off when the update finds no HTTPS port", () => {
+    expect(patchFor({ ...IDENTITY_IN_NATIVE, httpsPort: "", secure: false }, LOCAL, false, true)).toEqual({
+      udn: null,
+      tlsCert: null,
+      tlsKey: null,
+    });
+  });
+
+  // Once the first start of this version is done, the identity file is there and the certificate gone: a user who
+  // switches HTTPS off and leaves the port is never switched on again.
+  it("never switches HTTPS on again once the user switched it off", () => {
+    expect(patchFor({ bind: "0.0.0.0", port: 8080, httpsPort: "443", secure: false, tlsCert: null }, LOCAL)).toEqual(
+      {},
+    );
   });
 
   // Audit R-24: the lights moved to their own objects — dropped from native only once every one is stored there.

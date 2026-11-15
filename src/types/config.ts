@@ -2,18 +2,18 @@
  * Configuration types for the Hue Emulator
  */
 
+import { parsePort } from "../lib/coerce";
+import type { SecureSetup } from "../lib/secure-server";
 import { SettingsError } from "../lib/start-failure";
 
 /**
- * TLS/SSL configuration for HTTPS support
+ * The HTTPS listener beside HTTP: its port and the certificates of the fleet master (`loadCertificates`).
  */
 export interface TlsConfig {
   /** HTTPS listening port */
   port: number;
-  /** PEM-encoded certificate */
-  cert: string;
-  /** PEM-encoded private key */
-  key: string;
+  /** The certificates and the choice per name, as the fleet master secure-server.ts built them for this start */
+  setup: SecureSetup;
 }
 
 /**
@@ -112,6 +112,27 @@ export function macFromUdn(udn: string): string {
   const first = (parseInt(bytes[0], 16) & 0xfe) | 0x02;
   bytes[0] = first.toString(16).padStart(2, "0");
   return bytes.join(":");
+}
+
+/**
+ * The HTTPS port of this start: none while HTTPS is off (`native.secure`), whatever the field holds; while it is on the
+ * port is required — without one there is nothing to listen on, a wrong setting (exit code 11 and a notification,
+ * start-failure.ts). Its range is checked by {@link validateNetworkConfig}.
+ *
+ * @param secure - Whether HTTPS is on (the fleet master loaded its certificates).
+ * @param raw - `native.httpsPort` as stored (a text up to now, a number from a hand-edited object).
+ */
+export function httpsPortOf(secure: boolean, raw: unknown): number | undefined {
+  if (!secure) {
+    return undefined;
+  }
+  const port = parsePort(raw);
+  if (port === undefined) {
+    throw new SettingsError(
+      "HTTPS is on, but no HTTPS port is set — enter 443 (newer Echos try it) in the instance settings or switch HTTPS off",
+    );
+  }
+  return port;
 }
 
 /**

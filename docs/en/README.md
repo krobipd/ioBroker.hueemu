@@ -44,11 +44,27 @@ listens and answers there alone.
 
 `8080` is the default and works with a Harmony hub.
 
-**Alexa needs port 80, and current Echo devices also try HTTPS on 443.** For Alexa set
-**Port** to `80` and **HTTPS Port** to `443`; the bridge answers HTTPS with its own
-self-signed certificate. A port below 1024 needs the right to bind it — the ioBroker
-installer grants that to Node.js on Linux; if the log says the port cannot be bound,
-that right is missing.
+**Alexa needs port 80, and newer Echo devices also try HTTPS on 443.** For Alexa set
+**Port** to `80`; for a newer Echo also switch **Use HTTPS** on and set **HTTPS Port**
+to `443`. A port below 1024 needs the right to bind it — the ioBroker installer grants
+that to Node.js on Linux; if the log says the port cannot be bound, that right is
+missing.
+
+**HTTPS** is an option for that one case, and it is your matter:
+
+- HTTPS is only for newer Echos, which also try port 443 — so the HTTPS port must be
+  `443`.
+- The Harmony uses HTTP only, as do the network announcement and older Echos: switching
+  HTTPS on gains the Harmony nothing, and HTTP always keeps running.
+- HTTPS protects nothing here: the Echo does not check the certificate, and HTTP stays
+  open beside it.
+
+With **Use HTTPS** on, the bridge takes the certificate chosen in the certificate
+fields from ioBroker (system settings → Certificates; ioBroker's own pair if you choose none,
+Let's Encrypt collections of the acme adapter as an option). A certificate ioBroker
+does not hold, or HTTPS without an HTTPS port, stops the instance with a notification
+until you fix the settings. If an earlier version served HTTPS, the update switches
+**Use HTTPS** on once by itself.
 
 **Trust X-Forwarded-\* headers** stays off unless the adapter sits behind a reverse
 proxy you trust that strips client-supplied forwarding headers. It only changes which
@@ -174,11 +190,11 @@ granted.
 
 ## Ports the adapter uses
 
-| Port | Protocol | What for                       | Configurable                    |
-| ---- | -------- | ------------------------------ | ------------------------------- |
-| 8080 | TCP      | the Hue API itself (Alexa: 80) | yes — clients learn it via SSDP |
-| 1900 | UDP      | discovery, so clients find you | no — fixed by the UPnP standard |
-| —    | TCP      | optional HTTPS (Alexa: 443)    | yes, off unless you set a port  |
+| Port | Protocol | What for                       | Configurable                        |
+| ---- | -------- | ------------------------------ | ----------------------------------- |
+| 8080 | TCP      | the Hue API itself (Alexa: 80) | yes — clients learn it via SSDP     |
+| 1900 | UDP      | discovery, so clients find you | no — fixed by the UPnP standard     |
+| —    | TCP      | optional HTTPS (Alexa: 443)    | yes, off unless **Use HTTPS** is on |
 
 ## Troubleshooting
 

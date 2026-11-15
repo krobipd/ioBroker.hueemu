@@ -2,9 +2,9 @@
  * Hue Emulator HTTP/HTTPS Server using Fastify
  */
 
-import type { FastifyHttpsOptions, FastifyInstance, FastifyServerOptions } from "fastify";
+import type { FastifyInstance } from "fastify";
 import Fastify from "fastify";
-import type { Server as HttpsServer } from "node:https";
+import { createOwnServer } from "../lib/secure-server";
 import type { HueEmulatorConfig, Logger, HueApiHandler } from "../types";
 import { descriptionRoute } from "./routes/description-route";
 import { apiV1Routes } from "./routes/api-v1-routes";
@@ -163,27 +163,26 @@ export class HueServer {
   }
 
   /**
-   * Create a Fastify server instance — HTTP or HTTPS based on flag.
+   * Create a Fastify server instance — the HTTP listener, or the HTTPS one with the certificates the fleet master
+   * loaded (secure-server.ts, the fleet's HTTPS option). Both are built by the master's `createOwnServer` through
+   * fastify's `serverFactory`: the request limit must reach the server's constructor — Node takes one set afterwards no
+   * more, and that is how fastify sets it — and with a factory fastify sets no keep-alive timeout of its own, so it is
+   * carried over here.
    *
-   * @param https - Whether to create an HTTPS server
+   * @param https - Whether to create the HTTPS listener
    */
   private async createServer(https: boolean): Promise<FastifyInstance> {
-    const baseOptions = fastifyOptions(this.config.trustProxy === true);
-
-    let server: FastifyInstance;
-    if (https && this.config.https) {
-      const httpsOptions: FastifyHttpsOptions<HttpsServer> = {
-        ...baseOptions,
-        https: {
-          key: this.config.https.key,
-          cert: this.config.https.cert,
-        },
-      };
-      server = Fastify(httpsOptions);
-    } else {
-      const httpOptions: FastifyServerOptions = baseOptions;
-      server = Fastify(httpOptions);
-    }
+    const { requestTimeout, ...baseOptions } = fastifyOptions(this.config.trustProxy === true);
+    const setup = https ? this.config.https?.setup : undefined;
+    const server = Fastify({
+      ...baseOptions,
+      serverFactory: (handler, options) => {
+        const own = createOwnServer(setup, { requestTimeout }, handler);
+        // fastify hands over its keep-alive timeout (default 72 s) and applies it only to a server it builds itself.
+        own.keepAliveTimeout = (options as { keepAliveTimeout: number }).keepAliveTimeout;
+        return own;
+      },
+    });
 
     // Register error handler (v1.4.5 (I): factory wires debug-trace for every
     // converged Fastify error — validation/parse-fail/internal/Hue-typed)

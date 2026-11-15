@@ -10,10 +10,18 @@ declare global {
       port: number;
       httpsPort: number | undefined;
       trustProxy?: boolean;
+      // HTTPS beside HTTP — the fleet's HTTPS option (fleet master secure-server.ts): the switch and the
+      // certificates the admin's `certificates` field chooses. Read through `SecureSettings`, unknown at the boundary.
+      secure?: unknown;
+      certPublic?: unknown;
+      certPrivate?: unknown;
+      certChained?: unknown;
+      leCollection?: unknown;
       // A setting of the page: empty, the MAC is derived from the UDN on every start.
       mac: string;
       // Up to v1.19.0 the bridge identity lived here; since audit R-24 it is a file in the
-      // instance data folder (identity-store.ts). Read once to take it over, then dropped.
+      // instance data folder (identity-store.ts). The UDN is read once to take it over; the own
+      // certificate (tlsCert, tlsKey) is gone with the fleet's HTTPS option — all three are dropped.
       udn?: unknown;
       tlsCert?: unknown;
       tlsKey?: unknown;

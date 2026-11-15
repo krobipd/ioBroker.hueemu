@@ -7,6 +7,9 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { X509Certificate } from "node:crypto";
+import { get as httpsGet } from "node:https";
+import type { TLSSocket } from "node:tls";
 import { fastifyOptions, HueServer } from "./hue-server";
 import type { HueEmulatorConfig } from "../types/config";
 import type { HueApiHandler } from "../types/hue-api";
@@ -65,6 +68,9 @@ diNwXp48ZTGxYk1XdiQP1YbLBk+D3OrVjvAsyzUT8vFex/r6MmcuaDlJyloVxR/M
 dGlxE9spFWzvVJpQghYsgldpPTDSQD+7b0cirusNND+qnXUCr0kE+6uOow==
 -----END CERTIFICATE-----
 `;
+
+/** The TLS options of a fleet master setup (secure-server.ts `SecureSetup.options`) with the test pair. */
+const SETUP_OPTIONS = { key: TEST_KEY_PEM, cert: TEST_CERT_PEM };
 
 function makeConfig(overrides: Partial<HueEmulatorConfig> = {}): HueEmulatorConfig {
   return {
@@ -327,8 +333,28 @@ describe("HueServer lifecycle (real listen)", () => {
     }
   });
 
-  it("starts the HTTPS listener too when TLS material is configured", async () => {
-    const config = makeConfig({ https: { port: 0, cert: TEST_CERT_PEM, key: TEST_KEY_PEM } });
+  // The request limit must reach each listener's constructor (fleet master secure-server.ts: Node takes one set
+  // afterwards no more), and with fastify's serverFactory the keep-alive timeout is carried over by hand.
+  it("gives the HTTP listener the request limit and fastify's keep-alive timeout", async () => {
+    const server = new HueServer({
+      config: makeConfig(),
+      handler: makeHandler(),
+      logger: createMockLogger(),
+      isClientAllowed: () => true,
+      addressFor: () => "127.0.0.1",
+    });
+    await server.start();
+    try {
+      const raw = (server as unknown as { httpServer: FastifyInstance }).httpServer.server;
+      expect(raw.requestTimeout).toBe(fastifyOptions(false).requestTimeout);
+      expect(raw.keepAliveTimeout).toBe(72_000);
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("starts the HTTPS listener too with the certificates of the fleet master, and answers over TLS", async () => {
+    const config = makeConfig({ https: { port: 0, setup: { options: SETUP_OPTIONS, name: undefined } } });
     const server = new HueServer({
       config,
       handler: makeHandler(),
@@ -342,11 +368,22 @@ describe("HueServer lifecycle (real listen)", () => {
       expect(httpsInstance).not.toBeNull();
       const address = httpsInstance.server.address() as { port: number };
       expect(address.port).toBeGreaterThan(0);
-      // inject() bypasses the socket — this proves the HTTPS instance is wired
-      // and answering, not the TLS handshake (the material itself is proven in
-      // tls-material.test.ts against Node's TLS).
-      const res = await httpsInstance.inject({ method: "GET", url: "/api/config" });
-      expect(res.statusCode).toBe(200);
+      expect(httpsInstance.server.requestTimeout).toBe(fastifyOptions(false).requestTimeout);
+      expect(httpsInstance.server.keepAliveTimeout).toBe(72_000);
+      // A real request through the TLS handshake, with the certificate the setup carries.
+      const answer = await new Promise<{ status: number | undefined; cert: Buffer | undefined }>((resolve, reject) => {
+        const request = httpsGet(
+          { host: "127.0.0.1", port: address.port, path: "/api/config", rejectUnauthorized: false },
+          response => {
+            const peer = (response.socket as TLSSocket).getPeerCertificate();
+            response.resume();
+            resolve({ status: response.statusCode, cert: peer.raw });
+          },
+        );
+        request.on("error", reject);
+      });
+      expect(answer.status).toBe(200);
+      expect(answer.cert?.equals(new X509Certificate(TEST_CERT_PEM).raw)).toBe(true);
     } finally {
       await server.stop();
     }
@@ -370,7 +407,7 @@ describe("HueServer lifecycle (real listen)", () => {
     await new Promise<void>(resolve => blocker.listen(0, "127.0.0.1", () => resolve()));
     const busyPort = (blocker.address() as { port: number }).port;
 
-    const config = makeConfig({ https: { port: busyPort, cert: TEST_CERT_PEM, key: TEST_KEY_PEM } });
+    const config = makeConfig({ https: { port: busyPort, setup: { options: SETUP_OPTIONS, name: undefined } } });
     const server = new HueServer({
       config,
       handler: makeHandler(),
