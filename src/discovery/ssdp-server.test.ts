@@ -262,7 +262,7 @@ describe("HueSsdpServer", () => {
     });
 
     // The trust boundary decides first: a peer it refuses gets no answer even from a network the host is in.
-    it("answers no search from a peer outside the adapter's networks", async () => {
+    it("answers no search from a peer the trust boundary refuses, even inside the host's network", async () => {
       const logger = spyLogger();
       const server = makeServer(logger, undefined, { isClientAllowed: address => address !== "10.0.0.9" });
       await server.start();
