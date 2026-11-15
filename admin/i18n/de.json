@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Dimmbar",
   "lightTypeCT": "Farbtemperatur",
   "lightTypeColor": "Farbe",
+  "lightTypeColorOnly": "Farbe ohne Weiß",
   "stateOn": "Ein/Aus-Datenpunkt",
   "stateOnTooltip": "Wahrheitswert-Datenpunkt für Ein/Aus",
   "stateBri": "Helligkeits-Datenpunkt",

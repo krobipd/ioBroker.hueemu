@@ -7,7 +7,7 @@ import type { HueErrorResponse } from "./errors";
 /**
  * Hue light types (only types used by the emulator)
  */
-export type LightType = "Dimmable light" | "Color temperature light" | "Extended color light";
+export type LightType = "Dimmable light" | "Color temperature light" | "Color light" | "Extended color light";
 
 /**
  * Light color modes

@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Ściemnialne",
   "lightTypeCT": "Temperatura barwowa",
   "lightTypeColor": "Kolor",
+  "lightTypeColorOnly": "Kolor bez bieli",
   "stateOn": "Stan Włącz/Wyłącz",
   "stateOnTooltip": "Stan boolowski dla włącz/wyłącz",
   "stateBri": "Stan jasności",

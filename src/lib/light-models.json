@@ -4,11 +4,13 @@
     "LWB007": "onoff",
     "LWB010": "dimmable",
     "LTW001": "ct",
-    "LCT003": "color"
+    "LCT003": "color",
+    "LST001": "colorOnly"
   },
   "types": {
     "Dimmable light": ["onoff", "dimmable"],
     "Color temperature light": ["ct"],
+    "Color light": ["colorOnly"],
     "Extended color light": ["color"]
   }
 }

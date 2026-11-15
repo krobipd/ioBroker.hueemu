@@ -23,7 +23,7 @@ It is meant for older devices and apps that only speak the Hue API — Logitech 
 - **UPnP/SSDP Discovery** — found automatically by clients that search via SSDP (Alexa, Harmony); any other client connects by the bridge's IP address
 - **Direct state mapping** — Point to any ioBroker state, no bridge scripts
 - **Device assistant** — scan ioBroker for mappable lights and add them automatically, or add and edit each light by hand
-- **Light types** — On/Off, Dimmable, Color Temperature, Color
+- **Light types** — On/Off, Dimmable, Color Temperature, Color, Color without white
 - **Per-device value scale** — detected from the source state where it is declared, and always adjustable by hand
 - **Lights without a switch** — a dimmer that only offers a brightness state is driven by that state
 - **Relative commands** — "a bit darker", "a bit warmer" and dimmer rockers adjust the current value
@@ -91,12 +91,15 @@ Some dimmers expose only a brightness state and no separate switch (a HomeMatic 
 
 ### Supported Light Types
 
-| Type                  | States                                | Hue Model |
-| --------------------- | ------------------------------------- | --------- |
-| **On/Off**            | `on` (clients see a dimmable light)   | LWB007    |
-| **Dimmable**          | `on`, `bri`                           | LWB010    |
-| **Color Temperature** | `on`, `bri`, `ct`                     | LTW001    |
-| **Color Light**       | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003    |
+| Type                    | States                                | Hue Model |
+| ----------------------- | ------------------------------------- | --------- |
+| **On/Off**              | `on` (clients see a dimmable light)   | LWB007    |
+| **Dimmable**            | `on`, `bri`                           | LWB010    |
+| **Color Temperature**   | `on`, `bri`, `ct`                     | LTW001    |
+| **Color Light**         | `on`, `bri`, `ct`, `hue`, `sat`, `xy` | LCT003    |
+| **Color without white** | `on`, `bri`, `hue`, `sat`, `xy`       | LST001    |
+
+A lamp that has color but no white temperature (a light strip, for example) is picked as **Color without white** by hand — the search offers every color lamp as **Color Light**. The client then shows no white slider.
 
 ### Pairing
 
@@ -222,6 +225,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - New: A wrong setting, for example an invalid port, stops the instance with a notification in the admin — it starts again when you save the settings.
 - Changed: Listening on all addresses, the bridge tells each client the host's address in that client's network and announces itself in every own network.
 - Fixed: A message the adapter does not know (sendTo from a script) now gets an error answer instead of none.
+- New: Light type "Color without white" for a lamp with color but no white temperature, such as a light strip.
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.
 

@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Dimmerabile",
   "lightTypeCT": "Temperatura colore",
   "lightTypeColor": "Colore",
+  "lightTypeColorOnly": "Colore senza bianco",
   "stateOn": "Stato Acceso/Spento",
   "stateOnTooltip": "Stato booleano per acceso/spento",
   "stateBri": "Stato luminosità",

@@ -61,6 +61,18 @@ const FIELDS_BY_TYPE: Record<string, readonly string[]> = {
     "satScale",
     "xyState",
   ],
+  colorOnly: [
+    "name",
+    "lightType",
+    "onState",
+    "briState",
+    "briScale",
+    "hueState",
+    "hueScale",
+    "satState",
+    "satScale",
+    "xyState",
+  ],
 };
 
 /**
@@ -86,6 +98,7 @@ export function buildDeviceForm(): JsonFormSchema {
           { label: t("lightTypeDimmable"), value: "dimmable" },
           { label: t("lightTypeCT"), value: "ct" },
           { label: t("lightTypeColor"), value: "color" },
+          { label: t("lightTypeColorOnly"), value: "colorOnly" },
         ],
         sm: 12,
         md: 6,
@@ -149,7 +162,7 @@ export function buildDeviceForm(): JsonFormSchema {
         tooltip: t("stateHueTooltip"),
         sm: 12,
         md: 4,
-        hidden: "data.lightType !== 'color'",
+        hidden: "data.lightType !== 'color' && data.lightType !== 'colorOnly'",
       },
       hueScale: {
         type: "select",
@@ -163,7 +176,7 @@ export function buildDeviceForm(): JsonFormSchema {
         ],
         sm: 12,
         md: 2,
-        hidden: "data.lightType !== 'color'",
+        hidden: "data.lightType !== 'color' && data.lightType !== 'colorOnly'",
       },
       satState: {
         type: "objectId",
@@ -171,7 +184,7 @@ export function buildDeviceForm(): JsonFormSchema {
         tooltip: t("stateSatTooltip"),
         sm: 12,
         md: 4,
-        hidden: "data.lightType !== 'color'",
+        hidden: "data.lightType !== 'color' && data.lightType !== 'colorOnly'",
       },
       satScale: {
         type: "select",
@@ -187,7 +200,7 @@ export function buildDeviceForm(): JsonFormSchema {
         ],
         sm: 12,
         md: 2,
-        hidden: "data.lightType !== 'color'",
+        hidden: "data.lightType !== 'color' && data.lightType !== 'colorOnly'",
       },
       xyState: {
         type: "objectId",
@@ -195,7 +208,7 @@ export function buildDeviceForm(): JsonFormSchema {
         tooltip: t("stateXyTooltip"),
         sm: 12,
         md: 6,
-        hidden: "data.lightType !== 'color'",
+        hidden: "data.lightType !== 'color' && data.lightType !== 'colorOnly'",
       },
     },
   };

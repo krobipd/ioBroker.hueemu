@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Regulável",
   "lightTypeCT": "Temperatura de cor",
   "lightTypeColor": "Cor",
+  "lightTypeColorOnly": "Cor sem branco",
   "stateOn": "Estado Ligar/Desligar",
   "stateOnTooltip": "Estado booleano para ligar/desligar",
   "stateBri": "Estado de brilho",

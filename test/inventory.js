@@ -359,6 +359,17 @@ const FIXTURE_LIGHTS = [
   { name: "Inventory percent colour temperature", lightType: "ct", onState: `${SRC}on`, ctState: `${SRC}ctpct` },
   { name: "Inventory mired colour temperature", lightType: "ct", onState: `${SRC}on`, ctState: `${SRC}ctmired` },
   { name: "Inventory byte brightness", lightType: "dimmable", onState: `${SRC}on`, briState: `${SRC}bri255` },
+  // A colour light without white temperature ("Color light", the Hue lightstrip LST001).
+  {
+    name: "Inventory colour without white",
+    lightType: "colorOnly",
+    onState: `${SRC}on`,
+    briState: `${SRC}bri`,
+    hueState: `${SRC}hue`,
+    hueScale: "degrees",
+    satState: `${SRC}sat`,
+    satScale: "percent",
+  },
 ];
 
 /**
@@ -373,6 +384,8 @@ const EXPECTED_LIGHT_STATE = [
   ["Inventory percent colour temperature", "ct", 327], // 50 % across 153..500 mired
   ["Inventory mired colour temperature", "ct", 300], // mired passes through
   ["Inventory byte brightness", "bri", 254], // 255 of 0..255 is full brightness
+  ["Inventory colour without white", "colormode", "hs"], // hue and sat bound, no xy
+  ["Inventory colour without white", "ct", undefined], // no white temperature at all
 ];
 
 /**

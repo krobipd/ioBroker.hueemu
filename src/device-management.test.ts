@@ -247,6 +247,31 @@ describe("cleanDevice", () => {
     expect(out).toEqual({ name: "D", lightType: "dimmable", onState: "a.on" });
   });
 
+  // A colour light without white temperature has no ct field: a ct datapoint left over from a colour light that
+  // becomes one is dropped, the colour fields stay.
+  it("drops the white temperature of a colour light without white, keeps its colour fields", () => {
+    const out = cleanDevice({
+      name: "S",
+      lightType: "colorOnly",
+      onState: "a",
+      briState: "b",
+      ctState: "old",
+      ctScale: "kelvin",
+      hueState: "h",
+      satState: "s",
+      xyState: "x",
+    });
+    expect(out).toEqual({
+      name: "S",
+      lightType: "colorOnly",
+      onState: "a",
+      briState: "b",
+      hueState: "h",
+      satState: "s",
+      xyState: "x",
+    });
+  });
+
   it("prunes stale colour fields when a colour light becomes on/off (edit)", () => {
     const out = cleanDevice({
       name: "L",
@@ -278,6 +303,27 @@ describe("buildDeviceForm", () => {
       "satScale",
       "xyState",
     ]);
+  });
+
+  // The colour light without white is one choice of the light type; the form shows it the colour fields and hides
+  // the white temperature, like the light's stored fields (cleanDevice).
+  it("offers the colour light without white and shows it the colour fields without ct", () => {
+    const form = buildDeviceForm() as {
+      items: Record<string, { options?: { value: string }[]; hidden?: string }>;
+    };
+    expect(form.items.lightType.options?.map(option => option.value)).toEqual([
+      "onoff",
+      "dimmable",
+      "ct",
+      "color",
+      "colorOnly",
+    ]);
+    for (const field of ["hueState", "hueScale", "satState", "satScale", "xyState"]) {
+      expect(form.items[field].hidden).toBe("data.lightType !== 'color' && data.lightType !== 'colorOnly'");
+    }
+    for (const field of ["ctState", "ctScale"]) {
+      expect(form.items[field].hidden).toBe("data.lightType !== 'ct' && data.lightType !== 'color'");
+    }
   });
 });
 

@@ -67,12 +67,16 @@ afterwards, so nothing disappears silently.
 **By hand** — click **Add light**, give it a name, pick a light type and point each
 field at an ioBroker state with the object browser.
 
-| Light type            | What the client sees                   |
-| --------------------- | -------------------------------------- |
-| **On/Off**            | on and off (shown as a dimmable light) |
-| **Dimmable**          | on/off and brightness                  |
-| **Color Temperature** | on/off, brightness, warm–cool white    |
-| **Color**             | on/off, brightness, full color         |
+| Light type              | What the client sees                       |
+| ----------------------- | ------------------------------------------ |
+| **On/Off**              | on and off (shown as a dimmable light)     |
+| **Dimmable**            | on/off and brightness                      |
+| **Color Temperature**   | on/off, brightness, warm–cool white        |
+| **Color**               | on/off, brightness, full color             |
+| **Color without white** | on/off, brightness, color, no white slider |
+
+A lamp with color but no white temperature, a light strip for example, is set to
+**Color without white** by hand; the search offers every color lamp as **Color**.
 
 Every light keeps its number for good: deleting or reordering lights changes nothing
 for the others, so Alexa's routines keep pointing at the lamps they were set up with.

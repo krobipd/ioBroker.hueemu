@@ -131,12 +131,13 @@ krobi's decisions for this adapter. The register with his verbatim words lives i
 
 ## Light-Typen
 
-| Typ      | States                    | Model ID |
-| -------- | ------------------------- | -------- |
-| onoff    | on, bri                   | LWB007   |
-| dimmable | on, bri                   | LWB010   |
-| ct       | on, bri, ct               | LTW001   |
-| color    | on, bri, hue, sat, ct, xy | LCT003   |
+| Typ       | States                    | Model ID |
+| --------- | ------------------------- | -------- |
+| onoff     | on, bri                   | LWB007   |
+| dimmable  | on, bri                   | LWB010   |
+| ct        | on, bri, ct               | LTW001   |
+| color     | on, bri, hue, sat, ct, xy | LCT003   |
+| colorOnly | on, bri, hue, sat, xy     | LST001   |
 
 ## Wertekonvertierung
 

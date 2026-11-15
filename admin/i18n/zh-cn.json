@@ -23,6 +23,7 @@
   "lightTypeDimmable": "可调光",
   "lightTypeCT": "色温",
   "lightTypeColor": "颜色",
+  "lightTypeColorOnly": "彩色（无白光）",
   "stateOn": "开/关状态",
   "stateOnTooltip": "开/关的布尔状态",
   "stateBri": "亮度状态",

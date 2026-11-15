@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Диммований",
   "lightTypeCT": "Колірна температура",
   "lightTypeColor": "Колір",
+  "lightTypeColorOnly": "Колір без білого",
   "stateOn": "Стан Вкл/Викл",
   "stateOnTooltip": "Булевий стан для вкл/викл",
   "stateBri": "Стан яскравості",

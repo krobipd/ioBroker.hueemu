@@ -9,5 +9,7 @@
       "url": "https://raw.githubusercontent.com/diyhue/diyHue/master/BridgeEmulator/lights/light_types.py"
     }
   ],
-  "excluded": {}
+  "excluded": {
+    "On/Off plug-in unit": "K2"
+  }
 }

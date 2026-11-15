@@ -69,12 +69,16 @@ steht anschließend als Anzahl in der Meldung — es verschwindet also nichts st
 **Von Hand** — auf **Licht hinzufügen** klicken, Namen vergeben, Lampentyp wählen und
 jedes Feld per Objektauswahl auf einen ioBroker-Datenpunkt zeigen lassen.
 
-| Lampentyp          | Was der Client sieht                     |
-| ------------------ | ---------------------------------------- |
-| **Ein/Aus**        | ein und aus (als dimmbare Lampe gezeigt) |
-| **Dimmbar**        | ein/aus und Helligkeit                   |
-| **Farbtemperatur** | ein/aus, Helligkeit, Warm-/Kaltweiß      |
-| **Farbe**          | ein/aus, Helligkeit, volle Farbe         |
+| Lampentyp           | Was der Client sieht                        |
+| ------------------- | ------------------------------------------- |
+| **Ein/Aus**         | ein und aus (als dimmbare Lampe gezeigt)    |
+| **Dimmbar**         | ein/aus und Helligkeit                      |
+| **Farbtemperatur**  | ein/aus, Helligkeit, Warm-/Kaltweiß         |
+| **Farbe**           | ein/aus, Helligkeit, volle Farbe            |
+| **Farbe ohne Weiß** | ein/aus, Helligkeit, Farbe, kein Weißregler |
+
+Eine Lampe mit Farbe, aber ohne Weißtemperatur, etwa ein Lichtstreifen, wird von Hand
+auf **Farbe ohne Weiß** gestellt; die Suche bietet jede Farblampe als **Farbe** an.
 
 Jede Lampe behält ihre Nummer dauerhaft: Lampen löschen oder umsortieren ändert für die
 anderen nichts, Alexas Routinen zeigen weiter auf die Lampen, mit denen sie eingerichtet

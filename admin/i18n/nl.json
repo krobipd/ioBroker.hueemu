@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Dimbaar",
   "lightTypeCT": "Kleurtemperatuur",
   "lightTypeColor": "Kleur",
+  "lightTypeColorOnly": "Kleur zonder wit",
   "stateOn": "Aan/Uit-status",
   "stateOnTooltip": "Booleaanse status voor aan/uit",
   "stateBri": "Helderheidsstatus",

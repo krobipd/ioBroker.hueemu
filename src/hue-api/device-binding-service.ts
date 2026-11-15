@@ -70,6 +70,14 @@ const LIGHT_TYPES = {
     states: ["on", "bri", "hue", "sat", "ct", "xy"] satisfies HueStateKey[],
     modelid: "LCT003",
   },
+  // A colour light without white temperature, as real bridges report the Hue lightstrip LST001 and the Hue iris
+  // LLC010 ("Color light", no ct). LST001 is the model the Echo emulation espalexa answers for its RGB type.
+  colorOnly: {
+    name: "Color Light",
+    type: "Color light" as const,
+    states: ["on", "bri", "hue", "sat", "xy"] satisfies HueStateKey[],
+    modelid: "LST001",
+  },
 };
 
 /**

@@ -181,6 +181,16 @@ describe("DeviceBindingService", () => {
         expect(light.type).toBe("Extended color light");
       });
 
+      // A colour light without white temperature, as real bridges report the Hue lightstrip LST001 and the Hue iris
+      // LLC010.
+      it("should map colorOnly to LST001 / Color light", async () => {
+        const { service } = createService([{ name: "Strip", lightType: "colorOnly" }]);
+        const light = await service.getLightById("1");
+        expect(light.modelid).toBe("LST001");
+        expect(light.type).toBe("Color light");
+        expect(light.productname).toBe("Color Light");
+      });
+
       // The catalog the release holds against diyHue's model list (device-sources.json, gate A15) is the table the
       // bridge answers with: every line names the model id of its light type.
       it.each(Object.entries(LIGHT_MODELS.models))(
@@ -330,6 +340,27 @@ describe("DeviceBindingService", () => {
         });
         const light = await service.getLightById("1");
         expect(light.state.colormode).toBe("hs");
+      });
+
+      // A colour light without white temperature reports hue, sat and xy and never a ct, so a client offers no white
+      // slider; its colour mode follows the mapped states like the colour light's.
+      it("reports no ct and colormode hs for a colour light without white", async () => {
+        const { service } = createService(
+          [{ name: "Strip", lightType: "colorOnly", hueState: "test.hue", satState: "test.sat" }],
+          { "test.hue": 10000, "test.sat": 200 },
+        );
+        const light = await service.getLightById("1");
+        expect(light.state).not.toHaveProperty("ct");
+        expect(light.state).toHaveProperty("xy");
+        expect(light.state.colormode).toBe("hs");
+      });
+
+      it("reports colormode xy for a colour light without white with xy mapped", async () => {
+        const { service } = createService([{ name: "Strip", lightType: "colorOnly", xyState: "test.xy" }], {
+          "test.xy": [0.3, 0.4],
+        });
+        const light = await service.getLightById("1");
+        expect(light.state.colormode).toBe("xy");
       });
 
       it("prioritises mapped ct over hs for a color light (ct mapped, no xy)", async () => {
@@ -1176,6 +1207,17 @@ describe("DeviceBindingService", () => {
       const results = await service.setLightState("1", { on: true });
       const firstResult = results[0] as { success: Record<string, unknown> };
       expect(firstResult.success).toHaveProperty("/lights/1/state/on");
+    });
+
+    // K10: a colour light without white temperature takes a ct command like a dimmer takes a colour — success, and
+    // nothing is written.
+    it("acknowledges ct on a colour light without white and writes nothing", async () => {
+      const { service, adapter } = createService([
+        { name: "Strip", lightType: "colorOnly", hueState: "test.hue", satState: "test.sat" },
+      ]);
+      const results = await service.setLightState("1", { ct: 300 });
+      expect(results).toEqual([{ success: { "/lights/1/state/ct": 300 } }]);
+      expect([...adapter.writtenStates.keys()]).toEqual([]);
     });
 
     it("should still report success for a known attribute the light does not map", async () => {

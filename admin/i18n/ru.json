@@ -23,6 +23,7 @@
   "lightTypeDimmable": "Диммируемый",
   "lightTypeCT": "Цветовая температура",
   "lightTypeColor": "Цвет",
+  "lightTypeColorOnly": "Цвет без белого",
   "stateOn": "Состояние Вкл/Выкл",
   "stateOnTooltip": "Булево состояние для вкл/выкл",
   "stateBri": "Состояние яркости",
