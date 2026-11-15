@@ -20,7 +20,7 @@
 import * as dgram from "node:dgram";
 import type { BridgeIdentity, Logger } from "../types/config";
 import { errText } from "../lib/err-text";
-import { localNets, ownAddressFor } from "../lib/network-address";
+import { announceAddresses, localNets, ownAddressFor } from "../lib/network-address";
 import { getDescriptionUrl } from "./description-xml";
 import {
   SSDP_MULTICAST_ADDR,
@@ -164,19 +164,14 @@ export class HueSsdpServer {
   }
 
   /**
-   * Open one NOTIFY sender per own IPv4 network (fleet master `localNets`, the only reader of the
-   * interfaces): bound to that network's address and pinned to its interface, so every network hears
-   * an address it can reach. A sender that cannot open only costs its network the proactive NOTIFY —
-   * a search from there is still answered.
+   * Open one NOTIFY sender per own IPv4 network (fleet master `announceAddresses` over `localNets`, the
+   * only reader of the interfaces — no network left out by the adapter, Werkbank standard 74d84aa54d89):
+   * bound to that network's address and pinned to its interface, so every network hears an address it
+   * can reach. A sender that cannot open only costs its network the proactive NOTIFY — a search from
+   * there is still answered.
    */
   private async openSenders(): Promise<void> {
-    const addresses = [
-      ...new Set(
-        localNets()
-          .filter(net => net.family === "IPv4")
-          .map(net => net.address),
-      ),
-    ];
+    const addresses = announceAddresses(undefined, "IPv4", localNets());
     const opened = await Promise.all(addresses.map(address => this.openSender(address)));
     this.senders = opened.filter((out): out is Announcer => out !== undefined);
   }
