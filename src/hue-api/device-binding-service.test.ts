@@ -191,6 +191,17 @@ describe("DeviceBindingService", () => {
           expect(light.modelid).toBe(model);
         },
       );
+
+      // The type catalog of gate A15 (device-sources.json, by light type): every line names the v1 type the bridge
+      // answers with for each of its light types.
+      it.each(Object.entries(LIGHT_MODELS.types).flatMap(([type, lightTypes]) => lightTypes.map(l => [type, l])))(
+        "answers with the type %s for the light type %s (src/lib/light-models.json)",
+        async (type, lightType) => {
+          const { service } = createService([{ name: "Catalog", lightType: lightType as DeviceConfig["lightType"] }]);
+          const light = await service.getLightById("1");
+          expect(light.type).toBe(type);
+        },
+      );
     });
 
     describe("light metadata", () => {
