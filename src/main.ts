@@ -32,7 +32,8 @@ import {
   macFromUdn,
   validateNetworkConfig,
 } from "./types/config";
-import { ConfigurationError, REASON_UNKNOWN } from "./types/errors";
+import { REASON_UNKNOWN, StartError } from "./types/errors";
+import { failStart, SettingsError } from "./lib/start-failure";
 import { migrateNativeKeys } from "./lib/native-key-migration";
 import { carriesAddress, chosenAddress, isOwnPeer } from "./lib/network-address";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
@@ -444,23 +445,15 @@ class HueEmu extends utils.Adapter {
         `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
       );
     } catch (error) {
-      const detail = errText(error);
-      // The reason datapoint never carries hueemu's OWN wording — a text the
-      // adapter invented about itself is `Unknown` there, fleet-wide. Only a
-      // message from outside (node's `listen EADDRINUSE …`) names a cause the
-      // user could not have read off the instance state anyway. The full text,
-      // hint included, goes to the log where it is actionable.
-      this.log.error(`Failed to start Hue Emulator: ${detail}`);
-      // The bridge serves nothing (D4, like the stop) — that reaches the database before the process ends: a write
-      // still in flight at the exit is lost.
-      await this.setConnected(false, error instanceof ConfigurationError ? REASON_UNKNOWN : detail);
-      // GV-28 (krobi 2026-10-03 12:01): a bridge that serves nothing talks to nobody — a fatal error, never a process
-      // that runs on idle. UNCAUGHT_EXCEPTION, not ADAPTER_REQUESTED_TERMINATION: js-controller restarts it after 30 s,
-      // so a port that was taken only for a while heals itself, and gives up after three failures in ten minutes; 11
-      // would mean "never restart".
-      if (!this.unloaded) {
-        this.terminate("Hue Emulator could not start", utils.EXIT_CODES.UNCAUGHT_EXCEPTION);
-      }
+      // The fleet's start-failure standard (src/lib/start-failure.ts, krobi 2026-11-11 23:32; GV-28 krobi 2026-10-03
+      // 12:01: a bridge that serves nothing talks to nobody — never a process that runs on idle): one error line, the
+      // cleanup, then a wrong setting ends with a notification and exit code 11, anything else — a taken port, the
+      // identity file — with exit code 6, which js-controller restarts. A stop during the start ends with one debug line.
+      // The reason datapoint never carries hueemu's OWN wording — a text the adapter invented about itself is `Unknown`
+      // there, fleet-wide. Only a message from outside (node's `listen EADDRINUSE …`) names a cause the user could not
+      // have read off the instance state anyway; the full text, hint included, is in the error line.
+      const reason = error instanceof SettingsError || error instanceof StartError ? REASON_UNKNOWN : errText(error);
+      await failStart(this, error, { stopping: this.unloaded, cleanup: () => this.closeAll(reason) });
     }
   }
 
@@ -571,12 +564,12 @@ class HueEmu extends utils.Adapter {
    * start — js-controller starts it again — instead of serving under a UDN the next start would
    * not know.
    *
-   * @throws {ConfigurationError} when the file cannot be used or the identity cannot be stored
+   * @throws {StartError} when the file cannot be used or the identity cannot be stored
    */
   private loadIdentity(): void {
     const read = readIdentity(this.identityDir(), this);
     if (read.error) {
-      throw new ConfigurationError(
+      throw new StartError(
         `The stored bridge identity ${join(this.identityDir(), IDENTITY_FILE)} cannot be used (${read.error}) — repair or remove it; without it every paired client sees a new bridge`,
       );
     }
@@ -591,7 +584,7 @@ class HueEmu extends utils.Adapter {
       try {
         writeIdentity(this.identityDir(), identity, this);
       } catch (error) {
-        throw new ConfigurationError(`The bridge identity could not be stored (${errText(error)})`);
+        throw new StartError(`The bridge identity could not be stored (${errText(error)})`);
       }
     }
   }
@@ -936,30 +929,34 @@ class HueEmu extends utils.Adapter {
    */
   private onUnload(callback: () => void): void {
     this.unloaded = true;
-    // Clear pairing timeout
-    this.clearPairingTimeout();
-    // The announce pulse must not outlive the server.
-    this.stopSsdpAnnounce();
-
     // Say goodbye on the network, THEN report done. The bye-bye datagrams are what tell
     // Alexa & friends the bridge is gone; calling back first means the host tears the
     // process down while they are still in the socket and the clients keep the bridge
     // until their own timeout. No own deadline needed — the host already has one
     // (`common.stopTimeout`), and `this.setTimeout` refuses during shutdown anyway.
-    void (async (): Promise<void> => {
-      await this.ssdpServer?.stop();
-      await this.hueServer?.stop();
-      // The bridge is gone — say so before the callback, or the write never
-      // reaches the database (the host allows one second, then kills).
-      await Promise.all([
-        this.setState("info.connection", { ack: true, val: false }),
-        this.setState("info.error", { ack: true, val: REASON_UNKNOWN }),
-      ]);
-    })()
+    void this.closeAll(REASON_UNKNOWN)
       .catch((error: unknown) => {
         this.log.error(`Error during shutdown: ${errText(error)}`);
       })
       .finally(callback);
+  }
+
+  /**
+   * Close what the start opened and write the last state — the stop's path, and the cleanup of a
+   * failed start (`failStart` ends the process without `onUnload`, start-failure.ts).
+   *
+   * @param reason - The reason datapoint's value: `Unknown`, or a failure from outside
+   * @returns when the servers are closed and both writes are done
+   */
+  private async closeAll(reason: string): Promise<void> {
+    this.clearPairingTimeout();
+    // The announce pulse must not outlive the server.
+    this.stopSsdpAnnounce();
+    await this.ssdpServer?.stop();
+    await this.hueServer?.stop();
+    // The bridge is gone — say so before the callback or the end of the process, or the
+    // write never reaches the database (the host allows one second, then kills).
+    await this.setConnected(false, reason);
   }
 
   /**
@@ -1113,14 +1110,15 @@ class HueEmu extends utils.Adapter {
 
   /**
    * Parse a required port number from admin config (string or number).
-   * Throws when the value is missing or unparseable — caller must handle.
+   * A value that is missing or unparseable is a wrong setting (`SettingsError`, exit code 11
+   * and a notification — start-failure.ts).
    *
    * @param port - Raw port value from config
    */
   private toPort(port: unknown): number {
     const parsed = parsePort(port);
     if (parsed === undefined) {
-      throw new ConfigurationError("Port not specified");
+      throw new SettingsError("Port not specified — enter the HTTP port in the instance settings");
     }
     return parsed;
   }

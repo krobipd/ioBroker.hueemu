@@ -7,24 +7,26 @@
 export const REASON_UNKNOWN = "Unknown";
 
 /**
- * A start-up failure hueemu diagnosed about ITS OWN configuration (no port, no
- * routable host, colliding ports).
+ * A start failure hueemu diagnosed and worded itself that is NOT a settings error — the
+ * identity file cannot be read or stored, no address to announce. Like every cause the
+ * user's settings do not explain, it ends with exit code 6 (start-failure.ts, the fleet's
+ * start-failure standard): js-controller tries again. A wrong setting is a `SettingsError`
+ * of the fleet master instead (exit code 11 and a notification).
  *
- * The class exists for one reason: its message is the adapter's own wording, and
- * the reason datapoint must never carry that (fleet rule, see
- * {@link REASON_UNKNOWN}). `onReady` maps this type to `Unknown` for the
- * datapoint and logs the full text, where an actionable hint belongs. An error
- * that came from outside — node's `listen EADDRINUSE …`, a library — is nobody's
+ * The class exists for one more reason: its message is the adapter's own wording, and the
+ * reason datapoint must never carry that (fleet rule, see {@link REASON_UNKNOWN}) — the
+ * error line does, where an actionable hint belongs. The same holds for a `SettingsError`.
+ * An error that came from outside — node's `listen EADDRINUSE …`, a library — is nobody's
  * invention and reaches the datapoint unchanged.
  */
-export class ConfigurationError extends Error {
+export class StartError extends Error {
   /**
-   * @param message The adapter's own description of the misconfiguration —
+   * @param message The adapter's own description of what stopped the start —
    *   log-only, never the value of the reason datapoint.
    */
   constructor(message: string) {
     super(message);
-    this.name = "ConfigurationError";
+    this.name = "StartError";
   }
 }
 

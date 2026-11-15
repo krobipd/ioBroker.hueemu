@@ -22,6 +22,8 @@ import {
   validateNetworkConfig,
 } from "./config";
 import { ConfigService } from "../hue-api/config-service";
+import { SettingsError } from "../lib/start-failure";
+import { StartError } from "./errors";
 import { createTestIdentity } from "../../test/test-helpers";
 
 describe("Config utilities", () => {
@@ -209,6 +211,14 @@ describe("Config utilities", () => {
       expect(() => validateNetworkConfig("192.168.1.5", 8080.5, undefined)).toThrow(/not a port number/);
       expect(() => validateNetworkConfig("192.168.1.5", 8080, 65536)).toThrow(/HTTPS port 65536 is not a port number/);
       expect(() => validateNetworkConfig("192.168.1.5", 1, 65535)).not.toThrow();
+    });
+
+    // Start-failure standard (krobi 2026-11-11 23:32): a wrong setting ends with exit code 11 and a notification, a
+    // cause that can pass by itself with exit code 6 — the class decides which (start-failure.ts `failStart`).
+    it("names a wrong port a settings error and a missing address a start error", () => {
+      expect(() => validateNetworkConfig("192.168.1.5", 70000, undefined)).toThrow(SettingsError);
+      expect(() => validateNetworkConfig("192.168.1.5", 8080, 8080)).toThrow(SettingsError);
+      expect(() => validateNetworkConfig("", 8080, undefined)).toThrow(StartError);
     });
   });
 });

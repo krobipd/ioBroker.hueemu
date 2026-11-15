@@ -22,6 +22,7 @@ vi.mock("@iobroker/adapter-core", () => {
   class Adapter {
     public log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     public namespace = "hueemu.0";
+    public name = "hueemu";
     public adapterDir = "/tmp";
     public config: Record<string, unknown> = {};
     public on = vi.fn();
@@ -48,6 +49,7 @@ vi.mock("@iobroker/adapter-core", () => {
     public setInterval = vi.fn(() => ({}));
     public clearInterval = vi.fn();
     public terminate = vi.fn();
+    public registerNotification = vi.fn((): Promise<void> => Promise.resolve());
     public sendTo = vi.fn();
     // js-controller's own form is `$/aes-192-cbc:<iv>:<ciphertext>` — the prefix is what
     // its start-up decryption keys on; anything without it is decrypted as garbage.
@@ -120,7 +122,7 @@ import { I18n } from "@iobroker/adapter-core";
 import * as mainModule from "./main";
 import { readDataFile } from "./lib/data-file";
 import { mergedWith } from "./lib/known-objects";
-import { ConfigurationError } from "./types/errors";
+import { StartError } from "./types/errors";
 import { storedClientKeys } from "../test/test-helpers";
 
 /** The cipher of the fake adapter above, for reading back what it encrypted. */
@@ -175,6 +177,7 @@ function internalOf(adapter: HueEmu): {
   setInterval: ReturnType<typeof vi.fn>;
   clearInterval: ReturnType<typeof vi.fn>;
   terminate: ReturnType<typeof vi.fn>;
+  registerNotification: ReturnType<typeof vi.fn>;
   subscribeStates: ReturnType<typeof vi.fn>;
   subscribeObjects: ReturnType<typeof vi.fn>;
   onObjectChange: (id: string, obj: ioBroker.Object | null | undefined) => void;
@@ -510,7 +513,7 @@ describe("HueEmu buildConfig", () => {
     for (const content of ["{ not json", JSON.stringify({ udn: "x", tlsCert: "C", privateKey: { $encrypted: "?" } })]) {
       writeFileSync(join(dataDir.current, "identity.json"), content);
       const { adapter } = setup();
-      expect(() => internalOf(adapter).loadIdentity()).toThrow(ConfigurationError);
+      expect(() => internalOf(adapter).loadIdentity()).toThrow(StartError);
       expect(() => internalOf(adapter).loadIdentity()).toThrow(/identity\.json cannot be used/);
       expect(readFileSync(join(dataDir.current, "identity.json"), "utf8")).toBe(content);
     }
@@ -895,11 +898,21 @@ describe("HueEmu onReady", () => {
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
   });
 
-  it("catches a failing boot (e.g. invalid config) instead of crashing", async () => {
-    const { adapter } = setup({ httpsPort: 8080 }); // httpsPort === port → buildConfig throws
+  // Start-failure standard (krobi 2026-11-11 23:32): a wrong setting ends with one error line, a notification and
+  // exit code 11 — js-controller starts the instance again when the user saves its settings.
+  it("ends a start with a wrong setting with one error line, a notification and exit code 11", async () => {
+    const { adapter, servers } = setup({ httpsPort: 8080 }); // httpsPort === port → buildConfig throws
     const i = internalOf(adapter);
     await i.onReady();
-    expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("Failed to start Hue Emulator"));
+    expect(servers).toHaveLength(0);
+    expect(i.log.error).toHaveBeenCalledTimes(1);
+    expect(i.log.error).toHaveBeenCalledWith(expect.stringMatching(/^Settings: HTTPS port 8080 equals HTTP port/));
+    expect(i.registerNotification).toHaveBeenCalledWith(
+      "hueemu",
+      "userActionRequired",
+      expect.stringContaining("choose a different HTTPS port in the instance settings"),
+    );
+    expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 11);
   });
 
   it("restores disableAuth from the persisted state with strict bool coercion (M2+M4)", async () => {

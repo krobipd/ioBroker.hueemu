@@ -14,8 +14,8 @@
  *
  * An alias whose target is an old client object points at the new one afterwards (fleet rule, krobi 2026-11-12: an
  * adapter that moves datapoints to a new id retargets the aliases on them; an alias on a foreign target stays as it
- * is). It is retargeted before the old objects go: only while the old object exists does a start know where it went,
- * so a start that ends in between retargets on the next run.
+ * is). The fleet master carries them (enum-carry.ts `moveAllWithEnums`, round 177): it reads the aliases with the enums
+ * before the delete and points each one at the new id afterwards.
  */
 
 import { tName, tRaw } from "./i18n";
@@ -56,8 +56,6 @@ export interface ClientMoveResult {
   keyless: number;
   /** Stored keys whose object is gone — forgotten. */
   forgotten: number;
-  /** Alias objects whose target was rewritten. */
-  aliases: number;
 }
 
 /**
@@ -105,59 +103,6 @@ export function nameText(name: unknown, fallback: string): string {
  */
 const text = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
 
-/**
- * An alias target with the moved ids followed — a plain id, or the read/write pair. The model's form (homeconnect
- * `src/lib/device-move.ts`) until the fleet template replaces the copies.
- *
- * @param target `common.alias.id` as stored
- * @param move old full id → new full id, for every id that moves (an id without entry stays)
- * @returns the new target, or undefined when it points at nothing that moves
- */
-export function movedAliasTarget(target: unknown, move: (id: string) => string | undefined): unknown {
-  if (typeof target === "string") {
-    return move(target);
-  }
-  if (target && typeof target === "object") {
-    const pair = target as { read?: unknown; write?: unknown };
-    const read = typeof pair.read === "string" ? move(pair.read) : undefined;
-    const write = typeof pair.write === "string" ? move(pair.write) : undefined;
-    if (read === undefined && write === undefined) {
-      return undefined;
-    }
-    return { ...pair, ...(read !== undefined ? { read } : {}), ...(write !== undefined ? { write } : {}) };
-  }
-  return undefined;
-}
-
-/**
- * Point every alias whose target moves at the new id. The model's form (homeconnect `src/lib/device-move.ts`).
- *
- * @param aliases the alias objects, as `getForeignObjectsAsync("alias.*", "state")` returns them
- * @param move old full id → new full id (undefined = does not move)
- * @param write writes one alias object whole
- * @returns how many aliases were rewritten
- */
-export async function retargetAliases(
-  aliases: Record<string, ioBroker.Object | null | undefined>,
-  move: (id: string) => string | undefined,
-  write: (id: string, obj: ioBroker.SettableObject) => Promise<unknown>,
-): Promise<number> {
-  let rewritten = 0;
-  for (const [id, obj] of Object.entries(aliases)) {
-    const alias = (obj?.common as { alias?: { id?: unknown } } | undefined)?.alias;
-    if (!obj || !alias) {
-      continue;
-    }
-    const moved = movedAliasTarget(alias.id, move);
-    if (moved === undefined) {
-      continue;
-    }
-    await write(id, { ...obj, common: { ...obj.common, alias: { ...alias, id: moved } } } as ioBroker.SettableObject);
-    rewritten++;
-  }
-  return rewritten;
-}
-
 /** One client object of an earlier version. */
 interface LegacyClient {
   /** Its id without the namespace. */
@@ -170,7 +115,7 @@ interface LegacyClient {
 
 /**
  * Move every client object of an earlier version to its current id and forget every stored key whose object is gone.
- * Throws when the objects cannot be read, the file or an alias cannot be written — nothing old is deleted then.
+ * Throws when the objects cannot be read or the file cannot be written — nothing old is deleted then.
  *
  * @param adapter the adapter
  * @param store the client keys, loaded
@@ -285,22 +230,9 @@ export async function moveClients(
     successors.set(`${ns}.${client.id}`, `${ns}.${newId}`);
   }
 
-  // The aliases before the delete — afterwards no start knows where an old object went.
-  let aliases = 0;
-  if (successors.size > 0) {
-    aliases = await retargetAliases(
-      ((await adapter.getForeignObjectsAsync("alias.*", "state")) ?? {}) as Record<
-        string,
-        ioBroker.Object | null | undefined
-      >,
-      id => successors.get(id),
-      (id, obj) => adapter.setForeignObject(id, obj),
-    );
-  }
-
   if (successors.size > 0 || userFolder) {
-    // The fleet order (enum-carry.ts): read the room and function assignments once, delete every old object (the old
-    // folder last), write each enum once with all its new ids.
+    // The fleet order (enum-carry.ts): read the room and function assignments and the aliases once, delete every old
+    // object (the old folder last), write each enum once with all its new ids, point each alias at the new id.
     await moveAllWithEnums(
       adapter,
       memberId => {
@@ -335,5 +267,5 @@ export async function moveClients(
       `${keyless} paired client object(s) have no stored key in ${CLIENTS_FILE} and cannot sign in — pair the client again with the link button and delete its old object`,
     );
   }
-  return { moved: successors.size, keyless, forgotten, aliases };
+  return { moved: successors.size, keyless, forgotten };
 }

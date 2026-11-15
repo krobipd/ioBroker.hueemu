@@ -3,7 +3,8 @@
  */
 
 import { networkInterfaces } from "node:os";
-import { ConfigurationError } from "./errors";
+import { StartError } from "./errors";
+import { SettingsError } from "../lib/start-failure";
 import { chosenAddress } from "../lib/network-address";
 
 /**
@@ -167,13 +168,15 @@ export function detectPrimaryIPv4(): string {
 }
 
 /**
- * Validate the resolved network config before the servers start. Throws with a
- * user-actionable message when no routable IP could be resolved to advertise
- * (an empty/0.0.0.0 advertise address is not reachable by clients) or when the
- * HTTPS port collides with the HTTP port (the second listen would otherwise
- * fail later with EADDRINUSE, far from the cause). The bind host itself may be
- * empty/0.0.0.0 — that just means "listen on all interfaces". Pure so the throw
- * branches are unit-testable without standing up the adapter.
+ * Validate the resolved network config before the servers start. A port that is no port
+ * number, or an HTTPS port that collides with the HTTP port (the second listen would
+ * otherwise fail later with EADDRINUSE, far from the cause), is a wrong setting: a
+ * `SettingsError` that names what to change (exit code 11 and a notification —
+ * start-failure.ts). No routable IP to advertise (an empty/0.0.0.0 advertise address is
+ * not reachable by clients) can pass by itself — a network that is not up yet — so it is a
+ * `StartError` (exit code 6, js-controller tries again). The bind host itself may be
+ * empty/0.0.0.0 — that just means "listen on all interfaces". Pure so the throw branches
+ * are unit-testable without standing up the adapter.
  *
  * @param advertiseHost - Resolved address advertised to clients (already trimmed).
  * @param port - Resolved HTTP port.
@@ -181,7 +184,7 @@ export function detectPrimaryIPv4(): string {
  */
 export function validateNetworkConfig(advertiseHost: string, port: number, httpsPort: number | undefined): void {
   if (chosenAddress(advertiseHost) === undefined) {
-    throw new ConfigurationError(
+    throw new StartError(
       "Could not determine a routable IP to advertise — set the Host/IP in admin config to the concrete address clients should reach",
     );
   }
@@ -192,10 +195,14 @@ export function validateNetworkConfig(advertiseHost: string, port: number, https
     ["HTTPS", httpsPort],
   ] as const) {
     if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > 65535)) {
-      throw new ConfigurationError(`${label} port ${value} is not a port number (1–65535)`);
+      throw new SettingsError(
+        `${label} port ${value} is not a port number (1–65535) — enter a port from 1 to 65535 in the instance settings`,
+      );
     }
   }
   if (httpsPort !== undefined && httpsPort === port) {
-    throw new ConfigurationError(`HTTPS port ${httpsPort} equals HTTP port — pick a different port`);
+    throw new SettingsError(
+      `HTTPS port ${httpsPort} equals HTTP port — choose a different HTTPS port in the instance settings`,
+    );
   }
 }

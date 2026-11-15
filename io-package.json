@@ -410,5 +410,70 @@
       },
       "native": {}
     }
+  ],
+  "notifications": [
+    {
+      "scope": "hueemu",
+      "name": {
+        "en": "Hue Bridge Emulator",
+        "de": "Hue-Bridge-Emulator",
+        "ru": "Эмулятор моста Hue",
+        "pt": "Emulador da Hue Bridge",
+        "nl": "Hue Bridge-emulator",
+        "fr": "Émulateur de pont Hue",
+        "it": "Emulatore del bridge Hue",
+        "es": "Emulador del puente Hue",
+        "pl": "Emulator mostka Hue",
+        "uk": "Емулятор мосту Hue",
+        "zh-cn": "Hue 网桥模拟器"
+      },
+      "description": {
+        "en": "Problems of the Hue Bridge Emulator that only you can fix.",
+        "de": "Probleme des Hue-Bridge-Emulators, die nur du beheben kannst.",
+        "ru": "Проблемы эмулятора моста Hue, которые можете устранить только вы.",
+        "pt": "Problemas do emulador da Hue Bridge que só você pode resolver.",
+        "nl": "Problemen van de Hue Bridge-emulator die alleen jij kunt oplossen.",
+        "fr": "Problèmes de l'émulateur de pont Hue que vous seul pouvez résoudre.",
+        "it": "Problemi dell'emulatore del bridge Hue che solo tu puoi risolvere.",
+        "es": "Problemas del emulador del puente Hue que solo tú puedes resolver.",
+        "pl": "Problemy emulatora mostka Hue, które tylko ty możesz rozwiązać.",
+        "uk": "Проблеми емулятора мосту Hue, які можете усунути лише ви.",
+        "zh-cn": "只有您才能解决的 Hue 网桥模拟器问题。"
+      },
+      "categories": [
+        {
+          "category": "userActionRequired",
+          "name": {
+            "en": "A setting stops the instance",
+            "de": "Eine Einstellung hält die Instanz an",
+            "ru": "Настройка останавливает экземпляр",
+            "pt": "Uma configuração impede a instância",
+            "nl": "Een instelling houdt de instantie tegen",
+            "fr": "Un paramètre arrête l'instance",
+            "it": "Un'impostazione ferma l'istanza",
+            "es": "Un ajuste detiene la instancia",
+            "pl": "Ustawienie zatrzymuje instancję",
+            "uk": "Налаштування зупиняє екземпляр",
+            "zh-cn": "某项设置使实例停止"
+          },
+          "severity": "alert",
+          "description": {
+            "en": "The instance stopped because one of its settings is wrong. Correct it in the instance settings and save — the instance then starts again.",
+            "de": "Die Instanz wurde angehalten, weil eine ihrer Einstellungen falsch ist. Korrigiere sie in den Instanz-Einstellungen und speichere — dann startet die Instanz wieder.",
+            "ru": "Экземпляр остановлен, потому что одна из его настроек неверна. Исправьте её в настройках экземпляра и сохраните — после этого экземпляр снова запустится.",
+            "pt": "A instância parou porque uma das suas configurações está errada. Corrija-a nas configurações da instância e salve — a instância então inicia novamente.",
+            "nl": "De instantie is gestopt omdat een van haar instellingen onjuist is. Corrigeer deze in de instantie-instellingen en sla op — daarna start de instantie opnieuw.",
+            "fr": "L'instance s'est arrêtée parce que l'un de ses paramètres est incorrect. Corrigez-le dans les paramètres de l'instance et enregistrez — l'instance redémarre alors.",
+            "it": "L'istanza si è fermata perché una delle sue impostazioni è errata. Correggila nelle impostazioni dell'istanza e salva — poi l'istanza si riavvia.",
+            "es": "La instancia se detuvo porque uno de sus ajustes es incorrecto. Corrígelo en los ajustes de la instancia y guarda — entonces la instancia vuelve a iniciarse.",
+            "pl": "Instancja została zatrzymana, ponieważ jedno z jej ustawień jest błędne. Popraw je w ustawieniach instancji i zapisz — wtedy instancja uruchomi się ponownie.",
+            "uk": "Екземпляр зупинено, бо одне з його налаштувань неправильне. Виправте його в налаштуваннях екземпляра та збережіть — після цього екземпляр знову запуститься.",
+            "zh-cn": "实例已停止，因为其某项设置有误。请在实例设置中更正并保存——实例随后会重新启动。"
+          },
+          "regex": [],
+          "limit": 1
+        }
+      ]
+    }
   ]
 }
