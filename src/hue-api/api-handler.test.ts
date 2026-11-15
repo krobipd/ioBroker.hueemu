@@ -136,7 +136,6 @@ function createHandler(
     adapter,
     configServiceConfig: {
       identity: createTestIdentity(),
-      advertiseHost: "192.168.1.100",
     },
     devices: [],
     logger: createMockLogger(),
@@ -348,7 +347,7 @@ describe("ApiHandler", () => {
       const logger = { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
       const handler = new ApiHandler({
         adapter: createMockAdapter([], { pairingEnabled: true }),
-        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        configServiceConfig: { identity: createTestIdentity() },
         devices: [],
         logger,
         clients: storeWith([]),
@@ -383,7 +382,7 @@ describe("ApiHandler", () => {
       const logger = { debug: vi.fn<LogFn>(), info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
       const handler = new ApiHandler({
         adapter: createMockAdapter(),
-        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        configServiceConfig: { identity: createTestIdentity() },
         devices: [],
         logger,
         clients: storeWith([]),
@@ -411,7 +410,7 @@ describe("ApiHandler", () => {
       const adapter = createMockAdapter([], { pairingEnabled: true });
       const handler = new ApiHandler({
         adapter,
-        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        configServiceConfig: { identity: createTestIdentity() },
         devices: [],
         logger: { debug: record, info: record, warn: record, error: record },
         clients: storeWith([]),
@@ -455,10 +454,20 @@ describe("ApiHandler", () => {
   describe("getFullConfig", () => {
     it("returns the full config and mirrors the live pairing state into linkbutton", () => {
       const { handler } = createHandler([], { pairingEnabled: true });
-      const config = handler.getFullConfig();
-      expect(config).toHaveProperty("ipaddress");
+      const config = handler.getFullConfig("192.168.1.100");
+      expect(config.ipaddress).toBe("192.168.1.100");
       expect(config).toHaveProperty("whitelist");
       expect(config.linkbutton).toBe(true);
+    });
+
+    // D17: the address is the one the asking client reaches the host under — the route resolves it
+    // per request; without one the config names no address at all, never one the adapter picked.
+    it("names the address the route resolved for the asking client, and none without one", () => {
+      const { handler } = createHandler();
+      expect(handler.getFullConfig("10.0.0.5")).toMatchObject({ ipaddress: "10.0.0.5", gateway: "10.0.0.1" });
+      const config = handler.getFullConfig();
+      expect(config).not.toHaveProperty("ipaddress");
+      expect(config).not.toHaveProperty("gateway");
     });
   });
 
@@ -485,7 +494,7 @@ describe("ApiHandler", () => {
       const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
       const handler = new ApiHandler({
         adapter,
-        configServiceConfig: { identity: createTestIdentity(), advertiseHost: "192.168.1.100" },
+        configServiceConfig: { identity: createTestIdentity() },
         devices: [
           { name: "Kitchen", lightType: "dimmable", onState: "test.on", briState: "test.bri" },
           { name: "Lounge", lightType: "onoff", onState: "test2.on" },

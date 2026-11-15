@@ -67,7 +67,7 @@ The instance is created stopped: choose the Host / IP and the port first, then s
 
 | Option                           | Description                                                                                                                                                  | Default |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| **Host / IP Address**            | The IP the bridge binds to and announces to clients (Alexa, Harmony). Choose `0.0.0.0` to listen on all interfaces — the announced IP is auto-detected       | 0.0.0.0 |
+| **Host / IP Address**            | Address the bridge listens on. `0.0.0.0`: all interfaces, each client is told the host's address in its network. A set address limits it to that network     | 0.0.0.0 |
 | **Port**                         | HTTP port for the Hue API                                                                                                                                    | 8080    |
 | **HTTPS Port**                   | Empty = no HTTPS. Current Echo devices try `443` first — see "Connecting with Alexa"                                                                         | —       |
 | **MAC Address**                  | Bridge MAC (auto-generated if empty)                                                                                                                         | —       |
@@ -167,7 +167,7 @@ If you used the old `createLight` JSON state to define lights, your devices are 
 ### Bridge not found
 
 - Ensure the UPnP port (1900) is not blocked by a firewall
-- The address the adapter announces is written to the log at start ("Announcing … to clients"). On a host with Docker, a VM bridge or a VPN, set the **Host / IP** to the concrete LAN address if that pick is wrong
+- With **Host / IP** on `0.0.0.0` the bridge tells each client the host's address in that client's network — a client in a network the host is not part of gets no answer
 - Check firewall rules on the ioBroker host
 
 ### Client finds no devices / pairing fails
@@ -220,6 +220,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Fixed: A new instance shows "Unknown" as the reason until its first start instead of an empty text.
 - Fixed: A bridge that cannot start, for example on a taken port, now ends with an error and js-controller restarts it.
 - New: A wrong setting, for example an invalid port, stops the instance with a notification in the admin — it starts again when you save the settings.
+- Changed: Listening on all addresses, the bridge tells each client the host's address in that client's network and announces itself in every own network.
 - Fixed: A message the adapter does not know (sendTo from a script) now gets an error answer instead of none.
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.

@@ -2,7 +2,7 @@
   "tabConfiguration": "配置",
   "serverSettings": "服务器",
   "bind": "主机 / IP地址",
-  "bindTooltip": "网桥绑定并向客户端（Alexa、Harmony）公布的 IP。选择 '0.0.0.0' 可在所有接口上监听——公布的 IP 将自动检测。",
+  "bindTooltip": "网桥监听的地址。'0.0.0.0' 在所有接口上监听，并向每个客户端告知主机在该客户端所在网络中的地址；指定地址会将网桥限制在该地址所在的网络。",
   "port": "端口",
   "portTooltip": "Hue API的HTTP端口（默认：8080）",
   "advancedSettings": "高级（可选）",

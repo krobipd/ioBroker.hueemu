@@ -33,11 +33,12 @@ listens on port 8080 unless you choose another one.
 
 ### 2. Host / IP address
 
-Leave **Host / IP** on `0.0.0.0` ("listen on all interfaces"). The adapter then works
-out the routable address of your ioBroker host and announces that one to clients.
+Leave **Host / IP** on `0.0.0.0` ("listen on all interfaces"). The bridge then listens
+in every network of your ioBroker host and tells each client the host's address in that
+client's network — it never picks one address by itself.
 
-Set a concrete address only if your host sits on **several networks** and the client
-can reach it on just one of them.
+Set a concrete address only if the bridge should serve **one network only**: it then
+listens and answers there alone.
 
 ### 3. Port
 
@@ -179,9 +180,9 @@ granted.
 
 **The client does not find the bridge.** Check that UDP port 1900 is not blocked
 between client and ioBroker host, and that both are on the same network segment — a
-guest network or a separate VLAN will not work without extra routing. On a host with
-several network cards, set **Host / IP** to the concrete LAN address instead of
-`0.0.0.0`. For Alexa, see port 80 and HTTPS 443 above.
+guest network or a separate VLAN will not work without extra routing: the bridge answers
+only clients in a network the ioBroker host itself is part of. For Alexa, see port 80 and
+HTTPS 443 above.
 
 **Pairing fails.** `startPairing` must be `true` **before** you start the search in the
 client, and the window is only 50 seconds. A client that pairs by asking for a key

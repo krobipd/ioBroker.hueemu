@@ -35,12 +35,12 @@ Port 8080, solange du keinen anderen wählst.
 
 ### 2. Host / IP-Adresse
 
-Lass **Host / IP** auf `0.0.0.0` („auf allen Schnittstellen lauschen"). Der Adapter
-ermittelt dann selbst die erreichbare Adresse deines ioBroker-Rechners und kündigt
-diese den Clients an.
+Lass **Host / IP** auf `0.0.0.0` („auf allen Schnittstellen lauschen"). Die Bridge
+lauscht dann in jedem Netz deines ioBroker-Rechners und nennt jedem Client die Adresse
+des Rechners in dessen Netz — sie wählt nie selbst eine Adresse aus.
 
-Eine feste Adresse trägst du nur ein, wenn dein Rechner in **mehreren Netzen** hängt
-und der Client ihn nur über eines davon erreicht.
+Eine feste Adresse trägst du nur ein, wenn die Bridge **nur ein Netz** bedienen soll:
+dann lauscht und antwortet sie allein dort.
 
 ### 3. Port
 
@@ -185,9 +185,9 @@ angenommen.
 
 **Der Client findet die Bridge nicht.** Prüfe, ob UDP-Port 1900 zwischen Client und
 ioBroker-Rechner offen ist und beide im selben Netzsegment liegen — ein Gastnetz oder
-ein eigenes VLAN funktioniert ohne zusätzliche Wegeleitung nicht. Hat der Rechner
-mehrere Netzwerkkarten, trag unter **Host / IP** die konkrete Adresse ein statt
-`0.0.0.0`. Für Alexa siehe Port 80 und HTTPS 443 oben.
+ein eigenes VLAN funktioniert ohne zusätzliche Wegeleitung nicht: die Bridge antwortet
+nur Clients in einem Netz, in dem der ioBroker-Rechner selbst hängt. Für Alexa siehe
+Port 80 und HTTPS 443 oben.
 
 **Die Kopplung schlägt fehl.** `startPairing` muss `true` sein, **bevor** du die Suche
 im Client startest, und das Fenster ist nur 50 Sekunden offen. Ein Client, der sich per

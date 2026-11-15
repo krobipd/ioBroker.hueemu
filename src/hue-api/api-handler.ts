@@ -229,12 +229,13 @@ export class ApiHandler implements HueApiHandler {
    * Get full bridge state
    *
    * @param username - Authenticated username
+   * @param host - This host's address for the asking client (D17, `ownAddressFor`), or undefined
    */
-  public async getFullState(username: string): Promise<FullState> {
+  public async getFullState(username: string, host?: string): Promise<FullState> {
     this.logger.debug(`Get full state for user: ${oneLine(this.keyForLog(username))}`);
 
     const lights = await this.deviceBinding.getAllLights();
-    const state = this.configService.buildFullState(lights);
+    const state = this.configService.buildFullState(lights, host);
     state.config.linkbutton = this.adapter.pairingEnabled;
     return state;
   }
@@ -252,10 +253,11 @@ export class ApiHandler implements HueApiHandler {
    * Get the full bridge configuration for an authenticated user. Mirrors the
    * live pairing state into `linkbutton`, exactly like the full-state response.
    *
+   * @param host - This host's address for the asking client (D17, `ownAddressFor`), or undefined
    */
-  public getFullConfig(): BridgeConfigFull {
+  public getFullConfig(host?: string): BridgeConfigFull {
     this.logger.debug("Get full config");
-    const config = this.configService.getFullConfig();
+    const config = this.configService.getFullConfig(host);
     config.linkbutton = this.adapter.pairingEnabled;
     return config;
   }

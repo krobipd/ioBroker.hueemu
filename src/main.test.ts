@@ -208,7 +208,6 @@ function internalOf(adapter: HueEmu): {
   buildConfig: () => {
     bind: string;
     port: number;
-    advertiseHost: string;
     identity: { udn: string; mac: string };
     https?: { cert: string; key: string };
   };
@@ -420,9 +419,12 @@ describe("HueEmu network address (fleet master network-address.ts)", () => {
     const { adapter, servers } = setup({ bind: "192.168.1.99" });
     const i = internalOf(adapter);
     await i.onReady();
-    const options = servers[0].options as { config: { bind: string; advertiseHost: string } };
+    const options = servers[0].options as {
+      config: { bind: string };
+      addressFor: (peer: string | undefined) => string | undefined;
+    };
     expect(options.config.bind).toBe("0.0.0.0");
-    expect(options.config.advertiseHost).toBe("192.168.1.10");
+    expect(options.addressFor("192.168.1.30")).toBe("192.168.1.10");
     const warnings = i.log.warn.mock.calls.filter((c: unknown[]) => String(c[0]).includes("192.168.1.99"));
     expect(warnings).toHaveLength(1);
     expect(String(warnings[0][0])).toContain("does not exist on this host");
@@ -526,45 +528,49 @@ describe("HueEmu buildConfig", () => {
     expect(() => internalOf(adapter).loadIdentity()).toThrow(/could not be stored/);
   });
 
-  it("treats a blank bind as listen-all and announces the routable interface, not loopback", () => {
+  // D17 (krobi 2026-11-11 19:34): without a chosen address the adapter picks none — each client is told the host's
+  // address in its own network, a client in no own network none.
+  it("treats a blank bind as listen-all and names each client the host's address in its network", async () => {
     osMock.interfaces = {
-      lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
-      eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
+      ...structuredClone(HOST_INTERFACES),
+      eth1: [{ family: "IPv4", address: "10.0.0.5", internal: false, cidr: "10.0.0.5/24" }],
     };
-    try {
-      const { adapter } = setup({ bind: "  " });
-      const i = internalOf(adapter);
-      const config = configOf(adapter);
-      expect(config.bind).toBe("0.0.0.0");
-      expect(config.advertiseHost).toBe("192.168.1.20");
-      expect(i.log.info).toHaveBeenCalledWith(expect.stringContaining("Announcing 192.168.1.20 (interface eth0)"));
-    } finally {
-      osMock.interfaces = null;
-    }
+    const { adapter, servers } = setup({ bind: "  " });
+    const i = internalOf(adapter);
+    await i.onReady();
+    const options = servers[0].options as {
+      config: { bind: string };
+      addressFor: (peer: string | undefined) => string | undefined;
+    };
+    expect(options.config.bind).toBe("0.0.0.0");
+    expect(options.addressFor("192.168.1.30")).toBe("192.168.1.10");
+    expect(options.addressFor("10.0.0.7")).toBe("10.0.0.5");
+    expect(options.addressFor("172.16.0.9")).toBeUndefined();
+    expect(options.addressFor("127.0.0.1")).toBeUndefined();
   });
 
   // v1.19.0: the pre-1.12 advertiseHost is migrated into bind (or dropped) before
   // buildConfig runs — a leftover value is no longer read.
-  it("ignores a leftover advertiseHost and announces the detected address", () => {
-    osMock.interfaces = { eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }] };
-    try {
-      const { adapter } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
-      const config = configOf(adapter);
-      expect(config.advertiseHost).toBe("192.168.1.20");
-    } finally {
-      osMock.interfaces = null;
-    }
+  it("reads no leftover advertiseHost", () => {
+    const { adapter } = setup({ bind: "0.0.0.0", advertiseHost: "10.1.2.3" });
+    expect(configOf(adapter)).not.toHaveProperty("advertiseHost");
   });
 
-  it("advertises a concrete bind address the host carries", () => {
+  it("names a concrete bind address the host carries to a client in its network, and nothing outside it", async () => {
     osMock.interfaces = {
       ...structuredClone(HOST_INTERFACES),
       eth1: [{ family: "IPv4", address: "192.168.5.5", internal: false, cidr: "192.168.5.5/24" }],
     };
-    const { adapter } = setup({ bind: "192.168.5.5" });
-    const config = configOf(adapter);
-    expect(config.bind).toBe("192.168.5.5");
-    expect(config.advertiseHost).toBe("192.168.5.5");
+    const { adapter, servers } = setup({ bind: "192.168.5.5" });
+    const i = internalOf(adapter);
+    await i.onReady();
+    const options = servers[0].options as {
+      config: { bind: string };
+      addressFor: (peer: string | undefined) => string | undefined;
+    };
+    expect(options.config.bind).toBe("192.168.5.5");
+    expect(options.addressFor("192.168.5.20")).toBe("192.168.5.5");
+    expect(options.addressFor("192.168.1.30")).toBeUndefined();
   });
 
   it("throws when the HTTPS port equals the HTTP port", () => {

@@ -15,8 +15,6 @@ const IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 export interface ConfigServiceConfig {
   /** Bridge identity */
   identity: BridgeIdentity;
-  /** Advertised host (concrete IP shown to clients in the bridge config) */
-  advertiseHost: string;
   /**
    * v1.4.3 (C6): paired client ids — used to populate the `whitelist` field
    * so spec-conformant Hue clients see who's currently paired. Synchronous on
@@ -43,7 +41,6 @@ export interface WhitelistClient {
  */
 export class ConfigService {
   private readonly identity: BridgeIdentity;
-  private readonly advertiseHost: string;
   private readonly whitelistProvider?: () => readonly WhitelistClient[];
 
   // Bridge configuration constants
@@ -60,7 +57,6 @@ export class ConfigService {
    */
   constructor(config: ConfigServiceConfig) {
     this.identity = config.identity;
-    this.advertiseHost = config.advertiseHost;
     this.whitelistProvider = config.whitelistProvider;
   }
 
@@ -158,12 +154,17 @@ export class ConfigService {
    * produced garbage on IPv6 hosts.
    * v1.4.3 (C2+C3): real timezone + locally-shifted localtime.
    * v1.4.3 (C6): expose paired clients in `whitelist` for spec compliance.
+   * D17 (fleet rule krobi 2026-11-11 19:34): `ipaddress` is the address the asking client
+   * reaches this host under — `ownAddressFor` of the fleet master, resolved by the caller
+   * for the request; without one (no own network holds the client) the field is left out.
+   *
+   * @param host - This host's address for the asking client, or undefined
    */
-  public getFullConfig(): BridgeConfigFull {
+  public getFullConfig(host?: string): BridgeConfigFull {
     const tz = ConfigService.getHostTimezone();
     const now = new Date();
-    const isIPv4 = IPV4_RE.test(this.advertiseHost);
-    const gateway = isIPv4 ? this.advertiseHost.replace(/\.\d+$/, ".1") : this.advertiseHost;
+    const address =
+      host === undefined ? {} : { ipaddress: host, gateway: IPV4_RE.test(host) ? host.replace(/\.\d+$/, ".1") : host };
     let whitelist: Record<string, { name: string; "create date": string; "last use date": string }> = {};
     if (this.whitelistProvider) {
       try {
@@ -186,9 +187,8 @@ export class ConfigService {
     }
     return {
       ...this.getConfig(),
-      ipaddress: this.advertiseHost,
+      ...address,
       netmask: "255.255.255.0",
-      gateway,
       dhcp: true,
       portalservices: true,
       portalconnection: "connected",
@@ -215,12 +215,13 @@ export class ConfigService {
    * Build full state response
    *
    * @param lights - Collection of lights to include in the state
+   * @param host - This host's address for the asking client (see {@link getFullConfig})
    */
-  public buildFullState(lights: LightsCollection): FullState {
+  public buildFullState(lights: LightsCollection, host?: string): FullState {
     return {
       lights,
       groups: {},
-      config: this.getFullConfig(),
+      config: this.getFullConfig(host),
       schedules: {},
       scenes: {},
       rules: {},

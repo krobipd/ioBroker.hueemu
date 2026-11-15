@@ -2,10 +2,7 @@
  * Configuration types for the Hue Emulator
  */
 
-import { networkInterfaces } from "node:os";
-import { StartError } from "./errors";
 import { SettingsError } from "../lib/start-failure";
-import { chosenAddress } from "../lib/network-address";
 
 /**
  * TLS/SSL configuration for HTTPS support
@@ -41,10 +38,11 @@ export interface BridgeIdentity {
 export interface HueEmulatorConfig {
   /** Address to bind the server to (may be 0.0.0.0 to listen on all interfaces) */
   bind: string;
-  /** HTTP port (used both for binding and for the advertised description URL) */
+  /**
+   * HTTP port (used both for binding and in the description URL). The address a client is
+   * told comes per client — `ownAddressFor` of the fleet master network-address.ts (D17).
+   */
   port: number;
-  /** Concrete IP advertised to clients (SSDP location / description.xml / config). Never 0.0.0.0. */
-  advertiseHost: string;
   /** Optional HTTPS configuration */
   https?: TlsConfig;
   /** Bridge identity */
@@ -117,77 +115,16 @@ export function macFromUdn(udn: string): string {
 }
 
 /**
- * Interface names that carry a container, a VM or a tunnel rather than the LAN.
- * An address on one of them is routable in Node's sense and useless to a Hue
- * client on the network — announcing it means Alexa never finds the bridge, and
- * nothing in the log says why (audit 2026-09-06 F7).
- */
-const VIRTUAL_IFACE_RE = /^(docker|br-|veth|virbr|vmnet|vboxnet|tun|tap|utun|wg|zt|tailscale|ham|lo)/i;
-
-/** One routable IPv4 address together with the interface it belongs to. */
-export interface IPv4Address {
-  /** Interface name, e.g. "eth0". */
-  iface: string;
-  /** Dotted-quad address. */
-  address: string;
-  /** Whether the interface name looks like a container/VM/tunnel device. */
-  virtual: boolean;
-}
-
-/**
- * Every non-internal IPv4 address of the host, in the order the OS reports them.
- *
- * The single source for both callers — the advertised address and the SSDP
- * multicast join. They used to walk `networkInterfaces()` separately and could
- * disagree about which addresses count (audit 2026-09-06 F8).
- */
-export function listIPv4Addresses(): IPv4Address[] {
-  const found: IPv4Address[] = [];
-  for (const [iface, addrs] of Object.entries(networkInterfaces())) {
-    for (const addr of addrs ?? []) {
-      // `family` is the string "IPv4" on every supported Node (engines >= 22); the
-      // number 4 was Node 18.0–18.3 only (audit R-22).
-      if (addr.family === "IPv4" && !addr.internal) {
-        found.push({ iface, address: addr.address, virtual: VIRTUAL_IFACE_RE.test(iface) });
-      }
-    }
-  }
-  return found;
-}
-
-/**
- * Best-effort primary IPv4 of the host, used as the advertised address when the
- * config says "listen on all interfaces". SSDP and description.xml must name an
- * address a client can actually reach, so a real network interface always wins
- * over a docker bridge or a VPN tunnel; a host that has nothing else falls back
- * to whatever there is. Returns "" if there is no non-internal IPv4 at all.
- */
-export function detectPrimaryIPv4(): string {
-  const addresses = listIPv4Addresses();
-  return (addresses.find(a => !a.virtual) ?? addresses[0])?.address ?? "";
-}
-
-/**
- * Validate the resolved network config before the servers start. A port that is no port
- * number, or an HTTPS port that collides with the HTTP port (the second listen would
- * otherwise fail later with EADDRINUSE, far from the cause), is a wrong setting: a
- * `SettingsError` that names what to change (exit code 11 and a notification —
- * start-failure.ts). No routable IP to advertise (an empty/0.0.0.0 advertise address is
- * not reachable by clients) can pass by itself — a network that is not up yet — so it is a
- * `StartError` (exit code 6, js-controller tries again). The bind host itself may be
- * empty/0.0.0.0 — that just means "listen on all interfaces". Pure so the throw branches
+ * Validate the resolved ports before the servers start. A port that is no port number, or an
+ * HTTPS port that collides with the HTTP port (the second listen would otherwise fail later
+ * with EADDRINUSE, far from the cause), is a wrong setting: a `SettingsError` that names what
+ * to change (exit code 11 and a notification — start-failure.ts). Pure so the throw branches
  * are unit-testable without standing up the adapter.
  *
- * @param advertiseHost - Resolved address advertised to clients (already trimmed).
  * @param port - Resolved HTTP port.
  * @param httpsPort - Resolved HTTPS port, or undefined when HTTPS is off.
  */
-export function validateNetworkConfig(advertiseHost: string, port: number, httpsPort: number | undefined): void {
-  if (chosenAddress(advertiseHost) === undefined) {
-    throw new StartError(
-      "Could not determine a routable IP to advertise — set the Host/IP in admin config to the concrete address clients should reach",
-    );
-  }
+export function validateNetworkConfig(port: number, httpsPort: number | undefined): void {
   // The admin form keeps a port within 1..65535; an instance object edited by
   // hand does not, and a listen() on port 0 or 70000 fails far from the cause.
   for (const [label, value] of [

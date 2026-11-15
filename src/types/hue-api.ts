@@ -144,9 +144,10 @@ export interface HueApiHandler {
   createUser(body: CreateUserRequest): Promise<string>;
 
   /**
-   * Get full bridge state (GET /api/:username)
+   * Get full bridge state (GET /api/:username); `host` is this host's address for the asking
+   * client (D17, `ownAddressFor` of the fleet master)
    */
-  getFullState(username: string): Promise<FullState>;
+  getFullState(username: string, host?: string): Promise<FullState>;
 
   /**
    * Get bridge configuration (GET /api/:username/config, unauthenticated / reduced)
@@ -154,9 +155,10 @@ export interface HueApiHandler {
   getConfig(): BridgeConfigPublic;
 
   /**
-   * Get the full bridge configuration (GET /api/:username/config with a valid user)
+   * Get the full bridge configuration (GET /api/:username/config with a valid user); `host` as
+   * for {@link getFullState}
    */
-  getFullConfig(): BridgeConfigFull;
+  getFullConfig(host?: string): BridgeConfigFull;
 
   /**
    * Get all lights (GET /api/:username/lights)

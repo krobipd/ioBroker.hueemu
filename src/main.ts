@@ -25,17 +25,15 @@ import { KnownObjects, sameStructure } from "./lib/known-objects";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
   BRIDGE_MODEL_ID,
-  detectPrimaryIPv4,
   generateBridgeId,
   generateSerialNumber,
-  listIPv4Addresses,
   macFromUdn,
   validateNetworkConfig,
 } from "./types/config";
 import { REASON_UNKNOWN, StartError } from "./types/errors";
 import { failStart, SettingsError } from "./lib/start-failure";
 import { migrateNativeKeys } from "./lib/native-key-migration";
-import { carriesAddress, chosenAddress, isOwnPeer } from "./lib/network-address";
+import { carriesAddress, chosenAddress, isOwnPeer, localNets, ownAddressFor } from "./lib/network-address";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText } from "./lib/err-text";
 
@@ -145,6 +143,17 @@ class HueEmu extends utils.Adapter {
    * @returns true if the client may be answered
    */
   private readonly isOwnClient = (address: string | undefined): boolean => isOwnPeer(address, this.bindIp);
+
+  /**
+   * This host's address for a client (D17, krobi 2026-11-11 19:34): the chosen address, or without one
+   * the host's own address in the client's network — the adapter never picks one itself. Read fresh on
+   * every question, like the trust boundary.
+   *
+   * @param peer the client address
+   * @returns the address to name to the client, or undefined when no own network holds it
+   */
+  private readonly ownAddressForClient = (peer: string | undefined): string | undefined =>
+    ownAddressFor(peer, this.bindIp);
 
   /** Whether pairing mode is active */
   get pairingEnabled(): boolean {
@@ -300,7 +309,7 @@ class HueEmu extends utils.Adapter {
       );
       const migrations = buildNativeKeyMigrations(
         this.config as unknown as Record<string, unknown>,
-        listIPv4Addresses().map(a => a.address),
+        localNets().map(net => net.address),
         moved.stored,
       );
       if (await migrateNativeKeys(this, migrations, errText)) {
@@ -341,7 +350,6 @@ class HueEmu extends utils.Adapter {
       // Initialize SSDP discovery server
       this.ssdpServer = this.makeSsdpServer({
         identity: emulatorConfig.identity,
-        host: emulatorConfig.advertiseHost,
         port: emulatorConfig.port,
         bindIp: this.bindIp,
         isClientAllowed: this.isOwnClient,
@@ -359,7 +367,6 @@ class HueEmu extends utils.Adapter {
         adapter: this,
         configServiceConfig: {
           identity: emulatorConfig.identity,
-          advertiseHost: emulatorConfig.advertiseHost,
         },
         devices,
         logger,
@@ -379,6 +386,7 @@ class HueEmu extends utils.Adapter {
         handler: this.apiHandler,
         logger,
         isClientAllowed: this.isOwnClient,
+        addressFor: this.ownAddressForClient,
       });
 
       // v1.10.0 (L1): restore persisted flags (disableAuth) BEFORE the HTTP
@@ -442,7 +450,7 @@ class HueEmu extends utils.Adapter {
       }
       await this.setConnected(true, "");
       this.log.info(
-        `Hue Emulator running, reachable at ${emulatorConfig.advertiseHost}:${emulatorConfig.port}${emulatorConfig.https ? " (HTTPS)" : ""}, ${devices.length} device(s)`,
+        `Hue Emulator running on ${this.bindIp ?? "every address"}, port ${emulatorConfig.port}${emulatorConfig.https ? ` (HTTPS ${emulatorConfig.https.port})` : ""}, ${devices.length} device(s)`,
       );
     } catch (error) {
       // The fleet's start-failure standard (src/lib/start-failure.ts, krobi 2026-11-11 23:32; GV-28 krobi 2026-10-03
@@ -627,27 +635,17 @@ class HueEmu extends utils.Adapter {
     this.bindIp = bindIp;
     const bind = bindIp ?? "0.0.0.0";
     const port = this.toPort(this.config.port);
-    // v1.12.0: one Host/IP selector is bind AND advertise. A concrete address is
-    // announced as-is (SSDP location / description.xml / config); "0.0.0.0"
-    // (listen on all interfaces) auto-detects a routable IP to announce, never
-    // advertising 0.0.0.0. (The pre-1.12 advertiseHost field is migrated into bind
+    // One Host/IP selector is the address the bridge listens on and names (v1.12.0). Without a
+    // chosen address it listens on every address, and each client is told the host's address in
+    // ITS network — SSDP location, description.xml, config — never an address the adapter
+    // picked (D17, fleet rule krobi 2026-11-11 19:34; `ownAddressFor` of the fleet master, asked per
+    // client — `ownAddressForClient` for the HTTP server, ssdp-server.ts for the search answer).
+    // (The pre-1.12 advertiseHost field is migrated into bind
     // or dropped on the first start of v1.19.0 — native-key-list.ts.)
-    const advertiseHost = bindIp ?? detectPrimaryIPv4();
-    if (bindIp === undefined && advertiseHost) {
-      // The address clients are told to use is a choice the adapter made — say
-      // which one, so a wrong pick (a docker bridge, a VPN tunnel) is visible in
-      // the log instead of only in "Alexa cannot find the bridge".
-      const iface = listIPv4Addresses().find(a => a.address === advertiseHost);
-      this.log.info(
-        `Announcing ${advertiseHost}${iface ? ` (interface ${iface.iface})` : ""} to clients — set Host/IP in the settings to override`,
-      );
-    }
     const httpsPort = parsePort(this.config.httpsPort);
-    // v1.9.0: the bind host may be 0.0.0.0 (listen on all interfaces); what must
-    // resolve is a routable advertiseHost. v1.4.3 (SV4): an HTTPS port equal to
-    // the HTTP port makes the second listen() throw EADDRINUSE far from the
-    // cause. Both surfaced up-front via validateNetworkConfig.
-    validateNetworkConfig(advertiseHost, port, httpsPort);
+    // v1.4.3 (SV4): an HTTPS port equal to the HTTP port makes the second listen() throw
+    // EADDRINUSE far from the cause — surfaced up-front via validateNetworkConfig.
+    validateNetworkConfig(port, httpsPort);
     // Type guard at the boundary: a hand-edited instance object can carry a number
     // or null here, and `.trim()` on it stopped the start (audit R-05). An empty MAC
     // is derived from the UDN on every start and never written (audit R-24).
@@ -682,15 +680,12 @@ class HueEmu extends utils.Adapter {
     this.log.debug(
       `Bridge identity: bridgeId=${identity.bridgeId}, MAC=${identity.mac}, serial=${identity.serialNumber}`,
     );
-    this.log.debug(
-      `Network: bind=${bind}:${port}, advertise=${advertiseHost}, SSDP=:${SSDP_PORT}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`,
-    );
+    this.log.debug(`Network: bind=${bind}:${port}, SSDP=:${SSDP_PORT}${httpsPort ? `, HTTPS=:${httpsPort}` : ""}`);
     this.log.debug(`UDN: ${identity.udn}`);
 
     return {
       bind,
       port,
-      advertiseHost,
       https,
       identity,
       trustProxy: this.config.trustProxy === true,

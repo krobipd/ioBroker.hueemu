@@ -141,17 +141,18 @@ async function bridge(mem: Memory, devices: DeviceConfig[]): Promise<{ routes: R
   clients.load();
   const handler = new ApiHandler({
     adapter: mem.adapter,
-    configServiceConfig: { identity: IDENTITY, advertiseHost: "192.168.1.10" },
+    configServiceConfig: { identity: IDENTITY },
     devices,
     logger: mem.adapter.log,
     clients,
   });
   await handler.initialize();
   const server = new HueServer({
-    config: { bind: "0.0.0.0", port: 8080, advertiseHost: "192.168.1.10", identity: IDENTITY, trustProxy: false },
+    config: { bind: "0.0.0.0", port: 8080, identity: IDENTITY, trustProxy: false },
     handler,
     logger: mem.adapter.log,
     isClientAllowed: () => true,
+    addressFor: () => "192.168.1.10",
   });
   const routes = await (server as unknown as { createServer(https: boolean): Promise<Routes> }).createServer(false);
   servers.push(routes);

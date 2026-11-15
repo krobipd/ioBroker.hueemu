@@ -131,7 +131,6 @@ async function started(): Promise<{ adapter: ApiHandlerAdapter; internals: Inter
         modelId: "BSB002",
         serialNumber: "aabbccddeeff",
       },
-      advertiseHost: "192.168.1.10",
     },
     devices: [],
     logger: adapter.log,

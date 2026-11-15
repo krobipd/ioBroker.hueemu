@@ -14,6 +14,7 @@ import type { Mock } from "vitest";
 const h = vi.hoisted(() => {
   interface FakeSocket {
     bound: number[];
+    boundTo: string[];
     membership: string[];
     ttl: number[];
     closed: boolean;
@@ -23,7 +24,7 @@ const h = vi.hoisted(() => {
     once: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
     on: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
     removeListener: (ev: string, cb: (...a: unknown[]) => void) => FakeSocket;
-    bind: (port: number, cb?: () => void) => FakeSocket;
+    bind: (port: number | { address: string; port: number }, cb?: () => void) => FakeSocket;
     addMembership: (addr: string, iface?: string) => void;
     setMulticastInterface: (iface: string) => void;
     multicastIf: string[];
@@ -34,11 +35,20 @@ const h = vi.hoisted(() => {
     emit: (ev: string, ...args: unknown[]) => void;
   }
   const sockets: FakeSocket[] = [];
-  const fail = { bind: false, join: false, ttl: false, send: false, sendThrows: false, holdSendCallbacks: false };
+  const fail = {
+    bind: false,
+    senderBind: "",
+    join: false,
+    ttl: false,
+    send: false,
+    sendThrows: false,
+    holdSendCallbacks: false,
+  };
   const heldSendCallbacks: Array<() => void> = [];
   const make = (): FakeSocket => {
     const s: FakeSocket = {
       bound: [],
+      boundTo: [],
       membership: [],
       ttl: [],
       multicastIf: [],
@@ -56,8 +66,11 @@ const h = vi.hoisted(() => {
         return s;
       },
       bind: (port, cb) => {
-        s.bound.push(port);
-        if (fail.bind) {
+        s.bound.push(typeof port === "number" ? port : port.port);
+        if (typeof port !== "number") {
+          s.boundTo.push(port.address);
+        }
+        if (fail.bind || (typeof port !== "number" && port.address === fail.senderBind)) {
           s.emit("error", new Error("EADDRINUSE: port 1900 busy"));
         } else {
           cb?.();
@@ -110,7 +123,7 @@ const h = vi.hoisted(() => {
     sockets.push(s);
     return s;
   };
-  const interfaces: Record<string, Array<{ address: string; family: string; internal: boolean }>> = {};
+  const interfaces: Record<string, Array<{ address: string; family: string; internal: boolean; cidr?: string }>> = {};
   return { sockets, make, fail, heldSendCallbacks, interfaces };
 });
 
@@ -124,7 +137,10 @@ function spyLogger(): Logger & Record<"debug" | "warn" | "error", Mock<LogFn>> {
 }
 
 const identity = createTestIdentity();
-const BRIDGE = { bridgeId: identity.bridgeId, location: "http://192.168.1.100:8080/description.xml" };
+// D17 (krobi 2026-11-11 19:34, fleet master network-address.ts): the bridge names to each client the host's address
+// in that client's network — a client in 10.0.0.0/24 gets 10.0.0.5, one in 192.168.1.0/24 gets 192.168.1.100.
+const BRIDGE = { bridgeId: identity.bridgeId, location: "http://10.0.0.5:8080/description.xml" };
+const BRIDGE_LAN = { bridgeId: identity.bridgeId, location: "http://192.168.1.100:8080/description.xml" };
 const TABLE = buildUsnTable(identity.udn);
 const MSEARCH_BASIC = [
   "M-SEARCH * HTTP/1.1",
@@ -143,7 +159,6 @@ function makeServer(
 ): HueSsdpServer {
   return new HueSsdpServer({
     identity,
-    host: network.bindIp ?? "192.168.1.100",
     port: 8080,
     logger,
     onFatalError,
@@ -156,14 +171,15 @@ describe("HueSsdpServer", () => {
   beforeEach(() => {
     h.sockets.length = 0;
     h.heldSendCallbacks.length = 0;
-    Object.keys(h.fail).forEach(k => ((h.fail as Record<string, boolean>)[k] = false));
+    Object.keys(h.fail).forEach(k => ((h.fail as Record<string, boolean | string>)[k] = false));
+    h.fail.senderBind = "";
     Object.keys(h.interfaces).forEach(k => delete h.interfaces[k]);
-    h.interfaces.lo0 = [{ address: "127.0.0.1", family: "IPv4", internal: true }];
+    h.interfaces.lo0 = [{ address: "127.0.0.1", family: "IPv4", internal: true, cidr: "127.0.0.1/8" }];
     h.interfaces.en0 = [
-      { address: "192.168.1.100", family: "IPv4", internal: false },
-      { address: "fe80::1", family: "IPv6", internal: false },
+      { address: "192.168.1.100", family: "IPv4", internal: false, cidr: "192.168.1.100/24" },
+      { address: "fe80::1", family: "IPv6", internal: false, cidr: "fe80::1/64" },
     ];
-    h.interfaces.en1 = [{ address: "10.0.0.5", family: "IPv4", internal: false }];
+    h.interfaces.en1 = [{ address: "10.0.0.5", family: "IPv4", internal: false, cidr: "10.0.0.5/24" }];
     vi.clearAllMocks();
   });
 
@@ -230,8 +246,9 @@ describe("HueSsdpServer", () => {
       const logger = spyLogger();
       const server = makeServer(logger);
       await server.start();
+      const opened = h.sockets.length;
       await server.start();
-      expect(h.sockets).toHaveLength(1);
+      expect(h.sockets).toHaveLength(opened);
       expect(logger.debug).toHaveBeenCalledWith("SSDP server already running");
     });
   });
@@ -277,6 +294,44 @@ describe("HueSsdpServer", () => {
         },
       ]);
       expect(logger.debug).toHaveBeenCalledWith("SSDP M-SEARCH response → 10.0.0.7");
+    });
+
+    it("names to each client the host's address in that client's network (D17)", async () => {
+      const server = makeServer();
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "192.168.1.20", port: 51000 });
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51001 });
+
+      const dateUtc = new Date().toUTCString();
+      const answer = { st: "urn:schemas-upnp-org:device:Basic:1", usn: TABLE[0].usn };
+      expect(socket.sent).toEqual([
+        { text: buildSearchResponse(answer, BRIDGE_LAN, dateUtc), port: 51000, address: "192.168.1.20" },
+        { text: buildSearchResponse(answer, BRIDGE, dateUtc), port: 51001, address: "10.0.0.7" },
+      ]);
+    });
+
+    it("names the chosen address to a client in its network and answers no client outside it", async () => {
+      const server = makeServer(spyLogger(), undefined, { bindIp: "10.0.0.5" });
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "192.168.1.20", port: 51000 });
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51001 });
+
+      expect(socket.sent.map(x => x.address)).toEqual(["10.0.0.7"]);
+      expect(socket.sent[0].text).toContain("LOCATION: http://10.0.0.5:8080/description.xml");
+    });
+
+    it("answers no client in no network of the host, even one the trust boundary lets through", async () => {
+      const server = makeServer();
+      await server.start();
+      const socket = h.sockets[0];
+
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "172.16.0.9", port: 51000 });
+
+      expect(socket.sent).toEqual([]);
     });
 
     it("answers ssdp:all with all four targets", async () => {
@@ -367,8 +422,8 @@ describe("HueSsdpServer", () => {
   });
 
   describe("announce", () => {
-    it("sends one alive NOTIFY per target to the multicast group", async () => {
-      const server = makeServer();
+    it("sends one alive NOTIFY per target with the chosen address to the multicast group", async () => {
+      const server = makeServer(spyLogger(), undefined, { bindIp: "10.0.0.5" });
       await server.start();
 
       server.announce();
@@ -382,8 +437,57 @@ describe("HueSsdpServer", () => {
       );
     });
 
-    it("is a no-op before start and after stop", async () => {
+    // D17 (Werkbank text of 2026-11-15): a NOTIFY has no asker — without a chosen address it goes out once per own
+    // network, from a sender bound to that network's address and pinned to its interface, naming that address.
+    it("sends the NOTIFYs once per own network without a chosen address, each from and naming its address", async () => {
       const server = makeServer();
+      await server.start();
+
+      server.announce();
+
+      const [receiver, lan, other] = h.sockets;
+      expect(receiver.sent).toEqual([]);
+      expect({ bound: lan.boundTo, pinned: lan.multicastIf, ttl: lan.ttl }).toEqual({
+        bound: ["192.168.1.100"],
+        pinned: ["192.168.1.100"],
+        ttl: [4],
+      });
+      expect(other.boundTo).toEqual(["10.0.0.5"]);
+      expect(other.multicastIf).toEqual(["10.0.0.5"]);
+      expect(lan.sent).toEqual(
+        TABLE.map(entry => ({
+          text: buildAliveNotify(entry, BRIDGE_LAN),
+          port: SSDP_PORT,
+          address: "239.255.255.250",
+        })),
+      );
+      expect(other.sent).toEqual(
+        TABLE.map(entry => ({ text: buildAliveNotify(entry, BRIDGE), port: SSDP_PORT, address: "239.255.255.250" })),
+      );
+    });
+
+    it("opens no sender of its own with a chosen address", async () => {
+      await makeServer(spyLogger(), undefined, { bindIp: "10.0.0.5" }).start();
+      expect(h.sockets).toHaveLength(1);
+    });
+
+    it("keeps announcing in the other networks when one sender cannot open", async () => {
+      h.fail.senderBind = "192.168.1.100";
+      const logger = spyLogger();
+      const server = makeServer(logger);
+      await server.start();
+
+      server.announce();
+
+      const [, lan, other] = h.sockets;
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("SSDP sender on 192.168.1.100 could not open"));
+      expect(lan.closed).toBe(true);
+      expect(lan.sent).toEqual([]);
+      expect(other.sent).toHaveLength(TABLE.length);
+    });
+
+    it("is a no-op before start and after stop", async () => {
+      const server = makeServer(spyLogger(), undefined, { bindIp: "10.0.0.5" });
       server.announce();
       expect(h.sockets).toHaveLength(0);
 
@@ -396,21 +500,47 @@ describe("HueSsdpServer", () => {
   });
 
   describe("stop", () => {
+    const BYE = TABLE.map(entry => ({
+      text: buildByeNotify(entry, identity.bridgeId),
+      port: SSDP_PORT,
+      address: "239.255.255.250",
+    }));
+
     it("sends the byebye NOTIFYs node-ssdp always lost, then closes the socket", async () => {
-      const server = makeServer();
+      const server = makeServer(spyLogger(), undefined, { bindIp: "10.0.0.5" });
       await server.start();
 
       await server.stop();
 
       const socket = h.sockets[0];
-      expect(socket.sent).toEqual(
-        TABLE.map(entry => ({
-          text: buildByeNotify(entry, identity.bridgeId),
-          port: SSDP_PORT,
-          address: "239.255.255.250",
-        })),
-      );
+      expect(socket.sent).toEqual(BYE);
       expect(socket.closed).toBe(true);
+    });
+
+    it("says goodbye in every own network through its sender, then closes every socket", async () => {
+      const server = makeServer();
+      await server.start();
+
+      await server.stop();
+
+      const [receiver, lan, other] = h.sockets;
+      expect({ receiver: receiver.sent, lan: lan.sent, other: other.sent }).toEqual({
+        receiver: [],
+        lan: BYE,
+        other: BYE,
+      });
+      expect(h.sockets.map(socket => socket.closed)).toEqual([true, true, true]);
+    });
+
+    it("says goodbye through the receiving socket when the host has no network of its own", async () => {
+      Object.keys(h.interfaces).forEach(k => delete h.interfaces[k]);
+      const server = makeServer();
+      await server.start();
+
+      await server.stop();
+
+      expect(h.sockets).toHaveLength(1);
+      expect(h.sockets[0].sent).toEqual(BYE);
     });
 
     it("closes only after the last byebye send has called back — the datagram must not lose the race", async () => {
@@ -456,7 +586,7 @@ describe("HueSsdpServer", () => {
     });
 
     it("announce() after a socket death is a no-op", async () => {
-      const server = makeServer(spyLogger(), vi.fn());
+      const server = makeServer(spyLogger(), vi.fn(), { bindIp: "10.0.0.5" });
       await server.start();
       const socket = h.sockets[0];
 

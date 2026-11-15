@@ -48,7 +48,7 @@ const listensEverywhere = (v: unknown): boolean => chosenAddress(v) === undefine
  * The migrations for this start.
  *
  * @param native the instance's current native settings
- * @param localAddresses the IPv4 addresses this host carries right now
+ * @param localAddresses the addresses this host carries right now (`localNets` of the fleet master)
  * @param lightsStored whether every light of the settings is a light object, the mark in its file
  * @returns the list for `migrateNativeKeys`
  */

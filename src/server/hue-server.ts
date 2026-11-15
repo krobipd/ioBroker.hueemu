@@ -73,6 +73,13 @@ export interface HueServerOptions {
    * or the forwarded client when the user turned `trustProxy` on.
    */
   isClientAllowed: (address: string | undefined) => boolean;
+  /**
+   * This host's address for a client (D17, `ownAddressFor` of the fleet master): the chosen
+   * address, or without one the host's own address in the client's network — never an address
+   * the adapter picked (krobi 2026-11-11 19:34). Asked per request for `description.xml` and the
+   * bridge config; undefined when no own network holds the client.
+   */
+  addressFor: (peer: string | undefined) => string | undefined;
 }
 
 /**
@@ -86,6 +93,7 @@ export class HueServer {
   private readonly handler: HueApiHandler;
   private readonly logger: Logger;
   private readonly isClientAllowed: (address: string | undefined) => boolean;
+  private readonly addressFor: (peer: string | undefined) => string | undefined;
 
   /**
    * Create a new Hue emulator server
@@ -97,6 +105,7 @@ export class HueServer {
     this.handler = options.handler;
     this.logger = options.logger;
     this.isClientAllowed = options.isClientAllowed;
+    this.addressFor = options.addressFor;
   }
 
   /**
@@ -207,18 +216,18 @@ export class HueServer {
       reply.status(204).send();
     });
 
-    // Register description.xml route
+    // Register description.xml route — the address it names comes per request (D17).
     await server.register(descriptionRoute, {
       descriptionOptions: {
         identity: this.config.identity,
-        host: this.config.advertiseHost,
         port: this.config.port,
       },
+      addressFor: this.addressFor,
     });
 
     // Register API routes — errors thrown inside them reach the server-level
     // error handler registered above.
-    await server.register(apiV1Routes, { handler: this.handler });
+    await server.register(apiV1Routes, { handler: this.handler, addressFor: this.addressFor });
 
     return server;
   }

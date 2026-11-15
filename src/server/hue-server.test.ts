@@ -70,7 +70,6 @@ function makeConfig(overrides: Partial<HueEmulatorConfig> = {}): HueEmulatorConf
   return {
     bind: "127.0.0.1",
     port: 0, // ephemeral — only used by the listen tests
-    advertiseHost: "127.0.0.1",
     identity: createTestIdentity(),
     trustProxy: false,
     ...overrides,
@@ -100,12 +99,20 @@ function makeHandler(): HueApiHandler {
  *
  * @param config The emulator config to build the Fastify instance from
  * @param isClientAllowed The trust boundary the server asks for every request (default: everyone)
+ * @param addressFor This host's address for a client (default: loopback, for inject's own address)
  */
 async function buildInstance(
   config = makeConfig(),
   isClientAllowed: (address: string | undefined) => boolean = () => true,
+  addressFor: (peer: string | undefined) => string | undefined = () => "127.0.0.1",
 ): Promise<FastifyInstance> {
-  const server = new HueServer({ config, handler: makeHandler(), logger: createMockLogger(), isClientAllowed });
+  const server = new HueServer({
+    config,
+    handler: makeHandler(),
+    logger: createMockLogger(),
+    isClientAllowed,
+    addressFor,
+  });
   return (server as unknown as { createServer(https: boolean): Promise<FastifyInstance> }).createServer(false);
 }
 
@@ -138,6 +145,7 @@ describe("HueServer wiring (inject)", () => {
       handler: makeHandler(),
       logger: { ...createMockLogger(), debug: (message: string) => lines.push(message) },
       isClientAllowed: address => address === "192.168.1.20",
+      addressFor: () => "192.168.1.100",
     });
     app = await (server as unknown as { createServer(https: boolean): Promise<FastifyInstance> }).createServer(false);
     await app.inject({ method: "GET", url: `/api/${key}/lights`, remoteAddress: "192.168.1.20" });
@@ -160,10 +168,32 @@ describe("HueServer wiring (inject)", () => {
     expect(res.body).toContain(`uuid:${createTestIdentity().udn}`);
   });
 
-  it("uses advertiseHost (and the HTTP port) in the description URLBase", async () => {
-    app = await buildInstance(makeConfig({ advertiseHost: "192.168.7.7", port: 8123 }));
+  // D17 (krobi 2026-11-11 19:34): the description names the address the asking client reaches the host under.
+  it("names the asking client's address of the host (and the HTTP port) in the description URLBase", async () => {
+    const asked: Array<string | undefined> = [];
+    app = await buildInstance(
+      makeConfig({ port: 8123 }),
+      () => true,
+      peer => {
+        asked.push(peer);
+        return peer === "10.0.0.7" ? "10.0.0.5" : "192.168.7.7";
+      },
+    );
+    const lan = await app.inject({ method: "GET", url: "/description.xml", remoteAddress: "192.168.7.20" });
+    const other = await app.inject({ method: "GET", url: "/description.xml", remoteAddress: "10.0.0.7" });
+    expect(lan.body).toContain("<URLBase>http://192.168.7.7:8123/</URLBase>");
+    expect(other.body).toContain("<URLBase>http://10.0.0.5:8123/</URLBase>");
+    expect(asked).toEqual(["192.168.7.20", "10.0.0.7"]);
+  });
+
+  it("answers the description with 403 when no own network holds the client", async () => {
+    app = await buildInstance(
+      makeConfig(),
+      () => true,
+      () => undefined,
+    );
     const res = await app.inject({ method: "GET", url: "/description.xml" });
-    expect(res.body).toContain("<URLBase>http://192.168.7.7:8123/</URLBase>");
+    expect(res.statusCode).toBe(403);
   });
 
   it("registers the API routes (POST /api reaches the handler)", async () => {
@@ -281,6 +311,7 @@ describe("HueServer lifecycle (real listen)", () => {
       handler: makeHandler(),
       logger: createMockLogger(),
       isClientAllowed: () => true,
+      addressFor: () => "127.0.0.1",
     });
     await server.start();
     try {
@@ -303,6 +334,7 @@ describe("HueServer lifecycle (real listen)", () => {
       handler: makeHandler(),
       logger: createMockLogger(),
       isClientAllowed: () => true,
+      addressFor: () => "127.0.0.1",
     });
     await server.start();
     try {
@@ -326,6 +358,7 @@ describe("HueServer lifecycle (real listen)", () => {
       handler: makeHandler(),
       logger: createMockLogger(),
       isClientAllowed: () => true,
+      addressFor: () => "127.0.0.1",
     });
     await expect(server.stop()).resolves.toBeUndefined();
   });
@@ -343,6 +376,7 @@ describe("HueServer lifecycle (real listen)", () => {
       handler: makeHandler(),
       logger: createMockLogger(),
       isClientAllowed: () => true,
+      addressFor: () => "127.0.0.1",
     });
     try {
       await expect(server.start()).rejects.toBeDefined();

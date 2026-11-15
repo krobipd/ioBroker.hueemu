@@ -222,17 +222,18 @@ async function started(): Promise<{ adapter: ApiHandlerAdapter; routes: Routes }
   const clients = await (adapter as unknown as { prepareClients(): Promise<ClientStore> }).prepareClients();
   const handler = new ApiHandler({
     adapter,
-    configServiceConfig: { identity: IDENTITY, advertiseHost: "192.168.1.10" },
+    configServiceConfig: { identity: IDENTITY },
     devices: [],
     logger: adapter.log,
     clients,
   });
   await handler.initialize();
   const server = new HueServer({
-    config: { bind: "0.0.0.0", port: 8080, advertiseHost: "192.168.1.10", identity: IDENTITY, trustProxy: false },
+    config: { bind: "0.0.0.0", port: 8080, identity: IDENTITY, trustProxy: false },
     handler,
     logger: adapter.log,
     isClientAllowed: () => !network.foreign,
+    addressFor: () => "192.168.1.10",
   });
   const routes = await (server as unknown as { createServer(https: boolean): Promise<Routes> }).createServer(false);
   servers.push(routes);

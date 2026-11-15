@@ -2,7 +2,7 @@
   "tabConfiguration": "Configurazione",
   "serverSettings": "Server",
   "bind": "Host / Indirizzo IP",
-  "bindTooltip": "IP a cui il bridge si lega e che annuncia ai client (Alexa, Harmony). Scegli '0.0.0.0' per ascoltare su tutte le interfacce — l'IP annunciato viene rilevato automaticamente.",
+  "bindTooltip": "L'indirizzo su cui il bridge è in ascolto. '0.0.0.0' ascolta su tutte le interfacce e comunica a ogni client l'indirizzo dell'host nella rete di quel client; un indirizzo preciso limita il bridge alla sua rete.",
   "port": "Porta",
   "portTooltip": "Porta HTTP per l'API Hue (predefinito: 8080)",
   "advancedSettings": "Avanzato (opzionale)",

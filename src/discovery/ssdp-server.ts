@@ -5,6 +5,12 @@
  * to what node-ssdp 4.0.1 produced here (wire-captured 2026-08-24); the pure
  * builders live in ssdp-messages.ts.
  *
+ * Announcing (D17, krobi 2026-11-11 19:34; Werkbank text of 2026-11-15): a NOTIFY has no asker, so
+ * without a chosen address it goes out once per own IPv4 network — from a small sender socket bound
+ * to that network's address and pinned to its interface, carrying that address — and with a chosen
+ * address from the receiving socket, pinned to it. The adapter picks no address (fakeroku's
+ * per-interface sender as the pattern).
+ *
  * Owns no timers: the adapter drives {@link HueSsdpServer.announce} on a
  * managed interval and bounds {@link HueSsdpServer.start} with a managed
  * timeout (defense in depth — start() itself settles on every bind outcome,
@@ -12,8 +18,9 @@
  */
 
 import * as dgram from "node:dgram";
-import { listIPv4Addresses, type BridgeIdentity, type Logger } from "../types/config";
+import type { BridgeIdentity, Logger } from "../types/config";
 import { errText } from "../lib/err-text";
+import { localNets, ownAddressFor } from "../lib/network-address";
 import { getDescriptionUrl } from "./description-xml";
 import {
   SSDP_MULTICAST_ADDR,
@@ -44,8 +51,6 @@ const MAX_SEARCH_DATAGRAM_BYTES = 2048;
 export interface SsdpServerConfig {
   /** Bridge identity */
   identity: BridgeIdentity;
-  /** Host address for discovery */
-  host: string;
   /** HTTP port where description.xml is served */
   port: number;
   /**
@@ -68,14 +73,24 @@ export interface SsdpServerConfig {
   onFatalError?: () => void;
 }
 
+/** A socket the NOTIFYs go out through, with the address they carry. */
+interface Announcer {
+  /** The socket — a per-network sender, or the receiving socket with a chosen address. */
+  socket: dgram.Socket;
+  /** This host's address in the socket's network — the LOCATION its NOTIFYs name. */
+  address: string;
+}
+
 /**
  * SSDP Discovery Server for Hue Bridge emulation: answers M-SEARCH for the
  * bridge's targets and multicasts the periodic ssdp:alive pulse.
  */
 export class HueSsdpServer {
   private socket: dgram.Socket | null = null;
+  /** The per-network NOTIFY senders without a chosen address — one per own IPv4 network. */
+  private senders: Announcer[] = [];
   private readonly config: SsdpServerConfig;
-  private readonly bridge: SsdpAdvertisedBridge;
+  private readonly bridgeId: string;
   private readonly targets: SsdpTarget[];
   private fatalReported = false;
 
@@ -86,10 +101,7 @@ export class HueSsdpServer {
    */
   constructor(config: SsdpServerConfig) {
     this.config = config;
-    this.bridge = {
-      bridgeId: config.identity.bridgeId,
-      location: getDescriptionUrl(config.host, config.port),
-    };
+    this.bridgeId = config.identity.bridgeId;
     this.targets = buildUsnTable(config.identity.udn);
   }
 
@@ -129,10 +141,17 @@ export class HueSsdpServer {
           resolve();
         });
       });
+      if (this.config.bindIp === undefined) {
+        await this.openSenders();
+      }
 
-      this.config.logger.debug(`SSDP server started on port ${SSDP_PORT}, advertising at ${this.bridge.location}`);
+      const announced = this.announcers(socket).map(out => out.address);
+      this.config.logger.debug(
+        `SSDP server started on port ${SSDP_PORT}${announced.length === 0 ? "" : `, announcing on ${announced.join(", ")}`}`,
+      );
     } catch (error) {
       this.socket = null;
+      this.closeSenders();
       // A socket whose bind failed is still an open handle — release it.
       try {
         created?.close();
@@ -142,6 +161,89 @@ export class HueSsdpServer {
       // No log line here: the caller reports the failure once, as a warning.
       throw error instanceof Error ? error : new Error(errText(error), { cause: error });
     }
+  }
+
+  /**
+   * Open one NOTIFY sender per own IPv4 network (fleet master `localNets`, the only reader of the
+   * interfaces): bound to that network's address and pinned to its interface, so every network hears
+   * an address it can reach. A sender that cannot open only costs its network the proactive NOTIFY —
+   * a search from there is still answered.
+   */
+  private async openSenders(): Promise<void> {
+    const addresses = [
+      ...new Set(
+        localNets()
+          .filter(net => net.family === "IPv4")
+          .map(net => net.address),
+      ),
+    ];
+    const opened = await Promise.all(addresses.map(address => this.openSender(address)));
+    this.senders = opened.filter((out): out is Announcer => out !== undefined);
+  }
+
+  /**
+   * Open the NOTIFY sender of one network.
+   *
+   * @param address - This host's address in the network
+   * @returns the sender, or undefined when it could not open
+   */
+  private openSender(address: string): Promise<Announcer | undefined> {
+    return new Promise<Announcer | undefined>(resolve => {
+      let socket: dgram.Socket;
+      try {
+        socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+      } catch (e) {
+        this.config.logger.warn(`SSDP sender on ${address} could not open: ${errText(e)}`);
+        resolve(undefined);
+        return;
+      }
+      const onBindError = (err: Error): void => {
+        this.config.logger.warn(`SSDP sender on ${address} could not open: ${errText(err)}`);
+        try {
+          socket.close();
+        } catch {
+          // already closed
+        }
+        resolve(undefined);
+      };
+      socket.once("error", onBindError);
+      socket.bind({ address, port: 0 }, () => {
+        socket.removeListener("error", onBindError);
+        try {
+          socket.setMulticastInterface(address);
+          socket.setMulticastTTL(MULTICAST_TTL);
+        } catch (e) {
+          this.config.logger.warn(`SSDP sender on ${address} could not pin its interface: ${errText(e)}`);
+        }
+        socket.unref();
+        socket.on("error", (err: Error) => this.config.logger.debug(`SSDP sender on ${address}: ${errText(err)}`));
+        resolve({ socket, address });
+      });
+    });
+  }
+
+  /** Close every per-network sender. */
+  private closeSenders(): void {
+    for (const sender of this.senders) {
+      try {
+        sender.socket.close();
+      } catch {
+        // already closed
+      }
+    }
+    this.senders = [];
+  }
+
+  /**
+   * The sockets the NOTIFYs go out through: with a chosen address the receiving socket (pinned to it),
+   * otherwise one sender per own network.
+   *
+   * @param receiver - The bound receiving socket
+   * @returns the sockets with the address their NOTIFYs carry
+   */
+  private announcers(receiver: dgram.Socket): Announcer[] {
+    const chosen = this.config.bindIp;
+    return chosen === undefined ? this.senders : [{ socket: receiver, address: chosen }];
   }
 
   /**
@@ -158,10 +260,15 @@ export class HueSsdpServer {
       this.tryJoin(socket, this.config.bindIp);
       return;
     }
-    // Shared with the advertised-address detection since v1.17.0 — the two used
-    // to walk the interface list separately and disagreed about how `family`
-    // may be spelled (audit 2026-09-06 F8).
-    const addresses = listIPv4Addresses().map(a => a.address);
+    // Every IPv4 network of the host (fleet master network-address.ts — the only reader of
+    // the interfaces): a search can come from any of them.
+    const addresses = [
+      ...new Set(
+        localNets()
+          .filter(net => net.family === "IPv4")
+          .map(net => net.address),
+      ),
+    ];
     if (addresses.length === 0) {
       this.tryJoin(socket, undefined);
       return;
@@ -237,6 +344,12 @@ export class HueSsdpServer {
     if (!this.config.isClientAllowed(address)) {
       return;
     }
+    // D17 (fleet rule krobi 2026-11-11 19:34): the location names the address the searching
+    // client reaches this host under — never an address the adapter picked.
+    const host = ownAddressFor(address, this.config.bindIp);
+    if (host === undefined) {
+      return;
+    }
     const st = parseMSearchTarget(text);
     if (st === undefined) {
       return;
@@ -247,7 +360,7 @@ export class HueSsdpServer {
     }
     const dateUtc = new Date().toUTCString();
     for (const answer of answers) {
-      const response = Buffer.from(buildSearchResponse(answer, this.bridge, dateUtc), "ascii");
+      const response = Buffer.from(buildSearchResponse(answer, this.bridgeAt(host), dateUtc), "ascii");
       try {
         this.socket?.send(response, port, address, err => {
           if (err) {
@@ -265,21 +378,37 @@ export class HueSsdpServer {
   }
 
   /**
-   * Multicast one ssdp:alive NOTIFY per target. The adapter calls this right
-   * after start and then on a managed interval (node-ssdp's adInterval role).
+   * The bridge as a client at this address sees it: its id and the description URL there.
+   *
+   * @param host - This host's address for the client
+   */
+  private bridgeAt(host: string): SsdpAdvertisedBridge {
+    return { bridgeId: this.bridgeId, location: getDescriptionUrl(host, this.config.port) };
+  }
+
+  /**
+   * Multicast one ssdp:alive NOTIFY per target through every announcer, each naming its own
+   * address. The adapter calls this right after start and then on a managed interval
+   * (node-ssdp's adInterval role).
    */
   public announce(): void {
     const socket = this.socket;
     if (!socket) {
       return;
     }
-    for (const target of this.targets) {
-      const notify = Buffer.from(buildAliveNotify(target, this.bridge), "ascii");
-      socket.send(notify, SSDP_PORT, SSDP_MULTICAST_ADDR, err => {
-        if (err) {
-          this.config.logger.debug(`SSDP NOTIFY send failed: ${err.message}`);
+    for (const out of this.announcers(socket)) {
+      for (const target of this.targets) {
+        const notify = Buffer.from(buildAliveNotify(target, this.bridgeAt(out.address)), "ascii");
+        try {
+          out.socket.send(notify, SSDP_PORT, SSDP_MULTICAST_ADDR, err => {
+            if (err) {
+              this.config.logger.debug(`SSDP NOTIFY send failed: ${err.message}`);
+            }
+          });
+        } catch (e) {
+          this.config.logger.debug(`SSDP NOTIFY on ${out.address} not sent: ${errText(e)}`);
         }
-      });
+      }
     }
   }
 
@@ -293,6 +422,7 @@ export class HueSsdpServer {
     this.config.logger.error(`SSDP socket error: ${errText(err)}`);
     const socket = this.socket;
     this.socket = null;
+    this.closeSenders();
     if (socket) {
       try {
         socket.close();
@@ -322,37 +452,47 @@ export class HueSsdpServer {
       return Promise.resolve();
     }
     this.socket = null;
+    // The bye-bye leaves through the same sockets as the NOTIFYs, so every network that heard the
+    // bridge hears it go; it names no address, so without a network of its own the receiving
+    // socket sends it on the default route as before.
+    const senders = this.senders;
+    this.senders = [];
+    const outs = senders.length > 0 ? senders.map(out => out.socket) : [socket];
 
-    // Resolves once every bye-bye datagram has left and the socket is closed. The caller
+    // Resolves once every bye-bye datagram has left and the sockets are closed. The caller
     // (onUnload) awaits this before telling the controller it is done: report first and the
     // host tears the process down mid-send, so the clients never learn the bridge is gone
     // — exactly the case this whole goodbye exists for.
     return new Promise<void>(resolve => {
-      let pending = this.targets.length;
-      const closeSocket = (): void => {
-        try {
-          socket.close();
-        } catch {
-          // socket already closed
+      let pending = outs.length * this.targets.length;
+      const closeSockets = (): void => {
+        for (const open of [...senders.map(out => out.socket), socket]) {
+          try {
+            open.close();
+          } catch {
+            // socket already closed
+          }
         }
         resolve();
       };
-      for (const target of this.targets) {
-        const notify = Buffer.from(buildByeNotify(target, this.bridge.bridgeId), "ascii");
-        try {
-          socket.send(notify, SSDP_PORT, SSDP_MULTICAST_ADDR, () => {
+      for (const out of outs) {
+        for (const target of this.targets) {
+          const notify = Buffer.from(buildByeNotify(target, this.bridgeId), "ascii");
+          try {
+            out.send(notify, SSDP_PORT, SSDP_MULTICAST_ADDR, () => {
+              pending--;
+              if (pending === 0) {
+                closeSockets();
+              }
+            });
+          } catch {
             pending--;
-            if (pending === 0) {
-              closeSocket();
-            }
-          });
-        } catch {
-          pending--;
+          }
         }
       }
       if (pending === 0) {
         // Every send failed synchronously — nothing will call back.
-        closeSocket();
+        closeSockets();
       }
     });
   }

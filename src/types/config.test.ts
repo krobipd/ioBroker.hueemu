@@ -2,28 +2,9 @@
  * Tests for config utilities and ConfigService
  */
 
-import { vi } from "vitest";
-import type * as os from "node:os";
-
-/** node:os passes through except for a swappable interface list. */
-const osMock = vi.hoisted(() => ({ interfaces: null as Record<string, unknown[]> | null }));
-vi.mock("node:os", async importOriginal => {
-  const actual = await importOriginal<typeof os>();
-  const networkInterfaces = (): unknown => osMock.interfaces ?? actual.networkInterfaces();
-  return { ...actual, default: { ...actual, networkInterfaces }, networkInterfaces };
-});
-
-import {
-  detectPrimaryIPv4,
-  generateBridgeId,
-  generateSerialNumber,
-  listIPv4Addresses,
-  macFromUdn,
-  validateNetworkConfig,
-} from "./config";
+import { generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { SettingsError } from "../lib/start-failure";
-import { StartError } from "./errors";
 import { createTestIdentity } from "../../test/test-helpers";
 
 describe("Config utilities", () => {
@@ -104,121 +85,34 @@ describe("Config utilities", () => {
     });
   });
 
-  describe("detectPrimaryIPv4", () => {
-    afterEach(() => {
-      osMock.interfaces = null;
-    });
-
-    it("never announces a loopback address, even when it comes first", () => {
-      // The result goes into the SSDP location and the description XML. A
-      // loopback there means every client on the LAN discovers a bridge it
-      // cannot reach — and the emulator looks simply dead.
-      osMock.interfaces = {
-        lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
-        eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
-      };
-      expect(detectPrimaryIPv4()).toBe("192.168.1.20");
-
-      // Loopback only → nothing to announce, and "" is the honest answer.
-      osMock.interfaces = { lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }] };
-      expect(detectPrimaryIPv4()).toBe("");
-    });
-
-    it("returns an empty string or a dotted-quad IPv4 (best-effort host IP)", () => {
-      const ip = detectPrimaryIPv4();
-      expect(ip === "" || /^(\d{1,3}\.){3}\d{1,3}$/.test(ip)).toBe(true);
-    });
-
-    // v1.17.0 (audit 2026-09-06 F7): a container bridge or a VPN tunnel is
-    // "non-internal" as far as Node is concerned and completely unreachable for
-    // a Hue client on the LAN. Announcing one means the bridge is never found
-    // and nothing in the log says why.
-    it("prefers a real network interface over a container bridge or a tunnel", () => {
-      osMock.interfaces = {
-        docker0: [{ family: "IPv4", address: "172.17.0.1", internal: false }],
-        eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
-      };
-      expect(detectPrimaryIPv4()).toBe("192.168.1.20");
-
-      osMock.interfaces = {
-        "br-9f2c": [{ family: "IPv4", address: "172.18.0.1", internal: false }],
-        wg0: [{ family: "IPv4", address: "10.8.0.2", internal: false }],
-        enp3s0: [{ family: "IPv4", address: "192.168.5.7", internal: false }],
-      };
-      expect(detectPrimaryIPv4()).toBe("192.168.5.7");
-    });
-
-    it("still answers when a virtual interface is all there is", () => {
-      osMock.interfaces = { docker0: [{ family: "IPv4", address: "172.17.0.1", internal: false }] };
-      expect(detectPrimaryIPv4()).toBe("172.17.0.1");
-    });
-  });
-
-  describe("listIPv4Addresses", () => {
-    afterEach(() => {
-      osMock.interfaces = null;
-    });
-
-    it("reports every non-internal IPv4 with its interface and whether it looks virtual", () => {
-      osMock.interfaces = {
-        lo: [{ family: "IPv4", address: "127.0.0.1", internal: true }],
-        eth0: [{ family: "IPv4", address: "192.168.1.20", internal: false }],
-        docker0: [{ family: "IPv4", address: "172.17.0.1", internal: false }],
-      };
-      expect(listIPv4Addresses()).toEqual([
-        { iface: "eth0", address: "192.168.1.20", virtual: false },
-        { iface: "docker0", address: "172.17.0.1", virtual: true },
-      ]);
-    });
-
-    it("skips IPv6 entirely", () => {
-      osMock.interfaces = {
-        eth0: [
-          { family: "IPv6", address: "fe80::1", internal: false },
-          { family: "IPv4", address: "192.168.1.20", internal: false },
-        ],
-      };
-      expect(listIPv4Addresses().map(a => a.address)).toEqual(["192.168.1.20"]);
-    });
-  });
-
   describe("validateNetworkConfig", () => {
-    it("passes for a valid host with no HTTPS port", () => {
-      expect(() => validateNetworkConfig("192.168.1.5", 8080, undefined)).not.toThrow();
+    it("passes with no HTTPS port", () => {
+      expect(() => validateNetworkConfig(8080, undefined)).not.toThrow();
     });
 
     it("passes when the HTTPS port differs from the HTTP port", () => {
-      expect(() => validateNetworkConfig("192.168.1.5", 8080, 443)).not.toThrow();
-    });
-
-    it("throws when no routable advertise IP could be resolved (empty)", () => {
-      expect(() => validateNetworkConfig("", 8080, undefined)).toThrow(/routable IP/i);
-    });
-
-    it("throws for a 0.0.0.0 advertise address (not routable for clients)", () => {
-      expect(() => validateNetworkConfig("0.0.0.0", 8080, undefined)).toThrow(/routable IP/i);
+      expect(() => validateNetworkConfig(8080, 443)).not.toThrow();
     });
 
     it("throws when the HTTPS port equals the HTTP port", () => {
-      expect(() => validateNetworkConfig("192.168.1.5", 8080, 8080)).toThrow(/equals HTTP port/i);
+      expect(() => validateNetworkConfig(8080, 8080)).toThrow(/equals HTTP port/i);
     });
 
     // v1.18.0 (audit 2026-09-15 E7): only the admin form kept a port in range —
     // a hand-edited instance object could carry 0 or 70000 into listen().
     it("throws for a port outside 1..65535 or not an integer", () => {
-      expect(() => validateNetworkConfig("192.168.1.5", 0, undefined)).toThrow(/HTTP port 0 is not a port number/);
-      expect(() => validateNetworkConfig("192.168.1.5", 70000, undefined)).toThrow(/not a port number/);
-      expect(() => validateNetworkConfig("192.168.1.5", 8080.5, undefined)).toThrow(/not a port number/);
-      expect(() => validateNetworkConfig("192.168.1.5", 8080, 65536)).toThrow(/HTTPS port 65536 is not a port number/);
-      expect(() => validateNetworkConfig("192.168.1.5", 1, 65535)).not.toThrow();
+      expect(() => validateNetworkConfig(0, undefined)).toThrow(/HTTP port 0 is not a port number/);
+      expect(() => validateNetworkConfig(70000, undefined)).toThrow(/not a port number/);
+      expect(() => validateNetworkConfig(8080.5, undefined)).toThrow(/not a port number/);
+      expect(() => validateNetworkConfig(8080, 65536)).toThrow(/HTTPS port 65536 is not a port number/);
+      expect(() => validateNetworkConfig(1, 65535)).not.toThrow();
     });
 
-    // Start-failure standard (krobi 2026-11-11 23:32): a wrong setting ends with exit code 11 and a notification, a
-    // cause that can pass by itself with exit code 6 — the class decides which (start-failure.ts `failStart`).
-    it("names a wrong port a settings error and a missing address a start error", () => {
-      expect(() => validateNetworkConfig("192.168.1.5", 70000, undefined)).toThrow(SettingsError);
-      expect(() => validateNetworkConfig("192.168.1.5", 8080, 8080)).toThrow(SettingsError);
-      expect(() => validateNetworkConfig("", 8080, undefined)).toThrow(StartError);
+    // Start-failure standard (krobi 2026-11-11 23:32): a wrong setting ends with exit code 11 and a notification
+    // (start-failure.ts `failStart`) — every finding of this check is one.
+    it("names a wrong port a settings error", () => {
+      expect(() => validateNetworkConfig(70000, undefined)).toThrow(SettingsError);
+      expect(() => validateNetworkConfig(8080, 8080)).toThrow(SettingsError);
     });
   });
 });
@@ -230,7 +124,6 @@ describe("ConfigService", () => {
   beforeEach(() => {
     service = new ConfigService({
       identity,
-      advertiseHost: "192.168.1.100",
     });
   });
 
@@ -278,25 +171,30 @@ describe("ConfigService", () => {
 
   describe("getFullConfig", () => {
     it("should extend public config with additional fields", () => {
-      const full = service.getFullConfig();
+      const full = service.getFullConfig("192.168.1.100");
       expect(full.name).toBe("Philips hue"); // inherited from public
       expect(full.ipaddress).toBe("192.168.1.100");
     });
 
     it("should include network configuration", () => {
-      const full = service.getFullConfig();
+      const full = service.getFullConfig("192.168.1.100");
       expect(full.netmask).toBe("255.255.255.0");
       expect(full.gateway).toBe("192.168.1.1");
       expect(full.dhcp).toBe(true);
     });
 
-    it("should derive gateway from discovery host", () => {
-      const svc = new ConfigService({
-        identity,
-        advertiseHost: "10.20.30.40",
-      });
-      const full = svc.getFullConfig();
+    it("should derive gateway from the asking client's address of the host", () => {
+      const full = service.getFullConfig("10.20.30.40");
       expect(full.gateway).toBe("10.20.30.1");
+    });
+
+    // D17 (krobi 2026-11-11 19:34): without an address for the client the config names none — never one the
+    // adapter picked.
+    it("names no address and no gateway without an address for the client", () => {
+      const full = service.getFullConfig();
+      expect(full).not.toHaveProperty("ipaddress");
+      expect(full).not.toHaveProperty("gateway");
+      expect(full.netmask).toBe("255.255.255.0");
     });
 
     it("should include portal state", () => {
@@ -333,7 +231,6 @@ describe("ConfigService", () => {
     it("fills the whitelist from the whitelistProvider (C6)", () => {
       const svc = new ConfigService({
         identity,
-        advertiseHost: "192.168.1.100",
         whitelistProvider: () => [
           {
             key: "alexa-1",
@@ -358,7 +255,6 @@ describe("ConfigService", () => {
     it("keeps a client named __proto__ in the whitelist", () => {
       const svc = new ConfigService({
         identity,
-        advertiseHost: "192.168.1.100",
         whitelistProvider: () => [{ key: "__proto__", name: "x", created: 1, lastUse: 1 }],
       });
       expect(Object.keys(svc.getFullConfig().whitelist!)).toEqual(["__proto__"]);
@@ -367,7 +263,6 @@ describe("ConfigService", () => {
     it("a throwing whitelistProvider leaves the whitelist empty (non-fatal)", () => {
       const svc = new ConfigService({
         identity,
-        advertiseHost: "192.168.1.100",
         whitelistProvider: () => {
           throw new Error("cache exploded");
         },
@@ -427,11 +322,7 @@ describe("ConfigService", () => {
     // C1 v1.4.3 — IPv4-only gateway munge. Previously a non-IPv4 host gave
     // garbage from `replace(/\.\d+$/, ".1")`.
     it("should leave gateway as the host string when host is not IPv4 (C1 v1.4.3)", () => {
-      const svc = new ConfigService({
-        identity,
-        advertiseHost: "fe80::1",
-      });
-      const full = svc.getFullConfig();
+      const full = service.getFullConfig("fe80::1");
       expect(full.gateway).toBe("fe80::1");
     });
   });
@@ -462,8 +353,8 @@ describe("ConfigService", () => {
       expect(state.resourcelinks).toEqual({});
     });
 
-    it("should include full config", () => {
-      const state = service.buildFullState({});
+    it("should include full config with the asking client's address of the host", () => {
+      const state = service.buildFullState({}, "192.168.1.100");
       expect(state.config.name).toBe("Philips hue");
       expect(state.config.ipaddress).toBe("192.168.1.100");
     });

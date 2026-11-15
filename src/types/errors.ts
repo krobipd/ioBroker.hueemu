@@ -8,7 +8,7 @@ export const REASON_UNKNOWN = "Unknown";
 
 /**
  * A start failure hueemu diagnosed and worded itself that is NOT a settings error — the
- * identity file cannot be read or stored, no address to announce. Like every cause the
+ * identity file cannot be read or stored. Like every cause the
  * user's settings do not explain, it ends with exit code 6 (start-failure.ts, the fleet's
  * start-failure standard): js-controller tries again. A wrong setting is a `SettingsError`
  * of the fleet master instead (exit code 11 and a notification).

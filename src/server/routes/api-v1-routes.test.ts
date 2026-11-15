@@ -51,19 +51,20 @@ function createMockHandler(
       calls.createUser.push(body);
       return Promise.resolve(opts.username ?? "generated-user-123");
     },
-    getFullState: () => Promise.resolve({ lights: {}, groups: {}, config: {} } as unknown as FullState),
+    getFullState: (_username, host) =>
+      Promise.resolve({ lights: {}, groups: {}, config: { ipaddress: host } } as unknown as FullState),
     getConfig: () =>
       ({
         name: "Philips hue",
         bridgeid: "TESTBRIDGE",
         mac: "aa:bb:cc:dd:ee:ff",
       }) as BridgeConfigPublic,
-    getFullConfig: () =>
+    getFullConfig: host =>
       ({
         name: "Philips hue",
         bridgeid: "TESTBRIDGE",
         mac: "aa:bb:cc:dd:ee:ff",
-        ipaddress: "192.168.1.100",
+        ipaddress: host,
         whitelist: {},
       }) as unknown as BridgeConfigFull,
     getAllLights: () => {
@@ -100,12 +101,15 @@ function createMockHandler(
   return handler;
 }
 
-async function buildApp(handler: HueApiHandler): Promise<FastifyInstance> {
+async function buildApp(
+  handler: HueApiHandler,
+  addressFor: (peer: string | undefined) => string | undefined = () => "192.168.1.100",
+): Promise<FastifyInstance> {
   // The production options (router, body limit) — a bare instance would route
   // differently from the bridge the clients talk to (audit 2026-09-15 F11).
   const app = Fastify(fastifyOptions(false));
   app.setErrorHandler(hueErrorHandler);
-  await app.register(apiV1Routes, { handler });
+  await app.register(apiV1Routes, { handler, addressFor });
   return app;
 }
 
@@ -348,6 +352,22 @@ describe("apiV1Routes — GET auth-required routes", () => {
     const parsed = JSON.parse(res.body);
     expect(parsed).toHaveProperty("ipaddress", "192.168.1.100");
     expect(parsed).toHaveProperty("whitelist");
+  });
+
+  // D17 (krobi 2026-11-11 19:34): the address in the bridge config is the one the asking client reaches the
+  // host under — the route asks for it with the request's client address, for the config and the full state.
+  it("names the asking client's address of the host in the config and the full state", async () => {
+    const handler = createMockHandler({ isAuthenticated: true });
+    const asked: Array<string | undefined> = [];
+    const app = await buildApp(handler, peer => {
+      asked.push(peer);
+      return peer === "10.0.0.7" ? "10.0.0.5" : undefined;
+    });
+    const config = await app.inject({ method: "GET", url: "/api/valid-user/config", remoteAddress: "10.0.0.7" });
+    const full = await app.inject({ method: "GET", url: "/api/valid-user", remoteAddress: "10.0.0.7" });
+    expect(JSON.parse(config.body)).toHaveProperty("ipaddress", "10.0.0.5");
+    expect(JSON.parse(full.body)).toHaveProperty("config.ipaddress", "10.0.0.5");
+    expect(asked).toEqual(["10.0.0.7", "10.0.0.7"]);
   });
 
   it("unauthenticated config stays reduced (no ipaddress)", async () => {

@@ -121,7 +121,6 @@ async function started(devices: DeviceConfig[]): Promise<{ handler: ApiHandler }
         modelId: "BSB002",
         serialNumber: "aabbccddeeff",
       },
-      advertiseHost: "192.168.1.10",
     },
     devices,
     logger: adapter.log,

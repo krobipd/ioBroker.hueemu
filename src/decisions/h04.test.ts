@@ -107,7 +107,6 @@ describe("H-04: every change of a mapped datapoint reaches the bridge", () => {
           modelId: "BSB002",
           serialNumber: "aabbccddeeff",
         },
-        advertiseHost: "192.168.1.10",
       },
       devices: [{ id: 1, name: "Lamp", lightType: "onoff", onState: "javascript.0.lamp" }],
       logger: adapter.log,

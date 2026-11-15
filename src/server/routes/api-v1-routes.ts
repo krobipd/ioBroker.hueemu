@@ -14,6 +14,12 @@ import { createSuccessResponse } from "../middleware/error-handler";
 export interface ApiRoutesOptions extends FastifyPluginOptions {
   /** API handler implementation */
   handler: HueApiHandler;
+  /**
+   * This host's address for a client (D17, `ownAddressFor` of the fleet master): what the
+   * full config names as `ipaddress` to the client that asks — undefined when no own network
+   * holds it.
+   */
+  addressFor: (peer: string | undefined) => string | undefined;
 }
 
 /**
@@ -66,7 +72,7 @@ async function requireAuth(handler: HueApiHandler, username: string, address: st
  * @param options - Plugin options with the handler
  */
 export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions): void {
-  const { handler } = options;
+  const { handler, addressFor } = options;
 
   // v1.19.0 (audit 2026-09-25 K2): a Hue body is JSON whatever the request calls it.
   // Clients built on phue send no Content-Type at all, curl -d sends
@@ -159,7 +165,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
       request,
       reply,
       () => "",
-      p => handler.getFullState(p.username),
+      p => handler.getFullState(p.username, addressFor(request.ip)),
     );
   });
 
@@ -173,7 +179,7 @@ export function apiV1Routes(fastify: FastifyInstance, options: ApiRoutesOptions)
     await sendResult(reply, async () => {
       const { username } = request.params;
       const authed = handler.isAuthDisabled() || (await handler.isKnownUser(username));
-      return authed ? handler.getFullConfig() : handler.getConfig();
+      return authed ? handler.getFullConfig(addressFor(request.ip)) : handler.getConfig();
     });
   });
 
