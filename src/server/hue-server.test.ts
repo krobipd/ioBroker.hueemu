@@ -8,6 +8,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { X509Certificate } from "node:crypto";
+import { get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import type { TLSSocket } from "node:tls";
 import { fastifyOptions, HueServer } from "./hue-server";
@@ -384,6 +385,17 @@ describe("HueServer lifecycle (real listen)", () => {
       });
       expect(answer.status).toBe(200);
       expect(answer.cert?.equals(new X509Certificate(TEST_CERT_PEM).raw)).toBe(true);
+      // The HTTP listener stays plain beside it — a Harmony Hub speaks HTTP only (README, section HTTPS).
+      const httpInstance = (server as unknown as { httpServer: FastifyInstance }).httpServer;
+      const httpPort = (httpInstance.server.address() as { port: number }).port;
+      const plain = await new Promise<number | undefined>((resolve, reject) => {
+        const request = httpGet({ host: "127.0.0.1", port: httpPort, path: "/api/config" }, response => {
+          response.resume();
+          resolve(response.statusCode);
+        });
+        request.on("error", reject);
+      });
+      expect(plain).toBe(200);
     } finally {
       await server.stop();
     }

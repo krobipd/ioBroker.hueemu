@@ -294,6 +294,18 @@ function holdCertificates(adapter: HueEmu, collections: Record<string, unknown> 
 }
 
 /**
+ * Every value written to the reason datapoint, in order. Asserting the whole
+ * sequence matters: `Unknown` is also the start stamp, so a plain
+ * `toHaveBeenCalledWith` would pass even if the catch branch wrote nothing.
+ *
+ * @param i The adapter internals from {@link internalOf}.
+ */
+const reasonWrites = (i: ReturnType<typeof internalOf>): unknown[] =>
+  i.setState.mock.calls
+    .filter((c: unknown[]) => c[0] === "info.error")
+    .map((c: unknown[]) => (c[1] as { val: unknown }).val);
+
+/**
  * Load the identity, then build the configuration — the order onReady runs them in.
  *
  * @param adapter the adapter under test
@@ -814,7 +826,8 @@ describe("HueEmu onReady", () => {
     expect(i.extendForeignObjectAsync).not.toHaveBeenCalled();
     expect(servers).toHaveLength(0);
     expect(i.log.error).toHaveBeenCalledWith(expect.stringContaining("could not be stored"));
-    expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "Unknown" });
+    // The start stamp, then the failure: hueemu's own wording never reaches the reason datapoint.
+    expect(reasonWrites(i)).toEqual(["Unknown", "Unknown"]);
     expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 6);
   });
 
@@ -922,8 +935,25 @@ describe("HueEmu onReady", () => {
     expect(i.log.error).toHaveBeenCalledWith(
       expect.stringContaining("HTTPS cannot start: the controller handed over no usable certificate"),
     );
-    expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "Unknown" });
+    expect(reasonWrites(i)).toEqual(["Unknown", "Unknown"]);
     expect(i.terminate).toHaveBeenCalledWith(expect.any(String), 6);
+  });
+
+  // A stop while the controller hands over the certificates ends the start right there: no light, client or own
+  // object is touched any more, nothing listens, and no exit of its own.
+  it("goes no further when a stop comes while the certificates load", async () => {
+    const { adapter, servers } = setup({ secure: true, httpsPort: "443" });
+    holdCertificates(adapter);
+    const i = internalOf(adapter);
+    i.getCertificatesAsync.mockImplementation(() => {
+      (adapter as unknown as { unloaded: boolean }).unloaded = true;
+      return Promise.resolve([{ cert: HELD_CERT, key: HELD_KEY }]);
+    });
+    await i.onReady();
+    expect(i.extendObject.mock.calls.map(c => c[0] as string)).not.toContain("startPairing");
+    expect(servers).toHaveLength(0);
+    expect(i.terminate).not.toHaveBeenCalled();
+    expect(i.setState).not.toHaveBeenCalledWith("info.connection", { ack: true, val: true });
   });
 
   // The fleet master subscribes `system.certificates` for renewed collections; the stop takes the subscription along.
@@ -2297,18 +2327,6 @@ describe("HueEmu info.connection / info.error (v1.17.0)", () => {
     expect(i.setState).toHaveBeenCalledWith("info.connection", { ack: true, val: true });
     expect(i.setState).toHaveBeenCalledWith("info.error", { ack: true, val: "" });
   });
-
-  /**
-   * Every value written to the reason datapoint, in order. Asserting the whole
-   * sequence matters: `Unknown` is also the start stamp, so a plain
-   * `toHaveBeenCalledWith` would pass even if the catch branch wrote nothing.
-   *
-   * @param i The adapter internals from {@link internalOf}.
-   */
-  const reasonWrites = (i: ReturnType<typeof internalOf>): unknown[] =>
-    i.setState.mock.calls
-      .filter((c: unknown[]) => c[0] === "info.error")
-      .map((c: unknown[]) => (c[1] as { val: unknown }).val);
 
   it("keeps the adapter's OWN wording out of the datapoint and logs it instead", async () => {
     // Fleet rule (krobi 2026-08-27): the reason text is never an adapter-specific

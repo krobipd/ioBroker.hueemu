@@ -261,13 +261,14 @@ describe("HueSsdpServer", () => {
       vi.useRealTimers();
     });
 
+    // The trust boundary decides first: a peer it refuses gets no answer even from a network the host is in.
     it("answers no search from a peer outside the adapter's networks", async () => {
       const logger = spyLogger();
-      const server = makeServer(logger, undefined, { isClientAllowed: address => address !== "203.0.113.9" });
+      const server = makeServer(logger, undefined, { isClientAllowed: address => address !== "10.0.0.9" });
       await server.start();
       const socket = h.sockets[0];
 
-      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "203.0.113.9", port: 51000 });
+      socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.9", port: 51000 });
       expect(socket.sent).toEqual([]);
 
       socket.emit("message", Buffer.from(MSEARCH_BASIC, "ascii"), { address: "10.0.0.7", port: 51000 });
@@ -552,7 +553,11 @@ describe("HueSsdpServer", () => {
       const socket = h.sockets[0];
       expect(socket.closed).toBe(false);
 
-      h.heldSendCallbacks.forEach(invoke => invoke());
+      // Every byebye but the last has called back: still open.
+      h.heldSendCallbacks.slice(0, -1).forEach(invoke => invoke());
+      expect(socket.closed).toBe(false);
+
+      h.heldSendCallbacks.at(-1)?.();
       await stopped;
       expect(socket.closed).toBe(true);
     });

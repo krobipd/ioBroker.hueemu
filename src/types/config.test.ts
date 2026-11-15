@@ -2,7 +2,7 @@
  * Tests for config utilities and ConfigService
  */
 
-import { generateBridgeId, generateSerialNumber, macFromUdn, validateNetworkConfig } from "./config";
+import { generateBridgeId, generateSerialNumber, httpsPortOf, macFromUdn, validateNetworkConfig } from "./config";
 import { ConfigService } from "../hue-api/config-service";
 import { SettingsError } from "../lib/start-failure";
 import { createTestIdentity } from "../../test/test-helpers";
@@ -113,6 +113,25 @@ describe("Config utilities", () => {
     it("names a wrong port a settings error", () => {
       expect(() => validateNetworkConfig(70000, undefined)).toThrow(SettingsError);
       expect(() => validateNetworkConfig(8080, 8080)).toThrow(SettingsError);
+    });
+  });
+
+  // The fleet's HTTPS option (krobi 2026-11-14 19:15): `native.secure` switches HTTPS, the port field alone does not.
+  describe("httpsPortOf", () => {
+    it("has no HTTPS port while HTTPS is off, whatever the field holds", () => {
+      expect(httpsPortOf(false, "443")).toBeUndefined();
+      expect(httpsPortOf(false, 8443)).toBeUndefined();
+      expect(httpsPortOf(false, "")).toBeUndefined();
+    });
+
+    it("takes the field's port while HTTPS is on", () => {
+      expect(httpsPortOf(true, "443")).toBe(443);
+      expect(httpsPortOf(true, 8443)).toBe(8443);
+    });
+
+    it("names HTTPS on without a port a settings error", () => {
+      expect(() => httpsPortOf(true, "")).toThrow(SettingsError);
+      expect(() => httpsPortOf(true, undefined)).toThrow(/HTTPS is on, but no HTTPS port is set/);
     });
   });
 });
