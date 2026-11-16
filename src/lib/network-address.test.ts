@@ -2,14 +2,19 @@
 import type * as Os from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import {
+  addressChoices,
   announceAddresses,
+  announceableNets,
+  blockedAddress,
   carriesAddress,
   chosenAddress,
+  interfaceAddresses,
   isOwnPeer,
   localNets,
   ownAddressFor,
   ownNets,
   type InterfaceMap,
+  type LocalNet,
 } from "./network-address";
 
 // Round 157 (master audit M21/M22): the defaults read `os.networkInterfaces()` — the tests read the machine's own
@@ -242,5 +247,114 @@ describe("announceAddresses", () => {
   it("names each address once and reads the host's own interfaces when given none", () => {
     expect(announceAddresses(undefined, "IPv4", [...nets, ...nets])).toEqual(["192.168.1.5", "192.0.2.2"]);
     expect(announceAddresses(undefined, "IPv4")).toEqual(["192.168.1.5", "192.0.2.2"]);
+  });
+});
+
+// Round 180 (R180-10, finding 74d84aa54d89; krobi 2026-11-15 20:36, in English: as the source recommends it, and the
+// blocked addresses are not even offered in our admins): one list of what an announcement and the admin's choice
+// leave out — RFC 3927 §1.9, RFC 6762 §6.2, UPnP Device Architecture 2.0 Annex A.2.3
+describe("blockedAddress", () => {
+  const net = (iface: string, family: "IPv4" | "IPv6", address: string): LocalNet => ({
+    iface,
+    family,
+    address,
+    prefixLength: family === "IPv4" ? 16 : 64,
+  });
+  const MIXED = [
+    net("eth0", "IPv4", "192.168.1.5"),
+    net("eth0", "IPv4", "169.254.7.7"),
+    net("usb0", "IPv4", "169.254.9.9"),
+    net("lo", "IPv4", "127.0.0.1"),
+    net("eth0", "IPv6", "fe80::1"),
+    net("eth0", "IPv6", "2001:db8::5"),
+    net("old", "IPv6", "fec0::1"),
+    net("old", "IPv6", "::192.0.2.1"),
+    net("old", "IPv6", "3ffe::1"),
+    net("old", "IPv6", "2002:c000:201::1"),
+    net("old", "IPv6", "2001:0:4136:e378::1"),
+    net("isatap", "IPv6", "fe80::5efe:192.0.2.1"),
+    net("isatap", "IPv6", "2001:db8::200:5efe:c000:201"),
+    net("docker0", "IPv4", "172.17.0.1"),
+    net("tailscale0", "IPv4", "100.64.0.1"),
+  ];
+  const blocked = (address: string): boolean => blockedAddress(MIXED.filter(n => n.address === address)[0], MIXED);
+
+  it("leaves out loopback and IPv4 link-local while its interface carries another IPv4", () => {
+    expect(blocked("127.0.0.1")).toBe(true);
+    expect(blocked("169.254.7.7")).toBe(true);
+    expect(blocked("192.168.1.5")).toBe(false);
+  });
+
+  it("keeps IPv4 link-local alone on its interface, IPv6 link-local, Docker, VPN and CGNAT", () => {
+    expect(blocked("169.254.9.9")).toBe(false);
+    expect(blocked("fe80::1")).toBe(false);
+    expect(blocked("2001:db8::5")).toBe(false);
+    expect(blocked("172.17.0.1")).toBe(false);
+    expect(blocked("100.64.0.1")).toBe(false);
+  });
+
+  it("leaves out the IPv6 forms of UPnP Device Architecture 2.0 Annex A.2.3", () => {
+    for (const address of [
+      "fec0::1",
+      "::192.0.2.1",
+      "3ffe::1",
+      "2002:c000:201::1",
+      "2001:0:4136:e378::1",
+      "fe80::5efe:192.0.2.1",
+      "2001:db8::200:5efe:c000:201",
+    ]) {
+      expect(blocked(address), address).toBe(true);
+    }
+  });
+
+  it("leaves out an address the check cannot read, and reads the host's own interfaces when given none", () => {
+    expect(blockedAddress(net("x", "IPv4", "nope"), [])).toBe(true);
+    expect(blockedAddress(net("x", "IPv6", "nope"), [])).toBe(true);
+    expect(blockedAddress(localNets(IFACES)[0])).toBe(false);
+  });
+
+  it("reads an IPv6 address written out in full or ending in its gap", () => {
+    expect(blockedAddress(net("x", "IPv6", "2001:db8:0:0:0:0:0:7"), [])).toBe(false);
+    expect(blockedAddress(net("x", "IPv6", "2001:db8:2::"), [])).toBe(false);
+    expect(blockedAddress(net("x", "IPv6", "2001:db8:0:0:0:5efe:c000:201"), [])).toBe(true);
+  });
+
+  it("makes every other answer leave the blocked addresses out", () => {
+    const fine = ["192.168.1.5", "169.254.9.9", "fe80::1", "2001:db8::5", "172.17.0.1", "100.64.0.1"];
+    expect(announceableNets(MIXED).map(n => n.address)).toEqual(fine);
+    expect(announceableNets().map(n => n.address)).toEqual(localNets(IFACES).map(n => n.address));
+    expect(carriesAddress("169.254.7.7", MIXED)).toBe(false);
+    expect(carriesAddress("169.254.9.9", MIXED)).toBe(true);
+    expect(announceAddresses(undefined, "IPv4", MIXED)).toEqual([
+      "192.168.1.5",
+      "169.254.9.9",
+      "172.17.0.1",
+      "100.64.0.1",
+    ]);
+    expect(announceAddresses("169.254.7.7", "IPv4", MIXED)).toEqual([]);
+  });
+
+  it("names in an announcement only the addresses of the interface it goes out from", () => {
+    expect(interfaceAddresses("192.168.1.5", MIXED)).toEqual(["192.168.1.5", "fe80::1", "2001:db8::5"]);
+    expect(interfaceAddresses("FE80::1%eth0", MIXED)).toEqual(["192.168.1.5", "fe80::1", "2001:db8::5"]);
+    expect(interfaceAddresses("169.254.9.9", MIXED)).toEqual(["169.254.9.9"]);
+    expect(interfaceAddresses("169.254.7.7", MIXED)).toEqual([]);
+    expect(interfaceAddresses("10.47.4.9", MIXED)).toEqual([]);
+    expect(interfaceAddresses("192.168.1.5", [...MIXED, ...MIXED])).toEqual(["192.168.1.5", "fe80::1", "2001:db8::5"]);
+    expect(interfaceAddresses("192.168.1.5")).toEqual(["192.168.1.5", "2001:db8::5"]);
+  });
+
+  it("offers the admin every address first, then each announceable address of the family with its interface", () => {
+    const choices = addressChoices("IPv4", [...MIXED, ...MIXED]);
+    expect(choices.map(c => c.value)).toEqual(["0.0.0.0", "192.168.1.5", "169.254.9.9", "172.17.0.1", "100.64.0.1"]);
+    expect(choices[1].label).toBe("192.168.1.5 - eth0");
+    const every = choices[0].label as Record<string, string>;
+    expect(Object.keys(every).sort()).toEqual(["de", "en", "es", "fr", "it", "nl", "pl", "pt", "ru", "uk", "zh-cn"]);
+    expect(every.en).toBe("0.0.0.0 - every address");
+    expect(every.de).toBe("0.0.0.0 - alle Adressen");
+    const v6 = addressChoices("IPv6", MIXED);
+    expect(v6.map(c => c.value)).toEqual(["::", "fe80::1", "2001:db8::5"]);
+    expect((v6[0].label as Record<string, string>).en).toBe(":: - every address");
+    expect(addressChoices("IPv4").map(c => c.value)).toEqual(["0.0.0.0", "192.168.1.5", "192.0.2.2"]);
   });
 });
