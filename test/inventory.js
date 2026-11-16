@@ -2619,7 +2619,10 @@ tests.integration(ADAPTER_DIR, {
         let strangers;
         before(async function () {
           this.timeout(180000);
-          assert.ok(LAN_ADDRESS, "this machine carries no non-internal IPv4 address a client of another network asks from");
+          assert.ok(
+            LAN_ADDRESS,
+            "this machine carries no non-internal IPv4 address a client of another network asks from",
+          );
           harness = getHarness();
           clearInstanceData(harness);
           const seen = networkFiles();
