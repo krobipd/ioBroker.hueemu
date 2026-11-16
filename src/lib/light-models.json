@@ -1,5 +1,5 @@
 {
-  "_comment": "What each light type answers with: the Hue model (models) and the Hue v1 type (types). The types are the catalog the release holds against the light types of diyHue's model list (device-sources.json, gate A15) — hueemu answers per light type, not per model. The light table in device-binding-service.ts is the code; its test holds every line here against the bridge's answer. onoff answers as the dimmable LWB007 because Harmony does not know an on/off light (design decision 5, sealed K2).",
+  "_comment": "What each light type answers with: the Hue model (models) and the Hue v1 type (types). The types are the catalog the release holds against the light types of diyHue's model list (device-sources.json, gate A15) — hueemu answers per light type, not per model. The light table in device-binding-service.ts is the code; its test holds every line here against the bridge's answer. onoff answers as the dimmable LWB007 because Harmony does not know an on/off light (design decision 5, sealed K2). A type whose value is a name, not a list, is another name a source uses for that line (gate A15: a source's name for a light type hueemu carries goes to it in the catalog): diyHue calls LLC010 (Hue Iris) a Color Gamut light, real bridges report it as Color light.",
   "models": {
     "LWB007": "onoff",
     "LWB010": "dimmable",
@@ -11,6 +11,7 @@
     "Dimmable light": ["onoff", "dimmable"],
     "Color temperature light": ["ct"],
     "Color light": ["colorOnly"],
-    "Extended color light": ["color"]
+    "Extended color light": ["color"],
+    "Color Gamut light": "Color light"
   }
 }
