@@ -10,9 +10,12 @@
 // from, a stored target — carries one entry and gets its address from `ownAddressFor` when the peer asks; an
 // announcement nobody asked for goes out once per address of `announceAddresses`, from that address's interface and
 // naming it. The host's interfaces are read here and nowhere else.
-// Round 180 (R180-10): which addresses an announcement, its address records and the admin's address choice leave out
-// stands here once (`blockedAddress`); the choice is a jsonConfig `selectSendTo` field with `command: "networkAddresses"`,
-// answered in `onMessage` with `addressChoices` (json-config's `type: "ip"` offers every address of the host).
+// Round 180 (R180-10): which addresses an announcement and its address records leave out stands here once
+// (`blockedAddress`). Round 182 (R182-13, krobi 2026-11-16 17:35: what ioBroker brings, the fleet uses): the admin's choice
+// is json-config's own field `type: "ip"` with `listenOnAllPorts` and `noInternal` — ioBroker lists the host's addresses,
+// loopback too while `noInternal` filters nothing (socket-client `parseIPAddresses`). A chosen address an interface of the
+// host carries is the only one, loopback and link-local included (krobi 2026-11-16 17:31: what one picks, and the adapter
+// works on that address alone); `blockedAddress` holds for an announcement without a chosen address only.
 // The sockets themselves stay the adapter's — the inventory suites "chosen network address" / "missing network address"
 // judge what it does with them.
 import { BlockList, isIPv4, isIPv6 } from "node:net";
@@ -21,7 +24,10 @@ import { networkInterfaces, type NetworkInterfaceInfo } from "node:os";
 /** The OS network-interface map (the `os.networkInterfaces()` shape). */
 export type InterfaceMap = NodeJS.Dict<NetworkInterfaceInfo[]>;
 
-/** One network the host itself sits in: an address of one of its interfaces, with its prefix. */
+/**
+ * One address of the host's interfaces, with its network. Loopback carries `internal`: no device sits in it, so it counts
+ * only as a chosen address — never as an own network with every address, never in an announcement.
+ */
 export interface LocalNet {
   /** The interface name (`eth0`, `wlan0` …). */
   iface: string;
@@ -31,6 +37,8 @@ export interface LocalNet {
   address: string;
   /** The prefix length of the network (from `cidr`). */
   prefixLength: number;
+  /** Set for an address the OS marks internal (loopback). */
+  internal?: true;
 }
 
 /**
@@ -46,8 +54,8 @@ export function chosenAddress(value: unknown): string | undefined {
 }
 
 /**
- * Every network the host sits in. Loopback is left out — it is no network a device sits in; an address without a
- * usable prefix counts as just itself (/32, /128). Pure when the map is handed in.
+ * Every address of the host's interfaces with its network, loopback marked `internal`; an address without a usable
+ * prefix counts as just itself (/32, /128). Pure when the map is handed in.
  *
  * @param interfaces the OS network-interface map, read fresh when not given
  * @returns the host's networks, in enumeration order
@@ -56,13 +64,19 @@ export function localNets(interfaces: InterfaceMap = networkInterfaces()): Local
   const out: LocalNet[] = [];
   for (const [iface, addrs] of Object.entries(interfaces)) {
     for (const addr of addrs ?? []) {
-      if (addr.internal || (addr.family !== "IPv4" && addr.family !== "IPv6")) {
+      if (addr.family !== "IPv4" && addr.family !== "IPv6") {
         continue;
       }
       const bits = typeof addr.cidr === "string" ? Number(addr.cidr.split("/")[1]) : NaN;
       const prefixLength = Number.isInteger(bits) ? bits : addr.family === "IPv4" ? 32 : 128;
       const address = addr.family === "IPv6" ? addr.address.split("%")[0].toLowerCase() : addr.address;
-      out.push({ iface, family: addr.family, address, prefixLength });
+      out.push({
+        iface,
+        family: addr.family,
+        address,
+        prefixLength,
+        ...(addr.internal ? { internal: true as const } : {}),
+      });
     }
   }
   return out;
@@ -113,8 +127,8 @@ function v6Groups(address: string): number[] | undefined {
 }
 
 /**
- * Does an announcement leave this network's address out — its senders, its address records and the admin's choice?
- * An address the check cannot read is left out.
+ * Does an announcement without a chosen address leave this network's address out — its senders and its address records?
+ * An address the check cannot read is left out. A chosen address is the user's and is never left out (round 182).
  *
  * @param net one of the host's networks
  * @param nets the host's networks (the other addresses of its interface decide IPv4 link-local)
@@ -140,32 +154,49 @@ export function blockedAddress(net: LocalNet, nets: readonly LocalNet[] = localN
 }
 
 /**
- * The host's networks an announcement may name — every network but the blocked ones (`blockedAddress`).
+ * The host's networks a device sits in — every one but loopback (`internal`).
+ *
+ * @param nets the host's networks
+ * @returns the networks without loopback, in enumeration order
+ */
+function deviceNets(nets: readonly LocalNet[]): LocalNet[] {
+  return nets.filter(net => !net.internal);
+}
+
+/**
+ * The host's networks an announcement without a chosen address may name — every network a device sits in but the
+ * blocked ones (`blockedAddress`).
  *
  * @param nets the host's networks
  * @returns the announceable networks, in enumeration order
  */
 export function announceableNets(nets: readonly LocalNet[] = localNets()): LocalNet[] {
-  return nets.filter(net => !blockedAddress(net, nets));
+  return deviceNets(nets).filter(net => !blockedAddress(net, nets));
 }
 
 /**
- * Does the host carry this address on one of its interfaces? A chosen address it does not carry falls back to every
- * address, with exactly one warning — a blocked one too (round 180: typed in while the instance did not run, the admin's
- * choice never offers it).
+ * Does the host carry this address on one of its interfaces, in the family the setting holds? Then it is the only one,
+ * loopback and link-local included (round 182, krobi 2026-11-16 17:31). A chosen address it does not carry falls back to
+ * every address, with exactly one warning — one of the other family too (round 182: a socket of the setting's family
+ * cannot listen on it).
  *
  * @param address the chosen address
+ * @param family the address family the setting holds
  * @param nets the host's networks
- * @returns true if an interface carries it and it is not blocked
+ * @returns true if an interface carries it in that family
  */
-export function carriesAddress(address: string, nets: readonly LocalNet[] = localNets()): boolean {
+export function carriesAddress(
+  address: string,
+  family: "IPv4" | "IPv6",
+  nets: readonly LocalNet[] = localNets(),
+): boolean {
   const plain = address.split("%")[0].toLowerCase();
-  return announceableNets(nets).some(net => net.address === plain);
+  return nets.some(net => net.family === family && net.address === plain);
 }
 
 /**
- * The networks that count as own: with a chosen address the networks of the interface that carries it, otherwise every
- * network of the host.
+ * The networks that count as own: with a chosen address the networks of the interface that carries it (loopback's when
+ * it is chosen), otherwise every network of the host a device sits in.
  *
  * @param address the chosen address, undefined for every address
  * @param nets the host's networks
@@ -173,7 +204,7 @@ export function carriesAddress(address: string, nets: readonly LocalNet[] = loca
  */
 export function ownNets(address: string | undefined, nets: readonly LocalNet[] = localNets()): LocalNet[] {
   if (address === undefined) {
-    return [...nets];
+    return deviceNets(nets);
   }
   const plain = address.split("%")[0].toLowerCase();
   const iface = nets.find(net => net.address === plain)?.iface;
@@ -181,8 +212,8 @@ export function ownNets(address: string | undefined, nets: readonly LocalNet[] =
 }
 
 /**
- * Is a peer in one of the own networks? There is no exception: not loopback, not link-local unless the interface
- * carries such an address, not a routed private network. A dual-stack socket's IPv4-mapped form counts as the IPv4 it
+ * Is a peer in one of the own networks? There is no exception: not loopback unless it is chosen, not link-local unless
+ * the interface carries such an address, not a routed private network. A dual-stack socket's IPv4-mapped form counts as the IPv4 it
  * carries; anything that is no IP address is in no network.
  *
  * @param peer the peer address from the socket
@@ -235,14 +266,14 @@ export function ownAddressFor(
   if (address !== undefined) {
     return isOwnPeer(peer, address, nets) ? address : undefined;
   }
-  return nets.find(net => isOwnPeer(peer, net.address, [net]))?.address;
+  return deviceNets(nets).find(net => isOwnPeer(peer, net.address, [net]))?.address;
 }
 
 /**
  * The addresses an announcement goes out from — a message into the network that no peer asked for (an SSDP alive, an
- * mDNS announcement): with a chosen address that one alone; without one the host's address in each of its networks of
- * the family, each sent from its interface and naming that address (UPnP Device Architecture 2.0 §1.2.2) — never one
- * address picked for all networks, never a blocked one (`blockedAddress`).
+ * mDNS announcement): with a chosen address that one alone, when an interface carries it in the family; without one the
+ * host's address in each of its networks of the family, each sent from its interface and naming that address (UPnP
+ * Device Architecture 2.0 §1.2.2) — never one address picked for all networks, never a blocked one (`blockedAddress`).
  *
  * @param address the chosen address, undefined for every address
  * @param family the address family the announcement travels in
@@ -255,68 +286,32 @@ export function announceAddresses(
   nets: readonly LocalNet[] = localNets(),
 ): string[] {
   const plain = address?.split("%")[0].toLowerCase();
-  const from = announceableNets(nets).filter(
+  const from = (plain === undefined ? announceableNets(nets) : nets).filter(
     net => net.family === family && (plain === undefined || net.address === plain),
   );
   return [...new Set(from.map(net => net.address))];
 }
 
 /**
- * The addresses an announcement sent from `from` names — its address records (mDNS A/AAAA), its location: the
- * announceable addresses of the interface that carries `from`, never one of another interface (RFC 6762 §6.2; UPnP
- * Device Architecture 2.0 §1.2.2).
+ * The addresses an announcement sent from `from` names — its address records (mDNS A/AAAA), its location: `from` itself
+ * (a chosen address, blocked or loopback included) and the announceable addresses of the interface that carries it,
+ * never one of another interface (RFC 6762 §6.2; UPnP Device Architecture 2.0 §1.2.2).
  *
  * @param from the address the announcement goes out from (one of `announceAddresses`)
  * @param nets the host's networks
- * @returns the addresses of that interface, each once (empty when no announceable network holds `from`)
+ * @returns the addresses of that interface, each once (empty when no interface carries `from`)
  */
 export function interfaceAddresses(from: string, nets: readonly LocalNet[] = localNets()): string[] {
   const plain = from.split("%")[0].toLowerCase();
-  const own = announceableNets(nets);
-  const iface = own.find(net => net.address === plain)?.iface;
-  return iface === undefined ? [] : [...new Set(own.filter(net => net.iface === iface).map(net => net.address))];
-}
-
-/** One entry of the admin's address choice (json-config `selectSendTo`). */
-export interface AddressChoice {
-  /** What the list shows — a text, or one per language. */
-  label: string | Record<string, string>;
-  /** What the setting stores. */
-  value: string;
-}
-
-/** What the address choice calls "every address", in the fleet's eleven languages. */
-const EVERY_ADDRESS: Record<string, string> = {
-  en: "every address",
-  de: "alle Adressen",
-  ru: "все адреса",
-  pt: "todos os endereços",
-  nl: "alle adressen",
-  fr: "toutes les adresses",
-  it: "tutti gli indirizzi",
-  es: "todas las direcciones",
-  pl: "wszystkie adresy",
-  uk: "усі адреси",
-  "zh-cn": "所有地址",
-};
-
-/**
- * The admin's address choice (krobi 2026-11-15 20:36, in English: the blocked addresses are not even offered in our
- * admins): the answer to the message `networkAddresses` of a jsonConfig `selectSendTo` field — "every address" first,
- * then each announceable address of the family with its interface.
- *
- * @param family the address family the setting holds
- * @param nets the host's networks
- * @returns the entries of the list, each address once
- */
-export function addressChoices(family: "IPv4" | "IPv6", nets: readonly LocalNet[] = localNets()): AddressChoice[] {
-  const every = family === "IPv4" ? "0.0.0.0" : "::";
-  const label = Object.fromEntries(Object.entries(EVERY_ADDRESS).map(([lang, text]) => [lang, `${every} - ${text}`]));
-  const seen = new Set<string>();
-  const own = announceableNets(nets).filter(net => {
-    const fresh = net.family === family && !seen.has(net.address);
-    seen.add(net.address);
-    return fresh;
-  });
-  return [{ label, value: every }, ...own.map(net => ({ label: `${net.address} - ${net.iface}`, value: net.address }))];
+  const iface = nets.find(net => net.address === plain)?.iface;
+  const named = new Set(announceableNets(nets).map(net => net.address));
+  return iface === undefined
+    ? []
+    : [
+        ...new Set(
+          nets
+            .filter(net => net.iface === iface && (net.address === plain || named.has(net.address)))
+            .map(n => n.address),
+        ),
+      ];
 }

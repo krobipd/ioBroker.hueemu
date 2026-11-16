@@ -30,25 +30,19 @@ Heizungssteuerung.
 ### 1. Instanz anlegen
 
 Adapter installieren, eine Instanz anlegen. Die Instanz wird **gestoppt** angelegt:
-erst den Port wählen (Schritt 3), dann starten. Sie lauscht auf Port 8080, solange du
-keinen anderen wählst.
+erst Host / IP-Adresse und Port wählen (Schritte 2 und 3), dann starten. Sie lauscht auf
+Port 8080, solange du keinen anderen wählst.
 
 ### 2. Host / IP-Adresse
 
-Lass **Host / IP** auf `0.0.0.0` („0.0.0.0 - alle Adressen“). Die Bridge
-lauscht dann in jedem Netz deines ioBroker-Rechners und nennt jedem Client die Adresse
+Lass **Host / IP** auf `0.0.0.0` („[IPv4] 0.0.0.0 - Zugriff von allen IPs zulassen“). Die
+Bridge lauscht dann in jedem Netz deines ioBroker-Rechners und nennt jedem Client die Adresse
 des Rechners in dessen Netz — sie wählt nie selbst eine Adresse aus.
 
 Eine feste Adresse wählst du nur, wenn die Bridge **nur ein Netz** bedienen soll: dann
-lauscht und antwortet sie allein dort. Du wählst sie aus der Liste, sobald die Instanz
-läuft.
-
-Das Feld listet die Adressen, unter denen die Bridge erreichbar ist — zuerst
-„0.0.0.0 - alle Adressen“, dann jede IPv4-Adresse des Rechners mit ihrer Schnittstelle;
-Loopback und eine Link-Local-Adresse neben einer normalen stehen nicht zur Wahl. Die
-Liste füllt die laufende Instanz; solange die Instanz nicht läuft (auch vor dem ersten
-Start), zeigt das Feld nur den gespeicherten Wert als Text — bei einer neuen Instanz
-`0.0.0.0`, dort ist nichts einzutragen.
+lauscht und antwortet sie allein dort. Die Liste ist die von ioBroker und zeigt jede
+IPv4-Adresse des Rechners, auch 127.0.0.1 — damit gewählt, erreicht nur der ioBroker-Rechner
+selbst die Bridge.
 
 ### 3. Port
 

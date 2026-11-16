@@ -150,7 +150,6 @@
     "dataSource": "push",
     "tier": 3,
     "dataFolder": "hueemu.%INSTANCE%",
-    "messagebox": true,
     "supportedMessages": {
       "deviceManager": true
     },

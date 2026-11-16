@@ -20,7 +20,7 @@
 import * as dgram from "node:dgram";
 import type { BridgeIdentity, Logger } from "../types/config";
 import { errText } from "../lib/err-text";
-import { announceAddresses, localNets, ownAddressFor } from "../lib/network-address";
+import { announceAddresses, localNets, ownAddressFor, ownNets } from "../lib/network-address";
 import { getDescriptionUrl } from "./description-xml";
 import {
   SSDP_MULTICAST_ADDR,
@@ -257,11 +257,11 @@ export class HueSsdpServer {
       this.tryJoin(socket, this.config.bindIp);
       return;
     }
-    // Every IPv4 network of the host (fleet master network-address.ts — the only reader of
-    // the interfaces): a search can come from any of them.
+    // Every IPv4 network of the host a device sits in (fleet master network-address.ts, `ownNets`
+    // — the only reader of the interfaces; loopback is none): a search can come from any of them.
     const addresses = [
       ...new Set(
-        localNets()
+        ownNets(undefined)
           .filter(net => net.family === "IPv4")
           .map(net => net.address),
       ),

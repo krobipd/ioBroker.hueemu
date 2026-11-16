@@ -142,17 +142,19 @@ const API_LIMITS = path.join(ADAPTER_DIR, "src", "lib", "api-limits.json");
 // Round 101 (krobi 2026-10-07 15:54, GV-13 as the fleet rule: never `ack: true` unless the device confirmed): how long
 // after the last command the suite waits — no counterpart answers in that time, so no command may be confirmed.
 const COMMAND_WINDOW_MS = 30000;
-// Round 87 (krobi 2026-10-03 00:27, 11:38): the address the user picks in the instance settings (since round 180 a
-// jsonConfig `selectSendTo` with `command: "networkAddresses"`, before `type: "ip"`) is the only one the adapter listens,
-// sends and connects on — the cloud included; one the host does not carry falls back
+// Round 87 (krobi 2026-10-03 00:27, 11:38): the address the user picks in the instance settings (jsonConfig `type: "ip"`)
+// is the only one the adapter listens, sends and connects on — the cloud included; one the host does not carry falls back
 // to every address with exactly one warning. ADDRESS_KEY is the native key of that field, undefined where the adapter
-// offers no choice; CHOSEN_ADDRESS the first non-internal IPv4 of this machine (loopback is internal — several adapters
-// treat it as missing); MISSING_ADDRESS one no machine carries (TEST-NET-1, RFC 5737).
+// offers no choice; CHOSEN_ADDRESS is 127.0.0.1 — every machine carries it and no adapter takes it by itself, and a chosen
+// address the host carries is the only one, loopback included (round 182; until then the first non-internal IPv4, which
+// an adapter without a choice takes too); LAN_ADDRESS the first non-internal IPv4 of this machine — in a suite without a
+// chosen address where a fixture reaches the adapter like a device of the network, in the suite "chosen network address"
+// where a client of another network asks from; MISSING_ADDRESS one no machine carries (TEST-NET-1, RFC 5737).
 const ADDRESS_KEY = (() => {
   const file = path.join(ADAPTER_DIR, "admin", "jsonConfig.json");
   const find = node => {
     for (const [key, value] of Object.entries(node?.items ?? {})) {
-      if (value?.type === "ip" || (value?.type === "selectSendTo" && value.command === "networkAddresses")) {
+      if (value?.type === "ip") {
         return key;
       }
       const inner = find(value);
@@ -164,7 +166,8 @@ const ADDRESS_KEY = (() => {
   };
   return fs.existsSync(file) ? find(JSON.parse(fs.readFileSync(file, "utf8"))) : undefined;
 })();
-const CHOSEN_ADDRESS = Object.values(require("node:os").networkInterfaces())
+const CHOSEN_ADDRESS = "127.0.0.1";
+const LAN_ADDRESS = Object.values(require("node:os").networkInterfaces())
   .flatMap(list => list ?? [])
   .find(i => i.family === "IPv4" && !i.internal)?.address;
 const MISSING_ADDRESS = "192.0.2.1";
@@ -413,9 +416,15 @@ async function seedSources(harness) {
 }
 
 /**
- * One request to the bridge on the chosen address, as a Hue client sends it. The adapter answers only clients in its own
- * networks (fleet master src/lib/network-address.ts, `isOwnPeer`: no exception for loopback), so 127.0.0.1 would get a
- * 403.
+ * Where the fixture reaches the bridge (round 182): on CHOSEN_ADDRESS in the suite that chose it, otherwise on
+ * LAN_ADDRESS like a device of the network — without a chosen address the adapter answers only clients in its device
+ * networks (fleet master src/lib/network-address.ts, `isOwnPeer`), so 127.0.0.1 would get a 403. Set by `feedFixtures`
+ * from the instance settings, before the first request of a suite.
+ */
+let bridgeHost = LAN_ADDRESS;
+
+/**
+ * One request to the bridge on `bridgeHost`, as a Hue client sends it.
  *
  * @param {{ secure?: boolean, method?: string, address: string, body?: unknown }} request what to ask, HTTPS instead of HTTP when `secure`
  * @returns {Promise<{ status: number, body: any }>} the HTTP status (0 when nothing answered) and the body, parsed where it is JSON
@@ -423,7 +432,7 @@ async function seedSources(harness) {
 function askBridge({ secure = false, method = "GET", address, body }) {
   const payload = body === undefined ? undefined : JSON.stringify(body);
   const options = {
-    host: CHOSEN_ADDRESS,
+    host: bridgeHost,
     port: secure ? FIXTURE_HTTPS_PORT : FIXTURE_PORT,
     path: address,
     method,
@@ -630,6 +639,8 @@ function names(served) {
  * @param {import("@iobroker/testing").IntegrationTestHarness} harness
  */
 async function feedFixtures(harness) {
+  const chosen = (await harness.objects.getObjectAsync(`system.adapter.${ADAPTER}.0`))?.native?.[ADDRESS_KEY ?? ""];
+  bridgeHost = chosen === CHOSEN_ADDRESS ? CHOSEN_ADDRESS : LAN_ADDRESS;
   await seedSources(harness);
   // Both listeners answer — HTTPS with the certificate ioBroker holds (one it does not hold would stop the start before
   // either port is bound).
@@ -638,7 +649,7 @@ async function feedFixtures(harness) {
     (await askBridge({ secure: true, address: "/description.xml" })).status === 200;
   assert.ok(
     await waitWindow("the bridge answers", START_DEADLINE_MS, up, 250),
-    `the bridge did not answer on ${CHOSEN_ADDRESS}:${FIXTURE_PORT} and :${FIXTURE_HTTPS_PORT}`,
+    `the bridge did not answer on ${bridgeHost}:${FIXTURE_PORT} and :${FIXTURE_HTTPS_PORT}`,
   );
   await pairClient(harness, FIXTURE_CLIENT_KEY);
   await addLights(harness, FIXTURE_LIGHTS, EXPECTED_LIGHT_STATE);
@@ -939,7 +950,7 @@ function clientsFile(harness) {
 function servedCertificate() {
   return new Promise(resolve => {
     const socket = require("node:tls").connect(
-      { host: CHOSEN_ADDRESS, port: FIXTURE_HTTPS_PORT, rejectUnauthorized: false },
+      { host: bridgeHost, port: FIXTURE_HTTPS_PORT, rejectUnauthorized: false },
       () => {
         resolve(socket.getPeerCertificate().raw);
         socket.end();
@@ -2108,8 +2119,9 @@ function offTheAddress(use, address) {
 
 /**
  * Round 87 (krobi 2026-10-02 23:52, F-05 of fakeroku as the fleet rule): a client from another network gets no answer —
- * every server and UDP port the adapter opened on `address` is asked once from 127.0.0.1. A TCP reply counts unless it is
- * an HTTP status of 400 or above; any UDP reply counts.
+ * every server and UDP port the adapter opened on `address` is asked once from LAN_ADDRESS (round 182: the chosen
+ * address is 127.0.0.1, the machine's address in another network asks). A TCP reply counts unless it is an HTTP status of
+ * 400 or above; any UDP reply counts.
  *
  * @param {object[]} use the records (networkUse)
  * @param {string} address the chosen address
@@ -2122,7 +2134,7 @@ async function askFromAnotherNetwork(use, address) {
       asked.add(`tcp ${r.port}`);
       const reply = await new Promise(resolve => {
         let data = "";
-        const socket = require("node:net").connect({ host: address, port: r.port, localAddress: "127.0.0.1" });
+        const socket = require("node:net").connect({ host: address, port: r.port, localAddress: LAN_ADDRESS });
         const wait = setTimeout(() => socket.destroy(), 1500);
         socket.on("connect", () => socket.write("GET / HTTP/1.0\r\n\r\n"));
         socket.on("data", d => (data += d));
@@ -2134,7 +2146,7 @@ async function askFromAnotherNetwork(use, address) {
       });
       const status = /^HTTP\/\d(?:\.\d)? (\d{3})/.exec(reply);
       if (reply && !(status && Number(status[1]) >= 400)) {
-        answered.push(`TCP ${address}:${r.port} answered a client from 127.0.0.1`);
+        answered.push(`TCP ${address}:${r.port} answered a client from ${LAN_ADDRESS}`);
       }
     }
     if (r.kind === "bind" && r.port && !asked.has(`udp ${r.port}`)) {
@@ -2150,7 +2162,7 @@ async function askFromAnotherNetwork(use, address) {
           socket.close();
           resolve(true);
         });
-        socket.bind(0, "127.0.0.1", () =>
+        socket.bind(0, LAN_ADDRESS, () =>
           socket.send(
             'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 1\r\nST: ssdp:all\r\n\r\n',
             r.port,
@@ -2159,7 +2171,7 @@ async function askFromAnotherNetwork(use, address) {
         );
       });
       if (reply) {
-        answered.push(`UDP ${address}:${r.port} answered a sender from 127.0.0.1`);
+        answered.push(`UDP ${address}:${r.port} answered a sender from ${LAN_ADDRESS}`);
       }
     }
   }
@@ -2177,9 +2189,10 @@ tests.integration(ADAPTER_DIR, {
     // after() judges with it). scripts/inventory-suites.mjs refuses a binding neither names: D06 then runs whole.
     const suite = require("./fleet-suites.js").withProtocol(harnessSuite, {
       RESOURCE_DIR,
-      suiteState: () => ({ counting, READ_ONLY: [...READ_ONLY] }),
+      suiteState: () => ({ counting, READ_ONLY: [...READ_ONLY], bridgeHost }),
       restoreState: state => {
         counting = state.counting;
+        bridgeHost = state.bridgeHost;
         READ_ONLY.clear();
         state.READ_ONLY.forEach(id => READ_ONLY.add(id));
       },
@@ -2606,7 +2619,7 @@ tests.integration(ADAPTER_DIR, {
         let strangers;
         before(async function () {
           this.timeout(180000);
-          assert.ok(CHOSEN_ADDRESS, "this machine carries no non-internal IPv4 address to choose");
+          assert.ok(LAN_ADDRESS, "this machine carries no non-internal IPv4 address a client of another network asks from");
           harness = getHarness();
           clearInstanceData(harness);
           const seen = networkFiles();

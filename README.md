@@ -63,11 +63,11 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ### Network Settings
 
-The instance is created stopped: choose the port first, then start it. Host / IP Address stays on `0.0.0.0` (all addresses); to limit the bridge to one network, pick that address from the list once the instance runs — the list holds the IPv4 addresses the bridge can be reached at. While the instance does not run, the field only shows the stored value as text.
+The instance is created stopped: choose the Host / IP and the port first, then start it.
 
 | Option                           | Description                                                                                                                                                  | Default        |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-| **Host / IP Address**            | Address the bridge listens on, from the list the running instance offers. `0.0.0.0`: all interfaces, each client gets the host's address in its network      | 0.0.0.0        |
+| **Host / IP Address**            | Address the bridge listens on. `0.0.0.0`: all interfaces, each client is told the host's address in its network. A set address limits it to that network     | 0.0.0.0        |
 | **Port**                         | HTTP port for the Hue API                                                                                                                                    | 8080           |
 | **MAC Address**                  | Bridge MAC (auto-generated if empty)                                                                                                                         | —              |
 | __Trust X-Forwarded-* headers__  | Only behind a trusted reverse proxy that strips client-supplied forwarding headers; the forwarded address then shows in the debug log instead of the proxy's | off            |
@@ -241,7 +241,6 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.
 - Changed: HTTPS is switched on with the new option "Use HTTPS" and takes a certificate ioBroker holds instead of its own; an HTTPS port set before keeps HTTPS on.
-- Changed: The Host / IP Address list offers only addresses the bridge can be reached at; the running instance fills it.
 
 ### 1.19.0 (2026-09-25) — stable
 

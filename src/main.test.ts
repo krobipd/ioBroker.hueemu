@@ -95,7 +95,6 @@ vi.mock("node:tls", async importOriginal => {
 import { I18n } from "@iobroker/adapter-core";
 import * as mainModule from "./main";
 import { readDataFile } from "./lib/data-file";
-import { addressChoices } from "./lib/network-address";
 import { mergedWith } from "./lib/known-objects";
 import { SettingsError } from "./lib/start-failure";
 import { StartError } from "./types/errors";
@@ -1045,20 +1044,6 @@ describe("HueEmu onMessage", () => {
     );
   });
 
-  it("answers the address choice of the settings with the fleet master's list, every address first", () => {
-    const { adapter } = setup();
-    const i = internalOf(adapter);
-    i.onMessage(message("networkAddresses", callback));
-    expect(i.sendTo).toHaveBeenCalledTimes(1);
-    expect(i.sendTo).toHaveBeenCalledWith(
-      "system.adapter.admin.0",
-      "networkAddresses",
-      addressChoices("IPv4"),
-      callback,
-    );
-    expect((i.sendTo.mock.calls[0][2] as { value: string }[])[0].value).toBe("0.0.0.0");
-  });
-
   it("leaves the device manager's commands to dm-utils", () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
@@ -1070,7 +1055,6 @@ describe("HueEmu onMessage", () => {
     const { adapter } = setup();
     const i = internalOf(adapter);
     i.onMessage(message("inventoryUnknownCommand"));
-    i.onMessage(message("networkAddresses"));
     expect(i.sendTo).not.toHaveBeenCalled();
   });
 });
@@ -1517,9 +1501,9 @@ describe("HueEmu onUnload", () => {
 
   it("stores the listen address and port under the keys the admin's port-conflict check reads", () => {
     // v1.18.0 — `native.bind` (a string) + `native.port` (a number) is the pair the admin
-    // compares across instances; the form field for the address is `bind`, a list the running
-    // instance answers (`networkAddresses`, "every address" = 0.0.0.0 first — D17), and nothing
-    // writes the pre-1.18 key `host` any more.
+    // compares across instances; the form field for the address is `bind`, json-config's own field
+    // of type `ip` offering 0.0.0.0 (round 182, as shelly does), and nothing writes the pre-1.18 key
+    // `host` any more.
     const manifest = JSON.parse(readFileSync(join(__dirname, "..", "io-package.json"), "utf8")) as {
       native: Record<string, unknown>;
     };
@@ -1532,10 +1516,12 @@ describe("HueEmu onUnload", () => {
     };
     const fields = form.items.networkTab.items;
     expect(fields.bind).toMatchObject({
-      type: "selectSendTo",
-      command: "networkAddresses",
+      type: "ip",
       label: "bind",
       tooltip: "bindTooltip",
+      listenOnAllPorts: true,
+      noInternal: true,
+      onlyIp4: true,
     });
     expect(fields.port).toMatchObject({ type: "port", min: 1, max: 65535 });
     expect(fields.host).toBeUndefined();

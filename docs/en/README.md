@@ -28,23 +28,18 @@ knows, from a Zigbee bulb to a KNX dimmer to a relay in a heating controller.
 ### 1. Create the instance
 
 Install the adapter and create one instance. The instance is created **stopped**:
-choose the port (step 3) first, then start it. It listens on port 8080 unless you
-choose another one.
+choose the Host / IP address and the port (steps 2 and 3) first, then start it. It
+listens on port 8080 unless you choose another one.
 
 ### 2. Host / IP address
 
-Leave **Host / IP** on `0.0.0.0` ("0.0.0.0 - every address"). The bridge then listens
-in every network of your ioBroker host and tells each client the host's address in that
-client's network — it never picks one address by itself.
+Leave **Host / IP** on `0.0.0.0` ("[IPv4] 0.0.0.0 - Listen on all IPs"). The bridge then
+listens in every network of your ioBroker host and tells each client the host's address in
+that client's network — it never picks one address by itself.
 
 Set a concrete address only if the bridge should serve **one network only**: it then
-listens and answers there alone. Pick it from the list once the instance runs.
-
-The field lists the addresses the bridge can be reached at — "0.0.0.0 - every address"
-first, then each IPv4 address of the host with its interface; loopback and a link-local
-address beside a normal one are not offered. The running instance fills the list; while
-the instance does not run (before its first start, too), the field only shows the stored
-value as text — `0.0.0.0` on a new instance, nothing to type there.
+listens and answers there alone. The list is ioBroker's own and shows every IPv4 address of
+the host, also 127.0.0.1 — chosen, only the ioBroker host itself reaches the bridge.
 
 ### 3. Port
 

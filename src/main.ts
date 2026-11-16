@@ -34,14 +34,7 @@ import {
 import { REASON_UNKNOWN, StartError } from "./types/errors";
 import { failStart, SettingsError } from "./lib/start-failure";
 import { migrateNativeKeys } from "./lib/native-key-migration";
-import {
-  addressChoices,
-  carriesAddress,
-  chosenAddress,
-  isOwnPeer,
-  localNets,
-  ownAddressFor,
-} from "./lib/network-address";
+import { carriesAddress, chosenAddress, isOwnPeer, ownAddressFor, ownNets } from "./lib/network-address";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText } from "./lib/err-text";
 
@@ -320,7 +313,7 @@ class HueEmu extends utils.Adapter {
       );
       const migrations = buildNativeKeyMigrations(
         this.config as unknown as Record<string, unknown>,
-        localNets().map(net => net.address),
+        ownNets(undefined).map(net => net.address),
         moved.stored,
         identityNew,
       );
@@ -646,7 +639,7 @@ class HueEmu extends utils.Adapter {
     // backup restored on other hardware) cannot be served — then every address, and the
     // log says once what to fix (krobi 2026-10-03, network-address.ts).
     let bindIp = chosenAddress(this.config.bind);
-    if (bindIp !== undefined && !carriesAddress(bindIp)) {
+    if (bindIp !== undefined && !carriesAddress(bindIp, "IPv4")) {
       this.log.warn(
         `Address ${bindIp} does not exist on this host — listening on all addresses; choose another address in the instance settings`,
       );
@@ -971,20 +964,14 @@ class HueEmu extends utils.Adapter {
 
   /**
    * A message gets an answer, never silence (fleet rule D10): the device manager's `dm:` commands are answered by
-   * dm-utils, which listens on the same event; `networkAddresses` asks for the list of the settings field `bind`
-   * and gets the fleet master's `addressChoices` — "every address" first, then only the addresses the bridge may
-   * use and announce (D17); any other command is none of this adapter's and gets an error the sender can
-   * read. A message without a callback waits for nothing.
+   * dm-utils, which listens on the same event; any other command is none of this adapter's and gets an error the
+   * sender can read. A message without a callback waits for nothing.
    *
    * @param obj - The message
    */
   private onMessage(obj: ioBroker.Message): void {
     try {
       if (!obj?.callback || typeof obj.command !== "string" || obj.command.startsWith("dm:")) {
-        return;
-      }
-      if (obj.command === "networkAddresses") {
-        this.sendTo(obj.from, obj.command, addressChoices("IPv4"), obj.callback);
         return;
       }
       this.sendTo(obj.from, obj.command, { error: `Unknown command: ${obj.command}` }, obj.callback);
