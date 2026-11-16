@@ -12,12 +12,10 @@
           "size": 4
         },
         "bind": {
-          "type": "ip",
+          "type": "selectSendTo",
+          "command": "networkAddresses",
           "label": "bind",
           "tooltip": "bindTooltip",
-          "onlyIp4": true,
-          "noInternal": true,
-          "listenOnAllPorts": true,
           "xs": 12,
           "sm": 12,
           "md": 6,

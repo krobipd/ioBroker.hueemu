@@ -33,12 +33,20 @@ listens on port 8080 unless you choose another one.
 
 ### 2. Host / IP address
 
-Leave **Host / IP** on `0.0.0.0` ("listen on all interfaces"). The bridge then listens
+Leave **Host / IP** on `0.0.0.0` ("0.0.0.0 - every address"). The bridge then listens
 in every network of your ioBroker host and tells each client the host's address in that
 client's network — it never picks one address by itself.
 
 Set a concrete address only if the bridge should serve **one network only**: it then
 listens and answers there alone.
+
+The field lists the addresses the bridge can be reached at — "0.0.0.0 - every address"
+first, then each IPv4 address of the host with its interface; loopback and a link-local
+address beside a normal one are not offered. The running instance fills the list, so
+while the instance does not run (before its first start, too) the field is a plain text
+field holding the stored value — `0.0.0.0` on a new instance. Type an IPv4 address there:
+one the list would not offer makes the bridge listen on every address and warn once in
+the log.
 
 ### 3. Port
 

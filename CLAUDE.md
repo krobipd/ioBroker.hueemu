@@ -62,7 +62,7 @@ _Je Nummer der Regel-Satz; Beleg, Messung und Verlauf wörtlich in `.claude/dev-
 
 1. **Fastify** statt Express — schneller, besserer TypeScript-Support.
 2. **SSDP Port 1900 hardcoded** — UPnP-Standard, alle Clients scannen fix diesen Port.
-3. **`bind` = die eine Adresse** — EIN `type:ip`-Feld: eine konkrete IP wird gebunden und jedem Client in ihrem Netz genannt; `0.0.0.0` lauscht überall und nennt jedem Client die Adresse des Rechners in dessen Netz, die Ankündigung ohne Frager je eigenem Netz mit dessen Adresse — nie eine selbst gewählte (D17, Flottenregel krobi 2026-11-11 19:34, `ownAddressFor`); nie ein Lese-Fallback `bind || host`.
+3. **`bind` = die eine Adresse** — EIN Feld, eine Liste, die die laufende Instanz füllt (`selectSendTo` mit `command: "networkAddresses"`, `onMessage` antwortet mit `addressChoices("IPv4")` des Masters, `common.messagebox: true` — Runde 180; vorher `type: "ip"`): eine konkrete IP wird gebunden und jedem Client in ihrem Netz genannt; `0.0.0.0` lauscht überall und nennt jedem Client die Adresse des Rechners in dessen Netz, die Ankündigung ohne Frager je eigenem Netz mit dessen Adresse — nie eine selbst gewählte (D17, Flottenregel krobi 2026-11-11 19:34, `ownAddressFor`); nie ein Lese-Fallback `bind || host`.
 4. **Port 8080 Default** — Harmony funktioniert mit 8080 und nutzt nur HTTP; Alexa braucht Port 80 und (neuere Echos) zusätzlich HTTPS auf 443 — Nutzer-Sache, README und Doku beschreiben das Rezept.
 5. **onoff → LWB007/Dimmable** — Harmony kennt "On/Off light" nicht, fällt sonst auf Farb-Controls zurück.
 6. **capabilities-Feld weggelassen** — ha-bridge-kompatibel.

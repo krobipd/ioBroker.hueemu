@@ -6,7 +6,7 @@
  * builders live in ssdp-messages.ts.
  *
  * Announcing (D17, krobi 2026-11-11 19:34; Werkbank text of 2026-11-15): a NOTIFY has no asker, so
- * without a chosen address it goes out once per own IPv4 network — from a small sender socket bound
+ * without a chosen address it goes out once per announceable IPv4 address — from a small sender socket bound
  * to that network's address and pinned to its interface, carrying that address — and with a chosen
  * address from the receiving socket, pinned to it. The adapter picks no address (fakeroku's
  * per-interface sender as the pattern).
@@ -87,7 +87,7 @@ interface Announcer {
  */
 export class HueSsdpServer {
   private socket: dgram.Socket | null = null;
-  /** The per-network NOTIFY senders without a chosen address — one per own IPv4 network. */
+  /** The per-network NOTIFY senders without a chosen address — one per announceable IPv4 address. */
   private senders: Announcer[] = [];
   private readonly config: SsdpServerConfig;
   private readonly bridgeId: string;
@@ -106,9 +106,10 @@ export class HueSsdpServer {
   }
 
   /**
-   * Bind the SSDP port, join the multicast group on every routable IPv4
-   * interface (node-ssdp's default), and start answering searches. Rejects on
-   * a bind error — deterministically, unlike node-ssdp.
+   * Bind the SSDP port, join the multicast group on every IPv4 network of the
+   * host (or on the chosen address alone), open the per-network NOTIFY senders
+   * without a chosen address, and start answering searches. Rejects on a bind
+   * error — deterministically, unlike node-ssdp.
    */
   public async start(): Promise<void> {
     if (this.socket) {
@@ -164,8 +165,9 @@ export class HueSsdpServer {
   }
 
   /**
-   * Open one NOTIFY sender per own IPv4 network (fleet master `announceAddresses` over `localNets`, the
-   * only reader of the interfaces — no network left out by the adapter, Werkbank standard 74d84aa54d89):
+   * Open one NOTIFY sender per announceable IPv4 address (fleet master `announceAddresses` over `localNets`,
+   * the only reader of the interfaces — the master leaves out what an announcement never names, the adapter
+   * leaves out nothing itself, Werkbank standard 74d84aa54d89):
    * bound to that network's address and pinned to its interface, so every network hears an address it
    * can reach. A sender that cannot open only costs its network the proactive NOTIFY — a search from
    * there is still answered.
@@ -242,7 +244,7 @@ export class HueSsdpServer {
   }
 
   /**
-   * Join the multicast group on each routable IPv4 interface, or on the OS
+   * Join the multicast group on each IPv4 network of the host, or on the OS
    * default when none is known. A failure warns but does not throw, so one bad
    * interface cannot stop the responder (fakeroku pattern).
    *
@@ -274,8 +276,10 @@ export class HueSsdpServer {
   }
 
   /**
-   * Send the multicast NOTIFYs from the chosen interface. With every address the
-   * system's default route decides, as before.
+   * With a chosen address the receiving socket sends the NOTIFYs, from that
+   * interface. With every address the per-network senders of {@link openSenders}
+   * send them, each from its own interface; the receiving socket sends only the
+   * bye-bye then, and only when no sender is open (default route).
    *
    * @param socket - The bound SSDP socket
    */

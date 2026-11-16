@@ -34,7 +34,14 @@ import {
 import { REASON_UNKNOWN, StartError } from "./types/errors";
 import { failStart, SettingsError } from "./lib/start-failure";
 import { migrateNativeKeys } from "./lib/native-key-migration";
-import { carriesAddress, chosenAddress, isOwnPeer, localNets, ownAddressFor } from "./lib/network-address";
+import {
+  addressChoices,
+  carriesAddress,
+  chosenAddress,
+  isOwnPeer,
+  localNets,
+  ownAddressFor,
+} from "./lib/network-address";
 import { buildNativeKeyMigrations } from "./lib/native-key-list";
 import { errText } from "./lib/err-text";
 
@@ -964,14 +971,20 @@ class HueEmu extends utils.Adapter {
 
   /**
    * A message gets an answer, never silence (fleet rule D10): the device manager's `dm:` commands are answered by
-   * dm-utils, which listens on the same event; any other command is none of this adapter's and gets an error the
-   * sender can read. A message without a callback waits for nothing.
+   * dm-utils, which listens on the same event; `networkAddresses` asks for the list of the settings field `bind`
+   * and gets the fleet master's `addressChoices` — "every address" first, then only the addresses the bridge may
+   * use and announce (D17); any other command is none of this adapter's and gets an error the sender can
+   * read. A message without a callback waits for nothing.
    *
    * @param obj - The message
    */
   private onMessage(obj: ioBroker.Message): void {
     try {
       if (!obj?.callback || typeof obj.command !== "string" || obj.command.startsWith("dm:")) {
+        return;
+      }
+      if (obj.command === "networkAddresses") {
+        this.sendTo(obj.from, obj.command, addressChoices("IPv4"), obj.callback);
         return;
       }
       this.sendTo(obj.from, obj.command, { error: `Unknown command: ${obj.command}` }, obj.callback);

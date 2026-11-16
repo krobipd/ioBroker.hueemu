@@ -16,8 +16,8 @@
 //   no other value (round 96), and logs nothing above debug.
 // Suite "a name that is the adapter's own" (round 87): a device named `info` (feedReservedNames)
 //   leaves `info` and everything below it as a fresh installation has it.
-// Suites "chosen network address" / "missing network address" (round 87, only with a
-//   `type: "ip"` field): the chosen address is the only one used and strangers get no
+// Suites "chosen network address" / "missing network address" (round 87, only with an
+//   address choice): the chosen address is the only one used and strangers get no
 //   answer; a missing one falls back to every address with exactly one warning.
 // Suite "diagnostics report" (round 97, only with a report): every device's report asked for the way the admin
 //   card asks — no datapoint, no value and no file for a report, and no live read of an unconnected device.
