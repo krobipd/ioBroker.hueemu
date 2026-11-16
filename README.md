@@ -235,9 +235,9 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Fixed: A new instance shows "Unknown" as the reason until its first start instead of an empty text.
 - Fixed: A bridge that cannot start, for example on a taken port, now ends with an error and js-controller restarts it.
 - New: A wrong setting, for example an invalid port, stops the instance with a notification in the admin — it starts again when you save the settings.
-- Changed: Listening on all addresses, the bridge tells each client the host's address in that client's network and announces itself in every own network.
+- Changed: Listening on all addresses, the bridge now works in every network of the host.
 - Fixed: A message the adapter does not know (sendTo from a script) now gets an error answer instead of none.
-- New: Light type "Color without white" for a lamp with color but no white temperature, such as a light strip.
+- New: Light type "Color without white".
 - Improved: A chosen address the host does not have no longer stops the bridge — it listens on every address and warns once.
 - Improved: The settings always open on the first tab, Configuration.
 - Changed: HTTPS is switched on with the new option "Use HTTPS" and takes a certificate ioBroker holds instead of its own; an HTTPS port set before keeps HTTPS on.
