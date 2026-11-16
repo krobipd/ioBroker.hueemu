@@ -63,7 +63,7 @@ For details and how to disable it, see the [Sentry plugin documentation](https:/
 
 ### Network Settings
 
-The instance is created stopped: choose the Host / IP and the port first, then start it. While the instance does not run, Host / IP Address is a plain text field with the stored value (`0.0.0.0` = all addresses on a new instance); once it runs, the field lists the IPv4 addresses the bridge can be reached at. A set address limits the bridge to that network.
+The instance is created stopped: choose the port first, then start it. Host / IP Address stays on `0.0.0.0` (all addresses); to limit the bridge to one network, pick that address from the list once the instance runs — the list holds the IPv4 addresses the bridge can be reached at. While the instance does not run, the field only shows the stored value as text.
 
 | Option                           | Description                                                                                                                                                  | Default        |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
