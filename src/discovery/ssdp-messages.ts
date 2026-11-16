@@ -84,11 +84,12 @@ export function parseMSearchTarget(message: string): string | undefined {
   for (const line of lines.slice(1)) {
     // v1.19.0: split at the first colon instead of `/^([^:]+):\s*(.*)$/` — that
     // pattern backtracked quadratically on a long run of blanks (a 60 KB line held
-    // the event loop 6–8 s, audit 2026-09-25 Q1). Same acceptance: a non-empty
-    // name, leading blanks dropped from the value, and a value that still holds a
-    // line break is no header.
+    // the event loop 6–8 s, audit 2026-09-25 Q1). A line without a colon is no
+    // header, leading blanks are dropped from the value, and a value that still
+    // holds a line break is no header. A line with an empty name lands under "",
+    // which nothing reads: only MAN, MX and ST count.
     const colon = line.indexOf(":");
-    if (colon <= 0) {
+    if (colon < 0) {
       continue;
     }
     const value = line.slice(colon + 1).trimStart();

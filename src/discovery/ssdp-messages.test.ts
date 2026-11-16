@@ -114,6 +114,10 @@ describe("parseMSearchTarget", () => {
     expect(parseMSearchTarget(msg)).toBe("upnp:rootdevice");
   });
 
+  it("takes no line without a colon as a header", () => {
+    expect(parseMSearchTarget(msearch(["M-SEARCH * HTTP/1.1", "MANX", "MXX", "STX"]))).toBeUndefined();
+  });
+
   it("takes no header whose value still holds a line break", () => {
     const msg = msearch(["M-SEARCH * HTTP/1.1", 'MAN: "ssdp:discover"', "MX: 3", "ST: upnp:rootdevice\nX-Injected: 1"]);
     expect(parseMSearchTarget(msg)).toBeUndefined();
