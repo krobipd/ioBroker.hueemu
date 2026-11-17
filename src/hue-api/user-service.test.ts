@@ -397,21 +397,27 @@ describe("UserService", () => {
   });
 
   describe("no limit for pairings (decisions K6 and K3)", () => {
-    it("adds a 65th client in one window and a 101st within one hour, warning about none", async () => {
-      const adapter = createMockAdapter();
-      const warn = vi.fn();
-      const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store: storeWith([]) });
-      for (let i = 0; i < 65; i++) {
-        await service.addUser(`auto-${i}`, "echo");
-      }
-      for (let i = 0; i < 36; i++) {
-        await service.createUser(`manual-${i}`, "harmony");
-      }
-      expect(adapter.writtenObjects.size).toBe(101);
-      expect(await service.isUserAuthenticated("auto-64")).toBe(true);
-      expect(await service.isUserAuthenticated("manual-35")).toBe(true);
-      expect(warn).not.toHaveBeenCalled();
-    });
+    // 101 pairings write clients.json 101 times through the fleet master, each with fsync: a loaded
+    // runner needed 7081 ms (CI Windows job, run 43967153164), above the global 5 s limit.
+    it(
+      "adds a 65th client in one window and a 101st within one hour, warning about none",
+      { timeout: 10000 },
+      async () => {
+        const adapter = createMockAdapter();
+        const warn = vi.fn();
+        const service = new UserService({ adapter, logger: { ...createMockLogger(), warn }, store: storeWith([]) });
+        for (let i = 0; i < 65; i++) {
+          await service.addUser(`auto-${i}`, "echo");
+        }
+        for (let i = 0; i < 36; i++) {
+          await service.createUser(`manual-${i}`, "harmony");
+        }
+        expect(adapter.writtenObjects.size).toBe(101);
+        expect(await service.isUserAuthenticated("auto-64")).toBe(true);
+        expect(await service.isUserAuthenticated("manual-35")).toBe(true);
+        expect(warn).not.toHaveBeenCalled();
+      },
+    );
 
     it("re-pairing under an existing name creates no second object", async () => {
       const { service, adapter } = createService([]);
