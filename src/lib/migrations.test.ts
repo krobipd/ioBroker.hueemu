@@ -179,7 +179,7 @@ describe("migrations", () => {
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
         getObjectAsync: id => Promise.resolve(existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
-        delObjectAsync: id => {
+        removeObject: id => {
           deleted.push(id);
           return Promise.resolve(null);
         },
@@ -196,7 +196,7 @@ describe("migrations", () => {
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
         getObjectAsync: id => Promise.resolve(existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
-        delObjectAsync: id => {
+        removeObject: id => {
           deleted.push(id);
           return Promise.resolve(null);
         },
@@ -213,7 +213,7 @@ describe("migrations", () => {
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
         getObjectAsync: id => Promise.resolve(existing.has(id) ? { _id: `hueemu.0.${id}` } : null),
-        delObjectAsync: id => {
+        removeObject: id => {
           deleted.push(id);
           return Promise.resolve(null);
         },
@@ -229,7 +229,7 @@ describe("migrations", () => {
       await runObsoleteStateCleanup({
         namespace: "hueemu.0",
         getObjectAsync: () => Promise.resolve(null),
-        delObjectAsync: () => {
+        removeObject: () => {
           calls++;
           return Promise.resolve(null);
         },
@@ -270,7 +270,7 @@ describe("migrations", () => {
         getObjectAsync: (id: string) => Promise.resolve(id.endsWith(".name") ? { _id: `hueemu.0.${id}` } : null),
         getStatesOfAsync: () => Promise.resolve([]),
         addLights: () => Promise.resolve(),
-        delObjectAsync: () => Promise.resolve(null),
+        removeObject: () => Promise.resolve(null),
         log: { info: () => {}, warn: () => {} },
         ...over,
       };
@@ -441,7 +441,7 @@ describe("migrations", () => {
       const adapter = mkAdapter({
         getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
         getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
-        delObjectAsync: (id: string) => {
+        removeObject: (id: string) => {
           deleted.push(id);
           return Promise.resolve(null);
         },
@@ -460,7 +460,7 @@ describe("migrations", () => {
         getDevicesAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp", common: { name: "Lamp" } }]),
         getStatesOfAsync: () => Promise.resolve([{ _id: "hueemu.0.lamp.state.on" }]),
         addLights: () => Promise.reject(new Error("objects db down")),
-        delObjectAsync: (id: string) => {
+        removeObject: (id: string) => {
           deleted.push(id);
           return Promise.resolve(null);
         },

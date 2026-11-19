@@ -71,6 +71,12 @@ until you fix the settings. If an earlier version served HTTPS, the update switc
 proxy you trust that strips client-supplied forwarding headers. It only changes which
 client address the debug log shows.
 
+**Deleting datapoints** — when the adapter no longer provides a datapoint (a light deleted
+on its card, an object of an earlier version), it deletes it. **Delete datapoints with
+recording** (on) decides whether that also goes for a datapoint you record (history, sql,
+influxdb); off, it stays and the log counts it. **Delete the recorded data too** (off, shown
+with the first option) has each recording instance delete its data first.
+
 ### 4. Publish your lights
 
 Open the **Devices** tab. Each card is one light the bridge offers.

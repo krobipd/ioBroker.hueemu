@@ -22,31 +22,26 @@ import { readDataFile, writeDataFile } from "./data-file";
 import { isDeviceId, nextDeviceId } from "./device-ids";
 import { nameIn, tRaw } from "./i18n";
 import { ID_RANGE_END } from "./migrations";
+import { removeObject, type RemovalAdapter } from "./object-removal";
 
 /** The folder of the light devices (an `instanceObjects` entry of the manifest). */
 export const LIGHTS_FOLDER = "lights";
 /** The file in the instance data folder that holds the highest light number ever handed out. */
 export const LIGHT_IDS_FILE = "light-ids.json";
 
-/** The adapter methods the store needs — an `ioBroker.Adapter` carries all of them. */
-export interface LightStoreAdapter {
-  /** e.g. "hueemu.0" */
-  namespace: string;
+/**
+ * The adapter methods the store needs — an `ioBroker.Adapter` carries all of them; a light goes through the fleet's
+ * removal (`object-removal.ts`), which reads and deletes the objects itself.
+ */
+export interface LightStoreAdapter extends RemovalAdapter {
   /** The system language (`useFormatDate`) — the language a light's name is read in. */
   language?: ioBroker.Languages;
-  /** Reads the objects between two ids. */
-  getObjectListAsync(params: {
-    startkey: string;
-    endkey: string;
-  }): Promise<{ rows: Array<{ id: string; value: unknown }> } | null | undefined>;
   /** Reads one object. */
   getForeignObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
   /** Replaces (or creates) an object completely. */
   setForeignObject(id: string, obj: ioBroker.SettableObject): Promise<unknown>;
   /** Merges into an object. */
   extendForeignObjectAsync(id: string, obj: ioBroker.PartialObject): Promise<unknown>;
-  /** Deletes an object, with `recursive` its children too. */
-  delForeignObjectAsync(id: string, options?: { recursive?: boolean }): Promise<unknown>;
 }
 
 /** What the store holds right now. */
@@ -302,7 +297,7 @@ export class LightStore {
   public remove(n: number): Promise<void> {
     return this.serial(async () => {
       this.raiseMark([n]);
-      await this.adapter.delForeignObjectAsync(this.ids.device(n), { recursive: true });
+      await removeObject(this.adapter, this.ids.device(n), { recursive: true });
     });
   }
 

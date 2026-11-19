@@ -85,6 +85,15 @@ HTTPS is an option for one case only, and it is the user's matter:
 
 The bridge takes the certificate chosen in the certificate fields from ioBroker — it no longer makes one of its own. A certificate ioBroker does not hold stops the instance with a notification until the settings are fixed; HTTPS on without an HTTPS port does the same. An installation that served HTTPS with an earlier version keeps it: the update switches **Use HTTPS** on once when an HTTPS port was set.
 
+### Deleting Datapoints
+
+When the adapter no longer provides a datapoint — a light deleted on its card, an object of an earlier version — it deletes it. These two options decide what happens to a datapoint you record (history, sql, influxdb):
+
+| Option                               | Description                                                                                  | Default |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- | ------- |
+| **Delete datapoints with recording** | Off: a datapoint with recording stays and is counted in the log — check it manually          | on      |
+| **Delete the recorded data too**     | Shown with the first option. Each recording instance deletes the data of the datapoint first | off     |
+
 ### Adding Devices
 
 Open the **Devices** tab. There are two ways to add lights:
@@ -216,6 +225,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 
 ### **WORK IN PROGRESS**
 
+- New: Two new options decide whether a vanished datapoint you record is deleted and whether its recorded data goes too.
 - Changed: The bridge now answers only clients in its own networks, with a chosen address only those in that network.
 - Changed: Saving the settings can no longer reset the bridge identity.
 - Changed: A damaged identity file stops the start with an error.

@@ -66,8 +66,8 @@ export interface ObsoleteStateCleanupAdapter {
   namespace: string;
   /** Read an object by ID */
   getObjectAsync(id: string): Promise<unknown>;
-  /** Delete an object by ID */
-  delObjectAsync(id: string): Promise<unknown>;
+  /** Delete an own object by ID through the fleet's removal (`removeObject` of object-removal.ts) */
+  removeObject(id: string): Promise<unknown>;
   /** List objects within a key range */
   getObjectListAsync(query: {
     startkey: string;
@@ -88,7 +88,7 @@ export async function runObsoleteStateCleanup(adapter: ObsoleteStateCleanupAdapt
     if (!obj) {
       continue;
     }
-    await adapter.delObjectAsync(id);
+    await adapter.removeObject(id);
     adapter.log.debug(`Removed obsolete state: ${id}`);
 
     const dot = id.lastIndexOf(".");
@@ -101,7 +101,7 @@ export async function runObsoleteStateCleanup(adapter: ObsoleteStateCleanupAdapt
       endkey: `${adapter.namespace}.${parentId}.${ID_RANGE_END}`,
     });
     if (children?.rows.length === 0) {
-      await adapter.delObjectAsync(parentId);
+      await adapter.removeObject(parentId);
       adapter.log.debug(`Removed empty parent: ${parentId}`);
     }
   }
@@ -123,8 +123,8 @@ export interface LegacyDeviceMigrationAdapter {
   getStatesOfAsync(parentDevice: string, parentChannel: string): Promise<ioBroker.StateObject[]>;
   /** Store the converted lights as light objects (light-store.ts `add`) */
   addLights(configs: DeviceConfig[]): Promise<unknown>;
-  /** Delete an object by (namespace-relative) id */
-  delObjectAsync(id: string): Promise<unknown>;
+  /** Delete an own object by (namespace-relative) id through the fleet's removal (`removeObject` of object-removal.ts) */
+  removeObject(id: string): Promise<unknown>;
   /** Logger with info + warn */
   log: { info(message: string): void; warn(message: string): void };
 }
@@ -221,10 +221,10 @@ export async function runLegacyDeviceMigration(adapter: LegacyDeviceMigrationAda
     // v1.4.3 (M6) / v1.10.0 (L2): remove only the obsolete metadata wrappers.
     // The device (`${deviceId}`) + channel (`${deviceId}.state`) containers and
     // their state.* leaves are kept — DeviceBindingService binds to the leaves
-    // and delObject is non-recursive, so deleting the parents would orphan them.
+    // and the removal is non-recursive, so deleting the parents would orphan them.
     await Promise.all([
-      adapter.delObjectAsync(`${deviceId}.name`).catch(() => {}),
-      adapter.delObjectAsync(`${deviceId}.data`).catch(() => {}),
+      adapter.removeObject(`${deviceId}.name`).catch(() => {}),
+      adapter.removeObject(`${deviceId}.data`).catch(() => {}),
     ]);
   }
   adapter.log.info(`Migration complete: ${migratedDevices.length} device(s) converted`);

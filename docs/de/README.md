@@ -74,6 +74,13 @@ Einstellungen korrigierst. Hat eine frühere Version HTTPS bedient, schaltet das
 Reverse-Proxy, dem du vertraust und der vom Client mitgeschickte Weiterleitungs-Header
 entfernt. Es ändert nur, welche Client-Adresse das Debug-Protokoll zeigt.
 
+**Löschen von Datenpunkten** — stellt der Adapter einen Datenpunkt nicht mehr bereit (eine
+auf ihrer Karte gelöschte Lampe, ein Objekt einer früheren Version), löscht er ihn.
+**Datenpunkte mit Aufzeichnung löschen** (an) entscheidet, ob das auch für einen Datenpunkt
+gilt, den du aufzeichnest (history, sql, influxdb); aus, bleibt er stehen und das Log zählt
+ihn. **Auch die aufgezeichneten Daten löschen** (aus, nur bei der ersten Option sichtbar)
+lässt jede aufzeichnende Instanz vorher ihre Daten löschen.
+
 ### 4. Lampen veröffentlichen
 
 Öffne den Reiter **Geräte**. Jede Karte ist eine Lampe, die die Bridge anbietet.

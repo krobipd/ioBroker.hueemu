@@ -30,6 +30,10 @@ declare global {
       // the mark a file in the instance data folder. Read once to move them, then dropped.
       devices?: unknown;
       lastLightId?: unknown;
+      // The fleet's two deletion options (object-removal.ts reads them on every removal): delete a vanished
+      // datapoint although the user records it, and with that the recorded data too.
+      deleteRecordedStates?: unknown;
+      deleteRecordedHistory?: unknown;
     }
   }
 }

@@ -175,7 +175,9 @@
     "certPublic": "",
     "certPrivate": "",
     "certChained": "",
-    "leCollection": false
+    "leCollection": false,
+    "deleteRecordedStates": true,
+    "deleteRecordedHistory": false
   },
   "objects": [],
   "instanceObjects": [

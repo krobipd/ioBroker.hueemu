@@ -22,6 +22,7 @@ import { CLIENTS_FILE, ClientStore, UNREADABLE_CLIENTS_FILE, objectIdForLog } fr
 import { moveClients } from "./lib/client-move";
 import { lightIcon } from "./lib/device-icons";
 import { KnownObjects, sameStructure } from "./lib/known-objects";
+import { removeObject } from "./lib/object-removal";
 import type { HueEmulatorConfig, BridgeIdentity, TlsConfig, Logger } from "./types/config";
 import {
   BRIDGE_MODEL_ID,
@@ -914,7 +915,7 @@ class HueEmu extends utils.Adapter {
     await runObsoleteStateCleanup({
       namespace: this.namespace,
       getObjectAsync: id => this.getObjectAsync(id),
-      delObjectAsync: id => this.delObjectAsync(id),
+      removeObject: id => removeObject(this, id),
       getObjectListAsync: query => this.getObjectListAsync(query),
       log: { debug: msg => this.log.debug(msg) },
     });
@@ -1106,7 +1107,7 @@ class HueEmu extends utils.Adapter {
       getObjectAsync: id => this.getObjectAsync(id),
       getStatesOfAsync: (device, channel) => this.getStatesOfAsync(device, channel),
       addLights: configs => lights.add(configs),
-      delObjectAsync: id => this.delObjectAsync(id),
+      removeObject: id => removeObject(this, id),
       log: { info: msg => this.log.info(msg), warn: msg => this.log.warn(msg) },
     });
   }

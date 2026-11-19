@@ -24,6 +24,7 @@ vi.mock("@iobroker/adapter-core", () => ({
 }));
 
 import type { DeviceConfig } from "../hue-api/device-binding-service";
+import { FakeAdapter } from "../lib/adapter-fake";
 import { LightStore, type LightStoreAdapter } from "../lib/light-store";
 
 const folders: string[] = [];
@@ -41,38 +42,9 @@ function dataFolder(): string {
   return folder;
 }
 
-/** An object database in memory with the calls the light store makes. */
+/** An object database in memory with the calls the light store makes — the fleet's fake adapter, in English. */
 function memoryObjects(): LightStoreAdapter {
-  const objects = new Map<string, ioBroker.Object>();
-  return {
-    namespace: "hueemu.0",
-    language: "en",
-    getObjectListAsync({ startkey, endkey }) {
-      const rows = [...objects]
-        .filter(([id]) => id >= startkey && id <= endkey)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([id, value]) => ({ id, value: structuredClone(value) }));
-      return Promise.resolve({ rows });
-    },
-    getForeignObjectAsync: id => Promise.resolve(structuredClone(objects.get(id) ?? null)),
-    setForeignObject(id, obj) {
-      objects.set(id, { ...structuredClone(obj), _id: id } as ioBroker.Object);
-      return Promise.resolve({ id });
-    },
-    extendForeignObjectAsync(id, obj) {
-      const stored = objects.get(id);
-      objects.set(id, { ...(stored ?? {}), ...structuredClone(obj), _id: id } as ioBroker.Object);
-      return Promise.resolve({ id });
-    },
-    delForeignObjectAsync(id, options) {
-      for (const key of [...objects.keys()]) {
-        if (key === id || (options?.recursive === true && key.startsWith(`${id}.`))) {
-          objects.delete(key);
-        }
-      }
-      return Promise.resolve();
-    },
-  };
+  return Object.assign(new FakeAdapter({ name: "hueemu" }), { language: "en" }) as unknown as LightStoreAdapter;
 }
 
 /**

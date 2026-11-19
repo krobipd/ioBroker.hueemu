@@ -39,13 +39,19 @@ interface FakeAdapter extends LightStoreAdapter {
   getForeignObjectAsync: Method<"getForeignObjectAsync">;
   setForeignObject: Method<"setForeignObject">;
   extendForeignObjectAsync: Method<"extendForeignObjectAsync">;
-  delForeignObjectAsync: Method<"delForeignObjectAsync">;
+  delObjectAsync: Method<"delObjectAsync">;
 }
 
 function fakeAdapter(seed: Record<string, unknown> = {}): FakeAdapter {
   const db = new Map(Object.entries(structuredClone(seed)) as Array<[string, Record<string, unknown>]>);
   return {
     namespace: "hueemu.0",
+    // what the fleet's removal needs beside the database: the default options, a silent log, no timer
+    config: {},
+    log: { info: () => undefined, debug: () => undefined },
+    sendToAsync: () => Promise.resolve(undefined),
+    setTimeout: () => undefined,
+    clearTimeout: () => undefined,
     db,
     getObjectListAsync: vi.fn<LightStoreAdapter["getObjectListAsync"]>(q =>
       Promise.resolve({
@@ -65,7 +71,7 @@ function fakeAdapter(seed: Record<string, unknown> = {}): FakeAdapter {
       db.set(id, mergedWith(db.get(id), patch) as Record<string, unknown>);
       return Promise.resolve();
     }),
-    delForeignObjectAsync: vi.fn<LightStoreAdapter["delForeignObjectAsync"]>((id, opts) => {
+    delObjectAsync: vi.fn<LightStoreAdapter["delObjectAsync"]>((id, opts) => {
       for (const key of [...db.keys()]) {
         if (key === id || (opts?.recursive && key.startsWith(`${id}.`))) {
           db.delete(key);
@@ -333,8 +339,16 @@ describe("LightStore.remove", () => {
     });
     await new LightStore(adapter, dir, ICON).remove(4);
     expect(mark()).toBe(4);
-    expect(adapter.delForeignObjectAsync).toHaveBeenCalledWith("hueemu.0.lights.4", { recursive: true });
+    expect(adapter.delObjectAsync).toHaveBeenCalledWith("hueemu.0.lights.4", { recursive: true });
     expect([...adapter.db.keys()]).toEqual([]);
+  });
+
+  it("keeps a datapoint below the light that the user records while the deletion option says so", async () => {
+    const recorded = { type: "state", common: { custom: { "history.0": { enabled: true } } }, native: {} };
+    const adapter = fakeAdapter({ "hueemu.0.lights.4": device({ en: "A" }, {}), "hueemu.0.lights.4.note": recorded });
+    await new LightStore({ ...adapter, config: { deleteRecordedStates: false } }, dir, ICON).remove(4);
+    expect(mark()).toBe(4);
+    expect([...adapter.db.keys()]).toEqual(["hueemu.0.lights.4", "hueemu.0.lights.4.note"]);
   });
 
   it("deletes nothing when the mark cannot be stored", async () => {
@@ -342,7 +356,7 @@ describe("LightStore.remove", () => {
     const blocked = join(dir, "file");
     writeFileSync(blocked, "");
     await expect(new LightStore(adapter, join(blocked, "x"), ICON).remove(4)).rejects.toThrow();
-    expect(adapter.delForeignObjectAsync).not.toHaveBeenCalled();
+    expect(adapter.delObjectAsync).not.toHaveBeenCalled();
   });
 });
 

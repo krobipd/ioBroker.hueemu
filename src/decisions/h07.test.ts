@@ -20,6 +20,7 @@ vi.mock("@iobroker/adapter-core", () => ({
   I18n: { getTranslatedObject: (key: string) => ({ en: key }), translate: (key: string) => key },
 }));
 
+import { FakeAdapter } from "../lib/adapter-fake";
 import { LightStore, type LightStoreAdapter } from "../lib/light-store";
 
 const folders: string[] = [];
@@ -30,44 +31,21 @@ afterEach(() => {
   }
 });
 
-/**
- * An object database in memory with the calls the light store makes.
- *
- * @param objects where the objects land
- */
-function memoryObjects(objects: Map<string, ioBroker.Object>): LightStoreAdapter {
+/** An object database in memory with the calls the light store makes — the fleet's fake adapter, in English. */
+function memoryObjects(): { adapter: LightStoreAdapter; objects: Map<string, ioBroker.Object> } {
+  const fake = Object.assign(new FakeAdapter({ name: "hueemu" }), { language: "en" });
   return {
-    namespace: "hueemu.0",
-    language: "en",
-    getObjectListAsync({ startkey, endkey }) {
-      const rows = [...objects]
-        .filter(([id]) => id >= startkey && id <= endkey)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([id, value]) => ({ id, value: structuredClone(value) }));
-      return Promise.resolve({ rows });
-    },
-    getForeignObjectAsync: id => Promise.resolve(structuredClone(objects.get(id) ?? null)),
-    setForeignObject(id, obj) {
-      objects.set(id, { ...structuredClone(obj), _id: id } as ioBroker.Object);
-      return Promise.resolve({ id });
-    },
-    extendForeignObjectAsync(id, obj) {
-      objects.set(id, { ...(objects.get(id) ?? {}), ...structuredClone(obj), _id: id } as ioBroker.Object);
-      return Promise.resolve({ id });
-    },
-    delForeignObjectAsync(id) {
-      objects.delete(id);
-      return Promise.resolve();
-    },
+    adapter: fake as unknown as LightStoreAdapter,
+    objects: fake.objects as unknown as Map<string, ioBroker.Object>,
   };
 }
 
 describe("H-07: a light has no datapoint for its reachability", () => {
   it("writes no reachability datapoint for a light when adding, saving or bringing it to the current form", async () => {
-    const objects = new Map<string, ioBroker.Object>();
+    const { adapter, objects } = memoryObjects();
     const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-h07-"));
     folders.push(folder);
-    const store = new LightStore(memoryObjects(objects), folder, "data:image/svg+xml;base64,PHN2Zy8+");
+    const store = new LightStore(adapter, folder, "data:image/svg+xml;base64,PHN2Zy8+");
     await store.add([
       { name: "Hall", lightType: "onoff", onState: "javascript.0.hall" },
       { name: "Desk", lightType: "dimmable", briState: "javascript.0.desk" },

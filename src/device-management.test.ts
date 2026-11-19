@@ -59,6 +59,11 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
     language: undefined as string | undefined,
     on: vi.fn(),
     log: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
+    // what the fleet's removal needs beside the database: the default options, no recording instance, no timer
+    config: {},
+    sendToAsync: vi.fn(() => Promise.resolve(undefined)),
+    setTimeout: vi.fn(() => undefined),
+    clearTimeout: vi.fn(),
     getObjectListAsync: vi.fn((q: { startkey: string; endkey: string }) =>
       Promise.resolve({
         rows: [...db]
@@ -75,7 +80,7 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
       db.set(id, mergedWith(db.get(id), patch) as Record<string, unknown>);
       return Promise.resolve();
     }),
-    delForeignObjectAsync: vi.fn((id: string, opts?: { recursive?: boolean }) => {
+    delObjectAsync: vi.fn((id: string, opts?: { recursive?: boolean }) => {
       for (const key of [...db.keys()]) {
         if (key === id || (opts?.recursive && key.startsWith(`${id}.`))) {
           db.delete(key);
@@ -127,7 +132,7 @@ function mockAdapter(devices: DeviceConfig[] = [], allObjects: Record<string, un
     _writes: (): number =>
       adapter.setForeignObject.mock.calls.length +
       adapter.extendForeignObjectAsync.mock.calls.length +
-      adapter.delForeignObjectAsync.mock.calls.length,
+      adapter.delObjectAsync.mock.calls.length,
     _setStored: seed,
     _dir: dir,
   };
@@ -630,7 +635,7 @@ describe("HueEmuDeviceManagement", () => {
     it("deletes a light with everything below it", async () => {
       const adapter = make([{ id: 1, name: "A", lightType: "onoff", onState: "a" }]);
       await internalOf(dm).deleteDevice("1", mockContext({ confirm: true }));
-      expect(adapter.delForeignObjectAsync).toHaveBeenCalledWith("hueemu.0.lights.1", { recursive: true });
+      expect(adapter.delObjectAsync).toHaveBeenCalledWith("hueemu.0.lights.1", { recursive: true });
     });
 
     // Two admin tabs adding at the same moment would both read the same mark — one queue hands out distinct numbers.

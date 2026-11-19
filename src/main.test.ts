@@ -356,9 +356,11 @@ function objectDb(
       id === own ? (native ? structuredClone({ native, common: {} }) : null) : structuredClone(db.get(id) ?? null),
     ),
   );
-  i.delForeignObjectAsync.mockImplementation((id: string, opts?: { recursive?: boolean }) => {
+  // the fleet's removal (object-removal.ts) deletes through delObjectAsync, with a relative or a full id
+  i.delObjectAsync.mockImplementation((id: string, opts?: { recursive?: boolean }) => {
+    const full = id.startsWith("hueemu.0.") ? id : `hueemu.0.${id}`;
     for (const key of [...db.keys()]) {
-      if (key === id || (opts?.recursive && key.startsWith(`${id}.`))) {
+      if (key === full || (opts?.recursive && key.startsWith(`${full}.`))) {
         db.delete(key);
       }
     }
@@ -849,6 +851,8 @@ describe("HueEmu onReady", () => {
     i.getObjectAsync.mockImplementation((id: string) =>
       Promise.resolve(id === "info.configuredDevices" ? { type: "state" } : null),
     );
+    // the removal reads the object before it deletes it
+    objectDb(adapter, { "hueemu.0.info.configuredDevices": { type: "state", common: {}, native: {} } });
     i.delObjectAsync.mockImplementation((id: string) =>
       id === "info.configuredDevices" ? Promise.reject(new Error("objects db timeout")) : Promise.resolve(),
     );
@@ -867,12 +871,16 @@ describe("HueEmu onReady", () => {
     i.getObjectAsync.mockImplementation((id: string) =>
       Promise.resolve(id === "info.configuredDevices" ? { type: "state" } : null),
     );
-    i.getObjectListAsync.mockImplementation((query: { startkey: string }) =>
-      Promise.resolve({ rows: query.startkey.startsWith("hueemu.0.info.") ? [] : [{ id: "x" }] }),
-    );
+    i.getObjectListAsync.mockImplementation((query: { startkey: string }) => {
+      if (query.startkey === "hueemu.0.info.configuredDevices" || query.startkey === "hueemu.0.info") {
+        // what the removal reads before it deletes
+        return Promise.resolve({ rows: [{ id: query.startkey, value: { type: "state" } }] });
+      }
+      return Promise.resolve({ rows: query.startkey.startsWith("hueemu.0.info.") ? [] : [{ id: "x" }] });
+    });
     await i.onReady();
-    expect(i.delObjectAsync).toHaveBeenCalledWith("info.configuredDevices");
-    expect(i.delObjectAsync).toHaveBeenCalledWith("info");
+    expect(i.delObjectAsync).toHaveBeenCalledWith("info.configuredDevices", { recursive: false });
+    expect(i.delObjectAsync).toHaveBeenCalledWith("info", { recursive: false });
     expect(i.getObjectListAsync).toHaveBeenCalledWith({ startkey: "hueemu.0.info.", endkey: "hueemu.0.info.\uffff" });
     expect(i.subscribeStates).toHaveBeenCalledWith("*");
   });
@@ -1731,7 +1739,9 @@ describe("HueEmu migrateLegacyDevices", () => {
   ): Promise<{ i: ReturnType<typeof internalOf>; db: Map<string, Record<string, unknown>> }> {
     const { adapter } = setup();
     const i = internalOf(adapter);
-    const db = objectDb(adapter);
+    // the legacy wrappers stand in the database, where the removal reads them before it deletes them
+    const wrapper = { type: "state", common: {}, native: {} };
+    const db = objectDb(adapter, { "hueemu.0.colorlamp.name": wrapper, "hueemu.0.colorlamp.data": wrapper });
     i.getDevicesAsync.mockResolvedValue([{ _id: "hueemu.0.colorlamp", common: { name: "Color Lamp" } }]);
     // Never migrated yet: it still carries its legacy `.name` wrapper (v1.19.0, Q17).
     i.getObjectAsync.mockImplementation((id: string) =>

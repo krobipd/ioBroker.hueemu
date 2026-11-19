@@ -25,6 +25,7 @@ vi.mock("@iobroker/adapter-core", () => ({
 }));
 
 import { HueEmuDeviceManagement } from "../device-management";
+import { FakeAdapter } from "../lib/adapter-fake";
 import { LightStore, type LightStoreAdapter } from "../lib/light-store";
 
 /** The form the card shows, answered with what the user typed. */
@@ -54,47 +55,17 @@ afterEach(() => {
   }
 });
 
-/**
- * The device manager over an object database in memory with the calls it and the light store make.
- *
- * @param objects where the objects land
- */
-function manager(objects: Map<string, ioBroker.Object>): Registered {
-  const noop = (): void => undefined;
-  const adapter: LightStoreAdapter & Record<string, unknown> = {
-    namespace: "hueemu.0",
-    language: "en",
-    log: { silly: noop, debug: noop, info: noop, warn: noop, error: noop },
-    on: noop,
-    getObjectListAsync({ startkey, endkey }) {
-      const rows = [...objects]
-        .filter(([id]) => id >= startkey && id <= endkey)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([id, value]) => ({ id, value: structuredClone(value) }));
-      return Promise.resolve({ rows });
-    },
-    getForeignObjectAsync: id => Promise.resolve(structuredClone(objects.get(id) ?? null)),
-    setForeignObject(id, obj) {
-      objects.set(id, { ...structuredClone(obj), _id: id } as ioBroker.Object);
-      return Promise.resolve({ id });
-    },
-    extendForeignObjectAsync(id, obj) {
-      objects.set(id, { ...(objects.get(id) ?? {}), ...structuredClone(obj), _id: id } as ioBroker.Object);
-      return Promise.resolve({ id });
-    },
-    delForeignObjectAsync(id) {
-      objects.delete(id);
-      return Promise.resolve();
-    },
-  };
+/** The device manager over an object database in memory with the calls it and the light store make — the fleet's fake adapter, in English. */
+function manager(): { dm: Registered; objects: Map<string, ioBroker.Object> } {
+  const adapter = Object.assign(new FakeAdapter({ name: "hueemu" }), { language: "en" });
   const folder = mkdtempSync(join(tmpdir(), "hueemu-guard-k15-"));
   folders.push(folder);
-  const store = new LightStore(adapter, folder, undefined);
+  const store = new LightStore(adapter as unknown as LightStoreAdapter, folder, undefined);
   const dm = new HueEmuDeviceManagement(
     adapter as unknown as ConstructorParameters<typeof HueEmuDeviceManagement>[0],
     store,
   );
-  return dm as unknown as Registered;
+  return { dm: dm as unknown as Registered, objects: adapter.objects as unknown as Map<string, ioBroker.Object> };
 }
 
 /**
@@ -148,8 +119,7 @@ function namesOf(objects: Map<string, ioBroker.Object>, id: string): string[] {
 
 describe("K15: a light stands under its number and carries the user's name from the card", () => {
   it("creates the device objects lights.1 and lights.2", async () => {
-    const objects = new Map<string, ioBroker.Object>();
-    const dm = manager(objects);
+    const { dm, objects } = manager();
     await addOnCard(dm, "Lamp");
     await addOnCard(dm, "Lamp");
     const devices = [...objects.values()].filter(obj => obj.type === "device").map(obj => obj._id);
@@ -158,8 +128,7 @@ describe("K15: a light stands under its number and carries the user's name from 
   });
 
   it("names the light as the user names it on the card and follows every rename there", async () => {
-    const objects = new Map<string, ioBroker.Object>();
-    const dm = manager(objects);
+    const { dm, objects } = manager();
     await addOnCard(dm, "Living room - Light");
     const added = namesOf(objects, "hueemu.0.lights.1");
     await renameOnCard(dm, 1, "Living room - Ceiling");
