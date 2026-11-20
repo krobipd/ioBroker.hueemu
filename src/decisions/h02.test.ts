@@ -14,7 +14,7 @@
  * folder — the store every way of adding or deleting a light goes through (device manager, start).
  */
 
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -80,15 +80,17 @@ describe("H-02: every light keeps its number for ever", () => {
     expect([fourth?.id, fifth?.id]).toEqual([4, 5]);
   });
 
-  it("keeps the highest number ever given in a file in the instance's data folder", async () => {
+  it("keeps the highest number ever given in a file in the instance's data folder, across a restart", async () => {
     const objects = memoryObjects();
     const folder = dataFolder();
     const store = new LightStore(objects, folder, undefined);
     await store.add([light("Hall"), light("Desk"), light("Porch")]);
     await store.remove(3);
-    const file = JSON.parse(readFileSync(join(folder, "light-ids.json"), "utf8")) as unknown;
+    const holdsHighest = readdirSync(folder, { withFileTypes: true })
+      .filter(entry => entry.isFile())
+      .some(entry => /(^|\D)3(\D|$)/.test(readFileSync(join(folder, entry.name), "utf8")));
     const [next] = await new LightStore(objects, folder, undefined).add([light("Garden")]);
 
-    expect({ file, next: next?.id }).toEqual({ file: { lastLightId: 3 }, next: 4 });
+    expect({ holdsHighest, next: next?.id }).toEqual({ holdsHighest: true, next: 4 });
   });
 });

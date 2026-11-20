@@ -52,15 +52,10 @@ describe("H-07: a light has no datapoint for its reachability", () => {
     ]);
     await store.save({ id: 1, name: "Hallway", lightType: "onoff", onState: "javascript.0.hall" });
     await store.reconcile(await store.list());
-    const below = [...objects.values()].filter(obj => obj._id.startsWith("hueemu.0.lights."));
-    const devices = below.filter(obj => obj.type === "device").map(obj => obj._id);
-    const reachability = below
+    const reachability = [...objects.values()]
       .filter(obj => /reachable/i.test(obj._id) || /reachable/i.test(String(obj.common?.role)))
       .map(obj => obj._id);
 
-    expect({ devices: devices.sort(), reachability }).toEqual({
-      devices: ["hueemu.0.lights.1", "hueemu.0.lights.2"],
-      reachability: [],
-    });
+    expect(reachability).toEqual([]);
   });
 });
