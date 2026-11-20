@@ -12,7 +12,7 @@
     "@iobroker/eslint-config": "^2.3.4",
     "@iobroker/gui-components": "^10.3.14",
     "@iobroker/json-config": "^10.1.8",
-    "@module-federation/vite": "1.23.11",
+    "@module-federation/vite": "1.24.0",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22",
     "@types/react": "^19.3.0",
