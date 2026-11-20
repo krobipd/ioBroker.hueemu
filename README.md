@@ -223,7 +223,7 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
     ### **WORK IN PROGRESS**
 -->
 
-### **WORK IN PROGRESS**
+### 2.0.0 (2026-11-20)
 
 - New: Two new options decide whether a vanished datapoint you record is deleted and whether its recorded data goes too.
 - Changed: The bridge now answers only clients in its own networks, with a chosen address only those in that network.
@@ -291,10 +291,6 @@ Going back to an older version is not supported. Version 1.19.0 and older keep t
 - Fixed: A light whose configured datapoint does not exist is reported as unreachable instead of pretending to work.
 - Fixed: Edit and delete in the devices tab always act on the light you clicked, even when the list changed in the meantime.
 - Improved: The first start after this update completes the scales of lights added earlier — if it finds anything to complete, the instance restarts once.
-
-### 1.16.0 (2026-09-03)
-
-- Fixed: If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

@@ -1,5 +1,9 @@
 # Older Changes
 
+## 1.16.0 (2026-09-03)
+
+- Fixed: If an action in the devices tab fails, you now get a message saying what went wrong instead of a dialog that never finishes.
+
 ## 1.15.2 (2026-09-03)
 
 - Fixed: When a very old setup is upgraded, its already paired clients now get their proper name and explanation right away instead of after the next restart.
