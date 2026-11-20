@@ -26,6 +26,7 @@ import {
 } from "@iobroker/dm-utils";
 import type { DeviceConfig } from "./hue-api";
 import { boundStateIds, scanForLightDevices } from "./lib/device-scan";
+import { deviceManagerLog } from "./lib/dm-log";
 import { nameIn, t } from "./lib/i18n";
 import type { LightStore } from "./lib/light-store";
 import { SCALE_FIELDS } from "./lib/hue-scales";
@@ -307,6 +308,11 @@ export class HueEmuDeviceManagement extends DeviceManagement {
   public constructor(adapter: AdapterInstance, lights: LightStore) {
     super(adapter);
     this.lights = lights;
+  }
+
+  /** The log dm-utils writes to — a received message names its command, never what the user typed (dm-log.ts). */
+  protected override get log(): ioBroker.Logger {
+    return deviceManagerLog(this.adapter.log);
   }
 
   /**
